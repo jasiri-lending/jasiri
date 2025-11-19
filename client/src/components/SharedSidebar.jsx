@@ -252,10 +252,10 @@ const SharedSidebar = () => {
       } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 flex-shrink-0">
+      <div className="flex items-center justify-between p-3 flex-shrink-0">
         {!isCollapsed && (
           <div className="flex items-center space-x-3">
-            {/* Slightly Larger Logo Only - No Framing */}
+            {/* Logo Only - No Framing */}
             <div className="flex-shrink-0">
               <img 
                 src="jasiri.png" 
@@ -267,9 +267,9 @@ const SharedSidebar = () => {
         )}
 
         {isCollapsed && (
-          <div className="flex justify-center w-full py-2">
+          <div className="flex justify-center w-full py-1">
             <img 
-              src="jasiri.png" 
+              src="jasiri_logo.png" 
               alt="Jasiri Logo" 
               className="w-20 h-20 object-contain"
             />
@@ -290,8 +290,8 @@ const SharedSidebar = () => {
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-4 space-y-2">
+      {/* Navigation - Reduced top padding */}
+      <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {navigation.map((item) => (
           <div key={item.name}>
             {item.children ? (
