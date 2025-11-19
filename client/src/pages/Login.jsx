@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/userAuth";
 
 export default function Login() {
-
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
@@ -109,8 +108,7 @@ export default function Login() {
         <div
           className="flex flex-col justify-center items-center p-10 text-white relative"
           style={{
-            backgroundColor: "#586ab1",
-            background: "linear-gradient(135deg, #586ab1 0%, #6a7fc1 50%, #7a94d0 100%)",
+            background: "linear-gradient(135deg, #02880bff 0%, #0214d7ff 100%)",
           }}
         >
           {/* Decorative background */}
@@ -119,24 +117,18 @@ export default function Login() {
             <div className="absolute bottom-10 right-10 w-16 h-16 bg-white rounded-full"></div>
           </div>
 
-<div className="relative z-10 mb-6 flex flex-col items-center">
-  {/* Jasiri Logo Image */}
-  <div className="w-28 h-28 bg-white/20 rounded-2xl shadow-lg flex items-center justify-center backdrop-blur-sm border border-white/30 overflow-hidden">
-    <img
-      src="/path/to/jasiri-logo.png"   // <-- replace this with your logo path
-      alt="Jasiri Logo"
-      className="object-contain w-full h-full"
-    />
-  </div>
+          <div className="relative z-10 mb-6 flex flex-col items-center">
+            {/* Jasiri Logo Image */}
+            <div className="  rounded-2xl  flex items-center justify-center  overflow-hidden">
+              <img
+                src="jasiri-white.png"   // <-- replace this with your logo path
+                alt="Jasiri Logo"
+                className="object-contain w-full h-full"
+              />
+            </div>
+          </div>
 
-  <h1 className="text-4xl font-extrabold text-white mt-4">Jasiri</h1>
-  <p className="text-blue-100 tracking-wide font-light">Lending Software</p>
-</div>
-
-
-
-
-          <div className="absolute bottom-4 left-4 text-blue-200 text-xs">Secure Access</div>
+          <div className="absolute bottom-4 left-4 text-blue-200 text-xs">Automation Moraans</div>
           <div className="absolute bottom-4 right-4 text-blue-200 text-xs">
             © {currentYear}
           </div>

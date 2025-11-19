@@ -252,22 +252,35 @@ const SharedSidebar = () => {
       } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
       {/* Header */}
-   <div className="flex items-center justify-between p-4 flex-shrink-0">
-
+      <div className="flex items-center justify-between p-4 flex-shrink-0">
         {!isCollapsed && (
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center">
-              <BarChart3 className="h-5 w-5" style={{ color: "#586ab1" }} />
+          <div className="flex items-center space-x-3">
+            {/* Slightly Larger Logo Only - No Framing */}
+            <div className="flex-shrink-0">
+              <img 
+                src="jasiri.png" 
+                alt="Jasiri Logo" 
+                className="w-28 h-28 object-contain transition-all duration-300"
+              />
             </div>
-            <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
-              Jasiri Lending
-            </span>
+          </div>
+        )}
+
+        {isCollapsed && (
+          <div className="flex justify-center w-full py-2">
+            <img 
+              src="jasiri.png" 
+              alt="Jasiri Logo" 
+              className="w-20 h-20 object-contain"
+            />
           </div>
         )}
 
         <button
           onClick={toggleSidebar}
-          className="p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-all duration-300 shadow-sm hover:shadow-md"
+          className={`p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-all duration-300 shadow-sm hover:shadow-md ${
+            isCollapsed ? 'absolute bottom-4 left-1/2 transform -translate-x-1/2' : ''
+          }`}
         >
           {isCollapsed ? (
             <ChevronRight className="h-4 w-4" style={{ color: "#586ab1" }} />
@@ -295,7 +308,9 @@ const SharedSidebar = () => {
                     <item.icon className="h-4 w-4" style={{ color: "#586ab1" }} />
                   </div>
                   {!isCollapsed && (
-                    <span className="text-sm font-semibold">{item.name}</span>
+                    <span className="text-sm font-semibold">
+                      {item.name}
+                    </span>
                   )}
                 </div>
 
@@ -324,7 +339,9 @@ const SharedSidebar = () => {
                   <item.icon className="h-4 w-4" style={{ color: "#586ab1" }} />
                 </div>
                 {!isCollapsed && (
-                  <span className="text-sm font-semibold">{item.name}</span>
+                  <span className="text-sm font-semibold">
+                    {item.name}
+                  </span>
                 )}
               </NavLink>
             )}
@@ -345,7 +362,9 @@ const SharedSidebar = () => {
                     }
                   >
                     <child.icon className="h-4 w-4 mr-3" style={{ color: "#586ab1" }} />
-                    <span className="font-medium">{child.name}</span>
+                    <span className="font-medium">
+                      {child.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>
