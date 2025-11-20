@@ -121,7 +121,7 @@ export function useAuth() {
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
-    window.location.href = "/login";
+    window.location.href = "/";
   };
 
   return { 
