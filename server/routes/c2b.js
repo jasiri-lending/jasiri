@@ -10,36 +10,45 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// REGISTER CALLBACK URLs
+// VALIDATION URL
+c2b.post("/validation", (req, res) => {
+  return res.json({
+    ResultCode: 0,
+    ResultDesc: "Validation Passed",
+  });
+});
+
+
+
 c2b.get("/register", async (req, res) => {
   try {
     const token = await getMpesaToken();
-    const url = "https://sandbox.safaricom.co.ke/mpesa/c2b/v1/registerurl";
 
-    const { data } = await axios.post(
-      url,
-      {
-        ShortCode: process.env.MPESA_SHORTCODE,
-        ResponseType: "Completed",
-        ConfirmationURL: `${process.env.CALLBACK_URL}/mpesa/c2b/confirmation`,
-        ValidationURL: `${process.env.CALLBACK_URL}/mpesa/c2b/validation`,
+    const url = "https://api.safaricom.co.ke/mpesa/c2b/v1/registerurl"; 
+
+    const payload = {
+      ShortCode: process.env.MPESA_SHORTCODE,
+      ResponseType: "Completed",
+      ConfirmationURL: `${process.env.DOMAIN}/mpesa/c2b/confirmation`,
+      ValidationURL: `${process.env.DOMAIN}/mpesa/c2b/validation`,
+    };
+
+    const { data } = await axios.post(url, payload, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
+    });
 
-    console.log("C2B URL Registration:", data);
-    res.json(data);
-  } catch (err) {
-    console.error("C2B Registration Error:", err.message);
-    res.status(500).json({ error: err.message });
+    res.json({
+      message: "LIVE C2B URLs Registered Successfully",
+      data,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
-// VALIDATION URL
-c2b.post("/validation", (req, res) => {
-  console.log("C2B Validation Payload:", req.body);
-  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
-});
 
 // CONFIRMATION URL
 c2b.post("/confirmation", async (req, res) => {
