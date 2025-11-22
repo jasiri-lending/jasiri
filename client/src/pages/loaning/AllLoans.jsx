@@ -426,11 +426,11 @@ const AllLoans = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
         {/* Filters */}
       
  <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
         {/* Filters */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
           <div className="flex flex-col gap-4">

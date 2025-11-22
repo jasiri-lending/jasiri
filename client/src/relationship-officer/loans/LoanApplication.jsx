@@ -146,7 +146,7 @@ function LoanApplication() {
       <div className="bg-white shadow-md rounded-lg overflow-hidden">
         {/* Header */}
         <div className="p-4 flex flex-col md:flex-row justify-between items-center bg-gray-50 gap-4">
-          <h1 className="text-xl font-semibold text-gray-700">Loan Applications</h1>
+          <h1 className="text-lg  text-slate-600">Loan Applications</h1>
           
           <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
             {/* Centered Search Bar */}

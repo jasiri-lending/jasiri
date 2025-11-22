@@ -1518,7 +1518,7 @@ const handleSaveDraft = async () => {
 
 
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-indigo-100">
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
           <div className="flex flex-wrap gap-2">
             {sections.map(({ id, label, icon: Icon }) => (
               <button
@@ -1526,7 +1526,7 @@ const handleSaveDraft = async () => {
                 onClick={() => setActiveSection(id)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
                   activeSection === id
-                    ? "bg-gradient-to-r from-blue-300 to-blue-300 text-slate-600 shadow-lg"
+                    ? "bg-gradient-to-r from-gray-300 to-gray-300 text-slate-600 shadow-lg"
                     : "bg-gray-100 text-slate-700 hover:bg-gray-200 hover:shadow-md"
                 }`}
               >
@@ -1744,7 +1744,7 @@ const handleSaveDraft = async () => {
   </label>
 
   {/* Camera Button */}
-  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-blue-400 text-white rounded-lg shadow-sm cursor-pointer hover:bg-blue-500 transition-all duration-200 w-full sm:w-1/2">
+  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-blue-300 text-white rounded-lg shadow-sm cursor-pointer hover:bg-blue-400 transition-all duration-200 w-full sm:w-1/2">
     <CameraIcon className="w-5 h-5" />
     <span className="text-sm font-medium">Camera</span>
     <input

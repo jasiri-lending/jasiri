@@ -1656,7 +1656,7 @@ const CustomerForm = ({leadData: propLeadData,  onClose }) => {
         if (docError) logError("Documents", docError);
       }
 
-      // ========= ✅ Success =========
+      // =========  Success =========
       if (leadData?.id) {
         const { error: leadDeleteError } = await supabase
           .from("leads")
@@ -1677,7 +1677,7 @@ const CustomerForm = ({leadData: propLeadData,  onClose }) => {
         autoClose: 4000,
         theme: "colored",
       });
-      onClose();
+      navigate(-1)
     } catch (error) {
       console.error("Unexpected error:", error);
       toast.error(
@@ -1691,35 +1691,25 @@ const CustomerForm = ({leadData: propLeadData,  onClose }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Header */}
-       <div className="bg-white rounded-xl shadow-md p-4 mb-6 border border-indigo-100">
-  <div className="flex items-center justify-between">
-    {/* Back Button */}
-    <button
-      onClick={() => navigate(-1)}
-      className="flex items-center gap-1 text-gray-600 hover:text-indigo-700 transition-colors"
-      disabled={isSubmitting}
-    >
-      <ArrowLeftIcon className="h-5 w-5" />
-      <span className="text-sm font-medium">Back</span>
-    </button>
-
-    {/* Title Section */}
-    <div className="text-start">
-      <h1 className="text-lg font-semibold  bg-clip-text text-slate-600">
-        Customer Application
-      </h1>
-     
-    </div>
-
-    {/* Placeholder for layout balance */}
-    <div className="w-[60px]" />
-  </div>
+        {/* Header */}<div className="mb-6">
+  {/* <h1 className="text-sm font-semibold text-slate-600 ">
+    Customer Application
+  </h1> */}
+  
+  {/* Back Button - Below title, left aligned */}
+  {/* <button
+    onClick={() => navigate(-1)}
+    className="flex items-center gap-1 text-gray-600 hover:text-indigo-700 transition-colors text-xs"
+    disabled={isSubmitting}
+  >
+    <ArrowLeftIcon className="h-4 w-4" />
+    <span className="font-medium">Back</span>
+  </button> */}
 </div>
 
 
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-indigo-100">
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
           <div className="flex flex-wrap gap-2">
             {sections.map(({ id, label, icon: Icon }) => (
               <button
@@ -1727,11 +1717,11 @@ const CustomerForm = ({leadData: propLeadData,  onClose }) => {
                 onClick={() => setActiveSection(id)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
                   activeSection === id
-                    ? "bg-blue-300 text-white shadow-lg"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md"
+                    ? "bg-gradient-to-r from-gray-300 to-gray-300 text-slate-600 shadow-lg"
+                    : "bg-gray-100 text-slate-700 hover:bg-gray-200 hover:shadow-md"
                 }`}
               >
-                <Icon className="h-5 w-5" />
+                <Icon Icon className="h-5 w-5" />
                 {label}
               </button>
             ))}

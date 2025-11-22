@@ -266,7 +266,7 @@ const ViewLoan = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Loan Details */}
         <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 border border-emerald-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <CurrencyDollarIcon className="h-6 w-6 text-emerald-600 mr-3" />
             Loan Details
           </h3>
@@ -320,7 +320,7 @@ const ViewLoan = () => {
 
         {/* Payment Summary */}
         <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-6 border border-blue-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <BanknotesIcon className="h-6 w-6 text-blue-600 mr-3" />
             Payment Summary
           </h3>
@@ -427,8 +427,8 @@ const ViewLoan = () => {
     <div className="space-y-6">
       {repaymentSchedule.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-gray-600 to-gray-600 text-white p-4">
-            <h3 className="text-xl font-bold flex items-center">
+          <div className="bg-gradient-to-r from-gray-200 to-gray-200 text-slate-600 p-4">
+            <h3 className="text-lg  flex items-center">
               <DocumentTextIcon className="h-6 w-6 mr-3" />
               Repayment Schedule
             </h3>
@@ -484,7 +484,7 @@ const ViewLoan = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <ChartBarIcon className="h-6 w-6 text-blue-600 mr-3" />
             Interest Breakdown
           </h3>
@@ -511,7 +511,7 @@ const ViewLoan = () => {
         </div>
 
         <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <ReceiptPercentIcon className="h-6 w-6 text-green-600 mr-3" />
             Payment Summary
           </h3>
@@ -544,7 +544,7 @@ const ViewLoan = () => {
     <div className="space-y-6">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <CreditCardIcon className="h-6 w-6 text-amber-600 mr-3" />
             Charges & Fees
           </h3>
@@ -571,7 +571,7 @@ const ViewLoan = () => {
         </div>
 
         <div className="bg-gradient-to-br from-red-50 to-pink-50 rounded-xl p-6 border border-red-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <ExclamationTriangleIcon className="h-6 w-6 text-red-600 mr-3" />
             Arrears & Penalties
           </h3>
@@ -605,7 +605,7 @@ const ViewLoan = () => {
       {/* Manager Comments */}
       {(loanDetails.bm_comment || loanDetails.rm_comment) && (
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
-          <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+          <h3 className="text-lg  text-gray-600 flex items-center mb-4">
             <ChatBubbleLeftRightIcon className="h-6 w-6 text-amber-600 mr-3" />
             Manager Comments
           </h3>
@@ -628,7 +628,7 @@ const ViewLoan = () => {
 
       {/* Timeline */}
       <div className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200">
-        <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+        <h3 className="text-lg  text-gray-600 flex items-center mb-4">
           <CalendarIcon className="h-6 w-6 text-gray-600 mr-3" />
           Loan Timeline
         </h3>
@@ -737,7 +737,7 @@ const ViewLoan = () => {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center">
           <XCircleIcon className="h-16 w-16 text-red-300 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Loan Not Found</h2>
+          <h2 className="text-lg  text-gray-900 mb-2">Loan Not Found</h2>
           <p className="text-gray-600 mb-4">Unable to load loan details.</p>
           <button
             onClick={() => navigate('/loans')}
@@ -754,7 +754,7 @@ const ViewLoan = () => {
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-200">
+        <div className=" rounded-xl shadow-lg p-6 mb-8 border border-blue-200">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <button
@@ -765,17 +765,17 @@ const ViewLoan = () => {
                 <ArrowLeftIcon className="h-6 w-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-xl font-bold text-gray-900">
+                <h1 className="text-lg font-bold text-slate-600">
                   Loan Details - #{loanDetails.id}
                 </h1>
-                <p className="text-gray-600 mt-1">
+                <p className="text-gray-600 mt-1 text-sm">
                   Complete information about this loan application
                 </p>
               </div>
             </div>
             <div className={`flex items-center gap-2 px-4 py-3 rounded-lg border ${getStatusBadge(loanDetails.status)}`}>
               {getStatusIcon(loanDetails.status)}
-              <span className="font-semibold text-lg">{formatStatus(loanDetails.status)}</span>
+              <span className="font-semibold text-xs">{formatStatus(loanDetails.status)}</span>
             </div>
           </div>
         </div>
@@ -783,20 +783,20 @@ const ViewLoan = () => {
         <div className="space-y-8">
           {/* Customer Information */}
           <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
-            <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+            <h3 className="text-lg  text-gray-600 flex items-center mb-4">
               <UserIcon className="h-6 w-6 text-blue-600 mr-3" />
               Customer Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Full Name:</span>
-                  <span className="text-gray-900 font-semibold text-lg">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Full Name:</span>
+                  <span className="text-slate-600  font-semibold text-lg">
                     {customer.Firstname} {customer.Surname}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">ID Number:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">ID Number:</span>
                   <span className="text-blue-600 font-mono font-semibold">
                     {customer.id_number || 'N/A'}
                   </span>
@@ -805,17 +805,17 @@ const ViewLoan = () => {
               
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1 flex items-center">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm flex items-center">
                     <PhoneIcon className="h-4 w-4 mr-1" />
                     Mobile:
                   </span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-slate-600  font-semibold ">
                     {customer.mobile}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Customer Since:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Customer Since:</span>
+                  <span className="text-slate-600  font-semibold ">
                     {formatDate(customer.created_at)}
                   </span>
                 </div>
@@ -823,14 +823,14 @@ const ViewLoan = () => {
 
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Branch:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Branch:</span>
+                  <span className="text-slate-600 font-semibold">
                     {customer.branches?.name || 'N/A'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Region:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Region:</span>
+                  <span className="text-slate-600 font-semibold">
                     {customer.branches?.regions?.name || 'N/A'}
                   </span>
                 </div>
@@ -838,13 +838,13 @@ const ViewLoan = () => {
 
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Loan Type:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Loan Type:</span>
                   <span className={`font-semibold text-lg ${loanDetails.is_new_loan ? 'text-green-600' : 'text-blue-600'}`}>
                     {loanDetails.is_new_loan ? 'New loan' : 'Returning Loan'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Loan Status:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm">Loan Status:</span>
                   <span className={`font-semibold ${getStatusBadge(loanDetails.status)} px-2 py-1 rounded-full text-sm`}>
                     {formatStatus(loanDetails.status)}
                   </span>
@@ -857,12 +857,12 @@ const ViewLoan = () => {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Outstanding Balance */}
             <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200">
-              <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+              <h3 className="text-lg  text-gray-600 flex items-center mb-4">
                 <CurrencyDollarIcon className="h-6 w-6 text-purple-600 mr-3" />
                 Outstanding Balance
               </h3>
               <div className="text-center">
-                <div className="text-3xl font-bold text-purple-600 mb-2">
+                <div className="text-2xl font-bold text-purple-600 mb-2">
                   {formatCurrency(loanMetrics.outstandingBalance)}
                 </div>
                 <p className="text-gray-600 text-sm">
@@ -876,12 +876,12 @@ const ViewLoan = () => {
 
             {/* Next Installment */}
             <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
-              <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+              <h3 className="text-lg  text-gray-600 flex items-center mb-4">
                 <BanknotesIcon className="h-6 w-6 text-green-600 mr-3" />
                 Next Installment
               </h3>
               <div className="text-center">
-                <div className="text-3xl font-bold text-green-600 mb-2">
+                <div className="text-2xl font-bold text-green-600 mb-2">
                   {formatCurrency(loanMetrics.nextInstallment)}
                 </div>
                 <div className="flex justify-between items-center text-sm">
@@ -906,7 +906,7 @@ const ViewLoan = () => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Charges Summary */}
             <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-6 border border-orange-200">
-              <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+              <h3 className="text-lg  text-gray-600 flex items-center mb-4">
                 <CreditCardIcon className="h-6 w-6 text-orange-600 mr-3" />
                 Charges Summary
               </h3>
@@ -934,7 +934,7 @@ const ViewLoan = () => {
 
             {/* Approval Team */}
             <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200 col-span-2">
-              <h3 className="text-xl font-bold text-gray-600 flex items-center mb-4">
+              <h3 className="text-lg  text-gray-600 flex items-center mb-4">
                 <IdentificationIcon className="h-6 w-6 text-indigo-600 mr-3" />
                 Approval Team
               </h3>
