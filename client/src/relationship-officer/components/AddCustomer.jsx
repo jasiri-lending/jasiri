@@ -548,7 +548,7 @@ const validateBorrowerSecurity = () => {
     hasErrors = true;
   }
 
-  // ✅ Uniqueness checks
+  //  Uniqueness checks
   const fieldsToCheck = [
     { field: "mobile", value: mobile, label: "Guarantor mobile" },
     { field: "idNumber", value: idNumber, label: "Guarantor ID number" },
@@ -1500,7 +1500,7 @@ const handleSaveDraft = async () => {
         theme: "colored",
       });
       navigate('/officer/customers'); 
-      onClose();
+      
     } catch (error) {
       console.error(" Unexpected error:", error);
       toast.error(

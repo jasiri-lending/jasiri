@@ -1194,10 +1194,10 @@ function EditAmendment({ customerId, onClose }) {
       <ArrowLeftIcon className="h-6 w-6" />
     </button>
     <div>
-      <h1 className="text-lg font-semibold text-gray-800">
-        Edit Customer Information
+      <h1 className="text-sm font-semibold text-gray-800">
+        Edit Customer Information 
       </h1>
-      <p className="text-sm text-gray-500">
+      <p className="text-xs text-gray-500">
         Update and modify customer application details
       </p>
     </div>
@@ -1205,7 +1205,7 @@ function EditAmendment({ customerId, onClose }) {
 </div>
 
         {/* Navigation Tabs */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-indigo-100">
+        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
           <div className="flex flex-wrap gap-2">
             {sections.map(({ id, label, icon: Icon }) => (
               <button
@@ -1213,11 +1213,11 @@ function EditAmendment({ customerId, onClose }) {
                 onClick={() => setActiveSection(id)}
                 className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all ${
                   activeSection === id
-                    ? "bg-gradient-to-r from-blue-300 to-blue-300 text-slate-700 shadow-lg"
+                    ? "bg-gradient-to-r from-gray-300 to-gray-300 text-slate-700 shadow-lg"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200 hover:shadow-md"
                 }`}
               >
-                <Icon className="h-5 w-5" />
+                <Icon className="h-3 w-3" />
                 {label}
               </button>
             ))}
@@ -1231,9 +1231,9 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "personal" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                    <UserCircleIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                    Personal Information
+                  <h2 className="text-xl  text-slate-600 flex items-center">
+                    <UserCircleIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                    Personal Information 
                   </h2>
                   <p className="text-gray-600 mt-2">
                     Update personal details and contact information
@@ -1275,6 +1275,8 @@ function EditAmendment({ customerId, onClose }) {
                     onChange={handleChange}
                     placeholder="Cannot be changed"
                     className="opacity-60"
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Alternative Mobile"
@@ -1283,6 +1285,8 @@ function EditAmendment({ customerId, onClose }) {
                     onChange={handleChange}
                     className="opacity-60"
                     placeholder="Cannot be changed"
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="ID Number"
@@ -1291,6 +1295,8 @@ function EditAmendment({ customerId, onClose }) {
                     onChange={handleChange}
                     className="opacity-60"
                     placeholder="Cannot be changed"
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Date of Birth"
@@ -1360,7 +1366,7 @@ function EditAmendment({ customerId, onClose }) {
 
                 {/* Document Uploads */}
                 <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                  <h3 className="text-lg font-semibold text-slate-600 mb-6">
                     Personal Documents
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1463,7 +1469,7 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "business" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <h2 className="text-lg  text-slate-600 flex items-center">
                     <BuildingOffice2Icon className="h-8 w-8 text-indigo-600 mr-3" />
                     Business Information
                   </h2>
@@ -1531,7 +1537,7 @@ function EditAmendment({ customerId, onClose }) {
                 {/* Business Images */}
                 <div className="mt-8">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-gray-900">
+                    <h3 className="text-lg  text-slate-600">
                       Business Images
                     </h3>
                     <label className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg cursor-pointer hover:bg-indigo-700 transition-colors">
@@ -1638,8 +1644,8 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "borrowerSecurity" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-                    <ShieldCheckIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                  <h2 className="text-lg  text-slate-600 flex items-center">
+                    <ShieldCheckIcon className="h-6 w-6 text-indigo-600 mr-3" />
                     Borrower Security Items
                   </h2>
                   <p className="text-gray-600 mt-2">
@@ -1655,7 +1661,7 @@ function EditAmendment({ customerId, onClose }) {
                     >
                       {/* Header */}
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+                        <h3 className="text-lg  text-slate-600 flex items-center">
                           <ShieldCheckIcon className="h-5 w-5 text-indigo-600 mr-2" />
                           Security Item {index + 1}
                         </h3>
@@ -1808,7 +1814,7 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "loan" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <h2 className="text-lg  text-slate-900 flex items-center">
                     <CurrencyDollarIcon className="h-8 w-8 text-indigo-600 mr-3" />
                     Loan Information
                   </h2>
@@ -1836,7 +1842,7 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "guarantor" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <h2 className="text-lg  text-slate-600 flex items-center">
                     <UserGroupIcon className="h-8 w-8 text-indigo-600 mr-3" />
                     Guarantor Information
                   </h2>
@@ -1881,6 +1887,8 @@ function EditAmendment({ customerId, onClose }) {
                     value={formData.guarantor.idNumber}
                     section="guarantor"
                     handleNestedChange={handleNestedChange}
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Mobile Number"
@@ -1888,6 +1896,8 @@ function EditAmendment({ customerId, onClose }) {
                     value={formData.guarantor.mobile}
                     section="guarantor"
                     handleNestedChange={handleNestedChange}
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Date of Birth"
@@ -1974,7 +1984,7 @@ function EditAmendment({ customerId, onClose }) {
 
                 {/* Guarantor Documents */}
                 <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-6">
+                  <h3 className="text-lg  text-slate-600 mb-6">
                     Guarantor Documents
                   </h3>
 
@@ -2077,7 +2087,7 @@ function EditAmendment({ customerId, onClose }) {
 {activeSection === "guarantorSecurity" && (
   <div className="space-y-8">
     <div className="border-b border-gray-200 pb-6">
-      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+      <h2 className="text-lg  text-slate-600 flex items-center">
         <ShieldCheckIcon className="h-8 w-8 text-indigo-600 mr-3" />
         Guarantor Security Items
       </h2>
@@ -2094,7 +2104,7 @@ function EditAmendment({ customerId, onClose }) {
         >
           {/* Header */}
           <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <h3 className="text-lg  text-slate-600 flex items-center">
               <ShieldCheckIcon className="h-5 w-5 text-purple-600 mr-2" />
               Guarantor Security Item {index + 1}
             </h3>
@@ -2300,7 +2310,7 @@ function EditAmendment({ customerId, onClose }) {
           setGuarantorSecurityItems((prev) => [...prev, newItem]);
           setGuarantorSecurityImages((prev) => [...prev, []]);
         }}
-        className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 text-white rounded-lg hover:from-purple-700 hover:to-indigo-700 transition-all shadow-md hover:shadow-lg"
+        className="flex items-center gap-2 px-6 py-3 bg-blue-300 text-white rounded-lg hover:bg-blue-500 transition-all shadow-md hover:shadow-lg"
       >
         <PlusIcon className="h-5 w-5" />
         Add Guarantor Security Item
@@ -2313,7 +2323,7 @@ function EditAmendment({ customerId, onClose }) {
             {activeSection === "nextOfKin" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                  <h2 className="text-lg  text-slate-600 flex items-center">
                     <UserGroupIcon className="h-8 w-8 text-indigo-600 mr-3" />
                     Next of Kin Information
                   </h2>
@@ -2350,6 +2360,8 @@ function EditAmendment({ customerId, onClose }) {
                     value={formData.nextOfKin.idNumber}
                     section="nextOfKin"
                     handleNestedChange={handleNestedChange}
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Relationship"
@@ -2365,6 +2377,8 @@ function EditAmendment({ customerId, onClose }) {
                     value={formData.nextOfKin.mobile}
                     section="nextOfKin"
                     handleNestedChange={handleNestedChange}
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Alternative Number"
@@ -2372,6 +2386,8 @@ function EditAmendment({ customerId, onClose }) {
                     value={formData.nextOfKin.alternativeNumber}
                     section="nextOfKin"
                     handleNestedChange={handleNestedChange}
+                    readOnly
+                    disabled
                   />
                   <FormField
                     label="Employment Status"
@@ -2409,7 +2425,7 @@ function EditAmendment({ customerId, onClose }) {
 {activeSection === "documents" && (
   <div className="space-y-8">
     <div className="border-b border-gray-200 pb-6">
-      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+      <h2 className="text-lg  text-slate-600 flex items-center">
         <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
         Document Verification
       </h2>
