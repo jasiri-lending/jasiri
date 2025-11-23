@@ -836,17 +836,17 @@ const handleVerificationChange = (
   );
 
   return (
-    <div className="bg-blue-50 py-8">
+    <div className="bg-blue-50 py-4">
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="  p-4 mb-4 ">
+        <div className="  p-4 mb-0 ">
       <div className="flex items-center gap-3">
         {/* Back Arrow */}
         <button
           onClick={handleGoBack}
           className="p-2 rounded-full hover:bg-indigo-50 transition-colors"
         >
-          <ArrowLeftIcon className="w-6 h-6 text-indigo-700" />
+          <ArrowLeftIcon className="w-5 h-5 text-indigo-700" />
         </button>
 
         {/* Header Text */}
@@ -854,9 +854,7 @@ const handleVerificationChange = (
           <h1 className="text-lg font-semibold text-slate-600">
             Customer Verification 
           </h1>
-          <p className="text-sm text-slate-500">
-            Comprehensive verification of customer documents and information
-          </p>
+          
         </div>
       </div>
     </div>
@@ -867,7 +865,7 @@ const handleVerificationChange = (
           {steps.map(({ num, label, icon: Icon }) => (
             <div key={num} className="flex flex-col items-center flex-shrink-0"> 
               <div
-                className={`w-16 h-16 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
+                className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                   step === num
                     ? "border-blue-500 bg-blue-500 text-white shadow-lg shadow-indigo-200 scale-110"
                     : step > num
@@ -2763,64 +2761,67 @@ const handleVerificationChange = (
         {/* Navigation Buttons */}
 
          <div className="bg-white rounded-2xl shadow-lg p-6 flex justify-between items-center border border-indigo-100">
-          <div className="flex items-center gap-4">
-            <button
-              onClick={() => setStep(step - 1)}
-              disabled={step === 1}
-              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${
-                step === 1
-                  ? "bg-gray-100 text-gray-400 cursor-not-allowed"
-                  : "bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md"
-              }`}
-            >
-              <ChevronLeftIcon className="h-5 w-5 mr-2" />
-              Previous
-            </button>
-            
-            {/* Save Draft Button - Show for all steps except the last one */}
-            {step < 8 && <SaveDraftButton />}
-          </div>
-
-          {step < 8 ? (
-            <button
-              onClick={() => {
-                if (validateCurrentStep()) {
-                  setStep(step + 1);
-                }
-              }}
-              className="flex items-center px-6 py-3 bg-blue-300 text-white rounded-xl font-medium hover:bg-blue-500 transition-all shadow-md hover:shadow-lg"
-            >
-              Next
-              <ChevronRightIcon className="h-5 w-5 ml-2" />
-            </button>
-          ) : (
-            <div className="flex items-center gap-4">
-              <SaveDraftButton />
-              <button
-                onClick={() => {
-                  if (validateCurrentStep()) {
-                    submitVerification();
-                  }
-                }}
-                disabled={loading}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                  loading
-                    ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                    : "bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg"
-                }`}
-              >
-                {loading ? (
-                  <div className="flex items-center">
-                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
-                    Submitting...
-                  </div>
-                ) : (
-                  "Submit Verification"
-                )}
-              </button>
-            </div>
-          )}
-        </div>
+               <div className="flex items-center gap-4">
+                 <button
+                   onClick={() => setStep(step - 1)}
+                   disabled={step === 1}
+                   className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${
+                     step === 1
+                       ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                       : "bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md"
+                   }`}
+                 >
+                   <ChevronLeftIcon className="h-5 w-5 mr-2" />
+                   Previous
+                 </button>
+                 
+                 {/* Save Draft Button - Show for all steps except the last one */}
+                 {step < 8 && <SaveDraftButton />}
+               </div>
+     
+               {step < 8 ? (
+                 <button
+                   onClick={() => {
+                     if (validateCurrentStep()) {
+                       setStep(step + 1);
+                     }
+                   }}
+className="flex items-center px-6 py-3 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg"
+  style={{
+    backgroundColor: "#586ab1",
+    hover: { backgroundColor: "#49579a" } 
+  }}                 >
+                   Next
+                   <ChevronRightIcon className="h-5 w-5 ml-2" />
+                 </button>
+               ) : (
+                 <div className="flex items-center gap-4">
+                   <SaveDraftButton />
+                   <button
+                     onClick={() => {
+                       if (validateCurrentStep()) {
+                         submitVerification();
+                       }
+                     }}
+                     disabled={loading}
+                     className={`px-6 py-3 rounded-xl font-medium transition-all ${
+                       loading
+                         ? "bg-gray-400 text-gray-200 cursor-not-allowed"
+                         : "bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg"
+                     }`}
+                   >
+                     {loading ? (
+                       <div className="flex items-center">
+                         <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent mr-2"></div>
+                         Submitting...
+                       </div>
+                     ) : (
+                       "Submit Verification"
+                     )}
+                   </button>
+                 </div>
+               )}
+             </div>
 
         {/* Image Modal */}
         {selectedImage && (
