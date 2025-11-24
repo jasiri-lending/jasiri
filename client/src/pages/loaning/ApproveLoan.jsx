@@ -90,31 +90,33 @@ const ApproveLoan = ({ loan, onComplete }) => {
     }
   };
 
-  const fetchWalletAndFeeStatus = async (loanData) => {
-    try {
-      // Fetch wallet transactions
-      const { data: walletTxns, error } = await supabase
-        .from("customer_wallets")
-        .select("amount, type")
-        .eq("customer_id", loanData.customer_id);
 
-      if (error) throw error;
+const fetchWalletAndFeeStatus = async (loanData) => {
+  try {
+    const { data: walletTxns, error } = await supabase
+      .from("customer_wallets")
+      .select("credit, debit")                    // ⬅ use new columns
+      .eq("customer_id", loanData.customer_id);
 
-      // Calculate wallet balance
-      const balance = walletTxns.reduce(
-        (sum, t) => sum + (t.type === "credit" ? t.amount : -t.amount),
+    if (error) throw error;
+
+    // balance = sum(credit) - sum(debit)
+    const balance =
+      walletTxns?.reduce(
+        (sum, t) => sum + (Number(t.credit || 0) - Number(t.debit || 0)),
         0
-      );
+      ) || 0;
 
-      setWalletInfo({
-        balance,
-        registration_fee_paid: loanData.registration_fee_paid || false,
-        processing_fee_paid: loanData.processing_fee_paid || false,
-      });
-    } catch (error) {
-      console.error("Error fetching wallet info:", error);
-    }
-  };
+    setWalletInfo({
+      balance,
+      registration_fee_paid: loanData.registration_fee_paid || false,
+      processing_fee_paid: loanData.processing_fee_paid || false,
+    });
+  } catch (error) {
+    console.error("Error fetching wallet info:", error);
+  }
+};
+
 
   // Check if all required fees are paid
   const areFeesFullyPaid = () => {

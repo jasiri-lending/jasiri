@@ -12,6 +12,7 @@ export default function Login() {
   const [error, setError] = useState(null);
 
   const { loading, setLoading } = useGlobalLoading(); 
+
   const navigate = useNavigate();
   const { setUser, setProfile } = useAuth();
 

@@ -12,9 +12,502 @@ import {
   ExclamationTriangleIcon,
   LockClosedIcon,
   BanknotesIcon,
-  ArrowLeftIcon
+  ArrowLeftIcon,
+  PhoneIcon,
+  EnvelopeIcon,
+  DocumentTextIcon as NotesIcon
 } from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
+
+// SMS Service Configuration
+const CELCOM_AFRICA_CONFIG = {
+  baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
+  apiKey: '17323514aa8ce2613e358ee029e65d99',
+  partnerID: '928',
+  defaultShortcode: 'MularCredit'
+};
+
+// SMS Service Functions
+const SMSService = {
+  formatPhoneNumberForSMS(phone) {
+    if (!phone) {
+      console.warn('Empty phone number provided');
+      return '';
+    }
+    
+    let cleaned = String(phone).replace(/\D/g, '');
+    
+    console.log('Formatting phone:', phone, '-> cleaned:', cleaned);
+    
+    if (cleaned.startsWith('254')) {
+      if (cleaned.length === 12) {
+        return cleaned;
+      } else if (cleaned.length === 13 && cleaned.startsWith('2540')) {
+        return '254' + cleaned.substring(4);
+      }
+    } else if (cleaned.startsWith('0')) {
+      if (cleaned.length === 10) {
+        return '254' + cleaned.substring(1);
+      } else if (cleaned.length === 11 && cleaned.startsWith('07')) {
+        return '254' + cleaned.substring(2);
+      }
+    } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+      if (cleaned.length === 9) {
+        return '254' + cleaned;
+      } else if (cleaned.length === 10 && (cleaned.startsWith('70') || cleaned.startsWith('71') || cleaned.startsWith('72') || cleaned.startsWith('11'))) {
+        return '254' + cleaned.substring(1);
+      }
+    }
+    
+    console.error('Invalid phone number format:', phone, 'cleaned:', cleaned);
+    return '';
+  },
+
+  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
+    try {
+      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      
+      if (!formattedPhone) {
+        const errorMsg = `Invalid phone number format: ${phoneNumber}`;
+        console.error('❌ SMS Error:', errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      if (!message || message.trim().length === 0) {
+        throw new Error('Message cannot be empty');
+      }
+
+      const encodedMessage = encodeURIComponent(message.trim());
+      const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
+
+      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone);
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        mode: 'no-cors',
+      });
+
+      console.log('✅ SMS request sent successfully to:', formattedPhone);
+
+      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      await this.logSMS(
+        formattedPhone,
+        message,
+        'sent',
+        shortcode,
+        undefined,
+        messageId,
+        0
+      );
+
+      return {
+        success: true,
+        message: 'SMS sent successfully',
+        messageId: messageId,
+        cost: 0,
+        recipient: formattedPhone
+      };
+      
+    } catch (error) {
+      console.error('❌ SMS sending error:', error);
+      
+      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (formattedPhone) {
+        await this.logSMS(
+          formattedPhone,
+          message,
+          'failed',
+          shortcode,
+          error.message
+        );
+      }
+      
+      return { 
+        success: false, 
+        error: error.message,
+        originalNumber: phoneNumber
+      };
+    }
+  },
+
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost) {
+    try {
+      const { error } = await supabase
+        .from('sms_logs')
+        .insert({
+          recipient_phone: recipientPhone,
+          message: message,
+          status: status,
+          error_message: errorMessage,
+          message_id: messageId,
+          sender_id: senderId,
+          cost: cost
+        });
+
+      if (error) {
+        console.error('Failed to log SMS:', error);
+      }
+    } catch (error) {
+      console.error('Error logging SMS:', error);
+    }
+  },
+
+  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId) {
+    const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing Mular Credit!`;
+    
+    return await this.sendSMS(phoneNumber, message);
+  },
+
+  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId) {
+    const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly. - Mular Credit`;
+    
+    return await this.sendSMS(phoneNumber, message);
+  }
+};
+
+// PRODUCTION M-Pesa Service - REAL TRANSACTIONS ONLY
+const MpesaService = {
+  async processLoanDisbursement(phoneNumber, amount, customerName, loanId, notes = '', processedBy = null) {
+    try {
+      const formattedPhone = SMSService.formatPhoneNumberForSMS(phoneNumber);
+      
+      if (!formattedPhone) {
+        throw new Error(`Invalid phone number format: ${phoneNumber}`);
+      }
+
+      console.log(`💰 Processing M-Pesa loan disbursement:`, {
+        customer: customerName,
+        amount,
+        phone: formattedPhone,
+        loanId,
+        notes
+      });
+      
+      // PRODUCTION ENDPOINT ONLY
+      const MPESA_API_BASE = 'https://mpesa-22p0.onrender.com/api';
+      
+      // EXACT PAYLOAD MATCHING YOUR BACKEND
+      const payload = {
+        phoneNumber: formattedPhone,
+        amount: Math.round(amount),
+        employeeNumber: loanId,
+        fullName: customerName
+      };
+
+      console.log('📤 M-Pesa Payload:', payload);
+
+      const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('M-Pesa API Error Response:', errorText);
+        throw new Error(`M-Pesa API returned ${response.status}: ${errorText}`);
+      }
+
+      const result = await response.json();
+      
+      console.log('✅ M-Pesa loan disbursement processed:', result);
+      
+      // Log the successful transaction
+      await this.logMpesaTransaction({
+        loanId,
+        phoneNumber: formattedPhone,
+        amount,
+        customerName,
+        transactionId: result.transactionId || `B2C_${Date.now()}`,
+        status: 'success',
+        response: result,
+        notes: notes,
+        processedBy: processedBy
+      });
+      
+      return {
+        success: true,
+        message: result.message || 'Disbursement processed successfully',
+        transactionId: result.transactionId || `B2C_${Date.now()}`,
+        rawResponse: result
+      };
+      
+    } catch (error) {
+      console.error('❌ M-Pesa loan disbursement error:', error);
+      
+      // Log failed transaction - NO MOCK FALLBACK
+      await this.logMpesaTransaction({
+        loanId,
+        phoneNumber,
+        amount,
+        customerName,
+        status: 'failed',
+        error: error.message,
+        notes: notes,
+        processedBy: processedBy
+      });
+      
+      throw new Error(`M-Pesa disbursement failed: ${error.message}`);
+    }
+  },
+
+  async logMpesaTransaction(transactionData) {
+    try {
+      const { error } = await supabase
+        .from('loan_disbursement_transactions')
+        .insert({
+          loan_id: transactionData.loanId,
+          customer_phone: transactionData.phoneNumber,
+          amount: transactionData.amount,
+          customer_name: transactionData.customerName,
+          transaction_id: transactionData.transactionId,
+          status: transactionData.status,
+          response_data: transactionData.response,
+          error_message: transactionData.error,
+          notes: transactionData.notes,
+          is_mock: false,
+          processed_by: transactionData.processedBy,
+          processed_at: new Date().toISOString()
+        });
+
+      if (error) {
+        console.error('Failed to log M-Pesa transaction:', error);
+      }
+    } catch (error) {
+      console.error('Error logging M-Pesa transaction:', error);
+    }
+  },
+
+  async getLoanTransactions(loanId) {
+    try {
+      const { data, error } = await supabase
+        .from('loan_disbursement_transactions')
+        .select(`
+          *,
+          processed_by_user:processed_by (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq('loan_id', loanId)
+        .order('processed_at', { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error('Error fetching loan transactions:', error);
+      return [];
+    }
+  }
+};
+
+// Disbursement Notes Modal Component
+const DisbursementNotesModal = ({ 
+  isOpen, 
+  onClose, 
+  onConfirm, 
+  loanDetails, 
+  customer,
+  isLoading = false 
+}) => {
+  const [notes, setNotes] = useState('');
+  const [includeSMS, setIncludeSMS] = useState(true);
+
+  useEffect(() => {
+    if (isOpen) {
+      setNotes('');
+      setIncludeSMS(true);
+    }
+  }, [isOpen]);
+
+  const handleConfirm = () => {
+    if (!notes.trim()) {
+      toast.error('Please provide disbursement notes');
+      return;
+    }
+    onConfirm(notes.trim(), includeSMS);
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-md w-full p-6">
+        <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
+          <NotesIcon className="h-5 w-5 text-blue-600" />
+          Loan Disbursement Notes
+        </h3>
+        
+        <div className="mb-4">
+          <div className="bg-gray-50 rounded-lg p-3 mb-3">
+            <div className="text-sm text-gray-700">
+              <div className="font-semibold">{customer?.Firstname} {customer?.Surname}</div>
+              <div>Loan ID: #{loanDetails?.id}</div>
+              <div>Amount: KES {loanDetails?.scored_amount?.toLocaleString()}</div>
+              <div>Phone: {customer?.mobile}</div>
+            </div>
+          </div>
+
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Disbursement Notes <span className="text-red-500">*</span>
+          </label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Enter notes for this disbursement (required for audit trail)..."
+            rows={4}
+            className="w-full border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <p className="text-xs text-gray-500 mt-1">
+            These notes will be recorded in the transaction history and audit trail.
+          </p>
+        </div>
+
+        <div className="mb-4">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={includeSMS}
+              onChange={(e) => setIncludeSMS(e.target.checked)}
+              className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span className="ml-2 text-sm text-gray-700">
+              Send SMS notification to customer
+            </span>
+          </label>
+          <p className="text-xs text-gray-500 mt-1 ml-6">
+            Customer will receive an SMS confirmation with transaction details.
+          </p>
+        </div>
+        
+        <div className="flex justify-end gap-3">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            disabled={isLoading}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={isLoading || !notes.trim()}
+            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+          >
+            {isLoading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                Processing...
+              </>
+            ) : (
+              <>
+                <CurrencyDollarIcon className="w-4 h-4" />
+                Confirm Disbursement
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Transaction History Modal Component
+const TransactionHistoryModal = ({ 
+  isOpen, 
+  onClose, 
+  transactions,
+  isLoading = false 
+}) => {
+  if (!isOpen) return null;
+
+  const getStatusBadge = (status) => {
+    const config = {
+      success: { bg: 'bg-green-100', text: 'text-green-800', label: 'Success' },
+      failed: { bg: 'bg-red-100', text: 'text-red-800', label: 'Failed' },
+      processing: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Processing' }
+    };
+    const statusConfig = config[status] || config.failed;
+    
+    return (
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
+        {statusConfig.label}
+      </span>
+    );
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+        <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex justify-between items-center">
+          <h2 className="text-xl font-semibold text-gray-900">Disbursement Transaction History</h2>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <XCircleIcon className="w-6 h-6" />
+          </button>
+        </div>
+
+        <div className="p-6">
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-blue-600"></div>
+            </div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              <DocumentTextIcon className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No transactions found</h3>
+              <p className="text-gray-600">No disbursement transactions have been recorded for this loan.</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date & Time</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Transaction ID</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Notes</th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Processed By</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {transactions.map((transaction) => (
+                    <tr key={transaction.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(transaction.processed_at).toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-mono text-gray-600">
+                        {transaction.transaction_id || 'N/A'}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm font-medium text-gray-900">
+                        KES {transaction.amount?.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        {getStatusBadge(transaction.status)}
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600 max-w-xs">
+                        <div className="line-clamp-2">{transaction.notes || 'No notes'}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-600">
+                        {transaction.processed_by_user?.full_name || 'System'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const ViewLoansPendingDisbursement = () => {
   const { id } = useParams();
@@ -30,6 +523,13 @@ const ViewLoansPendingDisbursement = () => {
     processing_fee_paid: false,
   });
   const [loading, setLoading] = useState(true);
+  const [processingDisbursement, setProcessingDisbursement] = useState(false);
+  const [mpesaStatus, setMpesaStatus] = useState(null);
+  const [smsStatus, setSmsStatus] = useState(null);
+  const [showNotesModal, setShowNotesModal] = useState(false);
+  const [showTransactionHistory, setShowTransactionHistory] = useState(false);
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(false);
 
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
 
@@ -43,15 +543,16 @@ const ViewLoansPendingDisbursement = () => {
     try {
       const { data: walletTxns, error } = await supabase
         .from("customer_wallets")
-        .select("amount, type")
+        .select("credit, debit")                    
         .eq("customer_id", loanData.customer_id);
 
       if (error) throw error;
 
-      const balance = walletTxns?.reduce(
-        (sum, t) => sum + (t.type === "credit" ? t.amount : -t.amount),
-        0
-      ) || 0;
+      const balance =
+        walletTxns?.reduce(
+          (sum, t) => sum + (Number(t.credit || 0) - Number(t.debit || 0)),
+          0
+        ) || 0;
 
       setWalletInfo({
         balance,
@@ -206,23 +707,154 @@ const ViewLoansPendingDisbursement = () => {
     setRepaymentSchedule(schedule);
   };
 
-  const handleDisbursement = async () => {
+  // PRODUCTION-ONLY DISBURSEMENT HANDLER
+  const handleDisbursementWithNotes = async (notes, includeSMS) => {
+    if (!areFeesFullyPaid()) {
+      toast.error("Cannot disburse loan. Required fees have not been fully paid.");
+      return;
+    }
+
+    // Validate user session first
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      toast.error("Authentication error. Please log in again.");
+      navigate('/login');
+      return;
+    }
+
+    setProcessingDisbursement(true);
+    setMpesaStatus(null);
+    setSmsStatus(null);
+    setShowNotesModal(false);
+
     try {
-      const { error } = await supabase
-        .from("loans")
-        .update({
-          status: 'ready_for_disbursement',
-          disbursed_at: new Date().toISOString()
-        })
-        .eq("id", id);
+      // Step 1: Process REAL M-Pesa disbursement
+      setMpesaStatus('processing');
+      toast.info("🔄 Processing M-Pesa disbursement...");
 
-      if (error) throw error;
+      const mpesaResult = await MpesaService.processLoanDisbursement(
+        customer.mobile,
+        loanDetails.scored_amount,
+        `${customer.Firstname} ${customer.Surname}`,
+        loanDetails.id,
+        notes,
+        user.id
+      );
 
-      toast.success("Disbursement confirmed successfully!");
-      navigate('/pending-disbursements');
+      if (mpesaResult.success) {
+        setMpesaStatus('success');
+        toast.success("💰 M-Pesa disbursement processed successfully! Money has been sent.");
+
+        // Step 2: Send SMS notification if requested
+        if (includeSMS) {
+          setSmsStatus('processing');
+          toast.info("📱 Sending disbursement notification...");
+
+          const smsResult = await SMSService.sendLoanDisbursementNotification(
+            `${customer.Firstname} ${customer.Surname}`,
+            customer.mobile,
+            loanDetails.scored_amount,
+            loanDetails.id,
+            mpesaResult.transactionId
+          );
+
+          if (smsResult.success) {
+            setSmsStatus('success');
+            toast.success("✅ SMS notification sent successfully!");
+          } else {
+            setSmsStatus('failed');
+            toast.warning("📱 Money sent but SMS notification failed");
+          }
+        }
+
+        // Step 3: Update loan status in database
+        const { error } = await supabase
+          .from("loans")
+          .update({
+            status: 'disbursed',
+            disbursed_at: new Date().toISOString(),
+            mpesa_transaction_id: mpesaResult.transactionId,
+            disbursement_notes: notes,
+            disbursed_by: user.id
+          })
+          .eq("id", id);
+
+        if (error) {
+          console.error("Error updating loan status:", error);
+          throw new Error("Failed to update loan status in database");
+        }
+
+        toast.success("✅ Loan disbursed successfully! Money has been transferred to customer.");
+        
+        setTimeout(() => {
+          navigate('/pending-disbursements');
+        }, 3000);
+        
+      } else {
+        setMpesaStatus('failed');
+        throw new Error(mpesaResult.message || 'M-Pesa disbursement failed');
+      }
+
     } catch (error) {
-      console.error("Error disbursing loan:", error);
-      toast.error("Failed to disburse loan");
+      console.error("❌ Error during loan disbursement:", error);
+      setMpesaStatus('failed');
+      
+      // Specific error messages for production
+      if (error.message.includes('Failed to fetch')) {
+        toast.error("🌐 Network error: Cannot connect to M-Pesa service. Please check your internet connection.");
+      } else if (error.message.includes('Invalid phone number')) {
+        toast.error("📱 Invalid customer phone number format. Please verify the mobile number.");
+      } else if (error.message.includes('insufficient funds')) {
+        toast.error("💸 Insufficient funds in M-Pesa business account. Please contact finance.");
+      } else if (error.message.includes('timeout')) {
+        toast.error("⏰ M-Pesa service timeout. Please try again.");
+      } else {
+        toast.error(`❌ Disbursement failed: ${error.message}`);
+      }
+    } finally {
+      setProcessingDisbursement(false);
+    }
+  };
+
+  const sendTestSMS = async () => {
+    if (!customer) return;
+
+    try {
+      setSmsStatus('processing');
+      toast.info("Sending test SMS...");
+
+      const result = await SMSService.sendLoanApprovalNotification(
+        `${customer.Firstname} ${customer.Surname}`,
+        customer.mobile,
+        loanDetails.scored_amount,
+        loanDetails.id
+      );
+
+      if (result.success) {
+        setSmsStatus('success');
+        toast.success("Test SMS sent successfully!");
+      } else {
+        setSmsStatus('failed');
+        toast.error(`Failed to send SMS: ${result.error}`);
+      }
+    } catch (error) {
+      setSmsStatus('failed');
+      toast.error(`SMS error: ${error.message}`);
+    }
+  };
+
+  const viewTransactionHistory = async () => {
+    setLoadingTransactions(true);
+    setShowTransactionHistory(true);
+    
+    try {
+      const transactionData = await MpesaService.getLoanTransactions(id);
+      setTransactions(transactionData);
+    } catch (error) {
+      console.error('Error fetching transaction history:', error);
+      toast.error('Failed to load transaction history');
+    } finally {
+      setLoadingTransactions(false);
     }
   };
 
@@ -260,15 +892,6 @@ const ViewLoansPendingDisbursement = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Back Button */}
-        {/* <button
-          onClick={() => navigate('/pending-disbursements')}
-          className="mb-6 flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium transition-colors"
-        >
-          <ArrowLeftIcon className="h-5 w-5" />
-          Back to Loans List
-        </button> */}
-
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-sm font-semibold text-center text-slate-600">
@@ -308,7 +931,8 @@ const ViewLoansPendingDisbursement = () => {
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Mobile:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-900 font-semibold flex items-center">
+                    <PhoneIcon className="h-4 w-4 mr-1 text-green-600" />
                     {customer?.mobile}
                   </span>
                 </div>
@@ -371,6 +995,72 @@ const ViewLoansPendingDisbursement = () => {
               </div>
             </div>
           </div>
+
+          {/* M-Pesa & SMS Status */}
+          {(mpesaStatus || smsStatus) && (
+            <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
+              <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-6">
+                <EnvelopeIcon className="h-6 w-6 text-blue-600 mr-3" />
+                Disbursement Status
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* M-Pesa Status */}
+                <div className={`p-4 rounded-lg border-2 ${
+                  mpesaStatus === 'success' ? 'bg-green-50 border-green-200' :
+                  mpesaStatus === 'failed' ? 'bg-red-50 border-red-200' :
+                  'bg-blue-50 border-blue-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-gray-700">M-Pesa Disbursement</span>
+                    {mpesaStatus === 'processing' && (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                    )}
+                    {mpesaStatus === 'success' && (
+                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                    )}
+                    {mpesaStatus === 'failed' && (
+                      <XCircleIcon className="h-5 w-5 text-red-500" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {mpesaStatus === 'processing' && 'Processing payment...'}
+                    {mpesaStatus === 'success' && 'Payment processed successfully'}
+                    {mpesaStatus === 'failed' && 'Payment processing failed'}
+                  </p>
+                </div>
+
+                {/* SMS Status */}
+                <div className={`p-4 rounded-lg border-2 ${
+                  smsStatus === 'success' ? 'bg-green-50 border-green-200' :
+                  smsStatus === 'failed' ? 'bg-red-50 border-red-200' :
+                  smsStatus === 'processing' ? 'bg-blue-50 border-blue-200' :
+                  'bg-gray-50 border-gray-200'
+                }`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-gray-700">SMS Notification</span>
+                    {smsStatus === 'processing' && (
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                    )}
+                    {smsStatus === 'success' && (
+                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
+                    )}
+                    {smsStatus === 'failed' && (
+                      <XCircleIcon className="h-5 w-5 text-red-500" />
+                    )}
+                    {!smsStatus && (
+                      <ExclamationTriangleIcon className="h-5 w-5 text-gray-400" />
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-600">
+                    {smsStatus === 'processing' && 'Sending notification...'}
+                    {smsStatus === 'success' && 'Notification sent successfully'}
+                    {smsStatus === 'failed' && 'Failed to send notification'}
+                    {!smsStatus && 'Not sent'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Wallet & Fee Status */}
           <div className={`rounded-2xl shadow-lg p-6 border ${
@@ -589,42 +1279,67 @@ const ViewLoansPendingDisbursement = () => {
                 : "You can view loan details but only Credit Analyst Officers can process disbursements."}
             </p>
             
-            {isCreditAnalyst && feesPaid ? (
-              <div className="flex gap-4">
+            {isCreditAnalyst && (
+              <div className="flex gap-4 flex-wrap">
+                {feesPaid && (
+                  <>
+                    <button
+                      onClick={() => setShowNotesModal(true)}
+                      disabled={processingDisbursement}
+                      className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <CurrencyDollarIcon className="h-6 w-6" />
+                      Process Disbursement
+                    </button>
+                    
+                    <button
+                      onClick={viewTransactionHistory}
+                      className="flex items-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold text-lg"
+                    >
+                      <DocumentTextIcon className="h-5 w-5" />
+                      View History
+                    </button>
+                  </>
+                )}
+                
                 <button
-                  onClick={handleDisbursement}
-                  className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold text-lg"
+                  onClick={sendTestSMS}
+                  disabled={!customer?.mobile}
+                  className="flex items-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <CurrencyDollarIcon className="h-6 w-6" />
-                  Confirm Disbursement
+                  <EnvelopeIcon className="h-5 w-5" />
+                  Send Test SMS
                 </button>
+                
                 <button
                   onClick={() => navigate('/pending-disbursements')}
-                  className="flex items-center gap-3 px-8 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-semibold text-lg"
+                  className="flex items-center gap-3 px-6 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-semibold text-lg"
                 >
                   Cancel
                 </button>
               </div>
-            ) : isCreditAnalyst && !feesPaid ? (
-              <button
-                disabled
-                className="flex items-center gap-3 px-8 py-4 bg-gray-300 text-gray-500 rounded-xl cursor-not-allowed font-bold text-lg"
-              >
-                <LockClosedIcon className="h-6 w-6" />
-                Disbursement Locked - Fees Required
-              </button>
-            ) : (
-              <button
-                disabled
-                className="flex items-center gap-3 px-8 py-4 bg-gray-300 text-gray-500 rounded-xl cursor-not-allowed font-bold text-lg"
-              >
-                <LockClosedIcon className="h-6 w-6" />
-                Disbursement Restricted
-              </button>
             )}
           </div>
         </div>
       </div>
+
+      {/* Disbursement Notes Modal */}
+      <DisbursementNotesModal
+        isOpen={showNotesModal}
+        onClose={() => setShowNotesModal(false)}
+        onConfirm={handleDisbursementWithNotes}
+        loanDetails={loanDetails}
+        customer={customer}
+        isLoading={processingDisbursement}
+      />
+
+      {/* Transaction History Modal */}
+      <TransactionHistoryModal
+        isOpen={showTransactionHistory}
+        onClose={() => setShowTransactionHistory(false)}
+        transactions={transactions}
+        isLoading={loadingTransactions}
+      />
     </div>
   );
 };

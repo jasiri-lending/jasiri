@@ -10,5 +10,8 @@ createRoot(document.getElementById('root')).render(
     <LoadingProvider>
     <App />
     </LoadingProvider>
+
+
+
   </StrictMode>,
 )
