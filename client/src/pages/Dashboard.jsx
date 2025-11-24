@@ -341,22 +341,6 @@ const fetchRecentActivities = async (profile) => {
 };
 
 
- const getTimeAgo = (date) => {
-  const now = new Date();
-
-  const diff = now - date;
-
-  if (diff < 0) return "Just now"; 
-
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} min${mins > 1 ? "s" : ""} ago`;
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  return `${days} day${days > 1 ? "s" : ""} ago`;
-};
 
 
   const fetchTotalPaidAmount = async (loanIds) => {
@@ -383,22 +367,38 @@ const fetchRecentActivities = async (profile) => {
       return 0;
     }
   };
-// Utility for consistent date formatting
-const getTodayDate = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// Utility for consistent local date formatting
+const getLocalDateString = (date = new Date()) => {
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  return localDate.toISOString().split('T')[0];
 };
+
+const getTodayDate = () => getLocalDateString();
 
 const getTomorrowDate = () => {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
-  const year = tomorrow.getFullYear();
-  const month = String(tomorrow.getMonth() + 1).padStart(2, '0');
-  const day = String(tomorrow.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+  return getLocalDateString(tomorrow);
+};
+
+// Enhanced getTimeAgo function with timezone support
+const getTimeAgo = (date) => {
+  const now = new Date();
+  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
+  const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
+  
+  const diff = localNow - localDate;
+
+  if (diff < 0) return "Just now";
+
+  const mins = Math.floor(diff / 60000);
+  const hours = Math.floor(diff / 3600000);
+  const days = Math.floor(diff / 86400000);
+
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min${mins > 1 ? "s" : ""} ago`;
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+  return `${days} day${days > 1 ? "s" : ""} ago`;
 };
 
 // Fetch today's collection
@@ -420,12 +420,12 @@ const fetchTodaysCollection = async (loanIds) => {
       .eq("due_date", today);
 
     if (error) {
-      console.error("❌ Error fetching today's installments:", error);
+      console.error(" Error fetching today's installments:", error);
       throw error;
     }
 
-    console.log("✅ Today's installments found:", installments?.length || 0);
-    console.log("📊 Today's data:", installments);
+    console.log(" Today's installments found:", installments?.length || 0);
+    console.log(" Today's data:", installments);
 
     const paid = installments?.reduce((sum, inst) => sum + (parseFloat(inst.paid_amount) || 0), 0) || 0;
     const due = installments?.reduce((sum, inst) => sum + (parseFloat(inst.due_amount) || 0), 0) || 0;
@@ -546,140 +546,154 @@ const fetchPrepaymentData = async (loanIds) => {
   }
 };
 
-
-  const fetchLeadsConversionRate = async (
-    regionId,
-    branchId,
-    role,
-    userId,
-    selectedRegion = "all",
-    selectedBranch = "all",
-    selectedRO = "all"
-  ) => {
-    try {
-      const applyFilters = (query) => {
-        if (role === "branch_manager") {
-          query = query.eq("branch_id", branchId);
-        } else if (role === "regional_manager") {
-          if (selectedRegion !== "all") {
-            query = query.eq("region_id", selectedRegion);
-          }
-          if (selectedBranch !== "all") {
-            query = query.eq("branch_id", selectedBranch);
-          }
-        } else if (role === "relationship_officer") {
-          //  Filter by created_by for relationship_officer
-          query = query.eq("created_by", userId);
-        } else if (
-          role === "credit_analyst_officer" ||
-          role === "customer_service_officer"
-        ) {
-          if (selectedRegion !== "all")
-            query = query.eq("region_id", selectedRegion);
-          if (selectedBranch !== "all")
-            query = query.eq("branch_id", selectedBranch);
-          if (selectedRO !== "all") query = query.eq("created_by", selectedRO);
+const fetchLeadsConversionRate = async (
+  regionId,
+  branchId,
+  role,
+  userId,
+  selectedRegion = "all",
+  selectedBranch = "all",
+  selectedRO = "all"
+) => {
+  try {
+    const applyFilters = (query) => {
+      if (role === "branch_manager") {
+        query = query.eq("branch_id", branchId);
+      } else if (role === "regional_manager") {
+        if (selectedRegion !== "all") {
+          query = query.eq("region_id", selectedRegion);
         }
-        return query;
-      };
+        if (selectedBranch !== "all") {
+          query = query.eq("branch_id", selectedBranch);
+        }
+      } else if (role === "relationship_officer") {
+        query = query.eq("created_by", userId);
+      } else if (
+        role === "credit_analyst_officer" ||
+        role === "customer_service_officer"
+      ) {
+        if (selectedRegion !== "all")
+          query = query.eq("region_id", selectedRegion);
+        if (selectedBranch !== "all")
+          query = query.eq("branch_id", selectedBranch);
+        if (selectedRO !== "all") query = query.eq("created_by", selectedRO);
+      }
+      return query;
+    };
 
-      let leadsQuery = applyFilters(
-        supabase.from("leads").select("id, created_at")
-      );
-      const { data: leads, error: leadsError } = await leadsQuery;
-      if (leadsError) throw leadsError;
+    // Get current date in local timezone for accurate filtering
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-      let customersQuery = applyFilters(
-        supabase.from("customers").select("id, created_at, form_status")
-      );
-      customersQuery = customersQuery.neq("form_status", "draft");
+    // Fetch leads with proper date filtering
+    let leadsQuery = applyFilters(
+      supabase.from("leads").select("id, created_at")
+    );
+    const { data: leads, error: leadsError } = await leadsQuery;
+    if (leadsError) throw leadsError;
 
-      const { data: customers, error: customersError } = await customersQuery;
-      if (customersError) throw customersError;
+    // Fetch customers with proper filtering
+    let customersQuery = applyFilters(
+      supabase.from("customers").select("id, created_at, form_status")
+    );
+    customersQuery = customersQuery.neq("form_status", "draft");
 
-      const totalLeads = (leads?.length || 0) + (customers?.length || 0);
-      const convertedLeads = customers?.length || 0;
-      const conversionRate =
-        totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
+    const { data: customers, error: customersError } = await customersQuery;
+    if (customersError) throw customersError;
 
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const today = now.toISOString().split("T")[0];
+    // Convert dates to local time for accurate comparison
+    const convertToLocalDate = (dateString) => {
+      if (!dateString) return null;
+      const date = new Date(dateString);
+      return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+    };
 
-      const leadsThisMonth =
-        leads?.filter(
-          (l) =>
-            new Date(l.created_at).getMonth() === currentMonth &&
-            new Date(l.created_at).getFullYear() === currentYear
-        ).length || 0;
+    // Filter leads for today (local time)
+    const leadsToday = leads?.filter(lead => {
+      const leadDate = convertToLocalDate(lead.created_at);
+      if (!leadDate) return false;
+      return leadDate >= today;
+    }).length || 0;
 
-      const customersThisMonth =
-        customers?.filter(
-          (c) =>
-            new Date(c.created_at).getMonth() === currentMonth &&
-            new Date(c.created_at).getFullYear() === currentYear
-        ).length || 0;
+    // Filter leads for this month (local time)
+    const leadsThisMonth = leads?.filter(lead => {
+      const leadDate = convertToLocalDate(lead.created_at);
+      if (!leadDate) return false;
+      return leadDate >= startOfMonth;
+    }).length || 0;
 
-      const totalThisMonth = leadsThisMonth + customersThisMonth;
-      const conversionRateMonth =
-        totalThisMonth > 0
-          ? Math.round((customersThisMonth / totalThisMonth) * 100)
-          : 0;
+    // Filter customers for today (local time)
+    const customersToday = customers?.filter(customer => {
+      const customerDate = convertToLocalDate(customer.created_at);
+      if (!customerDate) return false;
+      return customerDate >= today;
+    }).length || 0;
 
-      const leadsThisYear =
-        leads?.filter(
-          (l) => new Date(l.created_at).getFullYear() === currentYear
-        ).length || 0;
+    // Filter customers for this month (local time)
+    const customersThisMonth = customers?.filter(customer => {
+      const customerDate = convertToLocalDate(customer.created_at);
+      if (!customerDate) return false;
+      return customerDate >= startOfMonth;
+    }).length || 0;
 
-      const customersThisYear =
-        customers?.filter(
-          (c) => new Date(c.created_at).getFullYear() === currentYear
-        ).length || 0;
+    // Filter customers for this year
+    const customersThisYear = customers?.filter(customer => {
+      const customerDate = convertToLocalDate(customer.created_at);
+      if (!customerDate) return false;
+      return customerDate >= startOfYear;
+    }).length || 0;
 
-      const totalThisYear = leadsThisYear + customersThisYear;
-      const conversionRateYear =
-        totalThisYear > 0
-          ? Math.round((customersThisYear / totalThisYear) * 100)
-          : 0;
+    // Calculate totals
+    const totalLeads = (leads?.length || 0) + (customers?.length || 0);
+    const convertedLeads = customers?.length || 0;
+    const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
-      const leadsToday =
-        leads?.filter(
-          (l) => l.created_at && l.created_at.split("T")[0] === today
-        ).length || 0;
+    const totalThisMonth = leadsThisMonth + customersThisMonth;
+    const conversionRateMonth = totalThisMonth > 0
+      ? Math.round((customersThisMonth / totalThisMonth) * 100)
+      : 0;
 
-      const safe = (val) => (isNaN(val) || val === null ? 0 : Number(val));
+    const totalThisYear = (leads?.length || 0) + (customers?.length || 0);
+    const conversionRateYear = totalThisYear > 0
+      ? Math.round((customersThisYear / totalThisYear) * 100)
+      : 0;
 
-      return {
-        totalLeads: safe(totalLeads),
-        convertedLeads: safe(convertedLeads),
-        conversionRate: safe(conversionRate),
-        conversionRateMonth: safe(conversionRateMonth),
-        conversionRateYear: safe(conversionRateYear),
-        totalThisMonth: safe(totalThisMonth),
-        customersThisMonth: safe(customersThisMonth),
-        totalThisYear: safe(totalThisYear),
-        customersThisYear: safe(customersThisYear),
-        leadsThisMonth: safe(leadsThisMonth),
-        leadsToday: safe(leadsToday),
-      };
-    } catch (error) {
-      console.error("Error fetching leads conversion rate:", error);
-      return {
-        totalLeads: 0,
-        convertedLeads: 0,
-        conversionRate: 0,
-        conversionRateMonth: 0,
-        conversionRateYear: 0,
-        totalThisMonth: 0,
-        customersThisMonth: 0,
-        totalThisYear: 0,
-        customersThisYear: 0,
-        leadsThisMonth: 0,
-        leadsToday: 0,
-      };
-    }
-  };
+    const safe = (val) => (isNaN(val) || val === null ? 0 : Number(val));
+
+    return {
+      totalLeads: safe(totalLeads),
+      convertedLeads: safe(convertedLeads),
+      conversionRate: safe(conversionRate),
+      conversionRateMonth: safe(conversionRateMonth),
+      conversionRateYear: safe(conversionRateYear),
+      totalThisMonth: safe(totalThisMonth),
+      customersThisMonth: safe(customersThisMonth),
+      totalThisYear: safe(totalThisYear),
+      customersThisYear: safe(customersThisYear),
+      leadsThisMonth: safe(leadsThisMonth),
+      leadsToday: safe(leadsToday),
+      customersToday: safe(customersToday), // Add this for new customers today
+    };
+  } catch (error) {
+    console.error("Error fetching leads conversion rate:", error);
+    return {
+      totalLeads: 0,
+      convertedLeads: 0,
+      conversionRate: 0,
+      conversionRateMonth: 0,
+      conversionRateYear: 0,
+      totalThisMonth: 0,
+      customersThisMonth: 0,
+      totalThisYear: 0,
+      customersThisYear: 0,
+      leadsThisMonth: 0,
+      leadsToday: 0,
+      customersToday: 0,
+    };
+  }
+};
 
 
 const fetchPerformingLoans = async (loansData) => {

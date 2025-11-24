@@ -250,9 +250,19 @@ const AllLoans = () => {
               )
             )
           ),
-          users!loans_created_by_fkey (
+       booked_by_user:users!loans_created_by_fkey(
+  id,
+  full_name
+),
+
+          branch:branches!loans_branch_id_fkey (
             id,
-            full_name
+            name,
+            region_id,
+            regions (
+              id,
+              name
+            )
           )
         `)
         .order("created_at", { ascending: false });
@@ -352,8 +362,8 @@ const AllLoans = () => {
     let filtered = loans;
 
     if (statusFilter !== "all") filtered = filtered.filter((loan) => loan.status === statusFilter);
-    if (regionFilter !== "all") filtered = filtered.filter((loan) => loan.customers?.branches?.region_id?.toString() === regionFilter);
-    if (branchFilter !== "all") filtered = filtered.filter((loan) => loan.customers?.branches?.id?.toString() === branchFilter);
+    if (regionFilter !== "all") filtered = filtered.filter((loan) => loan.branch?.region_id?.toString() === regionFilter);
+    if (branchFilter !== "all") filtered = filtered.filter((loan) => loan.branch_id?.toString() === branchFilter);
     if (roFilter !== "all") filtered = filtered.filter((loan) => loan.booked_by?.toString() === roFilter);
 
     if (searchTerm) {
@@ -428,10 +438,6 @@ const AllLoans = () => {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
       <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
         {/* Filters */}
-      
- <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-        {/* Filters */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
           <div className="flex flex-col gap-4">
             {/* First Row - Search and Action Buttons */}
@@ -483,8 +489,8 @@ const AllLoans = () => {
             {showFilters && (
               <div className="border-t pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Region Filter - For global roles */}
-                  {isGlobalRole && (
+                  {/* Region Filter - For global roles and regional managers */}
+                  {(isGlobalRole || isRegionalManager) && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Filter by Region
@@ -504,8 +510,8 @@ const AllLoans = () => {
                     </div>
                   )}
 
-                  {/* Branch Filter - For global and regional roles */}
-                  {(isGlobalRole || isRegionalManager) && (
+                  {/* Branch Filter - For global, regional, and branch managers */}
+                  {(isGlobalRole || isRegionalManager || isBranchManager) && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1">
                         Filter by Branch
@@ -682,13 +688,13 @@ const AllLoans = () => {
           </div>
         )}
 
-        {/* Table */}
+        {/* Table - ALWAYS SHOW ALL COLUMNS */}
         <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-x-auto">
           <table className="w-full border-collapse min-w-[1200px]">
             <thead>
               <tr className="text-white text-xs" style={{ backgroundColor: "#586ab1" }}>
                 <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Customer
+                  Customer 
                 </th>
                 <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
                   ID Number
@@ -696,21 +702,18 @@ const AllLoans = () => {
                 <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
                   Phone
                 </th>
-                {isGlobalRole && (
-                  <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                    Region
-                  </th>
-                )}
-                {(isGlobalRole || isRegionalManager) && (
-                  <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                    Branch
-                  </th>
-                )}
-                {!isRelationshipOfficer && (
-                  <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                    Booked By
-                  </th>
-                )}
+                {/* ALWAYS SHOW REGION COLUMN */}
+                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
+                  Region
+                </th>
+                {/* ALWAYS SHOW BRANCH COLUMN */}
+                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
+                  Branch
+                </th>
+                {/* ALWAYS SHOW BOOKED BY COLUMN */}
+                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
+                  Booked By
+                </th>
                 <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
                   Product
                 </th>
@@ -749,21 +752,18 @@ const AllLoans = () => {
                   <td className="px-3 py-3 whitespace-nowrap">
                     {loan.customers?.mobile}
                   </td>
-                  {isGlobalRole && (
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {loan.customers?.branches?.regions?.name || "N/A"}
-                    </td>
-                  )}
-                  {(isGlobalRole || isRegionalManager) && (
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {loan.customers?.branches?.name}
-                    </td>
-                  )}
-                  {!isRelationshipOfficer && (
-                    <td className="px-3 py-3 whitespace-nowrap">
-                      {loan.users?.Firstname} {loan.users?.Surname}
-                    </td>
-                  )}
+                  {/* ALWAYS SHOW REGION DATA */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {loan.branch?.regions?.name || loan.customers?.branches?.regions?.name || "N/A"}
+                  </td>
+                  {/* ALWAYS SHOW BRANCH DATA */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {loan.branch?.name || loan.customers?.branches?.name || "N/A"}
+                  </td>
+                  {/* ALWAYS SHOW BOOKED BY DATA */}
+                  <td className="px-3 py-3 whitespace-nowrap">
+                    {loan.booked_by_user?.full_name || "N/A"}
+                  </td>
                   <td className="px-3 py-3 text-center whitespace-nowrap">
                     {loan.product_name || loan.product}
                   </td>
@@ -906,8 +906,6 @@ const AllLoans = () => {
             </div>
           </div>
         )}
-      </div>
-    </div>
       </div>
     </div>
   );
