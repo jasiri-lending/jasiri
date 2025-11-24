@@ -400,7 +400,7 @@ const SharedSidebar = () => {
       <div className={`flex items-center justify-between p-4 flex-shrink-0 ${isCollapsed ? 'flex-col space-y-4' : ''}`}>
         <div className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'space-x-3'}`}>
           <img 
-            src="jasiri.png" 
+            src="/jasiri.png" 
             alt="Jasiri Logo" 
             className={`object-contain transition-all duration-300 ${
               isCollapsed ? "w-12 h-12" : "w-30 h-30"

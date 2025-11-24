@@ -3,12 +3,15 @@ import { supabase } from "../supabaseClient";
 import { useGlobalLoading } from "./LoadingContext";
 
 export function useAuth() {
+  // Load profile from localStorage initially
+  const savedProfile = localStorage.getItem("profile");
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-const { setLoading: setGlobalLoading } = useGlobalLoading();
+  const [profile, setProfile] = useState(savedProfile ? JSON.parse(savedProfile) : null);
+  const { setLoading: setGlobalLoading } = useGlobalLoading();
   const [initializing, setInitializing] = useState(true);
 
   useEffect(() => {
+    // Check supabase session on mount
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         setUser(session.user);
@@ -26,6 +29,7 @@ const { setLoading: setGlobalLoading } = useGlobalLoading();
         } else {
           setUser(null);
           setProfile(null);
+          localStorage.removeItem("profile"); // remove profile on logout
           setInitializing(false);
         }
       }
@@ -62,7 +66,7 @@ const { setLoading: setGlobalLoading } = useGlobalLoading();
         .eq("id", profileData?.region_id)
         .maybeSingle();
 
-      setProfile({
+      const profileObj = {
         id: userId,
         name: userData.full_name,
         email: userData.email,
@@ -71,10 +75,15 @@ const { setLoading: setGlobalLoading } = useGlobalLoading();
         region_id: profileData?.region_id || null,
         branch: branchData?.name || "N/A",
         region: regionData?.name || "N/A",
-      });
+      };
+
+      setProfile(profileObj);
+      localStorage.setItem("profile", JSON.stringify(profileObj)); // persist profile
+
     } catch (err) {
       console.error("Auth loading error:", err);
       setProfile(null);
+      localStorage.removeItem("profile");
     } finally {
       setGlobalLoading(false);
       setInitializing(false);
@@ -85,6 +94,7 @@ const { setLoading: setGlobalLoading } = useGlobalLoading();
     await supabase.auth.signOut();
     setUser(null);
     setProfile(null);
+    localStorage.removeItem("profile");
     window.location.href = "/";
   };
 

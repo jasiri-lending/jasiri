@@ -1,6 +1,5 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { toast } from "react-toastify";
 import { useAuth } from "../hooks/userAuth";
 
 export default function ProtectedRoute({ children }) {
@@ -9,12 +8,14 @@ export default function ProtectedRoute({ children }) {
 
   useEffect(() => {
     if (!initializing && !profile) {
-      toast.error("You must log in to continue");
-      navigate("/login");
+      // Redirect safely after auth initializes
+      navigate("/login", { replace: true });
     }
-  }, [initializing, profile]);
+  }, [initializing, profile, navigate]);
 
-  if (initializing) return null; // keep UI stable while auth initializes
+  // Keep UI stable while auth initializes
+  if (initializing) return null;
 
-  return children;
+  // Only render children if user is authenticated
+  return profile ? children : null;
 }
