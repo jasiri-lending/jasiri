@@ -3,12 +3,15 @@ import { useState } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/userAuth";
+import { useGlobalLoading } from "../hooks/LoadingContext";
+
 
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
-  const [loading, setLoading] = useState(false);
+
+  const { loading, setLoading } = useGlobalLoading(); 
   const navigate = useNavigate();
   const { setUser, setProfile } = useAuth();
 

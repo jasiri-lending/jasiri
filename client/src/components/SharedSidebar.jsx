@@ -22,14 +22,33 @@ import {
   UserPlus,
   ClipboardList,
   FileSpreadsheet,
+  X,
+  Menu,
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 
 const SharedSidebar = () => {
   const [expandedItems, setExpandedItems] = useState({});
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
   const { profile } = useAuth();
   const location = useLocation();
+
+  // Detect mobile screen
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024;
+      setIsMobile(mobile);
+      if (mobile) {
+        setIsMobileOpen(false); // Close sidebar on mobile by default
+      }
+    };
+
+    checkMobile();
+    window.addEventListener("resize", checkMobile);
+    return () => window.removeEventListener("resize", checkMobile);
+  }, []);
 
   const toggleItem = (itemName) => {
     setExpandedItems((prev) => ({
@@ -39,9 +58,19 @@ const SharedSidebar = () => {
   };
 
   const toggleSidebar = () => {
-    setIsCollapsed(!isCollapsed);
-    if (!isCollapsed) {
-      setExpandedItems({});
+    if (isMobile) {
+      setIsMobileOpen(!isMobileOpen);
+    } else {
+      setIsCollapsed(!isCollapsed);
+      if (!isCollapsed) {
+        setExpandedItems({});
+      }
+    }
+  };
+
+  const handleNavClick = () => {
+    if (isMobile) {
+      setIsMobileOpen(false);
     }
   };
 
@@ -245,41 +274,145 @@ const SharedSidebar = () => {
 
   const navigation = getNavigation();
 
+  // Mobile View
+  if (isMobile) {
+    return (
+      <>
+        {/* Floating Menu Button - ALWAYS visible on mobile */}
+        <button
+          onClick={() => setIsMobileOpen(true)}
+          className="fixed top-4 left-4 z-50 p-3 bg-white rounded-lg shadow-lg hover:shadow-xl transition-all border border-gray-200 lg:hidden"
+          style={{ display: isMobileOpen ? 'none' : 'block' }}
+        >
+          <Menu className="h-6 w-6" style={{ color: "#586ab1" }} />
+        </button>
+
+        {/* Overlay - only visible when sidebar is open */}
+        {isMobileOpen && (
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
+            onClick={() => setIsMobileOpen(false)}
+          />
+        )}
+        
+        {/* Sidebar */}
+        <div
+          className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ${
+            isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
+        >
+          {/* Header with Logo and Close Icon */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="jasiri.png" 
+                alt="Jasiri Logo" 
+                className="w-12 h-12 object-contain rounded-lg"
+              />
+            </div>
+            <button
+              onClick={() => setIsMobileOpen(false)}
+              className="p-2 rounded-lg hover:bg-white transition-colors"
+            >
+              <X className="h-5 w-5" style={{ color: "#586ab1" }} />
+            </button>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+            {navigation.map((item) => (
+              <div key={item.name}>
+                {item.children ? (
+                  <div>
+                    <div
+                      onClick={() => toggleItem(item.name)}
+                      className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all ${
+                        expandedItems[item.name]
+                          ? "bg-blue-100 shadow-md border border-blue-200"
+                          : "hover:bg-white hover:shadow-sm"
+                      }`}
+                    >
+                      <div className="flex items-center">
+                        <item.icon className="h-5 w-5 mr-3" style={{ color: "#586ab1" }} />
+                        <span className="text-sm font-semibold text-gray-800">{item.name}</span>
+                      </div>
+                      {expandedItems[item.name] ? (
+                        <ChevronUp className="h-4 w-4" style={{ color: "#586ab1" }} />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" style={{ color: "#586ab1" }} />
+                      )}
+                    </div>
+
+                    {expandedItems[item.name] && (
+                      <div className="ml-4 pl-6 mt-2 space-y-1 border-l-2 border-blue-200">
+                        {item.children.map((child) => (
+                          <NavLink
+                            key={child.name}
+                            to={child.href}
+                            onClick={handleNavClick}
+                            className={({ isActive }) =>
+                              `flex items-center px-3 py-2.5 text-sm rounded-lg transition-all ${
+                                isActive
+                                  ? "bg-blue-100 text-blue-800 border-l-2 border-blue-500 shadow-sm"
+                                  : "text-gray-600 hover:text-gray-900 hover:bg-white hover:shadow-sm"
+                              }`
+                            }
+                          >
+                            <child.icon className="h-4 w-4 mr-3" style={{ color: "#586ab1" }} />
+                            <span className="font-medium">{child.name}</span>
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <NavLink
+                    to={item.href}
+                    onClick={handleNavClick}
+                    className={({ isActive }) =>
+                      `group flex items-center px-3 py-3 rounded-xl transition-all ${
+                        isActive
+                          ? "bg-blue-100 shadow-md border border-blue-200"
+                          : "hover:bg-white hover:shadow-sm"
+                      }`
+                    }
+                  >
+                    <item.icon className="h-5 w-5 mr-3" style={{ color: "#586ab1" }} />
+                    <span className="text-sm font-semibold text-gray-800">{item.name}</span>
+                  </NavLink>
+                )}
+              </div>
+            ))}
+          </nav>
+        </div>
+      </>
+    );
+  }
+
+  // Desktop Sidebar
   return (
     <div
       className={`h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 ${
         isCollapsed ? "w-20" : "w-64"
       } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
-      {/* Header */}
-      <div className="flex items-center justify-between p-3 flex-shrink-0">
-        {!isCollapsed && (
-          <div className="flex items-center space-x-3">
-            {/* Logo Only - No Framing */}
-            <div className="flex-shrink-0">
-              <img 
-                src="jasiri.png" 
-                alt="Jasiri Logo" 
-                className="w-28 h-28 object-contain transition-all duration-300"
-              />
-            </div>
-          </div>
-        )}
+      {/* Header - Logo always visible in both states */}
+      <div className={`flex items-center justify-between p-4 flex-shrink-0 ${isCollapsed ? 'flex-col space-y-4' : ''}`}>
+        <div className={`flex items-center ${isCollapsed ? 'justify-center w-full' : 'space-x-3'}`}>
+          <img 
+            src="jasiri.png" 
+            alt="Jasiri Logo" 
+            className={`object-contain transition-all duration-300 ${
+              isCollapsed ? "w-12 h-12" : "w-30 h-30"
+            }`}
+          />
+        </div>
 
-        {isCollapsed && (
-          <div className="flex justify-center w-full py-1">
-            <img 
-              src="jasiri_logo.png" 
-              alt="Jasiri Logo" 
-              className="w-20 h-20 object-contain"
-            />
-          </div>
-        )}
-
+        {/* Collapse Button - Always visible and properly positioned */}
         <button
           onClick={toggleSidebar}
           className={`p-2 rounded-xl bg-white border border-gray-200 text-gray-700 hover:text-blue-600 hover:border-blue-300 transition-all duration-300 shadow-sm hover:shadow-md ${
-            isCollapsed ? 'absolute bottom-4 left-1/2 transform -translate-x-1/2' : ''
+            isCollapsed ? 'w-full flex justify-center' : ''
           }`}
         >
           {isCollapsed ? (
@@ -290,7 +423,7 @@ const SharedSidebar = () => {
         </button>
       </div>
 
-      {/* Navigation - Reduced top padding */}
+      {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
         {navigation.map((item) => (
           <div key={item.name}>

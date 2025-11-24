@@ -1,25 +1,20 @@
-// src/components/ProtectedRoute.jsx
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import { useAuth } from "../hooks/userAuth";
 
-function ProtectedRoute({ children }) {
-  const { profile, loading } = useAuth();
+export default function ProtectedRoute({ children }) {
+  const { profile, initializing } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!loading && !profile) {
+    if (!initializing && !profile) {
       toast.error("You must log in to continue");
       navigate("/login");
     }
-  }, [profile, loading, navigate]);
+  }, [initializing, profile]);
 
-  if (loading) return <div>Loading...</div>;
-
-  if (!profile) return null; // prevent flicker
+  if (initializing) return null; // keep UI stable while auth initializes
 
   return children;
 }
-
-export default ProtectedRoute;

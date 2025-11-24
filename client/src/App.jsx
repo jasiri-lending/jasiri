@@ -120,10 +120,10 @@ import EditAccount from "./pages/accounting/EditAccount.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-const { user, profile, loading } = useAuth();
+const { user, profile } = useAuth();
 
 
-  if (loading) return <div>Loading...</div>;
+ 
 
   const role = profile?.role;
 
