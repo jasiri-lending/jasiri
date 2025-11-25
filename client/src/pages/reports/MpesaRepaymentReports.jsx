@@ -38,74 +38,80 @@ const MpesaRepaymentReports = () => {
     fetchBranches();
   }, []);
 
-  //  Fetch repayment data
-  useEffect(() => {
-    const fetchRepayments = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from("mpesa_c2b_transactions")
-          .select(`
+useEffect(() => {
+  const fetchRepayments = async () => {
+    try {
+      setLoading(true);
+
+      const { data, error } = await supabase
+        .from("mpesa_c2b_transactions")
+        .select(`
+          id,
+          transaction_id,
+          phone_number,
+          amount,
+          status,
+          description,
+          billref,
+          transaction_time,
+          loan_id,
+          loans:loan_id(
             id,
-            transaction_id,
-            phone_number,
-            amount,
-            transaction_time,
-            status,
-            payment_type,
-            description,
-            reference,
-            loans:loan_id(
+            customer:customer_id(
               id,
-              customer:customer_id(
-                id,
-                "Firstname",
-                "Middlename",
-                "Surname",
-                id_number,
-                branch:branch_id(name)
-              )
+              "Firstname",
+              "Middlename",
+              "Surname",
+              id_number,
+              branch:branch_id(name)
             )
-          `)
-          .eq("payment_type", "repayment")
-           .eq("description", "Loan Repayment")
-          .order("transaction_time", { ascending: false });
+          )
+        `)
+        // ✅ Filter by description
+        .eq("description", "Loan repayment processed")
+        .order("transaction_time", { ascending: false });
 
-        if (error) throw error;
+      if (error) throw error;
 
-        const formatted = data.map((item) => {
-          const customer = item.loans?.customer || {};
-          const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
-            .filter(Boolean)
-            .join(" ");
-          return {
-            id: item.id,
-            customerName: fullName || "N/A",
-            idNumber: customer.id_number || "N/A",
-            mobile: item.phone_number || "N/A",
-            branch: customer.branch?.name || "N/A",
-            transactionId: item.transaction_id || "N/A",
-            amountPaid: item.amount || 0,
-            status: item.status || "pending",
-            paymentDate: item.transaction_time
-              ? new Date(item.transaction_time)
-              : null,
-          };
-        });
+      // Map and format
+      const formatted = data.map((item, index) => {
+        const customer = item.loans?.customer || {};
+        const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
+          .filter(Boolean)
+          .join(" ") || "N/A";
 
-        setRepayments(formatted);
-        setFiltered(formatted);
-      } catch (err) {
-        console.error("Error fetching repayments:", err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+        const paymentDate = item.transaction_time
+          ? new Date(item.transaction_time)
+          : null;
 
-    fetchRepayments();
-  }, []);
+        return {
+          id: item.id,
+          customerName: fullName,
+          idNumber: customer.id_number || "N/A",
+          mobile: item.phone_number || "N/A",
+          branch: customer.branch?.name || "N/A",
+          transactionId: item.transaction_id || "N/A",
+          amountPaid: item.amount || 0,
+          status: item.status || "pending",
+          billRef: item.billref || "N/A",
+          paymentDate,
+        };
+      });
 
-  //  Function to get start and end date based on range type
+      setRepayments(formatted);
+      setFiltered(formatted);
+    } catch (err) {
+      console.error("Error fetching repayments:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  fetchRepayments();
+}, []);
+
+
+  // Function to get start and end date based on range type
   const getDateRange = (type) => {
     const now = new Date();
     let start, end;
@@ -144,7 +150,7 @@ const MpesaRepaymentReports = () => {
     return { start, end };
   };
 
-  //  Filtering logic with date range support
+  // Filtering logic with date range support
   useEffect(() => {
     let result = [...repayments];
     const { search, branch, status, dateRangeType, startDate, endDate } = filters;
@@ -161,17 +167,20 @@ const MpesaRepaymentReports = () => {
     }
 
     if (branch) result = result.filter((r) => r.branch === branch);
-    if (status)
+    if (status) {
       result = result.filter(
         (r) => r.status.toLowerCase() === status.toLowerCase()
       );
+    }
 
-    //  Apply date range filtering
+    // Apply date range filtering
     const { start, end } = getDateRange(dateRangeType);
-    if (start)
+    if (start) {
       result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
-    if (end)
+    }
+    if (end) {
       result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
+    }
 
     if (sortConfig.key) {
       result.sort((a, b) => {
@@ -188,28 +197,29 @@ const MpesaRepaymentReports = () => {
   }, [filters, repayments, sortConfig]);
 
   // Sorting handler
-  const handleSort = (key) =>
+  const handleSort = (key) => {
     setSortConfig((prev) => ({
       key,
-      direction:
-        prev.key === key && prev.direction === "asc" ? "desc" : "asc",
+      direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
+  };
 
-  //  Currency formatter
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("en-KE", {
+  // Currency formatter
+  const formatCurrency = (amount) => {
+    return new Intl.NumberFormat("en-KE", {
       style: "currency",
       currency: "KES",
       minimumFractionDigits: 0,
     }).format(amount || 0);
+  };
 
-  //  Date formatter (NEW - to fix the Date object rendering error)
+  // Date formatter
   const formatDate = (date) => {
     if (!date) return "N/A";
     return new Date(date).toLocaleDateString("en-KE");
   };
 
-  //  Filter & Reset handlers
+  // Filter & Reset handlers
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -225,7 +235,7 @@ const MpesaRepaymentReports = () => {
     });
   };
 
-  //  CSV Export
+  // CSV Export
   const exportToCSV = () => {
     if (filtered.length === 0) {
       alert("No data to export");
@@ -269,13 +279,13 @@ const MpesaRepaymentReports = () => {
     a.click();
   };
 
-  //  Pagination
+  // Pagination
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIdx = (currentPage - 1) * itemsPerPage;
   const currentData = filtered.slice(startIdx, startIdx + itemsPerPage);
   const totalAmount = filtered.reduce((sum, r) => sum + r.amountPaid, 0);
 
-  //  Sortable Header Component
+  // Sortable Header Component
   const SortableHeader = ({ label, sortKey }) => (
     <th
       onClick={() => handleSort(sortKey)}
@@ -293,7 +303,7 @@ const MpesaRepaymentReports = () => {
     </th>
   );
 
-  //  Pagination controls
+  // Pagination controls
   const PaginationControls = () => (
     <div className="flex items-center justify-between px-6 py-4 bg-white border-t border-gray-200">
       <div className="text-sm text-gray-700">
@@ -488,7 +498,6 @@ const MpesaRepaymentReports = () => {
                           {r.status}
                         </span>
                       </td>
-                      {/* FIXED: Format the date instead of rendering Date object directly */}
                       <td className="px-6 py-4">{formatDate(r.paymentDate)}</td>
                     </tr>
                   ))}

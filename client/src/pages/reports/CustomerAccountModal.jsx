@@ -230,7 +230,7 @@ const handleViewStatement = useCallback((customer) => {
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     <div>
       <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-        Customer Account Statements
+        Customer Account Statements 
       </h1>
       <p className="text-sm text-gray-600 mt-1">
         Viewing statement summary for{" "}

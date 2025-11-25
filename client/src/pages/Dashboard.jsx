@@ -52,6 +52,9 @@ const Dashboard = () => {
       prepaymentAmount: 0,
       prepaymentRate: 0,
       par: 0,
+       todayCollectionDue: 0,
+    monthlyCollectionDue: 0,
+    prepaymentDue: 0,
     },
     pendingActions: {
       pendingCustomerApprovals: 0,
@@ -217,6 +220,60 @@ const Dashboard = () => {
       return [];
     }
   };
+
+// ---------- Date helpers (consistent, local YYYY-MM-DD) ----------
+
+// Convert DB timestamp to YYYY-MM-DD in Africa/Nairobi timezone
+const getLocalDateString = (dateString) => {
+  const date = new Date(dateString);
+
+  return date.toLocaleDateString("en-CA", {
+    timeZone: "Africa/Nairobi", // forces Kenya timezone
+  }); // returns YYYY-MM-DD
+};
+
+
+// const toLocalYYYYMMDD = (input = new Date()) => {
+//   const date = new Date(input);
+//   // convert to local date by removing the timezone offset
+//   const tzOffsetMs = date.getTimezoneOffset() * 60000;
+//   const local = new Date(date.getTime() - tzOffsetMs);
+//   return local.toISOString().slice(0, 10); // "YYYY-MM-DD"
+// };
+
+const getTodayDate = () => toLocalYYYYMMDD();
+const getTomorrowDate = () => {
+  const t = new Date();
+  t.setDate(t.getDate() + 1);
+  return toLocalYYYYMMDD(t);
+};
+
+const toLocalDateObject = (ts) => {
+  if (!ts) return null;
+  // Return a Date adjusted to local timezone
+  const d = new Date(ts);
+  const tzOffsetMs = d.getTimezoneOffset() * 60000;
+  return new Date(d.getTime() - tzOffsetMs);
+};
+
+// simple "time ago" — expects a Date or timestamp string
+const getTimeAgo = (date) => {
+  const dt = date instanceof Date ? date : new Date(date);
+  const diff = Date.now() - dt.getTime();
+  if (diff < 0) return "Just now";
+
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins} min${mins > 1 ? "s" : ""} ago`;
+
+  const hours = Math.floor(diff / 3600000);
+  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
+
+  const days = Math.floor(diff / 86400000);
+  return `${days} day${days > 1 ? "s" : ""} ago`;
+};
+
+// ---------- Recent Activities ----------
 const fetchRecentActivities = async (profile) => {
   try {
     const { role, regionId, branchId, id } = profile;
@@ -224,328 +281,258 @@ const fetchRecentActivities = async (profile) => {
     let loansQuery = supabase
       .from("loans")
       .select(
-        `
-        id,
-        scored_amount,
-        status,
-        created_at,
-        disbursed_date,
-        booked_by,
-        region_id,
-        branch_id,
-        customers!inner(
-          Firstname,
-          Surname
-        )
-      `
+        `id, scored_amount, status, created_at, disbursed_date, booked_by, region_id, branch_id, customers!inner(Firstname, Surname)`
       )
       .order("created_at", { ascending: false })
-      .limit(20); 
+      .limit(20);
 
-    if (role === "relationship_officer") {
-      loansQuery = loansQuery.eq("booked_by", id);
-    } else if (role === "branch_manager") {
-      loansQuery = loansQuery.eq("branch_id", branchId);
-    } else if (role === "regional_manager") {
-      loansQuery = loansQuery.eq("region_id", regionId);
-    }
+    if (role === "relationship_officer") loansQuery = loansQuery.eq("booked_by", id);
+    else if (role === "branch_manager") loansQuery = loansQuery.eq("branch_id", branchId);
+    else if (role === "regional_manager") loansQuery = loansQuery.eq("region_id", regionId);
 
     const { data: recentLoans, error } = await loansQuery;
     if (error) throw error;
+    if (!recentLoans?.length) return [];
 
-    const activities =
-      recentLoans?.map((loan) => {
-        const customerName = `${loan.customers.Firstname} ${loan.customers.Surname}`;
+    return recentLoans.map((loan) => {
+      const customerName = loan.customers ? `${loan.customers.Firstname} ${loan.customers.Surname}` : "Customer";
+      const timeAgo = getTimeAgo(new Date(loan.created_at));
 
-       
-        const createdAtLocal = new Date(loan.created_at);
+      let message = `New loan application from ${customerName}`;
+      let iconBg = "bg-amber-100";
+      let icon = (
+        <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+      );
 
-        const timeAgo = getTimeAgo(createdAtLocal);
+      if (loan.status === "disbursed") {
+        message = `Loan disbursed to ${customerName}`;
+        iconBg = "bg-green-100";
+        icon = (
+          <svg className="w-5 h-5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        );
+      } else if (loan.status === "approved") {
+        message = `Loan approved for ${customerName}`;
+        iconBg = "bg-blue-100";
+        icon = (
+          <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+        );
+      }
 
-       
-        let message = "";
-        let iconBg = "";
-        let icon = null;
-
-        if (loan.status === "disbursed") {
-          message = `Loan disbursed to ${customerName}`;
-          iconBg = "bg-green-100";
-          icon = (
-            <svg
-              className="w-5 h-5 text-green-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          );
-        } else if (loan.status === "approved") {
-          message = `Loan approved for ${customerName}`;
-          iconBg = "bg-blue-100";
-          icon = (
-            <svg
-              className="w-5 h-5 text-blue-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M5 13l4 4L19 7"
-              />
-            </svg>
-          );
-        } else {
-          message = `New loan application from ${customerName}`;
-          iconBg = "bg-amber-100";
-          icon = (
-            <svg
-              className="w-5 h-5 text-amber-600"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-          );
-        }
-
-        return {
-          id: loan.id,
-          message,
-          time: timeAgo,
-          amount: `Ksh ${loan.scored_amount?.toLocaleString() || 0}`,
-          icon,
-          iconBg,
-        };
-      }) || [];
-
-    return activities;
+      return {
+        id: loan.id,
+        message,
+        time: timeAgo,
+        amount: `Ksh ${Number(loan.scored_amount || 0).toLocaleString()}`,
+        icon,
+        iconBg,
+      };
+    });
   } catch (error) {
     console.error("Error fetching recent activities:", error);
     return [];
   }
 };
 
-
-
-
-  const fetchTotalPaidAmount = async (loanIds) => {
-    if (!loanIds || loanIds.length === 0) return 0;
-
-    try {
-      const { data, error } = await supabase
-        .from("mpesa_c2b_transactions")
-        .select("amount, loan_id")
-        .in("loan_id", loanIds)
-        .eq("status", "applied")
-        .eq("payment_type", "repayment");
-
-      if (error) throw error;
-
-      return (
-        data?.reduce(
-          (sum, transaction) => sum + (parseFloat(transaction.amount) || 0),
-          0
-        ) || 0
-      );
-    } catch (error) {
-      console.error("Error fetching paid amounts:", error);
-      return 0;
-    }
-  };
-// Utility for consistent local date formatting
-const getLocalDateString = (date = new Date()) => {
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  return localDate.toISOString().split('T')[0];
-};
-
-const getTodayDate = () => getLocalDateString();
-
-const getTomorrowDate = () => {
-  const tomorrow = new Date();
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  return getLocalDateString(tomorrow);
-};
-
-// Enhanced getTimeAgo function with timezone support
-const getTimeAgo = (date) => {
-  const now = new Date();
-  const localDate = new Date(date.getTime() - date.getTimezoneOffset() * 60000);
-  const localNow = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  
-  const diff = localNow - localDate;
-
-  if (diff < 0) return "Just now";
-
-  const mins = Math.floor(diff / 60000);
-  const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins} min${mins > 1 ? "s" : ""} ago`;
-  if (hours < 24) return `${hours} hour${hours > 1 ? "s" : ""} ago`;
-  return `${days} day${days > 1 ? "s" : ""} ago`;
-};
-
-// Fetch today's collection
-const fetchTodaysCollection = async (loanIds) => {
-  if (!loanIds?.length) {
-    console.log("⚠️ No loan IDs provided for today's collection");
-    return { amount: 0, rate: 0, due: 0, paid: 0 };
-  }
-  
+// ---------- Total paid amount (installments) ----------
+const fetchTotalPaidAmount = async (loanIds) => {
+  if (!Array.isArray(loanIds) || loanIds.length === 0) return 0;
   try {
-    const today = getTodayDate();
-    console.log("📅 Fetching today's collection for date:", today);
-    console.log("🔍 Checking", loanIds.length, "loans");
-    
-    const { data: installments, error } = await supabase
+    const { data, error } = await supabase
       .from("loan_installments")
-      .select("due_amount, paid_amount, due_date, status")
+      .select("interest_paid, principal_paid, loan_id")
+      .in("loan_id", loanIds);
+
+    if (error) throw error;
+    if (!data?.length) return 0;
+
+    return data.reduce((sum, inst) => {
+      const interest = parseFloat(inst.interest_paid) || 0;
+      const principal = parseFloat(inst.principal_paid) || 0;
+      return sum + interest + principal;
+    }, 0);
+  } catch (err) {
+    console.error("Error fetching paid amounts:", err);
+    return 0;
+  }
+};
+
+// Safe local YYYY-MM-DD formatter (NO UTC conversion)
+const getLocalYYYYMMDD = (d) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
+
+// ---------- Today's collection ----------
+const fetchTodaysCollection = async (loanIds) => {
+  if (!Array.isArray(loanIds) || loanIds.length === 0) {
+    console.log("No loan IDs provided for today's collection");
+    return { amount: 0, paid: 0, due: 0, rate: 0 };
+  }
+
+  try {
+    const today = getLocalYYYYMMDD(new Date());
+    console.log("Fetching today's collection for date:", today);
+
+    const { data: paymentsData, error: paymentsError } = await supabase
+      .from("loan_installments")
+      .select("interest_paid, principal_paid, paid_date, status")
       .in("loan_id", loanIds)
-      .eq("due_date", today);
+      .in("status", ["paid", "partial"])
+      .eq("paid_date", today);
 
-    if (error) {
-      console.error(" Error fetching today's installments:", error);
-      throw error;
-    }
+    if (paymentsError) throw paymentsError;
 
-    console.log(" Today's installments found:", installments?.length || 0);
-    console.log(" Today's data:", installments);
+    const { data: dueData, error: dueError } = await supabase
+      .from("loan_installments")
+      .select("due_amount, due_date, status")
+      .in("loan_id", loanIds)
+      .eq("due_date", today)
+      .in("status", ["pending", "overdue", "partial"]);
 
-    const paid = installments?.reduce((sum, inst) => sum + (parseFloat(inst.paid_amount) || 0), 0) || 0;
-    const due = installments?.reduce((sum, inst) => sum + (parseFloat(inst.due_amount) || 0), 0) || 0;
+    if (dueError) throw dueError;
+
+    const paid = (paymentsData || []).reduce(
+      (sum, r) => sum + (parseFloat(r.interest_paid) || 0) + (parseFloat(r.principal_paid) || 0),
+      0
+    );
+
+    const due = (dueData || []).reduce(
+      (sum, r) => sum + (parseFloat(r.due_amount) || 0),
+      0
+    );
+
     const rate = due > 0 ? Math.round((paid / due) * 100) : 0;
 
-    console.log(`💰 Today: Paid=${paid}, Due=${due}, Rate=${rate}%`);
+    console.log(`Today Collection - Paid: ${paid}, Due: ${due}, Rate: ${rate}%`);
 
     return { amount: paid, paid, due, rate };
   } catch (err) {
-    console.error("❌ Error in fetchTodaysCollection:", err);
-    return { amount: 0, rate: 0, due: 0, paid: 0 };
+    console.error("Error fetching today's collection:", err);
+    return { amount: 0, paid: 0, due: 0, rate: 0 };
   }
 };
 
-// Fetch monthly collection
+
+// ---------- Monthly collection ----------
 const fetchMonthlyCollection = async (loanIds) => {
-  if (!loanIds?.length) {
-    console.log("⚠️ No loan IDs provided for monthly collection");
-    return { amount: 0, rate: 0, due: 0, paid: 0 };
+  if (!Array.isArray(loanIds) || loanIds.length === 0) {
+    console.log("No loan IDs provided for monthly collection");
+    return { amount: 0, paid: 0, due: 0, rate: 0 };
   }
-  
+
   try {
     const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const startOfMonth = `${year}-${month}-01`;
-    
-    // Get last day of current month
-    const lastDay = new Date(year, now.getMonth() + 1, 0).getDate();
-    const endOfMonth = `${year}-${month}-${String(lastDay).padStart(2, '0')}`;
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
+    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+      .toLocaleDateString("en-CA", { timeZone: "Africa/Nairobi" });
 
-    console.log(" Fetching monthly collection from", startOfMonth, "to", endOfMonth);
-    console.log(" Checking", loanIds.length, "loans");
+    console.log("Fetching monthly collection from", startOfMonth, "to", endOfMonth);
 
-    const { data: installments, error } = await supabase
+    // Get payments made this month (collected amount)
+    const { data: paymentsData, error: paymentsError } = await supabase
       .from("loan_installments")
-      .select("due_amount, paid_amount, due_date, status")
+      .select("interest_paid, principal_paid, paid_date, status")
+      .in("loan_id", loanIds)
+      .in("status", ["paid", "partial"])
+      .gte("paid_date", startOfMonth)
+      .lte("paid_date", endOfMonth);
+
+    if (paymentsError) throw paymentsError;
+
+    // Get installments due this month (expected amount)
+    const { data: dueData, error: dueError } = await supabase
+      .from("loan_installments")
+      .select("due_amount, due_date, status")
       .in("loan_id", loanIds)
       .gte("due_date", startOfMonth)
-      .lte("due_date", endOfMonth);
+      .lte("due_date", endOfMonth)
+      .in("status", ["pending", "overdue", "partial", "paid"]); // Include all statuses for total due amount
 
-    if (error) {
-      console.error(" Error fetching monthly installments:", error);
-      throw error;
-    }
+    if (dueError) throw dueError;
 
-    console.log(" Monthly installments found:", installments?.length || 0);
-    console.log(" Monthly data sample:", installments?.slice(0, 3));
+    const paid = (paymentsData || []).reduce(
+      (sum, r) => sum + (parseFloat(r.interest_paid) || 0) + (parseFloat(r.principal_paid) || 0),
+      0
+    );
 
-    const paid = installments?.reduce((sum, inst) => sum + (parseFloat(inst.paid_amount) || 0), 0) || 0;
-    const due = installments?.reduce((sum, inst) => sum + (parseFloat(inst.due_amount) || 0), 0) || 0;
+    const due = (dueData || []).reduce(
+      (sum, r) => sum + (parseFloat(r.due_amount) || 0),
+      0
+    );
+
     const rate = due > 0 ? Math.round((paid / due) * 100) : 0;
 
-    console.log(`💰 Monthly: Paid=${paid}, Due=${due}, Rate=${rate}%`);
+    console.log(`Monthly Collection - Paid: ${paid}, Due: ${due}, Rate: ${rate}%`);
 
     return { amount: paid, paid, due, rate };
   } catch (err) {
-    console.error(" Error in fetchMonthlyCollection:", err);
-    return { amount: 0, rate: 0, due: 0, paid: 0 };
+    console.error("Error fetching monthly collection:", err);
+    return { amount: 0, paid: 0, due: 0, rate: 0 };
   }
 };
 
-// Prepayment / tomorrow collection
+// ---------- Prepayment / tomorrow collection ----------
 const fetchPrepaymentData = async (loanIds) => {
-  if (!loanIds?.length) {
-    console.log(" No loan IDs provided for prepayment data");
+  if (!Array.isArray(loanIds) || loanIds.length === 0) {
+    console.log("No loan IDs provided for prepayment data");
     return { prepaymentAmount: 0, prepaymentRate: 0, totalDueTomorrow: 0 };
   }
-  
+
   try {
     const tomorrow = getTomorrowDate();
-    console.log(" Fetching tomorrow's collection for date:", tomorrow);
-    console.log(" Checking", loanIds.length, "loans");
-    
-    const { data: installments, error: instError } = await supabase
+    const today = getTodayDate();
+
+    console.log("Fetching tomorrow's collection for date:", tomorrow);
+
+    // Get tomorrow's due installments
+    const { data: tomorrowInstallments, error: instError } = await supabase
       .from("loan_installments")
       .select("due_amount, loan_id, due_date, status")
       .in("loan_id", loanIds)
       .eq("due_date", tomorrow);
 
-    if (instError) {
-      console.error(" Error fetching tomorrow's installments:", instError);
-      throw instError;
-    }
+    if (instError) throw instError;
+    
+    const tomorrowRows = tomorrowInstallments || [];
+    const totalDueTomorrow = tomorrowRows.reduce((s, r) => s + (parseFloat(r.due_amount) || 0), 0);
 
-    console.log(" Tomorrow's installments found:", installments?.length || 0);
-    console.log(" Tomorrow's data:", installments);
-
-    const totalDueTomorrow = installments?.reduce((sum, inst) => sum + (parseFloat(inst.due_amount) || 0), 0) || 0;
-
-    // Get today's prepayments (payments made today for tomorrow's dues)
-    const today = getTodayDate();
-    const { data: prepayments, error: payError } = await supabase
-      .from("mpesa_c2b_transactions")
-      .select("amount, loan_id, created_at")
+    // Get payments made today for tomorrow's installments (prepayments)
+    const { data: prepayments, error: prepayError } = await supabase
+      .from("loan_installments")
+      .select("interest_paid, principal_paid, due_date, paid_date")
       .in("loan_id", loanIds)
-      .eq("status", "applied")
-      .eq("payment_type", "repayment")
-      .gte("created_at", `${today}T00:00:00`)
-      .lte("created_at", `${today}T23:59:59`);
+      .eq("paid_date", today)
+      .eq("due_date", tomorrow);
 
-    if (payError) {
-      console.error(" Error fetching prepayments:", payError);
-      throw payError;
-    }
+    if (prepayError) throw prepayError;
+    
+    const prepayRows = prepayments || [];
+    const prepaymentAmount = prepayRows.reduce(
+      (s, r) => s + (parseFloat(r.interest_paid) || 0) + (parseFloat(r.principal_paid) || 0),
+      0
+    );
 
-    console.log(" Today's prepayments found:", prepayments?.length || 0);
-
-    const prepaymentAmount = prepayments?.reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0) || 0;
     const prepaymentRate = totalDueTomorrow > 0 ? Math.round((prepaymentAmount / totalDueTomorrow) * 100) : 0;
 
-    console.log(` Prepayment: Amount=${prepaymentAmount}, Due Tomorrow=${totalDueTomorrow}, Rate=${prepaymentRate}%`);
+    console.log(`Prepayment - Tomorrow Due: ${totalDueTomorrow}, Prepaid Today: ${prepaymentAmount}, Rate: ${prepaymentRate}%`);
 
     return { prepaymentAmount, prepaymentRate, totalDueTomorrow };
   } catch (err) {
-    console.error(" Error in fetchPrepaymentData:", err);
+    console.error("Error in fetchPrepaymentData:", err);
     return { prepaymentAmount: 0, prepaymentRate: 0, totalDueTomorrow: 0 };
   }
 };
 
+// ---------- Leads / customers conversion and date filtering ----------
 const fetchLeadsConversionRate = async (
   regionId,
   branchId,
@@ -557,108 +544,91 @@ const fetchLeadsConversionRate = async (
 ) => {
   try {
     const applyFilters = (query) => {
-      if (role === "branch_manager") {
-        query = query.eq("branch_id", branchId);
-      } else if (role === "regional_manager") {
-        if (selectedRegion !== "all") {
-          query = query.eq("region_id", selectedRegion);
-        }
-        if (selectedBranch !== "all") {
-          query = query.eq("branch_id", selectedBranch);
-        }
-      } else if (role === "relationship_officer") {
-        query = query.eq("created_by", userId);
-      } else if (
-        role === "credit_analyst_officer" ||
-        role === "customer_service_officer"
-      ) {
-        if (selectedRegion !== "all")
-          query = query.eq("region_id", selectedRegion);
-        if (selectedBranch !== "all")
-          query = query.eq("branch_id", selectedBranch);
+      if (role === "branch_manager") query = query.eq("branch_id", branchId);
+      else if (role === "regional_manager") {
+        if (selectedRegion !== "all") query = query.eq("region_id", selectedRegion);
+        if (selectedBranch !== "all") query = query.eq("branch_id", selectedBranch);
+      } else if (role === "relationship_officer") query = query.eq("created_by", userId);
+      else if (["credit_analyst_officer", "customer_service_officer"].includes(role)) {
+        if (selectedRegion !== "all") query = query.eq("region_id", selectedRegion);
+        if (selectedBranch !== "all") query = query.eq("branch_id", selectedBranch);
         if (selectedRO !== "all") query = query.eq("created_by", selectedRO);
       }
       return query;
     };
 
-    // Get current date in local timezone for accurate filtering
+    // local date boundaries
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // local midnight
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    // Fetch leads with proper date filtering
-    let leadsQuery = applyFilters(
-      supabase.from("leads").select("id, created_at")
-    );
-    const { data: leads, error: leadsError } = await leadsQuery;
+    // fetch raw leads & customers
+    const { data: leads = [], error: leadsError } = await applyFilters(supabase.from("leads").select("id, created_at"));
     if (leadsError) throw leadsError;
 
-    // Fetch customers with proper filtering
-    let customersQuery = applyFilters(
-      supabase.from("customers").select("id, created_at, form_status")
-    );
+    let customersQuery = applyFilters(supabase.from("customers").select("id, created_at, form_status"));
     customersQuery = customersQuery.neq("form_status", "draft");
-
-    const { data: customers, error: customersError } = await customersQuery;
+    const { data: customers = [], error: customersError } = await customersQuery;
     if (customersError) throw customersError;
 
-    // Convert dates to local time for accurate comparison
     const convertToLocalDate = (dateString) => {
       if (!dateString) return null;
-      const date = new Date(dateString);
-      return new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+      // return Date object adjusted to local midnight tone
+      return toLocalDateObject(dateString);
     };
 
-    // Filter leads for today (local time)
-    const leadsToday = leads?.filter(lead => {
-      const leadDate = convertToLocalDate(lead.created_at);
-      if (!leadDate) return false;
-      return leadDate >= today;
-    }).length || 0;
+    const countSince = (items, cutoff) => items.filter(item => {
+      const d = convertToLocalDate(item.created_at);
+      return d && d >= cutoff;
+    }).length;
 
-    // Filter leads for this month (local time)
-    const leadsThisMonth = leads?.filter(lead => {
-      const leadDate = convertToLocalDate(lead.created_at);
-      if (!leadDate) return false;
-      return leadDate >= startOfMonth;
-    }).length || 0;
+// Leads created this month (still leads)
+const rawLeadsThisMonth = countSince(leads, startOfMonth);
+const rawLeadsToday = countSince(leads, today);
 
-    // Filter customers for today (local time)
-    const customersToday = customers?.filter(customer => {
-      const customerDate = convertToLocalDate(customer.created_at);
-      if (!customerDate) return false;
-      return customerDate >= today;
-    }).length || 0;
+// Customers that were actually converted from leads (have lead_id)
+const convertedCustomers = customers.filter(c => c.lead_id !== null);
 
-    // Filter customers for this month (local time)
-    const customersThisMonth = customers?.filter(customer => {
-      const customerDate = convertToLocalDate(customer.created_at);
-      if (!customerDate) return false;
-      return customerDate >= startOfMonth;
-    }).length || 0;
+// Converted leads created this month
+const convertedLeadsThisMonth = convertedCustomers.filter(c => {
+  const d = convertToLocalDate(c.created_at);
+  return d && d >= startOfMonth;
+}).length;
 
-    // Filter customers for this year
-    const customersThisYear = customers?.filter(customer => {
-      const customerDate = convertToLocalDate(customer.created_at);
-      if (!customerDate) return false;
-      return customerDate >= startOfYear;
-    }).length || 0;
+// Converted leads created today
+const convertedLeadsToday = convertedCustomers.filter(c => {
+  const d = convertToLocalDate(c.created_at);
+  return d && d >= today;
+}).length;
 
-    // Calculate totals
-    const totalLeads = (leads?.length || 0) + (customers?.length || 0);
-    const convertedLeads = customers?.length || 0;
+// TOTAL leads = still-leads + converted-leads
+const leadsThisMonth = rawLeadsThisMonth + convertedLeadsThisMonth;
+const leadsToday = rawLeadsToday + convertedLeadsToday;
+
+// Only direct customers (not converted leads)
+const directCustomers = customers.filter(c => c.lead_id === null);
+
+// Count direct customers today
+const customersToday = directCustomers.filter(c => {
+  const d = convertToLocalDate(c.created_at);
+  return d && d >= today;
+}).length;
+
+// Count direct customers this month
+const customersThisMonth = directCustomers.filter(c => {
+  const d = convertToLocalDate(c.created_at);
+  return d && d >= startOfMonth;
+}).length;
+
+    const customersThisYear = countSince(customers, startOfYear);
+
+    const totalLeads = (leads.length || 0) + (customers.length || 0);
+    const convertedLeads = customers.length || 0;
     const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
-
     const totalThisMonth = leadsThisMonth + customersThisMonth;
-    const conversionRateMonth = totalThisMonth > 0
-      ? Math.round((customersThisMonth / totalThisMonth) * 100)
-      : 0;
-
-    const totalThisYear = (leads?.length || 0) + (customers?.length || 0);
-    const conversionRateYear = totalThisYear > 0
-      ? Math.round((customersThisYear / totalThisYear) * 100)
-      : 0;
+    const conversionRateMonth = totalThisMonth > 0 ? Math.round((customersThisMonth / totalThisMonth) * 100) : 0;
+    const conversionRateYear = (leads.length + customers.length) > 0 ? Math.round((customersThisYear / (leads.length + customers.length)) * 100) : 0;
 
     const safe = (val) => (isNaN(val) || val === null ? 0 : Number(val));
 
@@ -670,14 +640,14 @@ const fetchLeadsConversionRate = async (
       conversionRateYear: safe(conversionRateYear),
       totalThisMonth: safe(totalThisMonth),
       customersThisMonth: safe(customersThisMonth),
-      totalThisYear: safe(totalThisYear),
+      totalThisYear: safe(leads.length + customers.length),
       customersThisYear: safe(customersThisYear),
       leadsThisMonth: safe(leadsThisMonth),
       leadsToday: safe(leadsToday),
-      customersToday: safe(customersToday), // Add this for new customers today
+      customersToday: safe(customersToday),
     };
-  } catch (error) {
-    console.error("Error fetching leads conversion rate:", error);
+  } catch (err) {
+    console.error("Error fetching leads conversion rate:", err);
     return {
       totalLeads: 0,
       convertedLeads: 0,
@@ -695,466 +665,523 @@ const fetchLeadsConversionRate = async (
   }
 };
 
-
+// ---------- Performing loans helpers ----------
+// ---------- Performing loans helpers ----------
 const fetchPerformingLoans = async (loansData) => {
-  if (!loansData || loansData.length === 0) return [];
+  if (!Array.isArray(loansData) || loansData.length === 0) return [];
 
   try {
-    // Only consider disbursed loans
+    // 1️⃣ Filter active disbursed loans
     const disbursedLoans = loansData.filter(
-      (loan) => loan.status === "disbursed" && loan.repayment_state !== "completed"
+      (l) => l.status === "disbursed" && l.repayment_state !== "completed"
     );
-
     const loanIds = disbursedLoans.map((l) => l.id);
     if (loanIds.length === 0) return [];
 
-    const { data: installments, error } = await supabase
+    // 2️⃣ Fetch installments for those loans
+    const { data: installments = [], error } = await supabase
       .from("loan_installments")
-      .select("loan_id, status, days_overdue, due_amount, paid_amount")
+      .select(
+        "loan_id, status, days_overdue, due_amount, principal_due, interest_due, principal_paid, interest_paid"
+      )
       .in("loan_id", loanIds);
 
     if (error) throw error;
 
-    const grouped =
-      installments?.reduce((acc, inst) => {
-        if (!acc[inst.loan_id]) acc[inst.loan_id] = [];
-        acc[inst.loan_id].push(inst);
-        return acc;
-      }, {}) || {};
+    // 3️⃣ Group installments by loan
+    const grouped = installments.reduce((acc, inst) => {
+      acc[inst.loan_id] = acc[inst.loan_id] || [];
+      acc[inst.loan_id].push(inst);
+      return acc;
+    }, {});
 
+    // 4️⃣ Determine performing loans
     const performingLoanIds = disbursedLoans
       .filter((loan) => {
-        const loanInstallments = grouped[loan.id] || [];
+        const insts = grouped[loan.id] || [];
 
-        // If no installments yet but loan is disbursed, consider it performing
-        if (loanInstallments.length === 0) return true;
+        // Newly disbursed loans with no installments are considered performing
+        if (insts.length === 0) return true;
 
-        // Check if all installments are performing (no overdue, paid on time and in full)
-        const allPerforming = loanInstallments.every((inst) => {
-          // Check if overdue
-          const isOverdue = inst.days_overdue && inst.days_overdue > 0;
-          if (isOverdue) return false;
+        return insts.every((inst) => {
+          // Explicitly handle overdue or defaulted installments
+          if (inst.status === "overdue" || inst.status === "defaulted") return false;
 
-          // If status is paid, check if paid in full
+          // Check if installment is fully paid
           if (inst.status === "paid") {
-            const paidAmount = parseFloat(inst.paid_amount) || 0;
-            const dueAmount = parseFloat(inst.due_amount) || 0;
-            return paidAmount >= dueAmount;
+            const principalPaid = parseFloat(inst.principal_paid) || 0;
+            const interestPaid = parseFloat(inst.interest_paid) || 0;
+            const principalDue = parseFloat(inst.principal_due) || 0;
+            const interestDue = parseFloat(inst.interest_due) || 0;
+
+            const fullyPaid = principalPaid >= principalDue && interestPaid >= interestDue;
+            return fullyPaid;
           }
 
-          // Pending installments are okay if not overdue
-          if (inst.status === "pending") {
-            return !isOverdue;
-          }
+          // Partially paid installments are non-performing
+          if (inst.status === "partial") return false;
 
-          // Partial payments mean not performing
-          if (inst.status === "partial") {
-            return false;
-          }
-
+          // Pending installments that are not overdue are considered performing
           return true;
         });
-
-        return allPerforming;
       })
       .map((l) => l.id);
 
+    // 5️⃣ Return only performing loans
     return disbursedLoans.filter((l) => performingLoanIds.includes(l.id));
-  } catch (error) {
-    console.error("Error fetching performing loans:", error);
+  } catch (err) {
+    console.error("Error fetching performing loans:", err);
     return [];
   }
 };
 
-  const fetchPerformingLoansPaidAmount = async (performingLoanIds) => {
-    if (!performingLoanIds || performingLoanIds.length === 0) return 0;
 
-    try {
-      const { data, error } = await supabase
-        .from("mpesa_c2b_transactions")
-        .select("amount, loan_id")
-        .in("loan_id", performingLoanIds)
-        .eq("status", "applied")
-        .eq("payment_type", "repayment");
-
-      if (error) throw error;
-
-      return (
-        data?.reduce(
-          (sum, transaction) => sum + (parseFloat(transaction.amount) || 0),
-          0
-        ) || 0
-      );
-    } catch (error) {
-      console.error("Error fetching performing loans paid amounts:", error);
-      return 0;
-    }
-  };
-
+const fetchPerformingLoansPaidAmount = async (performingLoanIds) => {
+  if (!Array.isArray(performingLoanIds) || performingLoanIds.length === 0) return 0;
+  try {
+    const { data = [], error } = await supabase
+      .from("loan_installments")
+      .select("interest_paid, principal_paid, loan_id")
+      .in("loan_id", performingLoanIds);
+    if (error) throw error;
+    return data.reduce((sum, inst) => sum + (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0), 0);
+  } catch (err) {
+    console.error("Error fetching performing loans paid amounts:", err);
+    return 0;
+  }
+};
 
 
   /**
  * Calculate Month-to-Date Arrears
  * Definition: Total unpaid dues from installments that became overdue THIS MONTH
  */
-const fetchMonthToDateArrears = async (loanIds) => {
-  if (!loanIds || loanIds.length === 0) return 0;
 
-  try {
-    const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-      .toISOString()
-      .split("T")[0];
-    const today = now.toISOString().split("T")[0];
+  const fetchMonthToDateArrears = async (loanIds) => {
+    if (!loanIds || loanIds.length === 0) return 0;
 
-    // Get all overdue installments where due_date is within this month
-    const { data: overdueInstallments, error } = await supabase
-      .from("loan_installments")
-      .select("due_amount, paid_amount, due_date, status")
-      .in("loan_id", loanIds)
-      .eq("status", "overdue")
-      .gte("due_date", startOfMonth)
-      .lte("due_date", today);
+    try {
+      const now = new Date();
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+        .toISOString()
+        .split("T")[0];
+      const today = now.toISOString().split("T")[0];
 
-    if (error) throw error;
+      const { data: overdueInstallments, error } = await supabase
+        .from("loan_installments")
+        .select("due_amount, interest_paid, principal_paid, due_date, status")
+        .in("loan_id", loanIds)
+        .eq("status", "overdue")
+        .gte("due_date", startOfMonth)
+        .lte("due_date", today);
 
-    // Calculate arrears as (due_amount - paid_amount) for each overdue installment
-    const monthToDateArrears = overdueInstallments?.reduce((sum, inst) => {
-      const dueAmount = parseFloat(inst.due_amount) || 0;
-      const paidAmount = parseFloat(inst.paid_amount) || 0;
-      const arrears = dueAmount - paidAmount;
-      return sum + (arrears > 0 ? arrears : 0);
-    }, 0) || 0;
+      if (error) throw error;
 
-    return monthToDateArrears;
-  } catch (error) {
-    console.error("Error fetching month-to-date arrears:", error);
-    return 0;
-  }
-};
+      const monthToDateArrears = overdueInstallments?.reduce((sum, inst) => {
+        const dueAmount = parseFloat(inst.due_amount) || 0;
+        const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+        const arrears = dueAmount - paidAmount;
+        return sum + (arrears > 0 ? arrears : 0);
+      }, 0) || 0;
+
+      return monthToDateArrears;
+    } catch (error) {
+      console.error("Error fetching month-to-date arrears:", error);
+      return 0;
+    }
+  };
 
 
-const calculatePAR = (totalArrears, outstandingBalance) => {
-  if (!outstandingBalance || outstandingBalance === 0) return 0;
-  return Math.round((totalArrears / outstandingBalance) * 100);
-};
 
 /**
  * Calculate Total Arrears (All Time)
  * Definition: Total unpaid dues from ALL overdue installments (current + past months)
  */
-const fetchTotalArrears = async (loanIds) => {
-  if (!loanIds || loanIds.length === 0) return 0;
 
+  const calculatePAR = (totalArrears, outstandingBalance) => {
+    if (!outstandingBalance || outstandingBalance === 0) return 0;
+    return Math.round((totalArrears / outstandingBalance) * 100);
+  };
+
+  const fetchTotalArrears = async (loanIds) => {
+    if (!loanIds || loanIds.length === 0) return 0;
+
+    try {
+      const today = new Date().toISOString().split("T")[0];
+
+      const { data: overdueInstallments, error } = await supabase
+        .from("loan_installments")
+        .select("due_amount, interest_paid, principal_paid, status, due_date")
+        .in("loan_id", loanIds)
+        .in("status", ["overdue", "partial"])
+        .lte("due_date", today);
+
+      if (error) throw error;
+
+      const totalArrears = overdueInstallments?.reduce((sum, inst) => {
+        const dueAmount = parseFloat(inst.due_amount) || 0;
+        const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+        const arrears = dueAmount - paidAmount;
+        return sum + (arrears > 0 ? arrears : 0);
+      }, 0) || 0;
+
+      return totalArrears;
+    } catch (error) {
+      console.error("Error fetching total arrears:", error);
+      return 0;
+    }
+  };
+
+  const fetchOutstandingArrears = async (loanIds) => {
+    return await fetchTotalArrears(loanIds);
+  };
+
+
+  
+
+// Convert DB timestamp to a LOCAL Date object
+const toLocalDate = (dateString) => {
+  if (!dateString) return null;
+  return new Date(dateString); // JS automatically adjusts timezone to local
+};
+
+// Extract YYYY-MM-DD in LOCAL timezone
+const toLocalYYYYMMDD = (dateString) => {
+  const d = new Date(dateString);
+  if (!d) return null;
+
+  // Extract LOCAL date parts, DO NOT use toISOString()
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+};
+
+
+const fetchDisbursedLoansData = async (filteredLoans) => {
   try {
-    const today = new Date().toISOString().split("T")[0];
+    const now = new Date();
 
-    // Get ALL overdue and partial installments (past due date)
-    const { data: overdueInstallments, error } = await supabase
-      .from("loan_installments")
-      .select("due_amount, paid_amount, status, due_date")
-      .in("loan_id", loanIds)
-      .in("status", ["overdue", "partial"])
-      .lte("due_date", today);
+    // Local Kenya date
+    const todayLocal = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      now.getDate()
+    );
+const todayString = toLocalYYYYMMDD(todayLocal);
 
-    if (error) throw error;
+    // Start of month local
+    const startOfMonthLocal = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      1
+    );
 
-    // Calculate total arrears as sum of (due_amount - paid_amount)
-    const totalArrears = overdueInstallments?.reduce((sum, inst) => {
-      const dueAmount = parseFloat(inst.due_amount) || 0;
-      const paidAmount = parseFloat(inst.paid_amount) || 0;
-      const arrears = dueAmount - paidAmount;
-      return sum + (arrears > 0 ? arrears : 0);
-    }, 0) || 0;
+    // --- FILTER DISBURSED TODAY ---
+    const disbursedLoansToday = filteredLoans.filter((loan) => {
+      if (loan.status !== "disbursed" || !loan.disbursed_at) return false;
 
-    return totalArrears;
-  } catch (error) {
-    console.error("Error fetching total arrears:", error);
-    return 0;
+      const disbursedDateLocal = toLocalYYYYMMDD(loan.disbursed_at);
+      return disbursedDateLocal === todayString;
+    });
+
+    // --- FILTER DISBURSED THIS MONTH ---
+    const disbursedLoansThisMonth = filteredLoans.filter((loan) => {
+      if (loan.status !== "disbursed" || !loan.disbursed_at) return false;
+
+      const d = toLocalDate(loan.disbursed_at);
+      return d >= startOfMonthLocal;
+    });
+
+    // SUM AMOUNTS
+    const disbursedAmountToday = disbursedLoansToday.reduce(
+      (sum, loan) => sum + (Number(loan.scored_amount) || 0),
+      0
+    );
+
+    const disbursedAmountThisMonth = disbursedLoansThisMonth.reduce(
+      (sum, loan) => sum + (Number(loan.scored_amount) || 0),
+      0
+    );
+
+    console.log(
+      "▶ FIXED Disbursement Metrics:",
+      {
+        today: disbursedLoansToday.length,
+        month: disbursedLoansThisMonth.length,
+        amountToday: disbursedAmountToday,
+        amountMonth: disbursedAmountThisMonth,
+      }
+    );
+
+    return {
+      disbursedLoansToday: disbursedLoansToday.length,
+      disbursedLoansThisMonth: disbursedLoansThisMonth.length,
+      disbursedAmountToday,
+      disbursedAmountThisMonth,
+    };
+  } catch (err) {
+    console.error("Error computing disbursed loan metrics:", err);
+    return {
+      disbursedLoansToday: 0,
+      disbursedLoansThisMonth: 0,
+      disbursedAmountToday: 0,
+      disbursedAmountThisMonth: 0,
+    };
   }
 };
 
-const fetchOutstandingArrears = async (loanIds) => {
-  return await fetchTotalArrears(loanIds);
-};
 
 
 
  const calculateDashboardMetrics = async (
-  loansData,
-  customersData,
-  profile
-) => {
-  const { role, branchId, regionId, id } = profile;
+    loansData,
+    customersData,
+    profile
+  ) => {
+    const { role, branchId, regionId, id } = profile;
 
-  let filteredLoans = loansData;
-  let filteredCustomers = customersData;
+    let filteredLoans = loansData;
+    let filteredCustomers = customersData;
 
-  //  Filter data for relationship_officer
-  if (role === "relationship_officer") {
-    filteredCustomers = customersData.filter(
-      (customer) => customer.created_by === id
-    );
-    const customerIds = filteredCustomers.map((c) => c.id);
-    filteredLoans = loansData.filter(
-      (loan) => loan.booked_by === id || customerIds.includes(loan.customer_id)
-    );
-  } else if (role === "branch_manager") {
-    filteredLoans = loansData.filter((loan) => loan.branch_id === branchId);
-    filteredCustomers = customersData.filter(
-      (customer) => customer.branch_id === branchId
-    );
-
-    if (selectedRO !== "all") {
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.created_by === selectedRO
+    if (role === "relationship_officer") {
+      filteredCustomers = customersData.filter(
+        (customer) => customer.created_by === id
       );
       const customerIds = filteredCustomers.map((c) => c.id);
-      filteredLoans = filteredLoans.filter(
-        (loan) =>
-          loan.booked_by === selectedRO ||
-          customerIds.includes(loan.customer_id)
+      filteredLoans = loansData.filter(
+        (loan) => loan.booked_by === id || customerIds.includes(loan.customer_id)
       );
+    } else if (role === "branch_manager") {
+      filteredLoans = loansData.filter((loan) => loan.branch_id === branchId);
+      filteredCustomers = customersData.filter(
+        (customer) => customer.branch_id === branchId
+      );
+
+      if (selectedRO !== "all") {
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.created_by === selectedRO
+        );
+        const customerIds = filteredCustomers.map((c) => c.id);
+        filteredLoans = filteredLoans.filter(
+          (loan) =>
+            loan.booked_by === selectedRO ||
+            customerIds.includes(loan.customer_id)
+        );
+      }
+    } else if (role === "regional_manager") {
+      filteredLoans = loansData.filter((loan) => loan.region_id === regionId);
+      filteredCustomers = customersData.filter(
+        (customer) => customer.region_id === regionId
+      );
+
+      if (selectedBranch !== "all") {
+        filteredLoans = filteredLoans.filter(
+          (loan) => loan.branch_id === selectedBranch
+        );
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.branch_id === selectedBranch
+        );
+      }
+
+      if (selectedRO !== "all") {
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.created_by === selectedRO
+        );
+        const customerIds = filteredCustomers.map((c) => c.id);
+        filteredLoans = filteredLoans.filter(
+          (loan) =>
+            loan.booked_by === selectedRO ||
+            customerIds.includes(loan.customer_id)
+        );
+      }
+    } else if (
+      role === "credit_analyst_officer" ||
+      role === "customer_service_officer"
+    ) {
+      if (selectedRegion !== "all") {
+        filteredLoans = filteredLoans.filter(
+          (loan) => loan.region_id === selectedRegion
+        );
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.region_id === selectedRegion
+        );
+      }
+
+      if (selectedBranch !== "all") {
+        filteredLoans = filteredLoans.filter(
+          (loan) => loan.branch_id === selectedBranch
+        );
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.branch_id === selectedBranch
+        );
+      }
+
+      if (selectedRO !== "all") {
+        filteredCustomers = filteredCustomers.filter(
+          (customer) => customer.created_by === selectedRO
+        );
+        const customerIds = filteredCustomers.map((c) => c.id);
+        filteredLoans = filteredLoans.filter(
+          (loan) =>
+            loan.booked_by === selectedRO ||
+            customerIds.includes(loan.customer_id)
+        );
+      }
     }
-  } else if (role === "regional_manager") {
-    filteredLoans = loansData.filter((loan) => loan.region_id === regionId);
-    filteredCustomers = customersData.filter(
-      (customer) => customer.region_id === regionId
+
+    const disbursedLoans = filteredLoans.filter(
+      (loan) => loan.status === "disbursed"
     );
 
-    if (selectedBranch !== "all") {
-      filteredLoans = filteredLoans.filter(
-        (loan) => loan.branch_id === selectedBranch
-      );
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.branch_id === selectedBranch
-      );
-    }
-
-    if (selectedRO !== "all") {
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.created_by === selectedRO
-      );
-      const customerIds = filteredCustomers.map((c) => c.id);
-      filteredLoans = filteredLoans.filter(
-        (loan) =>
-          loan.booked_by === selectedRO ||
-          customerIds.includes(loan.customer_id)
-      );
-    }
-  } else if (
-    role === "credit_analyst_officer" ||
-    role === "customer_service_officer"
-  ) {
-    if (selectedRegion !== "all") {
-      filteredLoans = filteredLoans.filter(
-        (loan) => loan.region_id === selectedRegion
-      );
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.region_id === selectedRegion
-      );
-    }
-
-    if (selectedBranch !== "all") {
-      filteredLoans = filteredLoans.filter(
-        (loan) => loan.branch_id === selectedBranch
-      );
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.branch_id === selectedBranch
-      );
-    }
-
-    if (selectedRO !== "all") {
-      filteredCustomers = filteredCustomers.filter(
-        (customer) => customer.created_by === selectedRO
-      );
-      const customerIds = filteredCustomers.map((c) => c.id);
-      filteredLoans = filteredLoans.filter(
-        (loan) =>
-          loan.booked_by === selectedRO ||
-          customerIds.includes(loan.customer_id)
-      );
-    }
-  }
-
-  //  Only consider disbursed loans for calculations
-  const disbursedLoans = filteredLoans.filter(
-    (loan) => loan.status === "disbursed"
-  );
-
-  // Outstanding loans must be disbursed and not completed
-  const outstandingLoans = disbursedLoans.filter(
-    (loan) => loan.repayment_state !== "completed"
-  );
-
-  //  Get performing loans (only from disbursed loans)
-  const performingLoans = await fetchPerformingLoans(filteredLoans);
-
-  // Calculate amounts based on disbursed loans only
-  const loanIds = disbursedLoans.map((loan) => loan.id);
-  const totalPaidAmount = await fetchTotalPaidAmount(loanIds);
-  const prepaymentData = await fetchPrepaymentData(loanIds);
-  const todaysCollection = await fetchTodaysCollection(loanIds);
-const monthlyCollection = await fetchMonthlyCollection(loanIds);
-
-  // Total loan amount should be based on disbursed loans
-  const totalLoanAmount = disbursedLoans.reduce(
-    (sum, loan) => sum + (loan.total_payable || loan.scored_amount || 0),
-    0
-  );
-
-  const outstandingBalance = totalLoanAmount - totalPaidAmount;
-
-  // Performing loan calculations
-  const performingLoanIds = performingLoans.map((loan) => loan.id);
-  const performingLoanTotalPayable = performingLoans.reduce(
-    (sum, loan) => sum + (loan.total_payable || loan.scored_amount || 0),
-    0
-  );
-  const performingLoansPaid = await fetchPerformingLoansPaidAmount(
-    performingLoanIds
-  );
-  const performingLoanBalance =
-    performingLoanTotalPayable - performingLoansPaid;
-
-
-      //  NEW: Calculate arrears correctly from installments
-  const monthToDateArrears = await fetchMonthToDateArrears(loanIds);
-  const totalArrears = await fetchTotalArrears(loanIds);
-  const outstandingArrears = await fetchOutstandingArrears(loanIds);
-  const par = calculatePAR(totalArrears, outstandingBalance);
-
-  // Active customers calculation
-  const activeCustomerIds = new Set();
-  disbursedLoans.forEach((loan) => {
-    if (loan.repayment_state?.toLowerCase() !== "completed") {
-      activeCustomerIds.add(loan.customer_id);
-    }
-  });
-
-  const activeCustomers = activeCustomerIds.size;
-  const inactiveCustomers = filteredCustomers.length - activeCustomers;
-
-  const today = new Date().toISOString().split("T")[0];
-  const newCustomersToday = filteredCustomers.filter(
-    (c) => c.created_at && c.created_at.split("T")[0] === today
-  ).length;
-
-  const leadConversionRate = await fetchLeadsConversionRate(
-    regionId,
-    branchId,
-    role,
-    profile?.id,
-    selectedRegion,
-    selectedBranch,
-    selectedRO
-  );
-
-  const disbursedLoansAmount = disbursedLoans.reduce(
-    (sum, loan) => sum + (loan.scored_amount || 0),
-    0
-  );
-
-
-
-  const cleanBookAmount = performingLoanTotalPayable - performingLoansPaid;
-  const cleanBookPercentage =
-    outstandingBalance > 0
-      ? Math.round((cleanBookAmount / outstandingBalance) * 100)
-      : 0;
-
-  const now = new Date();
-
-
-  const disbursedLoansToday = disbursedLoans.filter(
-    (loan) =>
-      loan.disbursed_date && loan.disbursed_date.split("T")[0] === today
-  ).length;
-
-  const disbursedLoansThisMonth = disbursedLoans.filter((loan) => {
-    const loanDate = new Date(loan.disbursed_date || loan.created_at);
-    return (
-      loanDate.getMonth() === now.getMonth() &&
-      loanDate.getFullYear() === now.getFullYear()
+    const outstandingLoans = disbursedLoans.filter(
+      (loan) => loan.repayment_state !== "completed"
     );
-  }).length;
 
-  const pendingCustomerApprovals = filteredCustomers.filter((c) =>
-    ["pending", "bm_review", "ca_review", "cso_review"].includes(c.status)
-  ).length;
+    const performingLoans = await fetchPerformingLoans(filteredLoans);
 
-  const pendingBMLoanApprovals = filteredLoans.filter(
-    (l) => l.status === "bm_review"
-  ).length;
-  const pendingRMLoanApprovals = filteredLoans.filter(
-    (l) => l.status === "rm_review"
-  ).length;
-  const pendingDisbursement = filteredLoans.filter(
-    (l) => l.status === "approved" && !l.disbursed_date
-  ).length;
+    const loanIds = disbursedLoans.map((loan) => loan.id);
+    const totalPaidAmount = await fetchTotalPaidAmount(loanIds);
+    const prepaymentData = await fetchPrepaymentData(loanIds);
+    const todaysCollection = await fetchTodaysCollection(loanIds);
+    const monthlyCollection = await fetchMonthlyCollection(loanIds);
+    const disbursedLoansData = await fetchDisbursedLoansData(filteredLoans);
 
-  return {
-    totalLoanAmount,
-    totalLoanCount: disbursedLoans.length, 
-    outstandingBalance,
-    outstandingLoansCount: outstandingLoans.length,
-    performingLoanBalance,
-    performingLoanAmount: performingLoanTotalPayable,
-    performingLoansCount: performingLoans.length,
-    totalCustomers: filteredCustomers.length,
-    cleanBookAmount,
-    cleanBookPercentage,
-    customerOverview: {
-      activeCustomers,
-      inactiveCustomers,
-      newCustomersToday,
-      leadConversionRateMonth: leadConversionRate.conversionRateMonth,
-      leadConversionRateYear: leadConversionRate.conversionRateYear,
-      totalThisMonth: leadConversionRate.totalThisMonth,
-      customersThisMonth: leadConversionRate.customersThisMonth,
-      totalThisYear: leadConversionRate.totalThisYear,
-      customersThisYear: leadConversionRate.customersThisYear,
-      leadsThisMonth: leadConversionRate.leadsThisMonth,
-      leadsToday: leadConversionRate.leadsToday,
-    },
-    loanOverview: {
-      disbursedLoansAmount,
-      disbursedLoansCount: disbursedLoans.length,
-      loansDueToday: disbursedLoans.filter((l) => l.due_date === today).length,
-    
-       outstandingArrears,           
-  monthToDateArrears,           
-  totalLoanArrears: totalArrears,
-      disbursedLoansToday,
-      disbursedLoansThisMonth,
-    },
-    collectionOverview: {
-   todayCollectionDue: todaysCollection.due,
-monthlyCollectionDue: monthlyCollection.due,
-prepaymentDue: prepaymentData.totalDueTomorrow,
+    const totalLoanAmount = disbursedLoans.reduce(
+      (sum, loan) => sum + (loan.total_payable || loan.scored_amount || 0),
+      0
+    );
 
-      tomorrowCollection: prepaymentData.prepaymentAmount,
-     todayCollectionAmount: todaysCollection.amount,
-    todayCollectionRate: todaysCollection.rate,
-    monthlyCollectionAmount: monthlyCollection.amount,
-    monthlyCollectionRate: monthlyCollection.rate,
-      prepaymentAmount: prepaymentData.prepaymentAmount,
-      
-      prepaymentRate: prepaymentData.prepaymentRate,
-     par,
-    },
-    pendingActions: {
-      pendingCustomerApprovals,
-      pendingAmends: filteredCustomers.filter((c) =>
-        c.status?.includes("amend")
-      ).length,
-      pendingLimitApprovals: 0,
-      pendingBMLoanApprovals,
-      pendingRMLoanApprovals,
-      pendingDisbursement,
-    },
+    const outstandingBalance = totalLoanAmount - totalPaidAmount;
+
+    const performingLoanIds = performingLoans.map((loan) => loan.id);
+    const performingLoanTotalPayable = performingLoans.reduce(
+      (sum, loan) => sum + (loan.total_payable || loan.scored_amount || 0),
+      0
+    );
+    const performingLoansPaid = await fetchPerformingLoansPaidAmount(
+      performingLoanIds
+    );
+    const performingLoanBalance =
+      performingLoanTotalPayable - performingLoansPaid;
+
+    const monthToDateArrears = await fetchMonthToDateArrears(loanIds);
+    const totalArrears = await fetchTotalArrears(loanIds);
+    const outstandingArrears = await fetchOutstandingArrears(loanIds);
+    const par = calculatePAR(totalArrears, outstandingBalance);
+
+    const activeCustomerIds = new Set();
+    disbursedLoans.forEach((loan) => {
+      if (loan.repayment_state?.toLowerCase() !== "completed") {
+        activeCustomerIds.add(loan.customer_id);
+      }
+    });
+
+    const activeCustomers = activeCustomerIds.size;
+    const inactiveCustomers = filteredCustomers.length - activeCustomers;
+
+    const today = getTodayDate();
+    const newCustomersToday = filteredCustomers.filter(
+      (c) => c.created_at && getLocalDateString(new Date(c.created_at)) === today
+    ).length;
+
+    const leadConversionRate = await fetchLeadsConversionRate(
+      regionId,
+      branchId,
+      role,
+      profile?.id,
+      selectedRegion,
+      selectedBranch,
+      selectedRO
+    );
+
+    const disbursedLoansAmount = disbursedLoans.reduce(
+      (sum, loan) => sum + (loan.scored_amount || 0),
+      0
+    );
+
+    const cleanBookAmount = performingLoanTotalPayable - performingLoansPaid;
+    const cleanBookPercentage =
+      outstandingBalance > 0
+        ? Math.round((cleanBookAmount / outstandingBalance) * 100)
+        : 0;
+
+    const pendingCustomerApprovals = filteredCustomers.filter((c) =>
+      ["pending", "bm_review", "ca_review", "cso_review"].includes(c.status)
+    ).length;
+
+    const pendingBMLoanApprovals = filteredLoans.filter(
+      (l) => l.status === "bm_review"
+    ).length;
+    const pendingRMLoanApprovals = filteredLoans.filter(
+      (l) => l.status === "rm_review"
+    ).length;
+    const pendingDisbursement = filteredLoans.filter(
+      (l) => l.status === "approved" && !l.disbursed_date
+    ).length;
+
+    return {
+      totalLoanAmount,
+      totalLoanCount: disbursedLoans.length,
+      outstandingBalance,
+      outstandingLoansCount: outstandingLoans.length,
+      performingLoanBalance,
+      performingLoanAmount: performingLoanTotalPayable,
+      performingLoansCount: performingLoans.length,
+      totalCustomers: filteredCustomers.length,
+      cleanBookAmount,
+      cleanBookPercentage,
+      customerOverview: {
+        activeCustomers,
+        inactiveCustomers,
+        newCustomersToday,
+        leadConversionRateMonth: leadConversionRate.conversionRateMonth,
+        leadConversionRateYear: leadConversionRate.conversionRateYear,
+        totalThisMonth: leadConversionRate.totalThisMonth,
+        customersThisMonth: leadConversionRate.customersThisMonth,
+        totalThisYear: leadConversionRate.totalThisYear,
+        customersThisYear: leadConversionRate.customersThisYear,
+        leadsThisMonth: leadConversionRate.leadsThisMonth,
+        leadsToday: leadConversionRate.leadsToday,
+      },
+      loanOverview: {
+        disbursedLoansAmount,
+        disbursedLoansCount: disbursedLoans.length,
+        loansDueToday: disbursedLoans.filter((l) => l.due_date === today).length,
+        outstandingArrears,           
+        monthToDateArrears,           
+        totalLoanArrears: totalArrears,
+        disbursedLoansToday: disbursedLoansData.disbursedLoansToday,
+        disbursedLoansThisMonth: disbursedLoansData.disbursedLoansThisMonth,
+        disbursedAmountToday: disbursedLoansData.disbursedAmountToday,
+        disbursedAmountThisMonth: disbursedLoansData.disbursedAmountThisMonth,
+      },
+      collectionOverview: {
+        todayCollectionDue: todaysCollection.due,
+        monthlyCollectionDue: monthlyCollection.due,
+        prepaymentDue: prepaymentData.totalDueTomorrow,
+        tomorrowCollection: prepaymentData.prepaymentAmount,
+        todayCollectionAmount: todaysCollection.amount,
+        todayCollectionRate: todaysCollection.rate,
+        monthlyCollectionAmount: monthlyCollection.amount,
+        monthlyCollectionRate: monthlyCollection.rate,
+        prepaymentAmount: prepaymentData.prepaymentAmount,
+        prepaymentRate: prepaymentData.prepaymentRate,
+        par,
+      },
+      pendingActions: {
+        pendingCustomerApprovals,
+        pendingAmends: filteredCustomers.filter((c) =>
+          c.status?.includes("amend")
+        ).length,
+        pendingLimitApprovals: 0,
+        pendingBMLoanApprovals,
+        pendingRMLoanApprovals,
+        pendingDisbursement,
+      },
+    };
   };
-};
 
   const fetchDashboardData = async () => {
     try {
@@ -1165,7 +1192,6 @@ prepaymentDue: prepaymentData.totalDueTomorrow,
 
       const { role, regionId, branchId, id } = profile;
 
-      //  Only load regions for analysts and CSO
       if (
         role === "credit_analyst_officer" ||
         role === "customer_service_officer"
@@ -1174,7 +1200,6 @@ prepaymentDue: prepaymentData.totalDueTomorrow,
         setAvailableRegions(regionsData);
       }
 
-      //  Only load branches if NOT relationship_officer
       let branchesData = [];
       if (role !== "relationship_officer") {
         if (role === "regional_manager") {
@@ -1185,7 +1210,6 @@ prepaymentDue: prepaymentData.totalDueTomorrow,
         setAvailableBranches(branchesData);
       }
 
-      //  Only load ROs if NOT relationship_officer
       if (role !== "relationship_officer") {
         const relationshipOfficers = await fetchRelationshipOfficers(
           "all",
@@ -1206,7 +1230,6 @@ prepaymentDue: prepaymentData.totalDueTomorrow,
 
       let loansQuery = supabase.from("loans").select("*");
 
-      //  Apply filters based on role
       if (role === "relationship_officer") {
         customersQuery = customersQuery.eq("created_by", id);
         loansQuery = loansQuery.eq("booked_by", id);
@@ -1241,6 +1264,9 @@ prepaymentDue: prepaymentData.totalDueTomorrow,
       setLoading(false);
     }
   };
+
+
+  
 
   useEffect(() => {
     fetchDashboardData();
@@ -1851,102 +1877,114 @@ const ProgressBar = ({
           </div>
         </OverviewSection>
 
-        {/* Loans Overview with Unique Background */}
-        <OverviewSection 
-          title="Loans Overview" 
-          onViewAll={handleViewLoans}
-          backgroundImage="/images/bg2.jpg"
-        >
-          <div className="space-y-3 sm:space-y-4">
-            <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:shadow-md transition-shadow">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-50 rounded-lg mr-3">
-                  {financialIcons.loan}
-                </div>
-                <span className="text-sm font-semibold text-gray-700">
-                  Disbursed Loans
-                </span>
-              </div>
-              <div className="text-right">
-                <p className="text-lg sm:text-xl font-bold text-blue-700">
-                  Ksh {dashboardMetrics.loanOverview.disbursedLoansAmount.toLocaleString()}
-                </p>
-                <p className="text-xs text-blue-600 font-medium">
-                  {dashboardMetrics.loanOverview.disbursedLoansCount.toLocaleString()} loans
-                </p>
-              </div>
-            </div>
+      {/* Loans Overview with Unique Background */}
+<OverviewSection 
+  title="Loans Overview" 
+  onViewAll={handleViewLoans}
+  backgroundImage="/images/bg2.jpg"
+>
+  <div className="space-y-3 sm:space-y-4">
+    <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl border border-blue-100 hover:shadow-md transition-shadow">
+      <div className="flex items-center">
+        <div className="p-2 bg-blue-50 rounded-lg mr-3">
+          {financialIcons.loan}
+        </div>
+        <span className="text-sm font-semibold text-gray-700">
+          Disbursed Loans
+        </span>
+      </div>
+      <div className="text-right">
+        <p className="text-lg sm:text-xl font-bold text-blue-700">
+          Ksh {dashboardMetrics.loanOverview.disbursedLoansAmount.toLocaleString()}
+        </p>
+        <p className="text-xs text-blue-600 font-medium">
+          {dashboardMetrics.loanOverview.disbursedLoansCount.toLocaleString()} loans
+        </p>
+      </div>
+    </div>
 
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-              <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
-                <span className="text-xs sm:text-sm font-semibold text-gray-700">
-                  Disbursed Today
-                </span>
-                <div className="text-right">
-                  <p className="text-lg sm:text-lg font-bold text-green-700">
-                    {dashboardMetrics.loanOverview.disbursedLoansToday}
-                  </p>
-                  <p className="text-xs text-green-600 font-medium">loans</p>
-                </div>
-              </div>
-              <div className="flex items-center justify-between p-3 sm:p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-100">
-                <span className="text-xs sm:text-sm font-semibold text-gray-700">
-                  This Month
-                </span>
-                <div className="text-right">
-                  <p className="text-lg sm:text-lg font-bold text-teal-700">
-                    {dashboardMetrics.loanOverview.disbursedLoansThisMonth}
-                  </p>
-                  <p className="text-xs text-teal-600 font-medium">loans</p>
-                </div>
-              </div>
-            </div>
+    <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      {/* Disbursed Today - Updated to show amount */}
+      <div className="flex flex-col p-3 sm:p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border border-green-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs sm:text-sm font-semibold text-gray-700">
+            Disbursed Today
+          </span>
+        </div>
+        <div className="text-right">
+          <p className="text-lg sm:text-lg font-bold text-green-700">
+            {dashboardMetrics.loanOverview.disbursedLoansToday}
+          </p>
+          <p className="text-xs text-green-600 font-medium">
+            Ksh {dashboardMetrics.loanOverview.disbursedAmountToday?.toLocaleString() || 0}
+          </p>
+        </div>
+      </div>
+      
+      {/* This Month - Updated to show amount */}
+      <div className="flex flex-col p-3 sm:p-4 bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl border border-teal-100">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs sm:text-sm font-semibold text-gray-700">
+            This Month
+          </span>
+        </div>
+        <div className="text-right">
+          <p className="text-lg sm:text-lg font-bold text-teal-700">
+            {dashboardMetrics.loanOverview.disbursedLoansThisMonth}
+          </p>
+          <p className="text-xs text-teal-600 font-medium">
+            Ksh {dashboardMetrics.loanOverview.disbursedAmountThisMonth?.toLocaleString() || 0}
+          </p>
+        </div>
+      </div>
+    </div>
 
-            <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:shadow-md transition-shadow">
-              <span className="text-sm font-semibold text-gray-700">
-                Loans Due Today
-              </span>
-              <div className="text-right">
-                <p className="text-lg sm:text-lg font-bold text-amber-700">
-                  {dashboardMetrics.loanOverview.loansDueToday.toLocaleString()}
-                </p>
-                <p className="text-xs text-amber-600 font-medium">due today</p>
-              </div>
-            </div>
+    {/* Rest of your loans overview content remains the same */}
+    <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:shadow-md transition-shadow">
+      <span className="text-sm font-semibold text-gray-700">
+        Loans Due Today
+      </span>
+      <div className="text-right">
+        <p className="text-lg sm:text-lg font-bold text-amber-700">
+          {dashboardMetrics.loanOverview.loansDueToday.toLocaleString()}
+        </p>
+        <p className="text-xs text-amber-600 font-medium">due today</p>
+      </div>
+    </div>
 
+    <div className="flex items-center justify-between p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
+      <span className="text-sm font-semibold text-red-700">
+        Month to Date Arrears
+      </span>
+      <div className="text-right">
+        <p className="text-lg font-semibold text-red-700">
+          Ksh {dashboardMetrics.loanOverview.monthToDateArrears.toLocaleString()}
+        </p>
+        <p className="text-xs text-red-600 font-medium">in arrears</p>
+      </div>
+    </div>
 
-               <div className="flex items-center justify-between p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
-              <span className="text-sm font-semibold text-red-700">
-                Month to Date Arrears
-              </span>
-              <div className="text-right">
-                <p className="text-lg font-semibold text-red-700">
-                  Ksh{" "}
-                  {dashboardMetrics.loanOverview.monthToDateArrears.toLocaleString()}
-                </p>
-                <p className="text-xs text-red-600 font-medium">in arrears</p>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
-              <span className="text-sm font-semibold text-red-700">
-                Total Arrears
-              </span>
-              <div className="text-right">
-                <p className="text-lg sm:text-lg font-semibold text-red-700">
-                  Ksh {dashboardMetrics.loanOverview.totalLoanArrears.toLocaleString()}
-                </p>
-                <p className="text-xs text-red-600 font-medium">outstanding</p>
-              </div>
-            </div>
-          </div>
-        </OverviewSection>
+    <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
+      <span className="text-sm font-semibold text-red-700">
+        Total Arrears
+      </span>
+      <div className="text-right">
+        <p className="text-lg sm:text-lg font-semibold text-red-700">
+          Ksh {dashboardMetrics.loanOverview.totalLoanArrears.toLocaleString()}
+        </p>
+        <p className="text-xs text-red-600 font-medium">outstanding</p>
+      </div>
+    </div>
+  </div>
+</OverviewSection>
       </div>
 
       {/* Bottom Grid */}
       <div className="space-y-6 sm:space-y-0 sm:grid sm:grid-cols-1 lg:grid-cols-2 sm:gap-6 mb-6 sm:mb-8">
         {/* Collections Performance with Background Image */}
   {/* Collections Performance with Background Image */}
+       
+
        
 <OverviewSection title="Collections Performance" backgroundImage="/images/bg1.jpg">
   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
