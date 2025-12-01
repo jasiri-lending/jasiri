@@ -1,6 +1,10 @@
 import { useState, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import {
+  MagnifyingGlassIcon
+  
+} from "@heroicons/react/24/outline";
 
 const Dashboard = () => {
   const [userRegion, setUserRegion] = useState(null);
@@ -8,6 +12,7 @@ const Dashboard = () => {
   const [userRole, setUserRole] = useState(null);
   const [userBranchId, setUserBranchId] = useState(null);
   const [userRegionId, setUserRegionId] = useState(null);
+   const [quickSearchTerm, setQuickSearchTerm] = useState("");
   const [userId, setUserId] = useState(null); //  Added userId state
   const [recentActivity, setRecentActivity] = useState([]);
   const navigate = useNavigate();
@@ -232,21 +237,22 @@ const getLocalDateString = (dateString) => {
   }); // returns YYYY-MM-DD
 };
 
+// Safe local YYYY-MM-DD formatter (NO UTC conversion)
+const getLocalYYYYMMDD = (d = new Date()) => {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+};
 
-// const toLocalYYYYMMDD = (input = new Date()) => {
-//   const date = new Date(input);
-//   // convert to local date by removing the timezone offset
-//   const tzOffsetMs = date.getTimezoneOffset() * 60000;
-//   const local = new Date(date.getTime() - tzOffsetMs);
-//   return local.toISOString().slice(0, 10); // "YYYY-MM-DD"
-// };
+const getTodayDate = () => getLocalYYYYMMDD(new Date());
 
-const getTodayDate = () => toLocalYYYYMMDD();
 const getTomorrowDate = () => {
   const t = new Date();
   t.setDate(t.getDate() + 1);
-  return toLocalYYYYMMDD(t);
+  return getLocalYYYYMMDD(t);
 };
+
 
 const toLocalDateObject = (ts) => {
   if (!ts) return null;
@@ -362,13 +368,9 @@ const fetchTotalPaidAmount = async (loanIds) => {
   }
 };
 
-// Safe local YYYY-MM-DD formatter (NO UTC conversion)
-const getLocalYYYYMMDD = (d) => {
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
-};
+
+
+
 
 // ---------- Today's collection ----------
 const fetchTodaysCollection = async (loanIds) => {
@@ -532,7 +534,6 @@ const fetchPrepaymentData = async (loanIds) => {
   }
 };
 
-// ---------- Leads / customers conversion and date filtering ----------
 const fetchLeadsConversionRate = async (
   regionId,
   branchId,
@@ -545,106 +546,107 @@ const fetchLeadsConversionRate = async (
   try {
     const applyFilters = (query) => {
       if (role === "branch_manager") query = query.eq("branch_id", branchId);
+
       else if (role === "regional_manager") {
         if (selectedRegion !== "all") query = query.eq("region_id", selectedRegion);
         if (selectedBranch !== "all") query = query.eq("branch_id", selectedBranch);
-      } else if (role === "relationship_officer") query = query.eq("created_by", userId);
+      }
+
+      else if (role === "relationship_officer") query = query.eq("created_by", userId);
+
       else if (["credit_analyst_officer", "customer_service_officer"].includes(role)) {
         if (selectedRegion !== "all") query = query.eq("region_id", selectedRegion);
         if (selectedBranch !== "all") query = query.eq("branch_id", selectedBranch);
         if (selectedRO !== "all") query = query.eq("created_by", selectedRO);
       }
+
       return query;
     };
 
-    // local date boundaries
+    // --- Date boundaries ---
     const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()); // local midnight
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const startOfYear = new Date(now.getFullYear(), 0, 1);
 
-    // fetch raw leads & customers
-    const { data: leads = [], error: leadsError } = await applyFilters(supabase.from("leads").select("id, created_at"));
+    // --- Fetch LEADS only ---
+    const { data: leads = [], error: leadsError } = await applyFilters(
+      supabase.from("leads").select("id, created_at")
+    );
     if (leadsError) throw leadsError;
 
-    let customersQuery = applyFilters(supabase.from("customers").select("id, created_at, form_status"));
+    // --- Fetch CUSTOMERS only ---
+    let customersQuery = applyFilters(
+      supabase.from("customers").select("id, created_at, lead_id, form_status")
+    );
+
     customersQuery = customersQuery.neq("form_status", "draft");
+
     const { data: customers = [], error: customersError } = await customersQuery;
     if (customersError) throw customersError;
 
-    const convertToLocalDate = (dateString) => {
-      if (!dateString) return null;
-      // return Date object adjusted to local midnight tone
-      return toLocalDateObject(dateString);
-    };
+    const toLocal = (x) => (x ? toLocalDateObject(x) : null);
 
-    const countSince = (items, cutoff) => items.filter(item => {
-      const d = convertToLocalDate(item.created_at);
-      return d && d >= cutoff;
-    }).length;
+    const countSince = (items, cutoff) =>
+      items.filter((i) => {
+        const d = toLocal(i.created_at);
+        return d && d >= cutoff;
+      }).length;
 
-// Leads created this month (still leads)
-const rawLeadsThisMonth = countSince(leads, startOfMonth);
-const rawLeadsToday = countSince(leads, today);
+    // 1️⃣ Raw leads (new leads)
+    const leadsToday = countSince(leads, today);
+    const leadsThisMonth = countSince(leads, startOfMonth);
+    const leadsThisYear = countSince(leads, startOfYear);
 
-// Customers that were actually converted from leads (have lead_id)
-const convertedCustomers = customers.filter(c => c.lead_id !== null);
+    // 2️⃣ Converted customers (only those linked to a lead)
+    const converted = customers.filter((c) => c.lead_id !== null);
 
-// Converted leads created this month
-const convertedLeadsThisMonth = convertedCustomers.filter(c => {
-  const d = convertToLocalDate(c.created_at);
-  return d && d >= startOfMonth;
-}).length;
+    const convertedToday = countSince(converted, today);
+    const convertedThisMonth = countSince(converted, startOfMonth);
+    const convertedThisYear = countSince(converted, startOfYear);
 
-// Converted leads created today
-const convertedLeadsToday = convertedCustomers.filter(c => {
-  const d = convertToLocalDate(c.created_at);
-  return d && d >= today;
-}).length;
+    // 3️⃣ Direct customers (walk-ins)
+    const directCustomers = customers.filter((c) => c.lead_id === null);
 
-// TOTAL leads = still-leads + converted-leads
-const leadsThisMonth = rawLeadsThisMonth + convertedLeadsThisMonth;
-const leadsToday = rawLeadsToday + convertedLeadsToday;
+    const directToday = countSince(directCustomers, today);
+    const directThisMonth = countSince(directCustomers, startOfMonth);
 
-// Only direct customers (not converted leads)
-const directCustomers = customers.filter(c => c.lead_id === null);
+    // ---- REAL METRICS ----
+    const totalLeads = leads.length;               // only leads
+    const convertedLeads = converted.length;       // only leads that became customers
 
-// Count direct customers today
-const customersToday = directCustomers.filter(c => {
-  const d = convertToLocalDate(c.created_at);
-  return d && d >= today;
-}).length;
+    const conversionRate =
+      totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
 
-// Count direct customers this month
-const customersThisMonth = directCustomers.filter(c => {
-  const d = convertToLocalDate(c.created_at);
-  return d && d >= startOfMonth;
-}).length;
+    const conversionRateMonth =
+      leadsThisMonth > 0
+        ? Math.round((convertedThisMonth / leadsThisMonth) * 100)
+        : 0;
 
-    const customersThisYear = countSince(customers, startOfYear);
-
-    const totalLeads = (leads.length || 0) + (customers.length || 0);
-    const convertedLeads = customers.length || 0;
-    const conversionRate = totalLeads > 0 ? Math.round((convertedLeads / totalLeads) * 100) : 0;
-    const totalThisMonth = leadsThisMonth + customersThisMonth;
-    const conversionRateMonth = totalThisMonth > 0 ? Math.round((customersThisMonth / totalThisMonth) * 100) : 0;
-    const conversionRateYear = (leads.length + customers.length) > 0 ? Math.round((customersThisYear / (leads.length + customers.length)) * 100) : 0;
-
-    const safe = (val) => (isNaN(val) || val === null ? 0 : Number(val));
+    const conversionRateYear =
+      leadsThisYear > 0
+        ? Math.round((convertedThisYear / leadsThisYear) * 100)
+        : 0;
 
     return {
-      totalLeads: safe(totalLeads),
-      convertedLeads: safe(convertedLeads),
-      conversionRate: safe(conversionRate),
-      conversionRateMonth: safe(conversionRateMonth),
-      conversionRateYear: safe(conversionRateYear),
-      totalThisMonth: safe(totalThisMonth),
-      customersThisMonth: safe(customersThisMonth),
-      totalThisYear: safe(leads.length + customers.length),
-      customersThisYear: safe(customersThisYear),
-      leadsThisMonth: safe(leadsThisMonth),
-      leadsToday: safe(leadsToday),
-      customersToday: safe(customersToday),
+      // Raw
+      totalLeads,
+      convertedLeads,
+
+      // Conversion %
+      conversionRate,
+      conversionRateMonth,
+      conversionRateYear,
+
+      // Daily + Monthly granular
+      leadsToday,
+      leadsThisMonth,
+      convertedToday,
+      convertedThisMonth,
+
+      // Direct customers (not counted in conversion)
+      customersToday: directToday,
+      customersThisMonth: directThisMonth,
     };
   } catch (err) {
     console.error("Error fetching leads conversion rate:", err);
@@ -654,86 +656,91 @@ const customersThisMonth = directCustomers.filter(c => {
       conversionRate: 0,
       conversionRateMonth: 0,
       conversionRateYear: 0,
-      totalThisMonth: 0,
-      customersThisMonth: 0,
-      totalThisYear: 0,
-      customersThisYear: 0,
-      leadsThisMonth: 0,
       leadsToday: 0,
+      leadsThisMonth: 0,
+      convertedToday: 0,
+      convertedThisMonth: 0,
       customersToday: 0,
+      customersThisMonth: 0,
     };
   }
 };
 
-// ---------- Performing loans helpers ----------
+
 // ---------- Performing loans helpers ----------
 const fetchPerformingLoans = async (loansData) => {
   if (!Array.isArray(loansData) || loansData.length === 0) return [];
 
   try {
-    // 1️⃣ Filter active disbursed loans
     const disbursedLoans = loansData.filter(
       (l) => l.status === "disbursed" && l.repayment_state !== "completed"
     );
+
     const loanIds = disbursedLoans.map((l) => l.id);
     if (loanIds.length === 0) return [];
 
-    // 2️⃣ Fetch installments for those loans
     const { data: installments = [], error } = await supabase
       .from("loan_installments")
-      .select(
-        "loan_id, status, days_overdue, due_amount, principal_due, interest_due, principal_paid, interest_paid"
-      )
+      .select("*")
       .in("loan_id", loanIds);
 
     if (error) throw error;
 
-    // 3️⃣ Group installments by loan
+    const today = new Date().toISOString().split("T")[0]; // yyyy-mm-dd
+
+    // Group by loan
     const grouped = installments.reduce((acc, inst) => {
       acc[inst.loan_id] = acc[inst.loan_id] || [];
       acc[inst.loan_id].push(inst);
       return acc;
     }, {});
 
-    // 4️⃣ Determine performing loans
-    const performingLoanIds = disbursedLoans
-      .filter((loan) => {
-        const insts = grouped[loan.id] || [];
+    const performingLoans = disbursedLoans.filter((loan) => {
+      const insts = grouped[loan.id] || [];
 
-        // Newly disbursed loans with no installments are considered performing
-        if (insts.length === 0) return true;
+      // Loan with no installments yet = performing
+      if (insts.length === 0) return true;
 
-        return insts.every((inst) => {
-          // Explicitly handle overdue or defaulted installments
-          if (inst.status === "overdue" || inst.status === "defaulted") return false;
+      return insts.every((inst) => {
+        const dueDate = inst.due_date;
 
-          // Check if installment is fully paid
-          if (inst.status === "paid") {
-            const principalPaid = parseFloat(inst.principal_paid) || 0;
-            const interestPaid = parseFloat(inst.interest_paid) || 0;
-            const principalDue = parseFloat(inst.principal_due) || 0;
-            const interestDue = parseFloat(inst.interest_due) || 0;
-
-            const fullyPaid = principalPaid >= principalDue && interestPaid >= interestDue;
-            return fullyPaid;
-          }
-
-          // Partially paid installments are non-performing
-          if (inst.status === "partial") return false;
-
-          // Pending installments that are not overdue are considered performing
+        // ➤ Ignore future installments
+        if (!dueDate || dueDate > today) {
           return true;
-        });
-      })
-      .map((l) => l.id);
+        }
 
-    // 5️⃣ Return only performing loans
-    return disbursedLoans.filter((l) => performingLoanIds.includes(l.id));
+        // ➤ Installments due on or before today MUST be fully paid
+        const isDue = dueDate <= today;
+
+        // Automatic non-performing conditions
+        if (inst.status === "overdue") return false;
+        if (inst.status === "defaulted") return false;
+        if (inst.days_overdue > 0) return false;
+
+        const dueAmount = parseFloat(inst.due_amount) || 0;
+        const paidAmount =
+          (parseFloat(inst.principal_paid) || 0) +
+          (parseFloat(inst.interest_paid) || 0);
+
+        // ➤ RULE:
+        // If installment is due:
+        //   It is performing only if fully paid (paidAmount >= dueAmount)
+        if (isDue) {
+          return paidAmount >= dueAmount;
+        }
+
+        // ➤ If installment is not yet due, allow partial or pending
+        return true;
+      });
+    });
+
+    return performingLoans;
   } catch (err) {
     console.error("Error fetching performing loans:", err);
     return [];
   }
 };
+
 
 
 const fetchPerformingLoansPaidAmount = async (performingLoanIds) => {
@@ -1266,7 +1273,16 @@ const todayString = toLocalYYYYMMDD(todayLocal);
   };
 
 
-  
+    // Quick search filter (separate from main search)
+  const quickSearchResults = customers.filter((c) => {
+    if (!quickSearchTerm) return false;
+    return (
+      (c.Firstname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
+      (c.Surname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
+      (c.mobile || "").toString().includes(quickSearchTerm) ||
+      (c.id_number || "").toString().includes(quickSearchTerm)
+    );
+  });
 
   useEffect(() => {
     fetchDashboardData();
@@ -1341,6 +1357,11 @@ const todayString = toLocalYYYYMMDD(todayLocal);
   const handleCustomerApprovals = () => navigate("/registry/approvals-pending");
   const handlePendingAmendments = () =>
     navigate("/registry/pending-amendments");
+
+    const handleOpen360View = (customer) => {
+    navigate(`/customer/${customer.id}/360`);
+    setQuickSearchTerm(""); // Clear search when opening
+  };
 
  
   const IconStatCard = ({
@@ -1702,72 +1723,150 @@ const ProgressBar = ({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+   <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 pt-0 px-6 pb-6">
+{/* Unified Filter + Quick Search Row */}
+<div className="flex justify-end w-full mb-6">
+  <div className="flex flex-row items-end gap-3">
+
+    {/* ONLY show filters if NOT RO */}
+    {userRole !== "relationship_officer" && (
+      <>
+        {/* Region Filter */}
+        {(userRole === "credit_analyst_officer" ||
+          userRole === "customer_service_officer") && (
+          <select
+            value={selectedRegion}
+            onChange={(e) => setSelectedRegion(e.target.value)}
+            className="bg-white border border-gray-300 rounded-xl px-4 py-2 h-9 w-60 text-sm font-medium 
+            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm"
+          >
+            <option value="all">All Regions</option>
+            {availableRegions.map((region) => (
+              <option key={region.id} value={region.id}>
+                {region.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* Branch Filter */}
+        {(userRole === "regional_manager" ||
+          userRole === "credit_analyst_officer" ||
+          userRole === "customer_service_officer") && (
+          <select
+            value={selectedBranch}
+            onChange={(e) => setSelectedBranch(e.target.value)}
+            className="bg-white border border-gray-300 rounded-xl px-4 py-2 h-9 w-60 text-sm font-medium 
+            focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm"
+          >
+            <option value="all">
+              {userRole === "regional_manager"
+                ? "All Branches in Region"
+                : "All Branches"}
+            </option>
+            {availableBranches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        )}
+
+        {/* RO Filter */}
+        <select
+          value={selectedRO}
+          onChange={(e) => setSelectedRO(e.target.value)}
+          className="bg-white border border-gray-300 rounded-xl px-4 py-2 h-9 w-60 text-sm font-medium
+          focus:ring-2 focus:ring-primary-500 focus:border-primary-500 shadow-sm
+          disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={
+            (userRole === "regional_manager" && selectedBranch === "all") ||
+            (userRole === "credit_analyst_officer" && selectedBranch === "all") ||
+            (userRole === "customer_service_officer" && selectedBranch === "all")
+          }
+        >
+          {availableROs.map((ro) => (
+            <option key={ro.id} value={ro.id}>
+              {ro.full_name}
+            </option>
+          ))}
+        </select>
+      </>
+    )}
+
+    {/* Quick Search (Always visible for ALL roles) */}
+    <div className="relative w-60">
     
-     {userRole !== "relationship_officer" && (
-  <div className="flex justify-end w-full mb-4">
-    <div className="flex flex-col sm:flex-row items-end gap-3">
-      {/* Region Filter */}
-      {(userRole === "credit_analyst_officer" ||
-        userRole === "customer_service_officer") && (
-        <select
-          value={selectedRegion}
-          onChange={(e) => setSelectedRegion(e.target.value)}
-          className="bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-200 cursor-pointer hover:border-primary-300 shadow-sm"
-        >
-          <option value="all">All Regions</option>
-          {availableRegions.map((region) => (
-            <option key={region.id} value={region.id}>
-              {region.name}
-            </option>
+
+
+      <input
+        type="text"
+        placeholder="Quick search 360°  View
+..."
+        className="pl-9 pr-3 py-2 h-9 bg-white border border-gray-300 rounded-xl w-full 
+        text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
+        value={quickSearchTerm}
+        onChange={(e) => setQuickSearchTerm(e.target.value)}
+      />
+
+      {/* Search Results Dropdown */}
+      {quickSearchTerm && quickSearchResults.length > 0 && (
+        <div className="absolute right-0 z-50 mt-1 w-full bg-white border border-gray-300 
+        rounded-lg shadow-xl max-h-96 overflow-y-auto">
+          {quickSearchResults.slice(0, 10).map((customer) => (
+            <div
+              key={customer.id}
+              onClick={() => handleOpen360View(customer)}
+              className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+            >
+              <div className="flex justify-between items-start">
+                <div>
+                  <p className="font-medium text-gray-900">
+                    {customer.Firstname} {customer.Surname}
+                  </p>
+                  <p className="text-sm text-gray-600">{customer.mobile}</p>
+                  <p className="text-xs text-gray-500">ID: {customer.id_number}</p>
+                </div>
+
+                <div className="text-right">
+                  <p className="text-sm font-medium text-indigo-600">
+                    {customer.prequalifiedAmount
+                      ? `KES ${customer.prequalifiedAmount.toLocaleString()}`
+                      : "N/A"}
+                  </p>
+
+                  <span
+                    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                      customer.status === "verified"
+                        ? "bg-green-100 text-green-800"
+                        : customer.status === "bm_review"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : customer.status === "rejected"
+                        ? "bg-red-100 text-red-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {customer.status || "N/A"}
+                  </span>
+                </div>
+              </div>
+            </div>
           ))}
-        </select>
+        </div>
       )}
 
-      {/* Branch Filter */}
-      {(userRole === "regional_manager" ||
-        userRole === "credit_analyst_officer" ||
-        userRole === "customer_service_officer") && (
-        <select
-          value={selectedBranch}
-          onChange={(e) => setSelectedBranch(e.target.value)}
-          className="bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-200 cursor-pointer hover:border-primary-300 shadow-sm"
-        >
-          <option value="all">
-            {userRole === "regional_manager"
-              ? "All Branches in Region"
-              : "All Branches"}
-          </option>
-          {availableBranches.map((branch) => (
-            <option key={branch.id} value={branch.id}>
-              {branch.name}
-            </option>
-          ))}
-        </select>
+      {quickSearchTerm && quickSearchResults.length === 0 && (
+        <div className="absolute right-0 z-50 mt-1 w-full bg-white border border-gray-300 
+        rounded-lg shadow-xl p-3 text-center text-sm text-gray-500">
+          No customers found
+        </div>
       )}
 
-      {/* RO Filter */}
-      <select
-        value={selectedRO}
-        onChange={(e) => setSelectedRO(e.target.value)}
-        className="bg-white border border-gray-300 rounded-xl px-4 py-2 text-sm font-medium focus:ring-2 focus:ring-primary-500 focus:border-primary-500 transition duration-200 cursor-pointer hover:border-primary-300 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
-        disabled={
-          (userRole === "regional_manager" && selectedBranch === "all") ||
-          (userRole === "credit_analyst_officer" &&
-            selectedBranch === "all") ||
-          (userRole === "customer_service_officer" &&
-            selectedBranch === "all")
-        }
-      >
-        {availableROs.map((ro) => (
-          <option key={ro.id} value={ro.id}>
-            {ro.full_name}
-          </option>
-        ))}
-      </select>
     </div>
   </div>
-)}
+</div>
+
+
 
 
 

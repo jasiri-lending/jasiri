@@ -13,7 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 
-const ApprovalPending = () => {
+const  HQPending = () => {
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -26,8 +26,8 @@ const ApprovalPending = () => {
 
   const navigate = useNavigate(); 
 
-  // Check if user can approve based on role
-  const canApprove = userRole === 'branch_manager' || userRole === 'credit_analyst_officer';
+  // Check if user is branch manager
+  const isBranchManager = userRole === 'branch_manager';
 
   // Fetch pending customers with related data
   const fetchPendingCustomers = async () => {
@@ -52,22 +52,13 @@ const ApprovalPending = () => {
             full_name
           )
         `)
+        .eq("status", "bm_review")
         .neq("form_status", "draft")
         .order("created_at", { ascending: false });
 
-      // Set status filter based on role
-      if (userRole === 'branch_manager') {
-        query = query.eq("status", "bm_review");
-        // BM can only see customers from their branch
-        if (userBranchId) {
-          query = query.eq("branch_id", userBranchId);
-        }
-      } else if (userRole === 'credit_analyst_officer') {
-        query = query.eq("status", "ca_review");
-        // CA can see all customers with ca_review status (no branch restriction)
-      } else {
-        // For other roles, show all customers awaiting any approval
-        query = query.in("status", ["bm_review", "ca_review"]);
+      // BM can only see customers from their branch
+      if (userRole === 'branch_manager' && userBranchId) {
+        query = query.eq("branch_id", userBranchId);
       }
 
       const { data, error } = await query;
@@ -113,8 +104,8 @@ const ApprovalPending = () => {
   }, [searchTerm, customers]);
 
   // Updated handlers to use navigation
-  const handleApprove = (customer) => {
-    navigate(`/customer/${customer}/verify`);
+  const handleVerify = (customerId) => {
+    navigate(`/customer/${customerId}/verify`);
   };
 
   const handleView = (customer) => {
@@ -162,7 +153,7 @@ const ApprovalPending = () => {
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-2">
-          <h1 className="text-slate-600 text-xs">Approval Pending</h1>
+          <h1 className="text-slate-600 text-xs">Pending BM Review</h1>
         </div>
 
         {/* Table with integrated search */}
@@ -213,7 +204,7 @@ const ApprovalPending = () => {
                     <td colSpan="8" className="px-6 py-16">
                       <div className="text-center">
                         <ClockIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending approvals</h3>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">No pending reviews</h3>
                         <p className="text-gray-500 text-sm">
                           {searchTerm
                             ? "No customers match your search criteria."
@@ -278,14 +269,14 @@ const ApprovalPending = () => {
                             <EyeIcon className="w-4 h-4 mr-1" />
                             View
                           </button>
-                          {canApprove && (
+                          {isBranchManager && (
                             <button
-                              onClick={() => handleApprove(customer.id)}
+                              onClick={() => handleVerify(customer.id)}
                               className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-green-700 bg-green-100 rounded-full hover:bg-green-200 transition-all"
-                              title="Approve Customer"
+                              title="Verify Customer"
                             >
                               <CheckIcon className="w-4 h-4 mr-1" />
-                              Approve
+                              Verify
                             </button>
                           )}
                         </div>
@@ -302,4 +293,4 @@ const ApprovalPending = () => {
   );
 };
 
-export default ApprovalPending;
+export default HQPending;

@@ -13,6 +13,7 @@
     "@heroicons/react": "^2.2.0",
     "@supabase/supabase-js": "^2.57.2",
     "axios": "^1.12.2",
+    "browser-image-compression": "^2.0.2",
     "docx": "^9.5.1",
     "file-saver": "^2.0.5",
     "jspdf": "^3.0.3",

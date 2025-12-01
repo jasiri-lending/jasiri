@@ -25,7 +25,6 @@ const ApproveLoan = ({ loan, onComplete }) => {
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [comment, setComment] = useState('');
-  const [loading, setLoading] = useState(false);
   const [bookedByUser, setBookedByUser] = useState(null);
   const [repaymentSchedule, setRepaymentSchedule] = useState([]);
   const [bmDecision, setBmDecision] = useState(null);
@@ -34,6 +33,51 @@ const ApproveLoan = ({ loan, onComplete }) => {
     registration_fee_paid: false,
     processing_fee_paid: false,
   });
+const [loadingApprove, setLoadingApprove] = useState(false);
+const [loadingReject, setLoadingReject] = useState(false);
+
+const handleApprovalDecision = async (approved) => {
+  if (!comment.trim()) {
+    toast.error("Please provide a comment for your decision");
+    return;
+  }
+
+  if (!profile?.id) {
+    toast.error("User profile ID not found. Please log in again.");
+    return;
+  }
+
+  // Only check fees for approval
+  if (approved && !areFeesFullyPaid()) {
+    toast.error(getFeePaymentMessage());
+    return;
+  }
+
+  // Set the correct loading state
+  approved ? setLoadingApprove(true) : setLoadingReject(true);
+
+  try {
+    if (isBranchManager) {
+      await approveLoanBM(loan.id, approved, comment, profile);
+    } else if (isRegionalManager) {
+      await approveLoanRM(loan.id, approved, comment, profile);
+    }
+
+    const successMessage = approved
+      ? `Loan approved & forwarded to ${getNextStage(approved)}`
+      : "Loan rejected successfully!";
+
+    toast.success(successMessage);
+    onComplete?.();
+  } catch (error) {
+    console.error("Error updating loan:", error);
+    toast.error("Error processing loan decision. Please try again.");
+  } finally {
+    // Reset the correct loading state
+    approved ? setLoadingApprove(false) : setLoadingReject(false);
+  }
+};
+
 
   // Check user roles
   const isBranchManager = profile?.role === "branch_manager";
@@ -201,45 +245,6 @@ const fetchWalletAndFeeStatus = async (loanData) => {
     if (error) {
       console.error("Supabase error while approving loan:", error);
       throw error; 
-    }
-  };
-
-  const handleApprovalDecision = async (approved) => {
-    if (!comment.trim()) {
-      toast.error("Please provide a comment for your decision");
-      return;
-    }
-
-    if (!profile?.id) {
-      toast.error("User profile ID not found. Please log in again.");
-      return;
-    }
-
-    // Check fees only for approval, not rejection
-    if (approved && !areFeesFullyPaid()) {
-      toast.error(getFeePaymentMessage());
-      return;
-    }
-
-    setLoading(true);
-    try {
-      if (isBranchManager) {
-        await approveLoanBM(loan.id, approved, comment, profile);
-      } else if (isRegionalManager) {
-        await approveLoanRM(loan.id, approved, comment, profile);
-      }
-
-      const successMessage = approved 
-        ? `Loan approved & forwarded to ${getNextStage(approved)}` 
-        : "Loan rejected successfully!";
-
-      toast.success(successMessage);
-      onComplete?.();
-    } catch (error) {
-      console.error("Error updating loan in handler:", error);
-      toast.error("Error processing loan decision. Please try again.");
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -661,13 +666,13 @@ const fetchWalletAndFeeStatus = async (loanData) => {
               />
             </div>
 
-           <div className="flex gap-3 justify-end">
+ <div className="flex gap-3 justify-end">
   <button
     onClick={() => handleApprovalDecision(false)}
-    disabled={loading || !comment.trim()}
+    disabled={loadingReject || !comment.trim()}
     className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
   >
-    {loading ? (
+    {loadingReject ? (
       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
     ) : (
       <XCircleIcon className="h-4 w-4" />
@@ -677,11 +682,11 @@ const fetchWalletAndFeeStatus = async (loanData) => {
 
   <button
     onClick={() => handleApprovalDecision(true)}
-    disabled={loading || !comment.trim() || !feesPaid}
+    disabled={loadingApprove || !comment.trim() || !feesPaid}
     className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
     title={!feesPaid ? feeMessage : ''}
   >
-    {loading ? (
+    {loadingApprove ? (
       <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
     ) : (
       <CheckCircleIcon className="h-4 w-4" />
@@ -689,6 +694,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
     {`Approve & Forward to ${getNextStage(true)}`}
   </button>
 </div>
+
 
           </div>
         </div>

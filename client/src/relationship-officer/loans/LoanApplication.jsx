@@ -147,7 +147,7 @@ function LoanApplication() {
         {/* Header */}
         <div className="p-4 flex flex-col md:flex-row justify-between items-center bg-gray-50 gap-4">
 
-          <h1 className="text-lg  text-slate-500">Loan Applications</h1>
+          <h1 className="text-sm  text-slate-500">Loan Applications</h1>
 
        
           

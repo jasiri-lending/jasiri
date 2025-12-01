@@ -53,15 +53,30 @@ const AllCustomers = () => {
     setQuickSearchTerm(""); // Clear search when opening
   };
 
-  const handleOpenPromiseToPay = (customer) => {
-    navigate(`/customer/${customer.id}/promise-to-pay`);
-    setQuickSearchTerm(""); // Clear search when opening
-  };
+ // In Customers.jsx - Replace the handleOpenPromiseToPay function
 
-  const handleOpen360View = (customer) => {
-    navigate(`/customer/${customer.id}/360`);
-    setQuickSearchTerm(""); // Clear search when opening
-  };
+const handleOpenPromiseToPay = async (customer) => {
+  // Fetch the disbursed loan for this customer
+  const { data: loan, error } = await supabase
+    .from("loans")
+    .select("id")
+    .eq("customer_id", customer.id)
+    .eq("status", "disbursed")
+    .single();
+
+  if (loan && !error) {
+    // Navigate with loan_id in the URL
+    navigate(`/customer/${customer.id}/promise-to-pay?loan_id=${loan.id}`);
+  } else {
+    alert.error("No disbursed loan found for this customer");
+  }
+  setQuickSearchTerm(""); // Clear search when opening
+};
+
+  // const handleOpen360View = (customer) => {
+  //   navigate(`/customer/${customer.id}/360`);
+  //   setQuickSearchTerm(""); // Clear search when opening
+  // };
 
   const handleViewCustomer = (customer) => {
     navigate(`/customer/${customer.id}/details`);
@@ -300,16 +315,16 @@ const AllCustomers = () => {
     return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
   });
 
-  // Quick search filter (separate from main search)
-  const quickSearchResults = customers.filter((c) => {
-    if (!quickSearchTerm) return false;
-    return (
-      (c.Firstname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
-      (c.Surname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
-      (c.mobile || "").toString().includes(quickSearchTerm) ||
-      (c.id_number || "").toString().includes(quickSearchTerm)
-    );
-  });
+  // // Quick search filter (separate from main search)
+  // const quickSearchResults = customers.filter((c) => {
+  //   if (!quickSearchTerm) return false;
+  //   return (
+  //     (c.Firstname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
+  //     (c.Surname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
+  //     (c.mobile || "").toString().includes(quickSearchTerm) ||
+  //     (c.id_number || "").toString().includes(quickSearchTerm)
+  //   );
+  // });
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -362,22 +377,22 @@ const AllCustomers = () => {
   // Get unique statuses from customers
   const uniqueStatuses = [...new Set(customers.map((c) => c.verification_status).filter(Boolean))];
 
-  // Get role-specific display text
-  const getRoleSpecificText = () => {
-    switch (profile?.role) {
-      case 'credit_analyst_officer':
-      case 'customer_service_officer':
-        return "all customers across all regions";
-      case 'regional_manager':
-        return "customers in your region";
-      case 'branch_manager':
-        return "customers in your branch";
-      case 'relationship_officer':
-        return "customers you created";
-      default:
-        return "customers";
-    }
-  };
+  // // Get role-specific display text
+  // const getRoleSpecificText = () => {
+  //   switch (profile?.role) {
+  //     case 'credit_analyst_officer':
+  //     case 'customer_service_officer':
+  //       return "all customers across all regions";
+  //     case 'regional_manager':
+  //       return "customers in your region";
+  //     case 'branch_manager':
+  //       return "customers in your branch";
+  //     case 'relationship_officer':
+  //       return "customers you created";
+  //     default:
+  //       return "customers";
+  //   }
+  // };
 
   if (!profile || loading) {
     return (
@@ -409,79 +424,8 @@ const AllCustomers = () => {
   return (
     <div className="p-2  bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300">
       {/* Page Header with 360 View Search */}
-      <div className="flex justify-end mb-2">
-        <div className="relative w-72">
-          <label className="block text-xs font-medium text-gray-700 mb-1 text-right">
-            360° Customer View
-          </label>
-          <div className="relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-            </div>
-            <input
-              type="text"
-              placeholder="Quick search..."
-              className="pl-9 pr-3 py-1.5 border border-gray-300 rounded-md w-full text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm"
-              value={quickSearchTerm}
-              onChange={(e) => setQuickSearchTerm(e.target.value)}
-            />
-          </div>
-
-          {/* Quick Search Results Dropdown */}
-          {quickSearchTerm && quickSearchResults.length > 0 && (
-            <div className="absolute right-0 z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-xl max-h-96 overflow-y-auto">
-              {quickSearchResults.slice(0, 10).map((customer) => (
-                <div
-                  key={customer.id}
-                  onClick={() => handleOpen360View(customer)}
-                  className="p-3 hover:bg-indigo-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition"
-                >
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <p className="font-medium text-gray-900">
-                        {customer.Firstname} {customer.Surname}
-                      </p>
-                      <p className="text-sm text-gray-600">{customer.mobile}</p>
-                      <p className="text-xs text-gray-500">ID: {customer.id_number}</p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm font-medium text-indigo-600">
-                        {customer.prequalifiedAmount
-                          ? `KES ${customer.prequalifiedAmount.toLocaleString()}`
-                          : "N/A"}
-                      </p>
-                      <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
-                          customer.status === "verified"
-                            ? "bg-green-100 text-green-800"
-                            : customer.status === "bm_review"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : customer.status === "rejected"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
-                      >
-                        {customer.status || "N/A"}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {quickSearchResults.length > 10 && (
-                <div className="p-2 text-center text-xs text-gray-500 bg-gray-50 border-t">
-                  Showing 10 of {quickSearchResults.length} results
-                </div>
-              )}
-            </div>
-          )}
-
-          {quickSearchTerm && quickSearchResults.length === 0 && (
-            <div className="absolute right-0 z-50 mt-1 w-full bg-white border border-gray-300 rounded-lg shadow-xl p-3 text-center text-sm text-gray-500">
-              No customers found
-            </div>
-          )}
-        </div>
-      </div>
+      
+     
 
       {/* Filters and Search */}
       <div className="bg-white p-4 rounded-lg shadow mb-6">
@@ -685,18 +629,6 @@ const AllCustomers = () => {
         </div>
       </div>
 
-      {/* Results Summary */}
-      {customers.length > 0 && (
-        <div className="mb-4 flex justify-between items-center">
-          <p className="text-sm text-gray-600">
-            Showing {startIndex + 1} to {Math.min(endIndex, filteredCustomers.length)} of {filteredCustomers.length} customers
-            {(searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus) && " (filtered)"}
-          </p>
-          <p className="text-sm font-medium text-gray-900">
-            Total Records: <span className="text-indigo-600">{customers.length}</span>
-          </p>
-        </div>
-      )}
 
       {/* Customers Table */}
       <div className=" bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50  border-r border-gray-200 transition-all duration-300 shadow rounded-lg overflow-hidden">
@@ -846,34 +778,7 @@ const AllCustomers = () => {
           </table>
         </div>
 
-        {filteredCustomers.length === 0 && (
-          <div className="text-center py-12 text-gray-400">
-            <div className="flex flex-col items-center">
-              <svg
-                className="h-12 w-12 text-gray-300 mb-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={1}
-                  d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197m13.5-9a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"
-                />
-              </svg>
-              <p className="text-lg font-medium text-gray-500">
-                {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus
-                  ? "No customers found matching your filters."
-                  : "No customers found."}
-              </p>
-              {(searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
-                <p className="mt-1 text-sm text-gray-400">Try adjusting your search terms or filters.</p>
-              )}
-            </div>
-          </div>
-        )}
-
+   
         {/* Pagination Controls */}
         {filteredCustomers.length > 0 && (
           <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
@@ -896,9 +801,9 @@ const AllCustomers = () => {
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
                 <p className="text-sm text-gray-700">
-                  Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
+                  {/* Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
                   <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of{" "}
-                  <span className="font-medium">{filteredCustomers.length}</span> results
+                  <span className="font-medium">{filteredCustomers.length}</span> results */}
                 </p>
               </div>
               <div>
@@ -973,19 +878,7 @@ const AllCustomers = () => {
         )}
       </div>
 
-      {/* Total Records Footer */}
-      <div className="mt-4 bg-white shadow rounded-lg p-4">
-        <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            <span className="font-medium text-gray-900">{customers.length}</span> {getRoleSpecificText()}
-          </div>
-          {filteredCustomers.length !== customers.length && (
-            <div className="text-sm text-gray-600">
-              <span className="font-medium text-gray-900">{filteredCustomers.length}</span> matching current filters
-            </div>
-          )}
-        </div>
-      </div>
+    
     </div>
   );
 };

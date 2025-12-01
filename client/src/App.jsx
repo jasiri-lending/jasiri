@@ -117,6 +117,9 @@ import NewJournalEntry from "./pages/accounting/NewJournalEntry.jsx";
 import ViewJournal from "./pages/accounting/ViewJournal.jsx";
 import NewAccount from "./pages/accounting/NewAccount.jsx";
 import EditAccount from "./pages/accounting/EditAccount.jsx";
+import PendingBM from "./pages/registry/PendingBM.jsx";
+import HQPending from "./pages/registry/HQPending.jsx";
+import CustomerTransferForm from "./pages/registry/CustomerTransferForm.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -336,6 +339,23 @@ const { user, profile } = useAuth();
                       </ProtectedRoute>
                     }
                   />
+                         <Route
+                    path="/registry/hq-pending"
+                    element={
+                      <ProtectedRoute>
+                        <HQPending userRole={role} />
+                      </ProtectedRoute>
+                    }
+                  />
+        <Route
+                    path="/transfer"
+                    element={
+                      <ProtectedRoute>
+                        <CustomerTransferForm userRole={role} />
+                      </ProtectedRoute>
+                    }
+                  />
+
                   <Route
                     path="/registry/approvals-pending"
                     element={
@@ -344,6 +364,17 @@ const { user, profile } = useAuth();
                       </ProtectedRoute>
                     }
                   />
+
+   <Route
+                    path="/registry/bm-pending"
+                    element={
+                      <ProtectedRoute>
+                        <PendingBM userRole={role} />
+                      </ProtectedRoute>
+                    }
+                  />
+
+
                   <Route
                     path="/registry/customer-transfer"
                     element={

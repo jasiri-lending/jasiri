@@ -192,7 +192,7 @@ const Customer360View = () => {
         {getInitials()}
       </div>
     )}
-    <h2 className="text-xl font-bold text-slate-600 mt-3 text-center">
+    <h2 className="text-sm  text-slate-600 mt-3 text-center">
       {customer.prefix} {customer.Firstname} {customer.Surname}
     </h2>
 
@@ -252,14 +252,14 @@ const Customer360View = () => {
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <WalletIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Wallet Balance</p>
-                  <p className="text-xl font-bold text-slate-700">{formatCurrency(walletBalance)}</p>
+                  <p className="text-xl  text-slate-700">{formatCurrency(walletBalance)}</p>
                 </div>
 
                 {/* Principal Amount */}
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <CreditCardIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Principal Amount</p>
-                  <p className="text-xl font-bold text-slate-700">
+                  <p className="text-xl  text-slate-700">
                     {loanDetails ? formatCurrency(loanDetails.scored_amount) : "KES 0.00"}
                   </p>
                 </div>
@@ -268,7 +268,7 @@ const Customer360View = () => {
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <ChartBarIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Interest</p>
-                  <p className="text-xl font-bold text-slate-700">
+                  <p className="text-xl  text-slate-700">
                     {loanDetails ? formatCurrency(loanDetails.total_interest) : "KES 0.00"}
                   </p>
                 </div>
@@ -277,7 +277,7 @@ const Customer360View = () => {
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <DocumentTextIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Total Payable</p>
-                  <p className="text-xl font-bold text-slate-700">
+                  <p className="text-xl  text-slate-700">
                     {loanDetails ? formatCurrency(loanDetails.total_payable) : "KES 0.00"}
                   </p>
                 </div>
@@ -286,7 +286,7 @@ const Customer360View = () => {
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <CheckCircleIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Total Paid</p>
-                  <p className="text-xl font-bold text-slate-700">
+                  <p className="text-xl  text-slate-700">
                     {formatCurrency(totalPaidAmount)}
                   </p>
                 </div>
@@ -295,7 +295,7 @@ const Customer360View = () => {
                 <div className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-4 text-center">
                   <ExclamationCircleIcon className="h-8 w-8 text-slate-900 mx-auto mb-2" />
                   <p className="text-xs text-slate-800 uppercase tracking-wider mb-1">Outstanding Balance</p>
-                  <p className="text-xl font-bold text-slate-700">
+                  <p className="text-xl  text-slate-700">
                     {formatCurrency(outstandingBalance)}
                   </p>
                 </div>
@@ -305,10 +305,9 @@ const Customer360View = () => {
         </div>
       </div>
 
-      {/* Rest of the overview content remains the same */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <h3 className="text-lg  text-slate-600 mb-4 flex items-center">
             <IdentificationIcon className="h-5 w-5 mr-2 text-blue-600" />
             Personal Information
           </h3>
@@ -317,7 +316,7 @@ const Customer360View = () => {
               <PhoneIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Mobile</p>
-                <p className="font-medium text-gray-900">{customer.mobile || "N/A"}</p>
+                <p className=" text-slate-600">{customer.mobile || "N/A"}</p>
               </div>
             </div>
             {customer.alternative_mobile && (
@@ -325,7 +324,7 @@ const Customer360View = () => {
                 <PhoneIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
                   <p className="text-sm text-gray-500">Alternative Mobile</p>
-                  <p className="font-medium text-gray-900">{customer.alternative_mobile}</p>
+                  <p className=" text-slate-600">{customer.alternative_mobile}</p>
                 </div>
               </div>
             )}
@@ -333,14 +332,14 @@ const Customer360View = () => {
               <IdentificationIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">ID Number</p>
-                <p className="font-medium text-gray-900">{customer.id_number || "N/A"}</p>
+                <p className=" text-slate-600">{customer.id_number || "N/A"}</p>
               </div>
             </div>
             <div className="flex items-start">
               <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Date of Birth</p>
-                <p className="font-medium text-gray-900">
+                <p className=" text-slate-600">
                   {customer.date_of_birth 
                     ? new Date(customer.date_of_birth).toLocaleDateString()
                     : "N/A"}
@@ -351,7 +350,7 @@ const Customer360View = () => {
               <UserCircleIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Gender / Marital Status</p>
-                <p className="font-medium text-gray-900">
+                <p className=" text-slate-600">
                   {customer.gender || "N/A"} / {customer.marital_status || "N/A"}
                 </p>
               </div>
@@ -360,7 +359,7 @@ const Customer360View = () => {
               <BriefcaseIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
               <div>
                 <p className="text-sm text-gray-500">Occupation</p>
-                <p className="font-medium text-gray-900">{customer.occupation || "N/A"}</p>
+                <p className=" text-slate-600">{customer.occupation || "N/A"}</p>
               </div>
             </div>
           </div>
@@ -413,32 +412,32 @@ const Customer360View = () => {
       {/* Business Information */}
       {customer.business_name && (
         <div className="bg-white border border-gray-200 rounded-lg p-5">
-          <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+          <h3 className="text-lg  text-slate-600 mb-4 flex items-center">
             <BriefcaseIcon className="h-5 w-5 mr-2 text-blue-600" />
             Business Information
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <p className="text-sm text-gray-500">Business Name</p>
-              <p className="font-medium text-gray-900">{customer.business_name}</p>
+              <p className=" text-slate-600">{customer.business_name}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Business Type</p>
-              <p className="font-medium text-gray-900">{customer.business_type || "N/A"}</p>
+              <p className=" text-slate-600">{customer.business_type || "N/A"}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Location</p>
-              <p className="font-medium text-gray-900">{customer.business_location || "N/A"}</p>
+              <p className=" text-slate-600">{customer.business_location || "N/A"}</p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Daily Sales</p>
-              <p className="font-medium text-gray-900">
+              <p className=" text-slate-600">
                 {customer.daily_Sales ? formatCurrency(customer.daily_Sales) : "N/A"}
               </p>
             </div>
             <div>
               <p className="text-sm text-gray-500">Year Established</p>
-              <p className="font-medium text-gray-900">
+              <p className=" text-slate-900">
                 {customer.year_established 
                   ? new Date(customer.year_established).getFullYear()
                   : "N/A"}
@@ -446,7 +445,7 @@ const Customer360View = () => {
             </div>
             <div>
               <p className="text-sm text-gray-500">Local Authority License</p>
-              <p className="font-medium text-gray-900">
+              <p className=" text-slate-900">
                 {customer.has_local_authority_license ? "Yes" : "No"}
               </p>
             </div>
@@ -456,18 +455,18 @@ const Customer360View = () => {
 
       {/* Account Information */}
       <div className="bg-white border border-gray-200 rounded-lg p-5">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+        <h3 className="text-lg  text-slate-600 mb-4 flex items-center">
           <BuildingLibraryIcon className="h-5 w-5 mr-2 text-blue-600" />
           Account Information
         </h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div>
             <p className="text-sm text-gray-500">Branch</p>
-            <p className="font-medium text-gray-900">{customer.branches?.name || "N/A"}</p>
+            <p className=" text-slate-900">{customer.branches?.name || "N/A"}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Customer Since</p>
-            <p className="font-medium text-gray-900">
+            <p className=" text-gray-900">
               {customer.created_at
                 ? new Date(customer.created_at).toLocaleDateString()
                 : "N/A"}
@@ -475,7 +474,7 @@ const Customer360View = () => {
           </div>
           <div>
             <p className="text-sm text-gray-500">Customer Type</p>
-            <p className="font-medium text-gray-900">
+            <p className=" text-slate-900">
               {customer.is_new_customer ? "New Customer" : "Returning Customer"}
             </p>
           </div>

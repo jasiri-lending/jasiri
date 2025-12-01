@@ -32,6 +32,7 @@ const LoanBookingForm = ({ customerData }) => {
   const [customerType, setCustomerType] = useState("Unknown");
   const [selectedProductType, setSelectedProductType] = useState("");
   const { profile } = useAuth();
+  const [errorMessage, setErrorMessage] = useState("");
 
   //  destructure customer info + latest BM/RM values from parent
   const {
@@ -55,12 +56,16 @@ const LoanBookingForm = ({ customerData }) => {
       { weeks: 4, name: "Inuka 4 Weeks" },
       { weeks: 5, name: "Inuka 5 Weeks" },
       { weeks: 6, name: "Inuka 6 Weeks" },
+        { weeks: 7, name: "Inuka 7 Weeks" },
+          { weeks: 8, name: "Inuka 8 Weeks" },
     ],
     Kuza: [
       { weeks: 4, name: "Kuza 4 Weeks" },
       { weeks: 5, name: "Kuza 5 Weeks" },
       { weeks: 6, name: "Kuza 6 Weeks" },
       { weeks: 7, name: "Kuza 7 Weeks" },
+            { weeks: 8, name: "Kuza 8 Weeks" },
+
     ],
     Fadhili: [
       { weeks: 4, name: "Fadhili 4 Weeks" },
@@ -221,24 +226,45 @@ const LoanBookingForm = ({ customerData }) => {
     }
     setRepaymentSchedule(schedule);
   };
-
-  //  enforce principal <= approved_amount
 const handlePrincipalChange = (e) => {
   const value = e.target.value;
 
-  if (value === '') {
-    setPrincipalAmount(''); // allow empty input
+  // Allow empty input
+  if (value === "") {
+    setPrincipalAmount("");
+    setCalculated({});
+    setRepaymentSchedule([]);
+    setSelectedProductType("");
+    setErrorMessage("");
     return;
   }
 
-  const num = parseFloat(value);
+  const num = Number(value);
 
-  if (num <= approved_amount) {
-    setPrincipalAmount(num);
-  } else {
-    setPrincipalAmount(approved_amount);
+  // Ignore invalid numbers
+  if (isNaN(num)) return;
+
+  // EXCEEDS LIMIT → RESET TO ZERO AND SHOW ERROR
+  if (num > approved_amount) {
+    setPrincipalAmount(0);
+    setCalculated({});
+    setRepaymentSchedule([]);
+    setSelectedProductType("");
+    setErrorMessage(`Amount exceeds approved limit of KES ${approved_amount?.toLocaleString()}. Please enter a valid amount.`);
+    
+    // Clear error after 4 seconds
+    setTimeout(() => setErrorMessage(""), 4000);
+    return;
   }
+
+  // Clear error for valid input
+  setErrorMessage("");
+  
+  // Valid input
+  setPrincipalAmount(num);
 };
+
+
 
 
   // Handle product type selection
@@ -460,40 +486,53 @@ const handleBookLoan = async () => {
                   )}
                   
                   {/* Editable Principal Amount */}
-                  <div className="space-y-2">
-                    <label className="text-gray-600 font-medium">Principal Amount:</label>
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 relative">
-                        <input
-                          type="number"
-                          value={principalAmount}
-                          onChange={handlePrincipalChange}
-                          min="1000"
-                          max={approved_amount}
-                          step="100"
-                          className={`w-full p-3 pr-12 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-bold text-lg ${
-                            isValidAmount() 
-                              ? 'border-green-300 bg-green-50 text-emerald-600' 
-                              : 'border-red-300 bg-red-50 text-red-600'
-                          }`}
-                          placeholder="Enter amount"
-                        />
-                        <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-                      </div>
-                    </div>
-                    <p className="text-xs text-gray-500">
-                      Maximum allowed: KES {approved_amount?.toLocaleString()} (Approved amount)
-                    </p>
-                    {!isValidAmount() && principalAmount > 0 && (
-                      <p className="text-xs text-red-600">
-                        {principalAmount < 1000 
-                          ? "Minimum amount is KES 1,000" 
-                          : principalAmount > approved_amount 
-                          ? "Amount exceeds approved limit" 
-                          : "Please select product type"}
-                      </p>
-                    )}
-                  </div>
+             <div className="space-y-2">
+  <label className="text-gray-600 font-medium">Principal Amount:</label>
+  <div className="flex items-center gap-2">
+    <div className="flex-1 relative">
+      <input
+        type="number"
+        value={principalAmount}
+        onChange={handlePrincipalChange}
+        min="1000"
+        max={approved_amount}
+        step="100"
+        className={`w-full p-3 pr-12 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-bold text-lg ${
+          isValidAmount() 
+            ? 'border-green-300 bg-green-50 text-emerald-600' 
+            : 'border-red-300 bg-red-50 text-red-600'
+        }`}
+        placeholder="Enter amount"
+      />
+      <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+    </div>
+  </div>
+  
+  {/* Error message for exceeding limit - SHOWS IMMEDIATELY BELOW INPUT */}
+  {errorMessage && (
+    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg animate-pulse">
+      <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+      </svg>
+      <p className="text-sm text-red-700 font-medium">{errorMessage}</p>
+    </div>
+  )}
+  
+  <p className="text-xs text-gray-500">
+    Maximum allowed: KES {approved_amount?.toLocaleString()} (Approved amount)
+  </p>
+  
+  {/* Validation messages - only show if no errorMessage */}
+  {!isValidAmount() && principalAmount > 0 && !errorMessage && (
+    <p className="text-xs text-red-600">
+      {principalAmount < 1000 
+        ? "Minimum amount is KES 1,000" 
+        : principalAmount > approved_amount 
+        ? "Amount exceeds approved limit" 
+        : "Please select product type"}
+    </p>
+  )}
+</div>
 
                   <div className="flex justify-between">
                     <span className="text-gray-600 font-medium">Duration:</span>
