@@ -56,7 +56,7 @@ import PendingAmendments from "./pages/registry/PendingAmendments";
 import ApprovalPending from "./pages/registry/ApprovalPending";
 import CustomerTransfer from "./pages/registry/CustomerTransfer";
 import CustomerCategories from "./pages/registry/CustomerCategories";
-import CustomerEdits from "./pages/registry/CustomerEdits";
+import CustomerEdits from "./pages/registry/MainEdit.jsx";
 import AllLoans from "./pages/loaning/AllLoans";
 import LoanPendingRm from "./pages/loaning/LoanPendingRm";
 import LoanPendingBm from "./pages/loaning/LoanPendingBm";
@@ -120,6 +120,8 @@ import EditAccount from "./pages/accounting/EditAccount.jsx";
 import PendingBM from "./pages/registry/PendingBM.jsx";
 import HQPending from "./pages/registry/HQPending.jsx";
 import CustomerTransferForm from "./pages/registry/CustomerTransferForm.jsx";
+import ParentCustomerEditComponent from "./pages/registry/MainEdit.jsx";
+import LoanInstallmentReport from "./pages/reports/LoanInstallmentReport.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -391,14 +393,15 @@ const { user, profile } = useAuth();
                       </ProtectedRoute>
                     }
                   />
-                  <Route
-                    path="/registry/customer-edits"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerEdits userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+             <Route
+  path="/registry/customer-edits"
+  element={
+    <ProtectedRoute>
+      <ParentCustomerEditComponent userRole={role} />
+    </ProtectedRoute>
+  }
+/>
+
                   <Route
                     path="/registry/callbacks-pending"
                     element={
@@ -651,6 +654,16 @@ const { user, profile } = useAuth();
                       </ProtectedRoute>
                     }
                   />
+
+     <Route
+                    path="/reports/installments-report"
+                    element={
+                      <ProtectedRoute>
+                        <LoanInstallmentReport userRole={role} />
+                      </ProtectedRoute>
+                    }
+                  />
+
                   <Route
                     path="/reports/all"
                     element={

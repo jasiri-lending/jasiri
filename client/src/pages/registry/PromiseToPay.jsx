@@ -19,6 +19,10 @@ const PromiseToPay = () => {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
+      const [newInteraction, setNewInteraction] = useState({
+        interaction_type: "",
+      });
+  
   
   const [formData, setFormData] = useState({
     promised_amount: "",
@@ -50,6 +54,8 @@ const PromiseToPay = () => {
         .from("promise_to_pay")
         .select(`
           id,
+                    interaction_type,
+
           promised_amount,
           promised_date,
           remarks,
@@ -156,56 +162,70 @@ const PromiseToPay = () => {
   }, [customerId, loan_id]);
 
   // Create new PTP
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!formData.promised_amount || !formData.promised_date) {
-      toast.error("Please fill in all required fields");
-      return;
-    }
+ const handleSubmit = async (e) => {
+  e.preventDefault();
 
-    if (!profile?.id) {
-      toast.error("User not authenticated");
-      return;
-    }
+  if (!formData.promised_amount || !formData.promised_date) {
+    toast.error("Please fill in all required fields");
+    return;
+  }
 
-    try {
-      setSaving(true);
+  if (!newInteraction.interaction_type) {
+    toast.error("Please select an interaction type");
+    return;
+  }
 
-      const { error } = await supabase
-        .from("promise_to_pay")
-        .insert([
-          {
-            customer_id: parseInt(customerId),
-            loan_id: parseInt(loan_id),
-            installment_id: null,
-            promised_amount: parseFloat(formData.promised_amount),
-            promised_date: formData.promised_date,
-            remarks: formData.remarks,
-            created_by: profile.id,
-            status: "pending",
-          },
-        ])
-        .select()
-        .single();
+  if (!profile?.id) {
+    toast.error("User not authenticated");
+    return;
+  }
 
-      if (error) throw error;
+  try {
+    setSaving(true);
 
-      toast.success("Promise to Pay recorded successfully!");
-      setShowForm(false);
-      setFormData({
-        promised_amount: "",
-        promised_date: "",
-        remarks: "",
-      });
-      fetchPTPs(); // Refresh list
-    } catch (err) {
-      console.error("Error creating PTP:", err);
-      toast.error("Failed to create Promise to Pay");
-    } finally {
-      setSaving(false);
-    }
-  };
+    const { error } = await supabase
+      .from("promise_to_pay")
+      .insert([
+        {
+          customer_id: parseInt(customerId),
+          loan_id: parseInt(loan_id),
+          installment_id: null,
+          promised_amount: parseFloat(formData.promised_amount),
+          promised_date: formData.promised_date,
+          remarks: formData.remarks,
+          created_by: profile.id,
+          status: "pending",
+
+          // ✅ ADD THIS
+          interaction_type: newInteraction.interaction_type,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    toast.success("Promise to Pay recorded successfully!");
+    setShowForm(false);
+
+    // Reset form
+    setFormData({
+      promised_amount: "",
+      promised_date: "",
+      remarks: "",
+    });
+    setNewInteraction({ interaction_type: "" });
+
+    fetchPTPs(); // Refresh list
+
+  } catch (err) {
+    console.error("Error creating PTP:", err);
+    toast.error("Failed to create Promise to Pay");
+  } finally {
+    setSaving(false);
+  }
+};
+
 
   // Update PTP status
   const updateStatus = async (id, newStatus) => {
@@ -378,6 +398,34 @@ const PromiseToPay = () => {
               </h4>
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+                  {/* Promised Amount */}
+<div>
+  <label className="block text-sm font-semibold text-gray-700 mb-2">
+    Interaction Type <span className="text-red-500">*</span>
+  </label>
+
+  <select
+    value={newInteraction.interaction_type}
+    onChange={(e) =>
+      setNewInteraction({
+        ...newInteraction,
+        interaction_type: e.target.value,
+      })
+    }
+    className="w-full border-2 border-gray-300 rounded-lg px-4 py-3 bg-white text-gray-700 
+               focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition"
+    required
+  >
+    <option value="">Select Type</option>
+    <option value="Call">Call</option>
+    <option value="SMS">SMS</option>
+    <option value="Meeting">Meeting</option>
+    <option value="Email">Email</option>
+    <option value="Follow-up">Follow-up</option>
+  </select>
+</div>
+
                   {/* Promised Amount */}
                   <div>
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -459,89 +507,81 @@ const PromiseToPay = () => {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-gray-200">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
-                  <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Promised Date
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Amount
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Created By
-                    </th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Remarks
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Status
-                    </th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                  {ptps.map((ptp) => (
-                    <tr key={ptp.id} className="hover:bg-gray-50 transition">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-2">
-                          <Calendar className="h-4 w-4 text-indigo-500" />
-                          <span className="text-sm font-medium text-gray-900">
-                            {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm font-bold text-gray-900">
-                          KES {ptp.promised_amount?.toLocaleString()}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-900">
-                            {ptp.users?.full_name || "Unknown"}
-                          </div>
-                          <div className="text-xs text-gray-500">
-                            {new Date(ptp.created_at).toLocaleDateString("en-GB")}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-sm text-gray-600">
-                          {ptp.remarks || "-"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {getStatusBadge(ptp.status)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        {ptp.status === "pending" ? (
-                          <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => updateStatus(ptp.id, "kept")}
-                              className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-semibold transition shadow hover:shadow-md"
-                            >
-                              Mark Kept
-                            </button>
-                            <button
-                              onClick={() => updateStatus(ptp.id, "broken")}
-                              className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-semibold transition shadow hover:shadow-md"
-                            >
-                              Mark Broken
-                            </button>
-                          </div>
-                        ) : (
-                          <span className="text-xs text-gray-500 italic">No actions</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+         <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
+  <table className="min-w-full divide-y divide-gray-200">
+    <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+      <tr>
+        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Promised Date</th>
+        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Amount</th>
+        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Created By</th>
+        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Interaction Type</th>
+        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap min-w-[300px]">Remarks</th>
+        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Status</th>
+        <th className="px-6 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Actions</th>
+      </tr>
+    </thead>
+    <tbody className="bg-white divide-y divide-gray-200">
+      {ptps.map((ptp) => (
+        <tr key={ptp.id} className="hover:bg-gray-50 transition">
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-indigo-500" />
+              <span className="text-sm font-medium text-gray-900">
+                {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
+              </span>
             </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <span className="text-sm font-bold text-gray-900">
+              KES {ptp.promised_amount?.toLocaleString()}
+            </span>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap">
+            <div>
+              <div className="text-sm font-medium text-gray-900">
+                {ptp.users?.full_name || "Unknown"}
+              </div>
+              <div className="text-xs text-gray-500">
+                {new Date(ptp.created_at).toLocaleDateString("en-GB")}
+              </div>
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+            {ptp.interaction_type || "N/A"}
+          </td>
+          <td className="px-6 py-4 max-w-md">
+            <div className="text-sm text-gray-600 line-clamp-3 overflow-hidden" title={ptp.remarks}>
+              {ptp.remarks || "-"}
+            </div>
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-center">
+            {getStatusBadge(ptp.status)}
+          </td>
+          <td className="px-6 py-4 whitespace-nowrap text-center">
+            {ptp.status === "pending" ? (
+              <div className="flex justify-center gap-2">
+                <button
+                  onClick={() => updateStatus(ptp.id, "kept")}
+                  className="px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-semibold transition shadow hover:shadow-md"
+                >
+                  Mark Kept
+                </button>
+                <button
+                  onClick={() => updateStatus(ptp.id, "broken")}
+                  className="px-3 py-1.5 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-semibold transition shadow hover:shadow-md"
+                >
+                  Mark Broken
+                </button>
+              </div>
+            ) : (
+              <span className="text-xs text-gray-500 italic">No actions</span>
+            )}
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </table>
+</div>
           )}
 
           {/* Summary Stats */}

@@ -52,7 +52,7 @@ const  HQPending = () => {
             full_name
           )
         `)
-        .eq("status", "bm_review")
+        .eq("status", "ca_review")
         .neq("form_status", "draft")
         .order("created_at", { ascending: false });
 

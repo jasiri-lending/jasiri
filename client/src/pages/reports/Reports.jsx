@@ -93,29 +93,38 @@ const Reports = () => {
       component: LoanListing,
       route: '/reports/loan-listing'
     },
+
+ {
+  id: 11,
+  name: "Installments Report",
+  description: "Detailed report showing all loan installments",
+  component: LoanListing,
+  route: '/reports/installments-report'
+}
+,
        {
-      id: 11,
+      id: 12,
       name: "Outstanding Loan Balance as at the End of Month",
       description: "Summary of all outstanding loan balances across all customers",
       component: OutstandingLoanBalanceReport,
       route: '/reports/outstandEOM'
     },
     {
-      id: 12,
+      id: 13,
       name: "Trace M-Pesa Transaction",
       description: "Search and track specific M-Pesa transactions by reference",
       component: TraceMpesaTransaction,
       route: '/reports/trace-mpesa'
     },
     {
-      id: 13,
+      id: 14,
       name: "Inactive Customers",
       description: "List of customers with no recent activity or transactions",
       component: InactiveCustomers,
       route: '/reports/inactive-customers'
     },
     {
-      id: 14,
+      id: 15,
       name: "Loan Arrears Report",
       description: "Detailed report of loans in arrears with aging analysis",
       component: LoanArrearsReport,
@@ -123,7 +132,7 @@ const Reports = () => {
     },
   
     {
-      id: 15,
+      id: 16,
       name: "Suspense Payment Report",
       description: "View and manage unallocated or pending M-Pesa payments",
       component: SuspensePaymentsReport,

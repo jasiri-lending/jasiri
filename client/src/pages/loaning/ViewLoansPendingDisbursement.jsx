@@ -131,7 +131,7 @@ const SMSService = {
     }
   },
 
-  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost) {
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost,customerId) {
     try {
       const { error } = await supabase
         .from('sms_logs')
@@ -142,6 +142,7 @@ const SMSService = {
           error_message: errorMessage,
           message_id: messageId,
           sender_id: senderId,
+            customer_id: customerId ,
           cost: cost
         });
 
