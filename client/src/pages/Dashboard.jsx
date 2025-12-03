@@ -43,10 +43,17 @@ const Dashboard = () => {
       disbursedLoansCount: 0,
       loansDueToday: 0,
       outstandingArrears: 0,
+          outstandingArrearsLoans: 0, 
+       loansDueTodayAmount: 0, 
+    loansDueTodayDetails: [], 
       monthToDateArrears: 0,
+       monthToDateArrearsLoans: 0,
+         totalLoanArrearsLoans: 0,
       totalLoanArrears: 0,
       disbursedLoansToday: 0,
       disbursedLoansThisMonth: 0,
+       disbursedAmountToday: 0, 
+    disbursedAmountThisMonth: 0,
     },
     collectionOverview: {
       todayCollectionAmount: 0,
@@ -369,9 +376,6 @@ const fetchTotalPaidAmount = async (loanIds) => {
 };
 
 
-
-
-
 // ---------- Today's collection ----------
 const fetchTodaysCollection = async (loanIds) => {
   if (!Array.isArray(loanIds) || loanIds.length === 0) {
@@ -421,6 +425,9 @@ const fetchTodaysCollection = async (loanIds) => {
     return { amount: 0, paid: 0, due: 0, rate: 0 };
   }
 };
+
+
+
 
 
 // ---------- Monthly collection ----------
@@ -593,19 +600,19 @@ const fetchLeadsConversionRate = async (
         return d && d >= cutoff;
       }).length;
 
-    // 1️⃣ Raw leads (new leads)
+    // Raw leads (new leads)
     const leadsToday = countSince(leads, today);
     const leadsThisMonth = countSince(leads, startOfMonth);
     const leadsThisYear = countSince(leads, startOfYear);
 
-    // 2️⃣ Converted customers (only those linked to a lead)
+    //  Converted customers (only those linked to a lead)
     const converted = customers.filter((c) => c.lead_id !== null);
 
     const convertedToday = countSince(converted, today);
     const convertedThisMonth = countSince(converted, startOfMonth);
     const convertedThisYear = countSince(converted, startOfYear);
 
-    // 3️⃣ Direct customers (walk-ins)
+    //  Direct customers (walk-ins)
     const directCustomers = customers.filter((c) => c.lead_id === null);
 
     const directToday = countSince(directCustomers, today);
@@ -764,41 +771,110 @@ const fetchPerformingLoansPaidAmount = async (performingLoanIds) => {
  * Definition: Total unpaid dues from installments that became overdue THIS MONTH
  */
 
-  const fetchMonthToDateArrears = async (loanIds) => {
-    if (!loanIds || loanIds.length === 0) return 0;
+ const fetchMonthToDateArrears = async (loanIds) => {
+  if (!loanIds || loanIds.length === 0) {
+    return { totalArrears: 0, loanCount: 0 };
+  }
 
-    try {
-      const now = new Date();
-      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-        .toISOString()
-        .split("T")[0];
-      const today = now.toISOString().split("T")[0];
+  try {
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+      .toISOString()
+      .split("T")[0];
+    const today = now.toISOString().split("T")[0];
 
-      const { data: overdueInstallments, error } = await supabase
-        .from("loan_installments")
-        .select("due_amount, interest_paid, principal_paid, due_date, status")
-        .in("loan_id", loanIds)
-        .eq("status", "overdue")
-        .gte("due_date", startOfMonth)
-        .lte("due_date", today);
+    const { data: overdueInstallments, error } = await supabase
+      .from("loan_installments")
+      .select("loan_id, due_amount, interest_paid, principal_paid, due_date, status")
+      .in("loan_id", loanIds)
+      .in("status", ["overdue", "pending", "partial"])
+      .gte("due_date", startOfMonth)
+      .lte("due_date", today);
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const monthToDateArrears = overdueInstallments?.reduce((sum, inst) => {
-        const dueAmount = parseFloat(inst.due_amount) || 0;
-        const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
-        const arrears = dueAmount - paidAmount;
-        return sum + (arrears > 0 ? arrears : 0);
-      }, 0) || 0;
-
-      return monthToDateArrears;
-    } catch (error) {
-      console.error("Error fetching month-to-date arrears:", error);
-      return 0;
+    if (!overdueInstallments || overdueInstallments.length === 0) {
+      return { totalArrears: 0, loanCount: 0 };
     }
-  };
 
+    // Calculate total arrears amount
+    const totalArrears = overdueInstallments.reduce((sum, inst) => {
+      const dueAmount = parseFloat(inst.due_amount) || 0;
+      const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+      const arrears = dueAmount - paidAmount;
+      return sum + (arrears > 0 ? arrears : 0);
+    }, 0);
 
+    // Count unique loans with arrears
+    const loanIdsWithArrears = new Set();
+    overdueInstallments.forEach(inst => {
+      const dueAmount = parseFloat(inst.due_amount) || 0;
+      const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+      if (dueAmount > paidAmount) {
+        loanIdsWithArrears.add(inst.loan_id);
+      }
+    });
+
+    const loanCount = loanIdsWithArrears.size;
+
+    console.log(`Month-to-Date Arrears - Amount: ${totalArrears}, Loans: ${loanCount}`);
+
+    return { totalArrears, loanCount };
+  } catch (error) {
+    console.error("Error fetching month-to-date arrears:", error);
+    return { totalArrears: 0, loanCount: 0 };
+  }
+};
+
+const fetchTotalArrears = async (loanIds) => {
+  if (!loanIds || loanIds.length === 0) {
+    return { totalArrears: 0, loanCount: 0 };
+  }
+
+  try {
+    const today = new Date().toISOString().split("T")[0];
+
+    const { data: overdueInstallments, error } = await supabase
+      .from("loan_installments")
+      .select("loan_id, due_amount, interest_paid, principal_paid, status, due_date")
+      .in("loan_id", loanIds)
+      .in("status", ["overdue", "partial"])
+      .lte("due_date", today);
+
+    if (error) throw error;
+
+    if (!overdueInstallments || overdueInstallments.length === 0) {
+      return { totalArrears: 0, loanCount: 0 };
+    }
+
+    // Calculate total arrears amount
+    const totalArrears = overdueInstallments.reduce((sum, inst) => {
+      const dueAmount = parseFloat(inst.due_amount) || 0;
+      const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+      const arrears = dueAmount - paidAmount;
+      return sum + (arrears > 0 ? arrears : 0);
+    }, 0);
+
+    // Count unique loans with arrears
+    const loanIdsWithArrears = new Set();
+    overdueInstallments.forEach(inst => {
+      const dueAmount = parseFloat(inst.due_amount) || 0;
+      const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
+      if (dueAmount > paidAmount) {
+        loanIdsWithArrears.add(inst.loan_id);
+      }
+    });
+
+    const loanCount = loanIdsWithArrears.size;
+
+    console.log(`Total Arrears - Amount: ${totalArrears}, Loans: ${loanCount}`);
+
+    return { totalArrears, loanCount };
+  } catch (error) {
+    console.error("Error fetching total arrears:", error);
+    return { totalArrears: 0, loanCount: 0 };
+  }
+};
 
 /**
  * Calculate Total Arrears (All Time)
@@ -810,34 +886,7 @@ const fetchPerformingLoansPaidAmount = async (performingLoanIds) => {
     return Math.round((totalArrears / outstandingBalance) * 100);
   };
 
-  const fetchTotalArrears = async (loanIds) => {
-    if (!loanIds || loanIds.length === 0) return 0;
 
-    try {
-      const today = new Date().toISOString().split("T")[0];
-
-      const { data: overdueInstallments, error } = await supabase
-        .from("loan_installments")
-        .select("due_amount, interest_paid, principal_paid, status, due_date")
-        .in("loan_id", loanIds)
-        .in("status", ["overdue", "partial"])
-        .lte("due_date", today);
-
-      if (error) throw error;
-
-      const totalArrears = overdueInstallments?.reduce((sum, inst) => {
-        const dueAmount = parseFloat(inst.due_amount) || 0;
-        const paidAmount = (parseFloat(inst.interest_paid) || 0) + (parseFloat(inst.principal_paid) || 0);
-        const arrears = dueAmount - paidAmount;
-        return sum + (arrears > 0 ? arrears : 0);
-      }, 0) || 0;
-
-      return totalArrears;
-    } catch (error) {
-      console.error("Error fetching total arrears:", error);
-      return 0;
-    }
-  };
 
   const fetchOutstandingArrears = async (loanIds) => {
     return await fetchTotalArrears(loanIds);
@@ -863,6 +912,99 @@ const toLocalYYYYMMDD = (dateString) => {
   const day = String(d.getDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+};
+
+// ---------- Fetch Loans Due Today ----------
+const fetchLoansDueToday = async (loanIds) => {
+  if (!Array.isArray(loanIds) || loanIds.length === 0) {
+    console.log("No loan IDs provided for loans due today");
+    return { count: 0, totalAmount: 0, details: [] };
+  }
+
+  try {
+    const today = getTodayDate();
+    console.log("Fetching loans due today for date:", today, "Loan IDs:", loanIds);
+
+    // First, get installments due today
+    const { data: dueInstallments, error } = await supabase
+      .from("loan_installments")
+    .select(`
+  id,
+  loan_id,
+  installment_number,
+  due_date,
+  due_amount,
+  status,
+  days_overdue,
+  loans (
+    id,
+    customers (
+      Firstname,
+      Surname,
+      mobile
+    )
+  )
+`)
+
+      .in("loan_id", loanIds)
+      .eq("due_date", today)
+      .in("status", ["pending", "overdue", "partial"]);
+
+    if (error) {
+      console.error("Error fetching installments due today:", error);
+      return { count: 0, totalAmount: 0, details: [] };
+    }
+
+    console.log("Installments due today found:", dueInstallments?.length || 0);
+
+    if (!dueInstallments || dueInstallments.length === 0) {
+      return { count: 0, totalAmount: 0, details: [] };
+    }
+
+    // Group by loan to count unique loans
+    const loanMap = new Map();
+    let totalDueAmount = 0;
+
+    dueInstallments.forEach(installment => {
+      const loanId = installment.loan_id;
+      const dueAmount = parseFloat(installment.due_amount) || 0;
+      totalDueAmount += dueAmount;
+      
+      if (!loanMap.has(loanId)) {
+        const loan = installment.loans || {};
+        const customer = loan.customers || {};
+        
+        loanMap.set(loanId, {
+          loan_id: loanId,
+          loan_number: loan.loan_number || `LOAN-${loanId}`,
+          customer_name: `${customer.Firstname || ''} ${customer.Surname || ''}`.trim() || 'Unknown Customer',
+          mobile: customer.mobile || 'N/A',
+          installments: []
+        });
+      }
+      
+      loanMap.get(loanId).installments.push({
+        installment_number: installment.installment_number,
+        due_amount: installment.due_amount,
+        status: installment.status,
+        days_overdue: installment.days_overdue
+      });
+    });
+
+    const details = Array.from(loanMap.values());
+
+    console.log(`Loans due today - Count: ${details.length}, Total Amount Due: ${totalDueAmount}`);
+    console.log("Loan details:", details);
+
+    return {
+      count: details.length,
+      totalAmount: totalDueAmount,
+      details
+    };
+  } catch (err) {
+    console.error("Error fetching loans due today:", err);
+    return { count: 0, totalAmount: 0, details: [] };
+  }
 };
 
 
@@ -913,7 +1055,7 @@ const todayString = toLocalYYYYMMDD(todayLocal);
     );
 
     console.log(
-      "▶ FIXED Disbursement Metrics:",
+      " FIXED Disbursement Metrics:",
       {
         today: disbursedLoansToday.length,
         month: disbursedLoansThisMonth.length,
@@ -1054,6 +1196,11 @@ const todayString = toLocalYYYYMMDD(todayLocal);
     const todaysCollection = await fetchTodaysCollection(loanIds);
     const monthlyCollection = await fetchMonthlyCollection(loanIds);
     const disbursedLoansData = await fetchDisbursedLoansData(filteredLoans);
+      const loansDueTodayData = await fetchLoansDueToday(loanIds);
+      const monthToDateArrearsData = await fetchMonthToDateArrears(loanIds);
+const totalArrearsData = await fetchTotalArrears(loanIds);
+const outstandingArrearsData = await fetchOutstandingArrears(loanIds);
+
 
     const totalLoanAmount = disbursedLoans.reduce(
       (sum, loan) => sum + (loan.total_payable || loan.scored_amount || 0),
@@ -1073,10 +1220,7 @@ const todayString = toLocalYYYYMMDD(todayLocal);
     const performingLoanBalance =
       performingLoanTotalPayable - performingLoansPaid;
 
-    const monthToDateArrears = await fetchMonthToDateArrears(loanIds);
-    const totalArrears = await fetchTotalArrears(loanIds);
-    const outstandingArrears = await fetchOutstandingArrears(loanIds);
-    const par = calculatePAR(totalArrears, outstandingBalance);
+const par = calculatePAR(totalArrearsData.totalArrears, outstandingBalance);
 
     const activeCustomerIds = new Set();
     disbursedLoans.forEach((loan) => {
@@ -1155,10 +1299,15 @@ const todayString = toLocalYYYYMMDD(todayLocal);
       loanOverview: {
         disbursedLoansAmount,
         disbursedLoansCount: disbursedLoans.length,
-        loansDueToday: disbursedLoans.filter((l) => l.due_date === today).length,
-        outstandingArrears,           
-        monthToDateArrears,           
-        totalLoanArrears: totalArrears,
+  loansDueToday: loansDueTodayData.count, // Was: disbursedLoans.filter((l) => l.due_date === today).length
+      loansDueTodayAmount: loansDueTodayData.totalAmount, // Add this for amount due today
+      loansDueTodayDetails: loansDueTodayData.details,
+               outstandingArrears: outstandingArrearsData.totalArrears, 
+               outstandingArrearsLoans: outstandingArrearsData.loanCount,        
+ monthToDateArrears: monthToDateArrearsData.totalArrears,
+    monthToDateArrearsLoans: monthToDateArrearsData.loanCount,          
+    totalLoanArrears: totalArrearsData.totalArrears,
+        totalLoanArrearsLoans: totalArrearsData.loanCount,
         disbursedLoansToday: disbursedLoansData.disbursedLoansToday,
         disbursedLoansThisMonth: disbursedLoansData.disbursedLoansThisMonth,
         disbursedAmountToday: disbursedLoansData.disbursedAmountToday,
@@ -2039,41 +2188,48 @@ const ProgressBar = ({
     </div>
 
     {/* Rest of your loans overview content remains the same */}
-    <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:shadow-md transition-shadow">
-      <span className="text-sm font-semibold text-gray-700">
-        Loans Due Today
-      </span>
-      <div className="text-right">
-        <p className="text-lg sm:text-lg font-bold text-amber-700">
-          {dashboardMetrics.loanOverview.loansDueToday.toLocaleString()}
-        </p>
-        <p className="text-xs text-amber-600 font-medium">due today</p>
-      </div>
-    </div>
+   <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-xl border border-amber-100 hover:shadow-md transition-shadow">
+  <span className="text-sm font-semibold text-gray-700">
+    Loans Due Today
+  </span>
+  <div className="text-right">
+  
+    <p className="text-lg text-amber-600 font-medium">
+      Ksh {dashboardMetrics.loanOverview.loansDueTodayAmount?.toLocaleString() || 0}
+    </p>
+      <p className="text-sm sm:text-lg font-bold text-amber-700">
+      {dashboardMetrics.loanOverview.loansDueToday}
+    </p>
+  </div>
+</div>
 
-    <div className="flex items-center justify-between p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
-      <span className="text-sm font-semibold text-red-700">
-        Month to Date Arrears
-      </span>
-      <div className="text-right">
-        <p className="text-lg font-semibold text-red-700">
-          Ksh {dashboardMetrics.loanOverview.monthToDateArrears.toLocaleString()}
-        </p>
-        <p className="text-xs text-red-600 font-medium">in arrears</p>
-      </div>
-    </div>
+<div className="flex items-center justify-between p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
+  <span className="text-sm font-semibold text-red-700">
+    Month to Date Arrears
+  </span>
+  <div className="text-right">
+    <p className="text-lg font-semibold text-red-700">
+      Ksh {dashboardMetrics.loanOverview.monthToDateArrears.toLocaleString()}
+    </p>
+    <p className="text-xs text-red-600 font-medium">
+      {dashboardMetrics.loanOverview.monthToDateArrearsLoans} loans in arrears
+    </p>
+  </div>
+</div>
 
-    <div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
-      <span className="text-sm font-semibold text-red-700">
-        Total Arrears
-      </span>
-      <div className="text-right">
-        <p className="text-lg sm:text-lg font-semibold text-red-700">
-          Ksh {dashboardMetrics.loanOverview.totalLoanArrears.toLocaleString()}
-        </p>
-        <p className="text-xs text-red-600 font-medium">outstanding</p>
-      </div>
-    </div>
+<div className="flex items-center justify-between p-4 sm:p-5 bg-gradient-to-r from-red-50 to-rose-50 rounded-xl border-2 border-red-200 hover:shadow-md transition-shadow">
+  <span className="text-sm font-semibold text-red-700">
+    Total Arrears
+  </span>
+  <div className="text-right">
+    <p className="text-lg sm:text-lg font-semibold text-red-700">
+      Ksh {dashboardMetrics.loanOverview.totalLoanArrears.toLocaleString()}
+    </p>
+    <p className="text-xs text-red-600 font-medium">
+      {dashboardMetrics.loanOverview.totalLoanArrearsLoans} loans in arrears
+    </p>
+  </div>
+</div>
   </div>
 </OverviewSection>
       </div>
