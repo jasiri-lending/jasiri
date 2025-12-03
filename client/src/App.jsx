@@ -122,6 +122,7 @@ import HQPending from "./pages/registry/HQPending.jsx";
 import CustomerTransferForm from "./pages/registry/CustomerTransferForm.jsx";
 import ParentCustomerEditComponent from "./pages/registry/MainEdit.jsx";
 import LoanInstallmentReport from "./pages/reports/LoanInstallmentReport.jsx";
+import Guarantors from "./pages/registry/Guarantors.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -603,6 +604,16 @@ const { user, profile } = useAuth();
                       </ProtectedRoute>
                     }
                   />
+  <Route
+                    path="/registry/guarantors"
+                    element={
+                      <ProtectedRoute>
+                        <Guarantors />
+                      </ProtectedRoute>
+                    }
+                  />
+
+
                   <Route
                     path="/customer/:customerId/promise-to-pay"
                     element={

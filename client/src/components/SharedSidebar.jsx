@@ -21,7 +21,8 @@ import {
   Handshake,
   UserPlus,
   ClipboardList,
-  FileSpreadsheet,
+ 
+   FileSpreadsheet,
   X,
   Menu,
 } from "lucide-react";
@@ -218,6 +219,11 @@ const SharedSidebar = () => {
         href: "/registry/prequalified-amount-edit",
         icon: CreditCard,
       }
+      ,  {
+    name: "Guarantors",
+    href: "/registry/guarantors",
+    icon: Handshake, // choose an appropriate icon
+  }
     );
 
     // Drafts Navigation - Dynamic based on role

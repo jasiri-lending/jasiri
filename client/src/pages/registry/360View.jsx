@@ -104,16 +104,39 @@ const Customer360View = () => {
         .select("*")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
+        let cleanedTxns = (walletTxns || []).map(txn => ({ ...txn }));
+
+// Find the most recent credit (they always have mpesa_reference)
+let lastMpesa = null;
+
+for (let i = cleanedTxns.length - 1; i >= 0; i--) {
+  if (cleanedTxns[i].transaction_type === "credit" && cleanedTxns[i].mpesa_reference) {
+    lastMpesa = cleanedTxns[i].mpesa_reference;
+  }
+
+  // If debit has null mpesa_reference → inherit from most recent credit
+  if (
+    cleanedTxns[i].transaction_type !== "credit" &&
+    !cleanedTxns[i].mpesa_reference &&
+    lastMpesa
+  ) {
+    cleanedTxns[i].mpesa_reference = lastMpesa;
+  }
+}
+
+setWalletTransactions(cleanedTxns);
 
       setWalletTransactions(walletTxns || []);
 
       // Calculate wallet balance
-      const balance = (walletTxns || []).reduce((acc, txn) => {
-        return txn.type === 'credit' 
-          ? acc + parseFloat(txn.amount || 0)
-          : acc - parseFloat(txn.amount || 0);
-      }, 0);
-      setWalletBalance(balance);
+   // Calculate wallet balance using signed amounts
+const balance = (walletTxns || []).reduce((acc, txn) => {
+  const amount = parseFloat(txn.amount || 0);
+  return acc + amount;  // amount already has + or -
+}, 0);
+
+setWalletBalance(balance);
+
 
       // Fetch M-Pesa C2B transactions
       const { data: mpesaTxns } = await supabase
@@ -741,59 +764,52 @@ const Customer360View = () => {
       </div>
 
       {/* Wallet Transactions */}
-      <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-200">
-          <h4 className="font-semibold text-gray-900">Transaction History</h4>
-        </div>
-        {walletTransactions.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Bill Ref</th>
-                  <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {walletTransactions.map((txn, index) => (
-                  <tr key={index} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      {new Date(txn.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        txn.type === 'credit'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {txn.type}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {txn.description || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {txn.billref || "N/A"}
-                    </td>
-                    <td className={`px-4 py-3 text-sm font-medium text-right ${
-                      txn.type === 'credit' ? 'text-green-600' : 'text-red-600'
-                    }`}>
-                      {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-8 text-gray-500">
-            No wallet transactions
-          </div>
-        )}
-      </div>
+   <table className="min-w-full divide-y divide-gray-200">
+  <thead className="bg-gray-50">
+    <tr>
+      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">MPESA Ref</th>
+      <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Amount</th>
+    </tr>
+  </thead>
+
+  <tbody className="bg-white divide-y divide-gray-200">
+    {walletTransactions.map((txn, index) => (
+      <tr key={index} className="hover:bg-gray-50">
+        <td className="px-4 py-3 text-sm text-gray-900">
+          {new Date(txn.created_at).toLocaleString()}
+        </td>
+
+        <td className="px-4 py-3 text-sm">
+          <span
+            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+              txn.type === "credit"
+                ? "bg-green-100 text-green-800"
+                : "bg-green-100 text-green-800"
+            }`}
+          >
+            {txn.transaction_type}
+          </span>
+        </td>
+
+        <td className="px-4 py-3 text-sm text-gray-600">
+          {txn.mpesa_reference || "—"}
+        </td>
+
+        <td
+          className={`px-4 py-3 text-sm font-medium text-right ${
+            txn.type === "credit" ? "text-green-600" : "text-green-600"
+          }`}
+        >
+       
+          {formatCurrency(txn.amount)}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>
+
     </div>
   );
 
@@ -827,12 +843,7 @@ const Customer360View = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Bill Ref
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Applied Amount
-                  </th>
+                
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -863,12 +874,7 @@ const Customer360View = () => {
                         {txn.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {txn.billref || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm font-medium text-green-600">
-                      {txn.applied_amount ? formatCurrency(txn.applied_amount) : "-"}
-                    </td>
+                
                   </tr>
                 ))}
               </tbody>
