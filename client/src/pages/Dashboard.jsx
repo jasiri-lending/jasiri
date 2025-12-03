@@ -2212,7 +2212,7 @@ const ProgressBar = ({
       Ksh {dashboardMetrics.loanOverview.monthToDateArrears.toLocaleString()}
     </p>
     <p className="text-xs text-red-600 font-medium">
-      {dashboardMetrics.loanOverview.monthToDateArrearsLoans} loans in arrears
+      {dashboardMetrics.loanOverview.monthToDateArrearsLoans} 
     </p>
   </div>
 </div>
@@ -2226,7 +2226,7 @@ const ProgressBar = ({
       Ksh {dashboardMetrics.loanOverview.totalLoanArrears.toLocaleString()}
     </p>
     <p className="text-xs text-red-600 font-medium">
-      {dashboardMetrics.loanOverview.totalLoanArrearsLoans} loans in arrears
+      {dashboardMetrics.loanOverview.totalLoanArrearsLoans} 
     </p>
   </div>
 </div>
