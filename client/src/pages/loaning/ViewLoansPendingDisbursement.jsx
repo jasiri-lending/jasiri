@@ -28,6 +28,7 @@ const CELCOM_AFRICA_CONFIG = {
 };
 
 // SMS Service Functions
+// SMS Service Functions - UPDATED with customer_id support
 const SMSService = {
   formatPhoneNumberForSMS(phone) {
     if (!phone) {
@@ -63,7 +64,7 @@ const SMSService = {
     return '';
   },
 
-  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
+  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode, customerId = null) {
     try {
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       
@@ -80,7 +81,7 @@ const SMSService = {
       const encodedMessage = encodeURIComponent(message.trim());
       const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
 
-      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone);
+      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone, 'Customer ID:', customerId);
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -98,7 +99,8 @@ const SMSService = {
         shortcode,
         undefined,
         messageId,
-        0
+        0,
+        customerId  // Pass customer_id here
       );
 
       return {
@@ -119,7 +121,10 @@ const SMSService = {
           message,
           'failed',
           shortcode,
-          error.message
+          error.message,
+          null,
+          0,
+          customerId  // Pass customer_id even on failure
         );
       }
       
@@ -131,39 +136,45 @@ const SMSService = {
     }
   },
 
-  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost,customerId) {
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId) {
     try {
+      const logData = {
+        recipient_phone: recipientPhone,
+        message: message,
+        status: status,
+        error_message: errorMessage,
+        message_id: messageId,
+        sender_id: senderId,
+        cost: cost,
+        customer_id: customerId  // Include customer_id in log
+      };
+
+      console.log('📝 Logging SMS:', logData);
+
       const { error } = await supabase
         .from('sms_logs')
-        .insert({
-          recipient_phone: recipientPhone,
-          message: message,
-          status: status,
-          error_message: errorMessage,
-          message_id: messageId,
-          sender_id: senderId,
-            customer_id: customerId ,
-          cost: cost
-        });
+        .insert(logData);
 
       if (error) {
         console.error('Failed to log SMS:', error);
+      } else {
+        console.log('✅ SMS logged successfully with customer_id:', customerId);
       }
     } catch (error) {
       console.error('Error logging SMS:', error);
     }
   },
 
-  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId) {
+  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId, customerId = null) {
     const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing Mular Credit!`;
     
-    return await this.sendSMS(phoneNumber, message);
+    return await this.sendSMS(phoneNumber, message, CELCOM_AFRICA_CONFIG.defaultShortcode, customerId);
   },
 
-  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId) {
+  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId, customerId = null) {
     const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly. - Mular Credit`;
     
-    return await this.sendSMS(phoneNumber, message);
+    return await this.sendSMS(phoneNumber, message, CELCOM_AFRICA_CONFIG.defaultShortcode, customerId);
   }
 };
 
