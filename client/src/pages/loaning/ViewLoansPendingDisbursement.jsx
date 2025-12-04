@@ -28,7 +28,6 @@ const CELCOM_AFRICA_CONFIG = {
 };
 
 // SMS Service Functions
-// SMS Service Functions - UPDATED with customer_id support
 const SMSService = {
   formatPhoneNumberForSMS(phone) {
     if (!phone) {
@@ -64,7 +63,7 @@ const SMSService = {
     return '';
   },
 
-  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode, customerId = null) {
+  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
     try {
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       
@@ -81,7 +80,7 @@ const SMSService = {
       const encodedMessage = encodeURIComponent(message.trim());
       const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
 
-      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone, 'Customer ID:', customerId);
+      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone);
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -99,8 +98,7 @@ const SMSService = {
         shortcode,
         undefined,
         messageId,
-        0,
-        customerId  // Pass customer_id here
+        0
       );
 
       return {
@@ -112,7 +110,7 @@ const SMSService = {
       };
       
     } catch (error) {
-      console.error('❌ SMS sending error:', error);
+      console.error(' SMS sending error:', error);
       
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       if (formattedPhone) {
@@ -121,10 +119,7 @@ const SMSService = {
           message,
           'failed',
           shortcode,
-          error.message,
-          null,
-          0,
-          customerId  // Pass customer_id even on failure
+          error.message
         );
       }
       
@@ -136,45 +131,39 @@ const SMSService = {
     }
   },
 
-  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId) {
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost,customerId) {
     try {
-      const logData = {
-        recipient_phone: recipientPhone,
-        message: message,
-        status: status,
-        error_message: errorMessage,
-        message_id: messageId,
-        sender_id: senderId,
-        cost: cost,
-        customer_id: customerId  // Include customer_id in log
-      };
-
-      console.log('📝 Logging SMS:', logData);
-
       const { error } = await supabase
         .from('sms_logs')
-        .insert(logData);
+        .insert({
+          recipient_phone: recipientPhone,
+          message: message,
+          status: status,
+          error_message: errorMessage,
+          message_id: messageId,
+          sender_id: senderId,
+            customer_id: customerId ,
+          cost: cost
+        });
 
       if (error) {
         console.error('Failed to log SMS:', error);
-      } else {
-        console.log('✅ SMS logged successfully with customer_id:', customerId);
       }
     } catch (error) {
       console.error('Error logging SMS:', error);
     }
   },
 
-  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId, customerId = null) {
+  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId) {
     const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing Mular Credit!`;
     
-    return await this.sendSMS(phoneNumber, message, CELCOM_AFRICA_CONFIG.defaultShortcode, customerId);
+    return await this.sendSMS(phoneNumber, message);
   },
 
-  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId, customerId = null) {
+  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId) {
     const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly. - Mular Credit`;
     
-    return await this.sendSMS(phoneNumber, message, CELCOM_AFRICA_CONFIG.defaultShortcode, customerId);
+    return await this.sendSMS(phoneNumber, message);
   }
 };
 
@@ -188,7 +177,7 @@ const MpesaService = {
         throw new Error(`Invalid phone number format: ${phoneNumber}`);
       }
 
-      console.log(`💰 Processing M-Pesa loan disbursement:`, {
+      console.log(` Processing M-Pesa loan disbursement:`, {
         customer: customerName,
         amount,
         phone: formattedPhone,
@@ -207,7 +196,7 @@ const MpesaService = {
         fullName: customerName
       };
 
-      console.log('📤 M-Pesa Payload:', payload);
+      console.log(' M-Pesa Payload:', payload);
 
       const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
         method: 'POST',
@@ -225,7 +214,7 @@ const MpesaService = {
 
       const result = await response.json();
       
-      console.log('✅ M-Pesa loan disbursement processed:', result);
+      console.log(' M-Pesa loan disbursement processed:', result);
       
       // Log the successful transaction
       await this.logMpesaTransaction({
