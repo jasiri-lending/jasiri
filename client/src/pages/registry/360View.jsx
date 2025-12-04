@@ -84,7 +84,7 @@ const SMSService = {
 
       if (!formattedPhone) {
         const errorMsg = `Invalid phone number format: ${phoneNumber}`;
-        console.error("❌ SMS Error:", errorMsg);
+        console.error(" SMS Error:", errorMsg);
         throw new Error(errorMsg);
       }
 
@@ -95,7 +95,7 @@ const SMSService = {
       const encodedMessage = encodeURIComponent(message.trim());
       const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
 
-      console.log("🚀 Sending SMS via Celcom Africa to:", formattedPhone);
+      console.log(" Sending SMS via Celcom Africa to:", formattedPhone);
 
       const response = await fetch(endpoint, {
         method: "GET",
@@ -1186,7 +1186,7 @@ const Customer360View = () => {
       <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
         {/* SMS Compose Card */}
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
-          <h3 className="text-base font-semibold text-gray-900 mb-4 flex items-center">
+          <h3 className="text-base  text-slate-600 mb-4 flex items-center">
             <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2 text-blue-600" />
             Send SMS to Customer
           </h3>
@@ -1314,7 +1314,7 @@ const Customer360View = () => {
           <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-base font-semibold text-gray-900">
+                <h3 className="text-base  text-slate-600">
                   SMS History
                 </h3>
                 <p className="text-xs text-gray-500 mt-0.5">

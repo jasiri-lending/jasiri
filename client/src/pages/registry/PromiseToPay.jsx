@@ -380,13 +380,14 @@ const PromiseToPay = () => {
           {/* Header with New Promise Button */}
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-sm  text-slate-600">Promise History</h3>
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg"
-            >
-              <Plus className="h-5 w-5" />
-              New Promise
-            </button>
+          <button
+  onClick={() => setShowForm(!showForm)}
+  className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg"
+>
+  <Plus className="h-4 w-4" />
+  New Promise
+</button>
+
           </div>
 
           {/* Create PTP Form */}
@@ -473,22 +474,23 @@ const PromiseToPay = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="submit"
-                    disabled={saving}
-                    className="px-6 py-3 bg-green-600 text-white rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg"
-                  >
-                    {saving ? "Saving..." : "Save Promise"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setShowForm(false)}
-                    className="px-6 py-3 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 transition font-medium"
-                  >
-                    Cancel
-                  </button>
-                </div>
+               <div className="flex gap-2 pt-2">
+  <button
+    type="submit"
+    disabled={saving}
+    className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg"
+  >
+    {saving ? "Saving..." : "Save Promise"}
+  </button>
+  <button
+    type="button"
+    onClick={() => setShowForm(false)}
+    className="px-3 py-1.5 bg-gray-300 text-gray-700 text-sm rounded-lg hover:bg-gray-400 transition font-medium"
+  >
+    Cancel
+  </button>
+</div>
+
               </form>
             </div>
           )}
@@ -585,28 +587,33 @@ const PromiseToPay = () => {
           )}
 
           {/* Summary Stats */}
-          {ptps.length > 0 && (
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border-2 border-yellow-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm text-yellow-800 font-semibold mb-1">Pending Promises</p>
-                <p className="text-3xl font-bold text-yellow-900">
-                  {ptps.filter(p => p.status === "pending").length}
-                </p>
-              </div>
-              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm text-green-800 font-semibold mb-1">Kept Promises</p>
-                <p className="text-3xl font-bold text-green-900">
-                  {ptps.filter(p => p.status === "kept").length}
-                </p>
-              </div>
-              <div className="bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-200 rounded-xl p-5 shadow-sm">
-                <p className="text-sm text-red-800 font-semibold mb-1">Broken Promises</p>
-                <p className="text-3xl font-bold text-red-900">
-                  {ptps.filter(p => p.status === "broken").length}
-                </p>
-              </div>
-            </div>
-          )}
+        {ptps.length > 0 && (
+  <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+
+    <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-3 shadow-sm">
+      <p className="text-xs text-yellow-800 font-semibold mb-0.5">Pending Promises</p>
+      <p className="text-base font-bold text-yellow-900">
+        {ptps.filter(p => p.status === "pending").length}
+      </p>
+    </div>
+
+    <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
+      <p className="text-xs text-green-800 font-semibold mb-0.5">Kept Promises</p>
+      <p className="text-base font-bold text-green-900">
+        {ptps.filter(p => p.status === "kept").length}
+      </p>
+    </div>
+
+    <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-lg p-3 shadow-sm">
+      <p className="text-xs text-red-800 font-semibold mb-0.5">Broken Promises</p>
+      <p className="text-base font-bold text-red-900">
+        {ptps.filter(p => p.status === "broken").length}
+      </p>
+    </div>
+
+  </div>
+)}
+
         </div>
       </div>
     </div>
