@@ -837,9 +837,7 @@ setWalletBalance(balance);
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Amount
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Payment Type
-                  </th>
+                
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
@@ -860,20 +858,20 @@ setWalletBalance(balance);
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                       {formatCurrency(txn.amount)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-                      {txn.payment_type || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm">
-                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        txn.status === 'applied'
-                          ? 'bg-green-100 text-green-800'
-                          : txn.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
-                        {txn.status}
-                      </span>
-                    </td>
+                 <td className="px-4 py-3 text-sm">
+  <span
+    className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
+      txn.status === 'applied'
+        ? 'bg-green-100 text-green-800'
+        : txn.status === 'pending'
+        ? 'bg-yellow-100 text-yellow-800'
+        : 'bg-red-100 text-red-800'
+    }`}
+  >
+    {txn.status === 'applied' ? 'Success' : txn.status}
+  </span>
+</td>
+
                 
                   </tr>
                 ))}
