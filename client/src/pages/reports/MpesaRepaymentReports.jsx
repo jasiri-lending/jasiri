@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+
+import React, { useState, useEffect, useRef } from "react";
 import {
   Download,
   Filter,
@@ -29,6 +30,8 @@ const MpesaRepaymentReports = () => {
     dateRangeType: "",
   });
 
+  const hasFetched = useRef(false);
+
   // Fetch branches
   useEffect(() => {
     const fetchBranches = async () => {
@@ -38,78 +41,139 @@ const MpesaRepaymentReports = () => {
     fetchBranches();
   }, []);
 
-useEffect(() => {
-  const fetchRepayments = async () => {
-    try {
-      setLoading(true);
+  // Fetch repayments - only once
+  useEffect(() => {
+    if (hasFetched.current) return;
 
-      const { data, error } = await supabase
-        .from("mpesa_c2b_transactions")
-        .select(`
-          id,
-          transaction_id,
-          phone_number,
-          amount,
-          status,
-          description,
-          billref,
-          transaction_time,
-          loan_id,
-          loans:loan_id(
+    const fetchRepayments = async () => {
+      try {
+        setLoading(true);
+        hasFetched.current = true;
+
+        const { data, error } = await supabase
+          .from("mpesa_c2b_transactions")
+          .select(`
             id,
-            customer:customer_id(
+            transaction_id,
+            phone_number,
+            amount,
+            status,
+            description,
+            billref,
+            transaction_time,
+            loan_id,
+            loans:loan_id(
               id,
-              "Firstname",
-              "Middlename",
-              "Surname",
-              id_number,
-              branch:branch_id(name)
+              customer:customer_id(
+                id,
+                "Firstname",
+                "Middlename",
+                "Surname",
+                id_number,
+                branch:branch_id(name)
+              )
             )
-          )
-        `)
-        // ✅ Filter by description
-        .eq("description", "Loan repayment processed")
-        .order("transaction_time", { ascending: false });
+          `)
+          .eq("description", "Loan repayment processed")
+          .order("transaction_time", { ascending: false });
 
-      if (error) throw error;
+        if (error) throw error;
 
-      // Map and format
-      const formatted = data.map((item, index) => {
-        const customer = item.loans?.customer || {};
-        const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
-          .filter(Boolean)
-          .join(" ") || "N/A";
+        const formatted = data.map((item) => {
+          const customer = item.loans?.customer;
+          const branch = customer?.branch;
+          
+          const fullName = customer 
+            ? [customer.Firstname, customer.Middlename, customer.Surname]
+                .filter(name => name && name.trim() !== "")
+                .join(" ") 
+            : "N/A";
 
-        const paymentDate = item.transaction_time
-          ? new Date(item.transaction_time)
-          : null;
+          const paymentDate = item.transaction_time
+            ? new Date(item.transaction_time)
+            : null;
 
-        return {
-          id: item.id,
-          customerName: fullName,
-          idNumber: customer.id_number || "N/A",
-          mobile: item.phone_number || "N/A",
-          branch: customer.branch?.name || "N/A",
-          transactionId: item.transaction_id || "N/A",
-          amountPaid: item.amount || 0,
-          status: item.status || "pending",
-          billRef: item.billref || "N/A",
-          paymentDate,
-        };
-      });
+          // Map status for display
+          let displayStatus = "pending";
+          if (item.status === "completed") {
+            displayStatus = "success";
+          } else if (item.status) {
+            displayStatus = item.status.toLowerCase();
+          }
 
-      setRepayments(formatted);
-      setFiltered(formatted);
-    } catch (err) {
-      console.error("Error fetching repayments:", err.message);
-    } finally {
-      setLoading(false);
+          return {
+            id: item.id,
+            customerName: fullName,
+            idNumber: customer?.id_number || "N/A",
+            mobile: item.phone_number || "N/A",
+            branch: branch?.name || "N/A",
+            transactionId: item.transaction_id || "N/A",
+            amountPaid: item.amount || 0,
+            dbStatus: item.status || "pending",
+            status: displayStatus,
+            billRef: item.billref || "N/A",
+            paymentDate,
+          };
+        });
+
+        setRepayments(formatted);
+        setFiltered(formatted);
+      } catch (err) {
+        console.error("Error fetching repayments:", err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchRepayments();
+  }, []);
+
+  // Filtering logic with date range support
+  useEffect(() => {
+    let result = [...repayments];
+    const { search, branch, status, dateRangeType, startDate, endDate } = filters;
+
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter(
+        (r) =>
+          r.customerName.toLowerCase().includes(q) ||
+          r.mobile.includes(q) ||
+          r.idNumber.includes(q) ||
+          r.transactionId.toLowerCase().includes(q)
+      );
     }
-  };
 
-  fetchRepayments();
-}, []);
+    if (branch) result = result.filter((r) => r.branch === branch);
+    
+    if (status) {
+      result = result.filter(
+        (r) => r.dbStatus.toLowerCase() === status.toLowerCase()
+      );
+    }
 
+    // Apply date range filtering
+    const { start, end } = getDateRange(dateRangeType);
+    if (start) {
+      result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
+    }
+    if (end) {
+      result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
+    }
+
+    if (sortConfig.key) {
+      result.sort((a, b) => {
+        const aVal = a[sortConfig.key];
+        const bVal = b[sortConfig.key];
+        if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
+        if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+        return 0;
+      });
+    }
+
+    setFiltered(result);
+    setCurrentPage(1);
+  }, [filters, repayments, sortConfig]);
 
   // Function to get start and end date based on range type
   const getDateRange = (type) => {

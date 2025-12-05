@@ -1084,6 +1084,9 @@ const todayString = toLocalYYYYMMDD(todayLocal);
 
 
 
+
+
+
  const calculateDashboardMetrics = async (
     loansData,
     customersData,
@@ -1251,12 +1254,13 @@ const par = calculatePAR(totalArrearsData.totalArrears, outstandingBalance);
       (sum, loan) => sum + (loan.scored_amount || 0),
       0
     );
+const cleanBookAmount = outstandingBalance - totalArrearsData.totalArrears;
 
-    const cleanBookAmount = performingLoanTotalPayable - performingLoansPaid;
-    const cleanBookPercentage =
-      outstandingBalance > 0
-        ? Math.round((cleanBookAmount / outstandingBalance) * 100)
-        : 0;
+// Also update the cleanBookPercentage calculation:
+const cleanBookPercentage =
+  outstandingBalance > 0
+    ? Math.round((cleanBookAmount / outstandingBalance) * 100)
+    : 0;
 
     const pendingCustomerApprovals = filteredCustomers.filter((c) =>
       ["pending", "bm_review", "ca_review", "cso_review"].includes(c.status)
