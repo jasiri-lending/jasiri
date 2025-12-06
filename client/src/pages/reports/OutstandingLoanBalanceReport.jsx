@@ -1,14 +1,10 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Download, Filter, X, ChevronLeft, ChevronRight, Search } from "lucide-react";
-
 import { supabase } from "../../supabaseClient";
 
 const OutstandingLoanBalanceReport = () => {
   const [reports, setReports] = useState([]);
-  const [groupedData, setGroupedData] = useState([]);
-  const [filtered, setFiltered] = useState([]);
   const [branches, setBranches] = useState([]);
-  const [officers, setOfficers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -20,199 +16,191 @@ const OutstandingLoanBalanceReport = () => {
     status: "all",
   });
 
-  // Fetch branches
-  useEffect(() => {
-    const fetchBranches = async () => {
-      const { data, error } = await supabase.from("branches").select("id, name");
-      if (!error) setBranches(data);
-    };
-    fetchBranches();
+  // Memoized function to calculate arrears and overdue days
+  const calculateArrearsAndOverdue = useCallback((installments) => {
+    let arrearsAmount = 0;
+    let maxOverdueDays = 0;
+    const today = new Date();
+
+    installments.forEach((inst) => {
+      if (inst.status === 'overdue' || inst.status === 'defaulted') {
+        // Add unpaid portion to arrears
+        const unpaidAmount = Math.max(0, (inst.due_amount || 0) - (inst.paid_amount || 0));
+        arrearsAmount += unpaidAmount;
+        
+        // Calculate overdue days
+        if (inst.due_date) {
+          const dueDate = new Date(inst.due_date);
+          const daysOverdue = Math.max(0, Math.floor((today - dueDate) / (1000 * 60 * 60 * 24)));
+          maxOverdueDays = Math.max(maxOverdueDays, daysOverdue);
+        }
+        
+        // Also use days_overdue column if available
+        if (inst.days_overdue > maxOverdueDays) {
+          maxOverdueDays = inst.days_overdue;
+        }
+      }
+    });
+
+    return { arrearsAmount, overdueDays: maxOverdueDays };
   }, []);
 
-  // Fetch data & compute metrics
-  useEffect(() => {
-    const fetchOutstandingLoans = async () => {
-      try {
-        setLoading(true);
+  // Fetch data
+  const fetchOutstandingLoans = useCallback(async () => {
+    try {
+      setLoading(true);
 
-        const [loansRes, installmentsRes, customersRes, usersRes, branchesRes] = await Promise.all([
-          supabase
-            .from("loans")
-            .select("id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment")
-            .in("status", ["active", "disbursed"])
-            .neq("repayment_state", "completed"),
-          supabase.from("loan_installments").select("loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status"),
-          supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile"),
-          supabase.from("users").select("id, full_name"),
-          supabase.from("branches").select("id, name"),
-        ]);
+      const [
+        loansRes,
+        installmentsRes,
+        customersRes,
+        usersRes,
+        branchesRes
+      ] = await Promise.all([
+        supabase
+          .from("loans")
+          .select("id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment")
+          .in("status", ["active", "disbursed"])
+          .neq("repayment_state", "completed"),
+        supabase
+          .from("loan_installments")
+          .select("loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue, interest_paid, principal_paid"),
+        supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile"),
+        supabase.from("users").select("id, full_name"),
+        supabase.from("branches").select("id, name"),
+      ]);
 
-        if (loansRes.error || installmentsRes.error || customersRes.error || usersRes.error || branchesRes.error) {
-          throw new Error("Error fetching one or more tables.");
-        }
+      // Check for errors
+      if (loansRes.error) throw new Error(loansRes.error.message);
+      if (installmentsRes.error) throw new Error(installmentsRes.error.message);
+      if (customersRes.error) throw new Error(customersRes.error.message);
+      if (usersRes.error) throw new Error(usersRes.error.message);
+      if (branchesRes.error) throw new Error(branchesRes.error.message);
 
-        const loans = loansRes.data || [];
-        const installments = installmentsRes.data || [];
-        const customers = customersRes.data || [];
-        const users = usersRes.data || [];
-        const branchData = branchesRes.data || [];
+      const loans = loansRes.data || [];
+      const installments = installmentsRes.data || [];
+      const customers = customersRes.data || [];
+      const users = usersRes.data || [];
+      const branchData = branchesRes.data || [];
 
-        // Process each outstanding loan
-        const outstandingReports = loans.map((loan) => {
-          const customer = customers.find((c) => c.id === loan.customer_id);
-          const loanOfficer = users.find((u) => u.id === loan.booked_by);
-          const branch = branchData.find((b) => b.id === loan.branch_id);
+      // Process loans
+      const processedReports = loans.map((loan) => {
+        const customer = customers.find((c) => c.id === loan.customer_id);
+        const loanOfficer = users.find((u) => u.id === loan.booked_by);
+        const branch = branchData.find((b) => b.id === loan.branch_id);
 
-          const fullName = customer 
-            ? `${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim() 
-            : "N/A";
+        const fullName = customer 
+          ? `${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim() 
+          : "N/A";
 
-          const loanInstallments = installments.filter((i) => i.loan_id === loan.id);
+        const loanInstallments = installments.filter((i) => i.loan_id === loan.id);
 
-          // Compute totals correctly
-          let totalPrincipalOutstanding = 0;
-          let totalInterestOutstanding = 0;
-          let outstandingInstallments = 0;
-          let totalInterestPaid = 0;
+        // Calculate arrears and overdue days
+        const { arrearsAmount, overdueDays } = calculateArrearsAndOverdue(loanInstallments);
+
+        // Calculate totals using actual columns from database
+        let totalPrincipalOutstanding = 0;
+        let totalInterestOutstanding = 0;
+        let totalInterestPaid = 0;
+        let totalPrincipalPaid = 0;
+        let outstandingInstallments = 0;
 
         loanInstallments.forEach((inst) => {
-  const principalAmount = Number(inst.principal_amount) || 0;
-  const interestAmount = Number(inst.interest_amount) || 0;
-  const paidAmount = Number(inst.paid_amount) || 0;
-  const dueAmount = Number(inst.due_amount) || 0;
+          const principalAmount = Number(inst.principal_amount) || 0;
+          const interestAmount = Number(inst.interest_amount) || 0;
 
-  const principalRatio = dueAmount > 0 ? principalAmount / dueAmount : 0;
-  const interestRatio = dueAmount > 0 ? interestAmount / dueAmount : 0;
-  const principalPaid = paidAmount * principalRatio;
-  const interestPaid = paidAmount * interestRatio;
-
-  const principalBalance = principalAmount - principalPaid;
-  const interestBalance = interestAmount - interestPaid;
-
-if (inst.status !== "paid" && (principalBalance > 0 || interestBalance > 0)) {
-  outstandingInstallments += 1;
-}
-
-
-  totalPrincipalOutstanding += principalBalance;
-  totalInterestOutstanding += interestBalance;
-  
-  //  FIX: sum up interest paid across all installments
-  totalInterestPaid += interestPaid;
-});
-
-
-          const totalOutstanding = totalPrincipalOutstanding + totalInterestOutstanding;
           
-          // Calculate additional fields for export and display
-          const principal = Number(loan.scored_amount) || 0;
-          const interest = Number(loan.total_interest) || 0;
-          const total_amount = Number(loan.total_payable) || 0;
-          const principal_paid = principal - totalPrincipalOutstanding;
-          const total_amount_paid = total_amount - totalOutstanding;
-          const percent_paid = total_amount > 0 ? (total_amount_paid / total_amount) * 100 : 0;
-          const percent_unpaid = total_amount > 0 ? (totalOutstanding / total_amount) * 100 : 0;
+          // Use actual columns from database
+          const interestPaid = Number(inst.interest_paid) || 0;
+          const principalPaid = Number(inst.principal_paid) || 0;
 
-          return {
-            id: loan.id,
-            customer_name: fullName,
-            customer_id: customer?.id_number || "N/A",
-            mobile: customer?.mobile || "N/A",
-            branch: branch?.name || "N/A",
-            branch_id: branch?.id || "N/A",
-            loan_officer: loanOfficer?.full_name || "N/A",
-            loan_officer_id: loanOfficer?.id || "N/A",
-            principal_outstanding: totalPrincipalOutstanding,
-            interest_outstanding: totalInterestOutstanding,
-            outstanding_installments: outstandingInstallments,
-            balance: totalOutstanding,
-            disbursement_date: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A",
-            loan_end_date: loan.duration_weeks
-              ? new Date(new Date(loan.disbursed_at).getTime() + loan.duration_weeks * 7 * 24 * 60 * 60 * 1000).toLocaleDateString()
-              : "N/A",
-            repayment_state: loan.repayment_state,
-            status: loan.status,
-            
-            // Additional fields for export and display
-            principal,
-            interest,
-            total_amount,
-            num_installments: loan.duration_weeks || 0,
-            principal_due: totalPrincipalOutstanding,
-            interest_due: totalInterestOutstanding,
-            recurring_charge: Number(loan.weekly_payment) || 0,
-            principal_paid,
-            total_amount_due: total_amount,
-            total_amount_paid,
-            percent_paid,
-            interest_paid: totalInterestPaid,
-            percent_unpaid,
-            arrears_amount: 0, // You'll need to calculate this based on your business logic
-            overdue_days: 0, // You'll need to calculate this based on your business logic
-          };
+          const principalBalance = principalAmount - principalPaid;
+          const interestBalance = interestAmount - interestPaid;
+
+          if (inst.status !== "paid" && (principalBalance > 0 || interestBalance > 0)) {
+            outstandingInstallments += 1;
+          }
+
+          totalPrincipalOutstanding += principalBalance;
+          totalInterestOutstanding += interestBalance;
+          totalInterestPaid += interestPaid;
+          totalPrincipalPaid += principalPaid;
         });
 
-        setReports(outstandingReports);
+        const totalOutstanding = totalPrincipalOutstanding + totalInterestOutstanding;
         
-        // Group data by branch and loan officer
-        const grouped = groupByBranchAndOfficer(outstandingReports);
-        setGroupedData(grouped);
-        setFiltered(grouped);
+        // Calculate other fields
+        const principal = Number(loan.scored_amount) || 0;
+        const interest = Number(loan.total_interest) || 0;
+        const total_amount = Number(loan.total_payable) || 0;
+        const principal_paid = totalPrincipalPaid; // Use calculated value
+        const total_amount_paid = principal_paid + totalInterestPaid;
+        const percent_paid = total_amount > 0 ? (total_amount_paid / total_amount) * 100 : 0;
+        const percent_unpaid = total_amount > 0 ? (totalOutstanding / total_amount) * 100 : 0;
 
-        const uniqueOfficers = [...new Set(outstandingReports.map(r => r.loan_officer).filter(o => o !== "N/A"))];
-        setOfficers(uniqueOfficers);
-      } catch (err) {
-        console.error("Error fetching outstanding loans:", err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+        return {
+          id: loan.id,
+          customer_name: fullName,
+          customer_id: customer?.id_number || "N/A",
+          mobile: customer?.mobile || "N/A",
+          branch: branch?.name || "N/A",
+          branch_id: branch?.id || "N/A",
+          loan_officer: loanOfficer?.full_name || "N/A",
+          loan_officer_id: loanOfficer?.id || "N/A",
+          principal_outstanding: totalPrincipalOutstanding,
+          interest_outstanding: totalInterestOutstanding,
+          outstanding_installments: outstandingInstallments,
+          balance: totalOutstanding,
+          disbursement_date: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A",
+          loan_end_date: loan.duration_weeks && loan.disbursed_at
+            ? new Date(new Date(loan.disbursed_at).getTime() + loan.duration_weeks * 7 * 24 * 60 * 60 * 1000).toLocaleDateString()
+            : "N/A",
+          repayment_state: loan.repayment_state,
+          status: loan.status,
+          
+          // Financial fields
+          principal,
+          interest,
+          total_amount,
+          num_installments: loan.duration_weeks || 0,
+          principal_due: totalPrincipalOutstanding,
+          interest_due: totalInterestOutstanding,
+          recurring_charge: Number(loan.weekly_payment) || 0,
+          principal_paid,
+          total_amount_due: total_amount,
+          total_amount_paid,
+          percent_paid,
+          interest_paid: totalInterestPaid, // Correctly calculated
+          percent_unpaid,
+          arrears_amount: arrearsAmount, // Now properly calculated
+          overdue_days: overdueDays, // Now properly calculated
+        };
+      });
 
-    fetchOutstandingLoans();
-  }, []);
+      setReports(processedReports);
+      setBranches(branchData);
 
-  // Group data by branch and loan officer
-const groupByBranchAndOfficer = (data) => {
-  const grouped = {};
-
-  data.forEach((loan) => {
-    const branchName = loan.branch;
-    const officerName = loan.loan_officer;
-
-    if (!grouped[branchName]) {
-      grouped[branchName] = {
-        branchName,
-        totalOutstanding: 0,
-        officers: {},
-      };
+    } catch (err) {
+      console.error("Error fetching outstanding loans:", err.message);
+    } finally {
+      setLoading(false);
     }
+  }, [calculateArrearsAndOverdue]);
 
-    if (!grouped[branchName].officers[officerName]) {
-      grouped[branchName].officers[officerName] = {
-        officerName,
-        totalOutstanding: 0, // ✅ initialize this!
-        loans: [],
-      };
-    }
-
-    grouped[branchName].officers[officerName].loans.push(loan);
-    grouped[branchName].officers[officerName].totalOutstanding += loan.balance; // ✅ accumulate per officer
-    grouped[branchName].totalOutstanding += loan.balance; // ✅ accumulate per branch
-  });
-
-  return Object.values(grouped).map((branch) => ({
-    ...branch,
-    officers: Object.values(branch.officers),
-  }));
-};
-
-  // Filters
+  // Initial data fetch
   useEffect(() => {
-    let result = [...reports];
+    fetchOutstandingLoans();
+  }, [fetchOutstandingLoans]);
+
+
+
+  // Filter data
+  const filteredData = React.useMemo(() => {
+    let filteredReports = [...reports];
     
     if (filters.search) {
       const q = filters.search.toLowerCase();
-      result = result.filter((r) =>
+      filteredReports = filteredReports.filter((r) =>
         r.customer_name.toLowerCase().includes(q) ||
         r.mobile.includes(q) ||
         r.customer_id.includes(q)
@@ -220,27 +208,79 @@ const groupByBranchAndOfficer = (data) => {
     }
 
     if (filters.branch) {
-      result = result.filter((r) => r.branch === filters.branch);
+      filteredReports = filteredReports.filter((r) => r.branch === filters.branch);
     }
     
     if (filters.loanOfficer) {
-      result = result.filter((r) => r.loan_officer === filters.loanOfficer);
+      filteredReports = filteredReports.filter((r) => r.loan_officer === filters.loanOfficer);
     }
     
     if (filters.status !== "all") {
-      result = result.filter((r) => r.repayment_state === filters.status);
+      filteredReports = filteredReports.filter((r) => r.repayment_state === filters.status);
     }
 
-    const grouped = groupByBranchAndOfficer(result);
-    setFiltered(grouped);
+    // Re-group filtered data
+    const grouped = {};
+    filteredReports.forEach((loan) => {
+      const branchName = loan.branch;
+      const officerName = loan.loan_officer;
+
+      if (!grouped[branchName]) {
+        grouped[branchName] = {
+          branchName,
+          totalOutstanding: 0,
+          officers: {},
+        };
+      }
+
+      if (!grouped[branchName].officers[officerName]) {
+        grouped[branchName].officers[officerName] = {
+          officerName,
+          totalOutstanding: 0,
+          loans: [],
+        };
+      }
+
+      grouped[branchName].officers[officerName].loans.push(loan);
+      grouped[branchName].officers[officerName].totalOutstanding += loan.balance;
+      grouped[branchName].totalOutstanding += loan.balance;
+    });
+
+    return Object.values(grouped).map((branch) => ({
+      ...branch,
+      officers: Object.values(branch.officers),
+    }));
+  }, [reports, filters]);
+
+  // Get unique officers for filter dropdown
+  const officers = React.useMemo(() => {
+    return [...new Set(reports.map(r => r.loan_officer).filter(o => o !== "N/A"))];
+  }, [reports]);
+
+  // Get all loans for pagination
+  const allLoans = React.useMemo(() => {
+    return filteredData.flatMap(branch => 
+      branch.officers.flatMap(officer => officer.loans)
+    );
+  }, [filteredData]);
+
+  // Pagination
+  const totalPages = Math.ceil(allLoans.length / itemsPerPage);
+  const startIdx = (currentPage - 1) * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+
+  // Reset to first page when filters change
+  useEffect(() => {
     setCurrentPage(1);
-  }, [filters, reports]);
+  }, [filters]);
 
-  const handleFilterChange = (key, value) =>
-    setFilters((prev) => ({ ...prev, [key]: value }));
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+  };
 
-  const clearFilters = () =>
+  const clearFilters = () => {
     setFilters({ search: "", branch: "", loanOfficer: "", status: "all" });
+  };
 
   const formatCurrency = (num) =>
     new Intl.NumberFormat("en-KE", {
@@ -250,10 +290,6 @@ const groupByBranchAndOfficer = (data) => {
     }).format(num || 0);
 
   const exportToCSV = () => {
-    const allLoans = filtered.flatMap(branch => 
-      branch.officers.flatMap(officer => officer.loans)
-    );
-    
     if (allLoans.length === 0) {
       alert("No data to export");
       return;
@@ -274,6 +310,7 @@ const groupByBranchAndOfficer = (data) => {
         "Interest Due",
         "Recurring Charge",
         "Principal Paid",
+        "Interest Paid",
         "Total Amount Due",
         "Total Amount Paid",
         "% Paid",
@@ -298,6 +335,7 @@ const groupByBranchAndOfficer = (data) => {
         (r.interest_due || 0).toFixed(2),
         (r.recurring_charge || 0).toFixed(2),
         (r.principal_paid || 0).toFixed(2),
+        (r.interest_paid || 0).toFixed(2), // Now correctly included
         (r.total_amount_due || 0).toFixed(2),
         (r.total_amount_paid || 0).toFixed(2),
         (r.percent_paid || 0).toFixed(2),
@@ -316,22 +354,12 @@ const groupByBranchAndOfficer = (data) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `outstanding_loan_balance_grouped_${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `outstanding_loan_balance_${new Date().toISOString().split("T")[0]}.csv`;
     a.click();
+    URL.revokeObjectURL(url);
   };
 
-  // Pagination
-  const allLoans = filtered.flatMap(branch => 
-    branch.officers.flatMap(officer => officer.loans)
-  );
-  const totalPages = Math.ceil(allLoans.length / itemsPerPage);
-  const startIdx = (currentPage - 1) * itemsPerPage;
-  const endIdx = startIdx + itemsPerPage;
 
-  // Calculate summary statistics
-  const totalOutstanding = allLoans.reduce((sum, r) => sum + (r.balance || 0), 0);
-  const totalPaid = allLoans.reduce((sum, r) => sum + (r.total_amount_paid || 0), 0);
-  const totalArrears = allLoans.reduce((sum, r) => sum + (r.arrears_amount || 0), 0);
 
   return (
     <div className="space-y-6 p-6">
@@ -339,7 +367,9 @@ const groupByBranchAndOfficer = (data) => {
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Outstanding Loan Balance Report</h1>
+            <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+              Outstanding Loan Balance Report
+            </h1>
             <p className="text-sm text-gray-600 mt-1">
               Grouped by Branch and Loan Officer
             </p>
@@ -367,6 +397,7 @@ const groupByBranchAndOfficer = (data) => {
             </button>
           </div>
         </div>
+
       </div>
 
       {/* Filters */}
@@ -406,8 +437,10 @@ const groupByBranchAndOfficer = (data) => {
               className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               <option value="">All Officers</option>
-              {officers.map((o) => (
-                <option key={o} value={o}>{o}</option>
+              {officers.map((o, index) => (
+                <option key={`${o}-${index}`} value={o}>
+                  {o}
+                </option>
               ))}
             </select>
 
@@ -433,26 +466,6 @@ const groupByBranchAndOfficer = (data) => {
         </div>
       )}
 
-      {/* Data Summary */}
-      {/* <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Loans</p>
-          <p className="text-2xl font-bold text-gray-900">{allLoans.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Outstanding</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalOutstanding)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Paid</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Arrears</p>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(totalArrears)}</p>
-        </div>
-      </div> */}
-
       {/* Table */}
       <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
         {loading ? (
@@ -470,12 +483,11 @@ const groupByBranchAndOfficer = (data) => {
                 <thead className="bg-gray-100 border-b-2 border-gray-300 sticky top-0">
                   <tr>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Branch</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Total Outstanding</th>
+                    <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Branch Total</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Loan Officer</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
-  Loan Officer Portfolio
-</th>
-
+                      Officer Portfolio
+                    </th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Customer Name</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Phone</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">ID Number</th>
@@ -483,16 +495,12 @@ const groupByBranchAndOfficer = (data) => {
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Interest</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Total Amount</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Installments</th>
-
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Principal Paid</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
-  Interest Paid
-</th>
-
+                    <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Interest Paid</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Total Paid</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">% Paid</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">% Unpaid</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Outstanding  Balance</th>
+                    <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Balance</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Arrears</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Overdue Days</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Disbursement</th>
@@ -500,7 +508,7 @@ const groupByBranchAndOfficer = (data) => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {filtered.map((branch, branchIdx) => {
+                  {filteredData.map((branch) => {
                     let loanCounter = 0;
                     return branch.officers.map((officer, officerIdx) => {
                       const officerLoans = officer.loans.slice(
@@ -530,19 +538,19 @@ const groupByBranchAndOfficer = (data) => {
                                 </td>
                               </>
                             ) : null}
-                         {isFirstInOfficer ? (
-  <>
-    <td rowSpan={officerLoanCount} 
-        className="px-3 py-3 text-gray-800 font-semibold bg-green-50 border-r border-green-200 align-top whitespace-nowrap">
-      {officer.officerName}
-    </td>
-    <td rowSpan={officerLoanCount} 
-        className="px-3 py-3 text-right text-blue-700 font-bold bg-green-50 border-r border-green-200 align-top whitespace-nowrap">
-      {formatCurrency(officer.totalOutstanding)}
-    </td>
-  </>
-) : null}
-
+                            
+                            {isFirstInOfficer ? (
+                              <>
+                                <td rowSpan={officerLoanCount} 
+                                    className="px-3 py-3 text-gray-800 font-semibold bg-green-50 border-r border-green-200 align-top whitespace-nowrap">
+                                  {officer.officerName}
+                                </td>
+                                <td rowSpan={officerLoanCount} 
+                                    className="px-3 py-3 text-right text-blue-700 font-bold bg-green-50 border-r border-green-200 align-top whitespace-nowrap">
+                                  {formatCurrency(officer.totalOutstanding)}
+                                </td>
+                              </>
+                            ) : null}
                             
                             <td className="px-3 py-3 text-gray-900 font-medium whitespace-nowrap">{loan.customer_name}</td>
                             <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{loan.mobile}</td>
@@ -550,13 +558,11 @@ const groupByBranchAndOfficer = (data) => {
                             <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{formatCurrency(loan.principal)}</td>
                             <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{formatCurrency(loan.interest)}</td>
                             <td className="px-3 py-3 text-right text-gray-900 font-semibold whitespace-nowrap">{formatCurrency(loan.total_amount)}</td>
-                            <td className="px-3 py-3 text-center text-gray-700 whitespace-nowrap">  {loan.outstanding_installments}</td>
-
+                            <td className="px-3 py-3 text-center text-gray-700 whitespace-nowrap">{loan.outstanding_installments}</td>
                             <td className="px-3 py-3 text-right text-green-700 font-semibold whitespace-nowrap">{formatCurrency(loan.principal_paid)}</td>
                             <td className="px-3 py-3 text-right text-green-700 font-semibold whitespace-nowrap">
-  {formatCurrency(loan.interest_paid)}
-</td>
-
+                              {formatCurrency(loan.interest_paid)}
+                            </td>
                             <td className="px-3 py-3 text-right text-green-700 font-semibold whitespace-nowrap">{formatCurrency(loan.total_amount_paid)}</td>
                             <td className="px-3 py-3 text-center whitespace-nowrap">
                               <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
@@ -579,15 +585,17 @@ const groupByBranchAndOfficer = (data) => {
                               </span>
                             </td>
                             <td className="px-3 py-3 text-right text-blue-700 font-bold whitespace-nowrap">{formatCurrency(loan.balance)}</td>
-                            <td className="px-3 py-3 text-right text-red-700 font-semibold whitespace-nowrap">{formatCurrency(loan.arrears_amount)}</td>
+                            <td className="px-3 py-3 text-right text-red-700 font-semibold whitespace-nowrap">
+                              {loan.arrears_amount > 0 ? formatCurrency(loan.arrears_amount) : "-"}
+                            </td>
                             <td className="px-3 py-3 text-center whitespace-nowrap">
-                              {(loan.overdue_days || 0) > 0 ? (
+                              {loan.overdue_days > 0 ? (
                                 <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                                  (loan.overdue_days || 0) <= 7 ? 'bg-yellow-100 text-yellow-800' :
-                                  (loan.overdue_days || 0) <= 30 ? 'bg-orange-100 text-orange-800' :
+                                  loan.overdue_days <= 7 ? 'bg-yellow-100 text-yellow-800' :
+                                  loan.overdue_days <= 30 ? 'bg-orange-100 text-orange-800' :
                                   'bg-red-100 text-red-800'
                                 }`}>
-                                  {loan.overdue_days}
+                                  {loan.overdue_days} days
                                 </span>
                               ) : (
                                 <span className="text-gray-500">-</span>

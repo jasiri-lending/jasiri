@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { Download, Filter, X, ChevronLeft, ChevronRight, Search, FileText, FileSpreadsheet, ChevronDown } from "lucide-react";
+import { Download, Filter, X, ChevronLeft, ChevronRight, Search, FileText, FileSpreadsheet, ChevronDown, AlertCircle, Clock, CheckCircle } from "lucide-react";
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import "jspdf-autotable";
@@ -19,6 +19,8 @@ const LoanInstallmentReport = () => {
     branch: "",
     customer: "",
     installmentRange: "all",
+    paymentStatus: "all",
+    overdueStatus: "all"
   });
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
 
@@ -56,7 +58,7 @@ const LoanInstallmentReport = () => {
             .in("status", ["active", "disbursed"]),
           supabase
             .from("loan_installments")
-            .select("loan_id, installment_number, due_amount, paid_amount, status, due_date, paid_date"),
+            .select("loan_id, installment_number, due_amount, paid_amount, status, due_date, paid_date, days_overdue"),
           supabase.from("users").select("id, full_name"),
           supabase.from("branches").select("id, name"),
         ]);
@@ -89,12 +91,20 @@ const LoanInstallmentReport = () => {
             a.installment_number - b.installment_number
           );
 
-          // Calculate installment statistics - max 8 weeks
+          // Calculate installment statistics
           const totalInstallments = Math.min(loan.duration_weeks || 0, 8);
+          
+          // Count installments by status
           const paidInstallments = loanInstallments.filter(i => i.status === 'paid').length;
           const pendingInstallments = loanInstallments.filter(i => i.status === 'pending').length;
           const overdueInstallments = loanInstallments.filter(i => i.status === 'overdue').length;
           const partialInstallments = loanInstallments.filter(i => i.status === 'partial').length;
+          const defaultedInstallments = loanInstallments.filter(i => i.status === 'defaulted').length;
+          
+          // KEY FEATURE: Check for partially paid AND overdue installments
+          const partialOverdueInstallments = loanInstallments.filter(i => 
+            i.status === 'partial' && i.days_overdue > 0
+          );
           
           // Calculate amounts
           const totalPaidAmount = loanInstallments.reduce((sum, inst) => 
@@ -105,30 +115,92 @@ const LoanInstallmentReport = () => {
             sum + (Number(inst.due_amount) || 0), 0
           );
 
-          // Calculate next due date
+          // Calculate partial amounts
+          const partialAmount = loanInstallments
+            .filter(i => i.status === 'partial')
+            .reduce((sum, inst) => sum + (Number(inst.paid_amount) || 0), 0);
+          
+          // Calculate overdue amounts
+          const overdueAmount = loanInstallments
+            .filter(i => i.status === 'overdue')
+            .reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
+          
+          // Calculate overdue paid amounts
+          const overduePaidAmount = loanInstallments
+            .filter(i => i.status === 'overdue')
+            .reduce((sum, inst) => sum + (Number(inst.paid_amount) || 0), 0);
+
+          // Find next due date - first pending, overdue, or partial installment
           const nextInstallment = sortedInstallments.find(inst => 
-            inst.status === 'pending' || inst.status === 'overdue'
+            ['pending', 'overdue', 'partial'].includes(inst.status)
           );
           
-          // Calculate days since last payment
-          const paidInstallmentsList = sortedInstallments.filter(inst => 
-            inst.status === 'paid' && inst.paid_date
+          // Calculate days since last payment - include both paid and partial installments
+          const paidAndPartialInstallments = sortedInstallments.filter(inst => 
+            (inst.status === 'paid' || inst.status === 'partial') && inst.paid_date
           );
-          const lastPayment = paidInstallmentsList.length > 0 
-            ? paidInstallmentsList[paidInstallmentsList.length - 1].paid_date 
+          
+          const lastPayment = paidAndPartialInstallments.length > 0 
+            ? paidAndPartialInstallments[paidAndPartialInstallments.length - 1].paid_date 
             : null;
           
           const daysSinceLastPayment = lastPayment 
             ? Math.floor((new Date() - new Date(lastPayment)) / (1000 * 60 * 60 * 24))
             : null;
 
+          // Calculate maximum days overdue
+          const maxDaysOverdue = loanInstallments.reduce((max, inst) => {
+            const days = inst.days_overdue || 0;
+            return days > max ? days : max;
+          }, 0);
+
+          // Determine repayment status
+          let repaymentStatus = "No Payments";
+          let repaymentStatusColor = "gray";
+          
+          if (totalPaidAmount > 0) {
+            if (totalPaidAmount >= totalDueAmount) {
+              repaymentStatus = "Fully Paid";
+              repaymentStatusColor = "green";
+            } else if (partialOverdueInstallments.length > 0) {
+              repaymentStatus = "Partial & Overdue";
+              repaymentStatusColor = "orange";
+            } else if (partialInstallments > 0 && overdueInstallments === 0) {
+              repaymentStatus = "Partially Paid";
+              repaymentStatusColor = "blue";
+            } else if (overdueInstallments > 0 && partialInstallments === 0) {
+              repaymentStatus = "Overdue";
+              repaymentStatusColor = "red";
+            } else if (defaultedInstallments > 0) {
+              repaymentStatus = "Defaulted";
+              repaymentStatusColor = "red";
+            } else {
+              repaymentStatus = "In Progress";
+              repaymentStatusColor = "yellow";
+            }
+          }
+
           // Calculate completion status
           let completionStatus = "Not Started";
           if (paidInstallments === totalInstallments && totalInstallments > 0) {
             completionStatus = "Completed";
-          } else if (paidInstallments > 0) {
+          } else if (paidInstallments > 0 || partialInstallments > 0) {
             completionStatus = "In Progress";
           }
+
+          // Get partial installment numbers
+          const partialInstallmentNumbers = loanInstallments
+            .filter(i => i.status === 'partial')
+            .map(i => i.installment_number)
+            .sort((a, b) => a - b)
+            .join(", ");
+
+          // Get overdue installment numbers
+          const overdueInstallmentNumbers = loanInstallments
+            .filter(i => i.status === 'overdue')
+            .map(i => i.installment_number)
+            .sort((a, b) => a - b)
+            .join(", ");
 
           return {
             id: loan.id,
@@ -141,23 +213,45 @@ const LoanInstallmentReport = () => {
             loan_officer: loanOfficer?.full_name || "N/A",
             product_name: loan.product_name || "N/A",
             loan_amount: Number(loan.scored_amount) || 0,
+            
+            // Installment counts
             total_installments: totalInstallments,
             paid_installments: paidInstallments,
             pending_installments: pendingInstallments,
             overdue_installments: overdueInstallments,
             partial_installments: partialInstallments,
+            defaulted_installments: defaultedInstallments,
+            partial_overdue_installments: partialOverdueInstallments.length,
+            
+            // Amounts
             total_paid_amount: totalPaidAmount,
             total_due_amount: totalDueAmount,
+            partial_amount: partialAmount,
+            overdue_amount: overdueAmount,
+            overdue_paid_amount: overduePaidAmount,
+            
+            // Dates and timing
             completion_percentage: totalInstallments > 0 ? (paidInstallments / totalInstallments) * 100 : 0,
+            payment_percentage: totalDueAmount > 0 ? (totalPaidAmount / totalDueAmount) * 100 : 0,
             completion_status: completionStatus,
+            repayment_status: repaymentStatus,
+            repayment_status_color: repaymentStatusColor,
             next_due_date: nextInstallment?.due_date || "N/A",
             last_payment_date: lastPayment || "No payments yet",
             days_since_last_payment: daysSinceLastPayment,
+            max_days_overdue: maxDaysOverdue,
+            
+            // Additional details
+            partial_installment_numbers: partialInstallmentNumbers,
+            overdue_installment_numbers: overdueInstallmentNumbers,
+            has_partial_overdue: partialOverdueInstallments.length > 0,
+            
             disbursement_date: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A",
             loan_end_date: loan.duration_weeks && loan.disbursed_at
               ? new Date(new Date(loan.disbursed_at).getTime() + Math.min(loan.duration_weeks, 8) * 7 * 24 * 60 * 60 * 1000).toLocaleDateString()
               : "N/A",
-            // For individual installment filtering (1 through 8)
+            
+            // For filtering
             paid_installments_count: paidInstallments,
           };
         });
@@ -200,18 +294,47 @@ const LoanInstallmentReport = () => {
       result = result.filter((r) => r.customer_name === filters.customer);
     }
     
-    // Installment range filter - now showing individual numbers 1-8
+    // Installment range filter
     if (filters.installmentRange !== "all") {
       if (filters.installmentRange === "0") {
         result = result.filter((r) => r.paid_installments === 0);
       } else if (filters.installmentRange === "2-8") {
         result = result.filter((r) => r.paid_installments >= 2 && r.paid_installments <= 8);
       } else {
-        // Individual numbers 1, 2, 3, 4, 5, 6, 7, 8
         const installmentNumber = parseInt(filters.installmentRange);
         if (!isNaN(installmentNumber)) {
           result = result.filter((r) => r.paid_installments === installmentNumber);
         }
+      }
+    }
+    
+    // Payment status filter
+    if (filters.paymentStatus !== "all") {
+      if (filters.paymentStatus === "partial") {
+        result = result.filter((r) => r.partial_installments > 0);
+      } else if (filters.paymentStatus === "partial_overdue") {
+        result = result.filter((r) => r.has_partial_overdue);
+      } else if (filters.paymentStatus === "overdue") {
+        result = result.filter((r) => r.overdue_installments > 0);
+      } else if (filters.paymentStatus === "defaulted") {
+        result = result.filter((r) => r.defaulted_installments > 0);
+      } else if (filters.paymentStatus === "no_payment") {
+        result = result.filter((r) => r.total_paid_amount === 0);
+      } else if (filters.paymentStatus === "fully_paid") {
+        result = result.filter((r) => r.repayment_status === "Fully Paid");
+      }
+    }
+    
+    // Overdue status filter
+    if (filters.overdueStatus !== "all") {
+      if (filters.overdueStatus === "overdue_7") {
+        result = result.filter((r) => r.max_days_overdue <= 7 && r.max_days_overdue > 0);
+      } else if (filters.overdueStatus === "overdue_14") {
+        result = result.filter((r) => r.max_days_overdue > 7 && r.max_days_overdue <= 14);
+      } else if (filters.overdueStatus === "overdue_30") {
+        result = result.filter((r) => r.max_days_overdue > 14 && r.max_days_overdue <= 30);
+      } else if (filters.overdueStatus === "overdue_30_plus") {
+        result = result.filter((r) => r.max_days_overdue > 30);
       }
     }
 
@@ -223,7 +346,14 @@ const LoanInstallmentReport = () => {
     setFilters((prev) => ({ ...prev, [key]: value }));
 
   const clearFilters = () =>
-    setFilters({ search: "", branch: "", customer: "", installmentRange: "all" });
+    setFilters({ 
+      search: "", 
+      branch: "", 
+      customer: "", 
+      installmentRange: "all",
+      paymentStatus: "all",
+      overdueStatus: "all"
+    });
 
   const formatCurrency = (num) =>
     new Intl.NumberFormat("en-KE", {
@@ -248,18 +378,25 @@ const LoanInstallmentReport = () => {
         "Loan Officer",
         "Product",
         "Loan Amount",
-        "Total Installments (Max 8)",
+        "Total Installments",
         "Paid Installments",
         "Pending Installments",
         "Overdue Installments",
         "Partial Installments",
-        "Completion %",
-        "Completion Status",
+        "Partial & Overdue Installments",
+        "Defaulted Installments",
+        "Repayment Status",
         "Total Paid Amount",
         "Total Due Amount",
+        "Partial Amount",
+        "Overdue Amount",
+        "Payment %",
         "Next Due Date",
         "Last Payment Date",
         "Days Since Last Payment",
+        "Max Days Overdue",
+        "Partial Installment Numbers",
+        "Overdue Installment Numbers",
         "Disbursement Date",
         "Loan End Date",
       ],
@@ -276,13 +413,20 @@ const LoanInstallmentReport = () => {
         r.pending_installments || 0,
         r.overdue_installments || 0,
         r.partial_installments || 0,
-        (r.completion_percentage || 0).toFixed(2),
-        r.completion_status,
+        r.partial_overdue_installments || 0,
+        r.defaulted_installments || 0,
+        r.repayment_status,
         (r.total_paid_amount || 0).toFixed(2),
         (r.total_due_amount || 0).toFixed(2),
-        r.next_due_date,
-        r.last_payment_date,
+        (r.partial_amount || 0).toFixed(2),
+        (r.overdue_amount || 0).toFixed(2),
+        (r.payment_percentage || 0).toFixed(2),
+        r.next_due_date !== "N/A" ? new Date(r.next_due_date).toLocaleDateString('en-GB') : "N/A",
+        r.last_payment_date !== "No payments yet" ? new Date(r.last_payment_date).toLocaleDateString('en-GB') : "No payments",
         r.days_since_last_payment || "N/A",
+        r.max_days_overdue || 0,
+        r.partial_installment_numbers || "",
+        r.overdue_installment_numbers || "",
         r.disbursement_date,
         r.loan_end_date,
       ]),
@@ -320,13 +464,20 @@ const LoanInstallmentReport = () => {
         "Pending Installments": r.pending_installments,
         "Overdue Installments": r.overdue_installments,
         "Partial Installments": r.partial_installments,
-        "Completion %": r.completion_percentage.toFixed(2),
-        "Completion Status": r.completion_status,
+        "Partial & Overdue Installments": r.partial_overdue_installments,
+        "Defaulted Installments": r.defaulted_installments,
+        "Repayment Status": r.repayment_status,
         "Total Paid Amount": r.total_paid_amount,
         "Total Due Amount": r.total_due_amount,
-        "Next Due Date": r.next_due_date,
-        "Last Payment Date": r.last_payment_date,
+        "Partial Amount": r.partial_amount,
+        "Overdue Amount": r.overdue_amount,
+        "Payment %": r.payment_percentage.toFixed(2),
+        "Next Due Date": r.next_due_date !== "N/A" ? new Date(r.next_due_date).toLocaleDateString('en-GB') : "N/A",
+        "Last Payment Date": r.last_payment_date !== "No payments yet" ? new Date(r.last_payment_date).toLocaleDateString('en-GB') : "No payments",
         "Days Since Last Payment": r.days_since_last_payment,
+        "Max Days Overdue": r.max_days_overdue,
+        "Partial Installment Numbers": r.partial_installment_numbers,
+        "Overdue Installment Numbers": r.overdue_installment_numbers,
         "Disbursement Date": r.disbursement_date,
         "Loan End Date": r.loan_end_date,
       }))
@@ -349,10 +500,20 @@ const LoanInstallmentReport = () => {
     
     // Title
     doc.setFontSize(18);
-    doc.text("Loan Installment Report (8-Week Loans)", 14, 22);
+    doc.text("Loan Installment Report with Partial & Overdue Tracking", 14, 22);
     doc.setFontSize(11);
     doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 14, 30);
     doc.text(`Total Records: ${filteredReports.length}`, 14, 38);
+    
+    // Summary statistics
+    const partialOverdueCount = filteredReports.filter(r => r.has_partial_overdue).length;
+    const overdueCount = filteredReports.filter(r => r.overdue_installments > 0).length;
+    const partialCount = filteredReports.filter(r => r.partial_installments > 0).length;
+    
+    doc.setFontSize(10);
+    doc.text(`Partial & Overdue: ${partialOverdueCount}`, 14, 46);
+    doc.text(`Overdue: ${overdueCount}`, 70, 46);
+    doc.text(`Partial: ${partialCount}`, 120, 46);
     
     // Table data
     const tableColumn = [
@@ -360,35 +521,47 @@ const LoanInstallmentReport = () => {
       "ID",
       "Phone",
       "Branch",
-      "Total Inst",
       "Paid",
-      "Status",
-      "Completion",
+      "Overdue",
+      "Partial",
+      "Partial&Ov",
+      "Repayment Status",
       "Total Paid",
+      "Days Since Last",
+      "Days Overdue",
       "Next Due",
     ];
     
     const tableRows = filteredReports.map(r => [
-      r.customer_name.length > 15 ? r.customer_name.substring(0, 15) + "..." : r.customer_name,
+      r.customer_name.length > 12 ? r.customer_name.substring(0, 12) + "..." : r.customer_name,
       r.customer_id_number,
       r.mobile,
-      r.branch.substring(0, 10),
-      r.total_installments,
+      r.branch.substring(0, 8),
       r.paid_installments,
-      r.completion_status,
-      `${r.completion_percentage.toFixed(0)}%`,
+      r.overdue_installments,
+      r.partial_installments,
+      r.partial_overdue_installments,
+      r.repayment_status,
       formatCurrency(r.total_paid_amount),
+      r.days_since_last_payment || "-",
+      r.max_days_overdue || 0,
       r.next_due_date !== "N/A" ? new Date(r.next_due_date).toLocaleDateString('en-GB') : "N/A",
     ]);
 
     doc.autoTable({
       head: [tableColumn],
       body: tableRows,
-      startY: 45,
+      startY: 55,
       theme: "grid",
-      styles: { fontSize: 8 },
+      styles: { fontSize: 7 },
       headStyles: { fillColor: [88, 106, 177] },
       alternateRowStyles: { fillColor: [245, 245, 245] },
+      columnStyles: {
+        4: { cellWidth: 'auto' },
+        5: { cellWidth: 'auto' },
+        6: { cellWidth: 'auto' },
+        7: { cellWidth: 'auto' },
+      }
     });
 
     doc.save(`loan_installment_report_${new Date().toISOString().split("T")[0]}.pdf`);
@@ -404,11 +577,7 @@ const LoanInstallmentReport = () => {
   // Get unique customer names for filter
   const customerNames = [...new Set(reports.map(r => r.customer_name).filter(name => name !== "N/A"))];
 
-  // Summary statistics
-  const totalLoans = filteredReports.length;
-  const totalPaidInstallments = filteredReports.reduce((sum, r) => sum + r.paid_installments, 0);
-  const totalPendingInstallments = filteredReports.reduce((sum, r) => sum + r.pending_installments, 0);
-  const totalAmountPaid = filteredReports.reduce((sum, r) => sum + r.total_paid_amount, 0);
+
 
   // Close export menu when clicking outside
   useEffect(() => {
@@ -422,6 +591,8 @@ const LoanInstallmentReport = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [exportMenuOpen]);
 
+
+
   return (
     <div className="space-y-6 p-6">
       {/* HEADER */}
@@ -429,6 +600,7 @@ const LoanInstallmentReport = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Loan Installment Report</h1>
+            <p className="text-sm text-gray-600 mt-1">Track partial payments, overdue installments, and payment patterns</p>
           </div>
 
           <div className="flex flex-wrap gap-3">
@@ -502,31 +674,13 @@ const LoanInstallmentReport = () => {
         </div>
       </div>
 
-      {/* SUMMARY CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Loans</p>
-          <p className="text-2xl font-bold text-gray-900">{totalLoans}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Paid Installments</p>
-          <p className="text-2xl font-bold text-green-600">{totalPaidInstallments}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Pending Installments</p>
-          <p className="text-2xl font-bold text-yellow-600">{totalPendingInstallments}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Amount Paid</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalAmountPaid)}</p>
-        </div>
-      </div>
+  
 
       {/* FILTERS */}
       {showFilters && (
         <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm space-y-4">
           <h3 className="font-semibold text-gray-900">Filter Results</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Search className="h-5 w-5 text-gray-400" />
@@ -565,11 +719,38 @@ const LoanInstallmentReport = () => {
             </select>
 
             <select
+              value={filters.paymentStatus}
+              onChange={(e) => handleFilterChange("paymentStatus", e.target.value)}
+              className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Payment Status</option>
+              <option value="partial">Partially Paid</option>
+              <option value="partial_overdue">Partial & Overdue</option>
+              <option value="overdue">Overdue</option>
+              <option value="defaulted">Defaulted</option>
+              <option value="no_payment">No Payments</option>
+              <option value="fully_paid">Fully Paid</option>
+            </select>
+
+            <select
+              value={filters.overdueStatus}
+              onChange={(e) => handleFilterChange("overdueStatus", e.target.value)}
+              className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="all">All Overdue Status</option>
+              <option value="overdue_7">Overdue ≤ 7 days</option>
+              <option value="overdue_14">Overdue 8-14 days</option>
+              <option value="overdue_30">Overdue 15-30 days</option>
+              <option value="overdue_30_plus">Overdue 30+ days</option>
+            </select>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <select
               value={filters.installmentRange}
               onChange={(e) => handleFilterChange("installmentRange", e.target.value)}
               className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="all">All Installments</option>
+              <option value="all">All Installment Counts</option>
               <option value="0">0 Installments Paid</option>
               <option value="1">1 Installment Paid</option>
               <option value="2">2 Installments Paid</option>
@@ -582,12 +763,12 @@ const LoanInstallmentReport = () => {
               <option value="2-8">2-8 Installments Paid</option>
             </select>
           </div>
-          {(filters.search || filters.branch || filters.customer || filters.installmentRange !== "all") && (
+          {(filters.search || filters.branch || filters.customer || filters.installmentRange !== "all" || filters.paymentStatus !== "all" || filters.overdueStatus !== "all") && (
             <button
               onClick={clearFilters}
               className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
             >
-              <X className="w-4 h-4" /> Clear Filters
+              <X className="w-4 h-4" /> Clear All Filters
             </button>
           )}
         </div>
@@ -613,19 +794,17 @@ const LoanInstallmentReport = () => {
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">ID</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Phone</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Branch</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Officer</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Loan Amount</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Total</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Paid</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Pending</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Overdue</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Partial</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Status</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Completion</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">Total Paid</th>
+                                        <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Last Payment</th>
+
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Next Due</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Last Payment</th>
-                    <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Days Since</th>
+                    <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">Days Overdue</th>
                     <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">Disbursed</th>
                   </tr>
                 </thead>
@@ -640,11 +819,6 @@ const LoanInstallmentReport = () => {
                       <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{report.customer_id_number}</td>
                       <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{report.mobile}</td>
                       <td className="px-3 py-3 text-gray-700 whitespace-nowrap">{report.branch}</td>
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
-                        <div className="max-w-[120px] truncate" title={report.loan_officer}>
-                          {report.loan_officer}
-                        </div>
-                      </td>
                       <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap">{formatCurrency(report.loan_amount)}</td>
                       <td className="px-3 py-3 text-center text-gray-700 whitespace-nowrap">{report.total_installments}</td>
                       <td className="px-3 py-3 text-center">
@@ -664,60 +838,57 @@ const LoanInstallmentReport = () => {
                       </td>
                       <td className="px-3 py-3 text-center">
                         {report.overdue_installments > 0 ? (
-                          <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-semibold">
-                            {report.overdue_installments}
-                          </span>
+                          <div className="flex flex-col items-center">
+                            <span className="px-2 py-1 rounded-full bg-red-100 text-red-800 text-xs font-semibold mb-1">
+                              {report.overdue_installments}
+                            </span>
+                            {report.overdue_installment_numbers && (
+                              <span className="text-xs text-gray-500" title="Overdue installments">
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-gray-500">0</span>
                         )}
                       </td>
                       <td className="px-3 py-3 text-center">
                         {report.partial_installments > 0 ? (
-                          <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">
-                            {report.partial_installments}
-                          </span>
+                          <div className="flex flex-col items-center">
+                            <span className="px-2 py-1 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold mb-1">
+                              {report.partial_installments}
+                            </span>
+                            {report.partial_installment_numbers && (
+                              <span className="text-xs text-gray-500" title="Partial installments">
+                              </span>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-gray-500">0</span>
                         )}
                       </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          report.completion_status === "Completed" ? 'bg-green-100 text-green-800' :
-                          report.completion_status === "In Progress" ? 'bg-blue-100 text-blue-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {report.completion_status}
-                        </span>
-                      </td>
-                      <td className="px-3 py-3 text-center whitespace-nowrap">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                          report.completion_percentage >= 75 ? 'bg-green-100 text-green-800' :
-                          report.completion_percentage >= 50 ? 'bg-blue-100 text-blue-800' :
-                          report.completion_percentage >= 25 ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-red-100 text-red-800'
-                        }`}>
-                          {report.completion_percentage.toFixed(0)}%
-                        </span>
-                      </td>
+                     
+                    
                       <td className="px-3 py-3 text-right text-green-700 font-semibold whitespace-nowrap">
                         {formatCurrency(report.total_paid_amount)}
                       </td>
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
-                        {report.next_due_date !== "N/A" ? new Date(report.next_due_date).toLocaleDateString('en-GB') : "N/A"}
-                      </td>
-                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                         <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
                         {report.last_payment_date !== "No payments yet" 
                           ? new Date(report.last_payment_date).toLocaleDateString('en-GB')
                           : "No payments"}
                       </td>
+                      <td className="px-3 py-3 text-gray-700 whitespace-nowrap">
+                        {report.next_due_date !== "N/A" ? new Date(report.next_due_date).toLocaleDateString('en-GB') : "N/A"}
+                      </td>
+                   
+                   
                       <td className="px-3 py-3 text-center whitespace-nowrap">
-                        {report.days_since_last_payment !== null ? (
-                          <span className={`px-2 py-1 rounded-full text-xs ${
-                            report.days_since_last_payment <= 7 ? 'bg-green-100 text-green-800' :
-                            report.days_since_last_payment <= 14 ? 'bg-yellow-100 text-yellow-800' :
+                        {report.max_days_overdue > 0 ? (
+                          <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                            report.max_days_overdue <= 7 ? 'bg-yellow-100 text-yellow-800' :
+                            report.max_days_overdue <= 14 ? 'bg-orange-100 text-orange-800' :
                             'bg-red-100 text-red-800'
                           }`}>
-                            {report.days_since_last_payment}d
+                            {report.max_days_overdue}d
                           </span>
                         ) : (
                           <span className="text-gray-500">-</span>

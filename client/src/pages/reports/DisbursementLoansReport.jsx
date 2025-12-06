@@ -610,7 +610,7 @@ const DisbursementLoansReport = () => {
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-xl mt-0 shadow-sm border border-gray-200 p-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1
@@ -619,25 +619,7 @@ const DisbursementLoansReport = () => {
               >
                 Disbursed Loan Report
               </h1>
-              {/* <p className="text-sm text-gray-600 mt-1">
-                Viewing disbursed loans for{" "}
-                <span className="font-semibold text-blue-600">
-                  {(() => {
-                    switch (dateFilter) {
-                      case "today": return "Today";
-                      case "week": return "This Week";
-                      case "month": return "This Month";
-                      case "quarter": return "This Quarter";
-                      case "year": return "This Year";
-                      case "custom":
-                        return customStartDate && customEndDate
-                          ? `${customStartDate} to ${customEndDate}`
-                          : "Custom Range";
-                      default: return "All Time";
-                    }
-                  })()}
-                </span>
-              </p> */}
+             
             </div>
 
             <div className="flex flex-wrap gap-3">

@@ -104,7 +104,7 @@ const Reports = () => {
 ,
        {
       id: 12,
-      name: "Outstanding Loan Balance as at the End of Month",
+      name: "OLB as at the End of Month",
       description: "Summary of all outstanding loan balances across all customers",
       component: OutstandingLoanBalanceReport,
       route: '/reports/outstandEOM'
@@ -172,10 +172,10 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 p-6">
       <div className="max-w-7xl mx-auto">
        {/* Header Section */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-2">
   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
     {/* Title & Description */}
     <div>
@@ -228,8 +228,8 @@ const Reports = () => {
                       <tr key={report.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
                           <div className="flex items-center gap-2">
-                            <FileText className="w-5 h-5 text-green-600" />
-                            <span className="font-medium text-gray-900">{report.name}</span>
+<FileText className="w-5 h-5" style={{ color: "#586ab1" }} />
+                            <span className="  text-blue-900">{report.name}</span>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-gray-600 text-sm">

@@ -55,177 +55,193 @@ const OutstandingLoanBalanceReportEOM = () => {
     fetchBranches();
   }, []);
 
-const fetchOutstandingLoans = async () => {
-  setLoading(true);
-  try {
-    const cutoffDate = getCutoffDate();
-    cutoffDate.setHours(23, 59, 59, 999);
+  const fetchOutstandingLoans = async () => {
+    setLoading(true);
+    try {
+      const cutoffDate = getCutoffDate();
+      cutoffDate.setHours(23, 59, 59, 999);
 
-    const [loansRes, installmentsRes, customersRes, usersRes, branchesRes, c2bRes] =
-      await Promise.all([
-        supabase
-          .from("loans")
-          .select(
-            "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
-          )
-          .in("status", ["disbursed", "approved", "ready_for_disbursement"])
-          .neq("repayment_state", "completed"),
-        supabase
-          .from("loan_installments")
-          .select(
-            "loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, principal_paid, interest_paid, status"
-          ),
-        supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile"),
-        supabase.from("users").select("id, full_name"),
-        supabase.from("branches").select("id, name"),
-        supabase
-          .from("mpesa_c2b_transactions")
-          .select("amount, created_at, loan_id, payment_type")
-          .eq("payment_type", "repayment"),
-      ]);
+      const [loansRes, installmentsRes, customersRes, usersRes, branchesRes] =
+        await Promise.all([
+          supabase
+            .from("loans")
+            .select(
+              "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
+            )
+            .in("status", ["disbursed", "approved", "ready_for_disbursement"])
+            .neq("repayment_state", "completed"),
+          supabase
+            .from("loan_installments")
+            .select(
+              "loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, principal_paid, interest_paid, status, days_overdue"
+            ),
+          supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile"),
+          supabase.from("users").select("id, full_name"),
+          supabase.from("branches").select("id, name"),
+        ]);
 
-    if (loansRes.error) throw new Error(loansRes.error.message);
-    if (installmentsRes.error) throw new Error(installmentsRes.error.message);
-    if (customersRes.error) throw new Error(customersRes.error.message);
-    if (usersRes.error) throw new Error(usersRes.error.message);
-    if (branchesRes.error) throw new Error(branchesRes.error.message);
-    if (c2bRes.error) throw new Error(c2bRes.error.message);
+      if (loansRes.error) throw new Error(loansRes.error.message);
+      if (installmentsRes.error) throw new Error(installmentsRes.error.message);
+      if (customersRes.error) throw new Error(customersRes.error.message);
+      if (usersRes.error) throw new Error(usersRes.error.message);
+      if (branchesRes.error) throw new Error(branchesRes.error.message);
 
-    const loans = loansRes.data || [];
-    const installments = installmentsRes.data || [];
-    const customers = customersRes.data || [];
-    const users = usersRes.data || [];
-    const branchesData = branchesRes.data || [];
-    const c2bPayments = c2bRes.data || [];
+      const loans = loansRes.data || [];
+      const installments = installmentsRes.data || [];
+      const customers = customersRes.data || [];
+      const users = usersRes.data || [];
+      const branchesData = branchesRes.data || [];
 
-    const reports = loans.map((loan) => {
-      const customer = customers.find((c) => c.id === loan.customer_id);
-      const loanOfficer = users.find((u) => u.id === loan.booked_by);
-      const branch = branchesData.find((b) => b.id === loan.branch_id);
+      const reports = loans.map((loan) => {
+        const customer = customers.find((c) => c.id === loan.customer_id);
+        const loanOfficer = users.find((u) => u.id === loan.booked_by);
+        const branch = branchesData.find((b) => b.id === loan.branch_id);
 
-      const customer_name = customer
-        ? `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim()
-        : "N/A";
+        const customer_name = customer
+          ? `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim()
+          : "N/A";
 
-      const loanInstallments = installments.filter((inst) => inst.loan_id === loan.id);
+        const loanInstallments = installments
+          .filter((inst) => inst.loan_id === loan.id)
+          .sort((a, b) => a.installment_number - b.installment_number);
 
-      // Installments due before or on the cutoff
-      const installmentsDueAtEOM = loanInstallments.filter(
-        (inst) => new Date(inst.due_date) <= cutoffDate
-      );
-
-      // Not yet paid installments
-      const outstandingInstallmentsAtEOM = installmentsDueAtEOM.filter(
-        (inst) => inst.status !== "paid"
-      ).length;
-
-      // Principal & interest paid (from loan_installments)
-      const principalPaidAtEOM = loanInstallments.reduce(
-        (sum, inst) => sum + (Number(inst.principal_paid) || 0),
-        0
-      );
-      const interestPaidAtEOM = loanInstallments.reduce(
-        (sum, inst) => sum + (Number(inst.interest_paid) || 0),
-        0
-      );
-
-      // Total paid (from mpesa_c2b_transactions of type 'repayment')
-      const totalPaidFromC2B = c2bPayments
-        .filter(
-          (p) =>
-            p.loan_id === loan.id &&
-            p.payment_type === "repayment" &&
-            new Date(p.created_at) <= cutoffDate
-        )
-        .reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
-
-      // // Compute totals
-      // let totalDueAmountAtEOM = 0;
-      let overdueAmount = 0;
-      let maxOverdueDays = 0;
-
-      installmentsDueAtEOM.forEach((inst) => {
-        const dueAmount = Number(inst.due_amount) || 0;
-        const paidAmount = Number(inst.paid_amount) || 0;
-        // totalDueAmountAtEOM += dueAmount;
-
-        if (inst.status === "overdue" || inst.status === "defaulted") {
-          const unpaid = dueAmount - paidAmount;
-          overdueAmount += Math.max(0, unpaid);
-
+        // Calculate overdue days based on installment status and due_date
+        const todayDate = new Date();
+        
+        // Find the first overdue installment to calculate max overdue days
+        let maxOverdueDays = 0;
+        let hasOverdueInstallment = false;
+        
+        loanInstallments.forEach((inst) => {
           const dueDate = new Date(inst.due_date);
-          const daysDiff = Math.floor((cutoffDate - dueDate) / (1000 * 60 * 60 * 24));
-          maxOverdueDays = Math.max(maxOverdueDays, daysDiff);
+          const isOverdue = inst.status === 'overdue' || inst.status === 'defaulted';
+          
+          if (isOverdue) {
+            hasOverdueInstallment = true;
+            // Calculate days between due date and today (or cutoff date if before cutoff)
+            const comparisonDate = cutoffDate < todayDate ? cutoffDate : todayDate;
+            const daysDiff = Math.max(0, Math.floor((comparisonDate - dueDate) / (1000 * 60 * 60 * 24)));
+            
+            // If installment has days_overdue field, use it, otherwise calculate
+            const overdueDays = inst.days_overdue || daysDiff;
+            maxOverdueDays = Math.max(maxOverdueDays, overdueDays);
+          }
+        });
+
+        // Outstanding installments: all installments with status not 'paid'
+        const outstandingInstallments = loanInstallments.filter(
+          (inst) => inst.status !== 'paid'
+        );
+
+        // Installments due by cutoff date that are not fully paid
+        const installmentsDueByCutoff = loanInstallments.filter(
+          (inst) => new Date(inst.due_date) <= cutoffDate
+        );
+
+        // Arrears amount: sum of unpaid amounts for overdue/defaulted installments
+        let arrearsAmount = 0;
+        loanInstallments.forEach((inst) => {
+          if (inst.status === 'overdue' || inst.status === 'defaulted') {
+            const unpaidAmount = Math.max(0, 
+              (Number(inst.due_amount) || 0) - (Number(inst.paid_amount) || 0)
+            );
+            arrearsAmount += unpaidAmount;
+          }
+        });
+
+        // Total paid amounts (from loan_installments table)
+        const totalPrincipalPaid = loanInstallments.reduce(
+          (sum, inst) => sum + (Number(inst.principal_paid) || 0),
+          0
+        );
+        
+        const totalInterestPaid = loanInstallments.reduce(
+          (sum, inst) => sum + (Number(inst.interest_paid) || 0),
+          0
+        );
+        
+        const totalAmountPaid = loanInstallments.reduce(
+          (sum, inst) => sum + (Number(inst.paid_amount) || 0),
+          0
+        );
+
+        const principal = Number(loan.scored_amount) || 0;
+        const interest = Number(loan.total_interest) || 0;
+        const total_payable = Number(loan.total_payable) || 0;
+
+        const outstanding_balance = Math.max(0, total_payable - totalAmountPaid);
+        const percent_paid = total_payable > 0 ? (totalAmountPaid / total_payable) * 100 : 0;
+        const percent_unpaid = Math.max(0, 100 - percent_paid);
+
+        // Determine repayment status
+        let repaymentStatus = "ongoing";
+        if (hasOverdueInstallment) {
+          if (maxOverdueDays > 30) {
+            repaymentStatus = "defaulted";
+          } else {
+            repaymentStatus = "overdue";
+          }
         }
+
+        return {
+          id: loan.id,
+          customer_name,
+          customer_id: customer?.id_number || "N/A",
+          mobile: customer?.mobile || "N/A",
+          product_name: loan.product_name || "N/A",
+          branch: branch?.name || "N/A",
+          branch_id: branch?.id || "N/A",
+          loan_officer: loanOfficer?.full_name || "N/A",
+          loan_officer_id: loanOfficer?.id || "N/A",
+          disbursement_date: loan.disbursed_at
+            ? new Date(loan.disbursed_at).toLocaleDateString()
+            : "N/A",
+          loan_end_date:
+            loan.duration_weeks && loan.disbursed_at
+              ? new Date(
+                  new Date(loan.disbursed_at).getTime() +
+                    loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
+                ).toLocaleDateString()
+              : "N/A",
+          repayment_state: repaymentStatus,
+          status: loan.status,
+
+          principal,
+          interest,
+          total_payable,
+          
+          // Total outstanding installments (all unpaid ones)
+          outstanding_installments: outstandingInstallments.length,
+
+          principal_paid: totalPrincipalPaid,
+          interest_paid: totalInterestPaid,
+          total_amount_paid: totalAmountPaid,
+
+          outstanding_balance,
+
+          percent_paid,
+          percent_unpaid,
+
+          arrears_amount: arrearsAmount,
+          overdue_days: maxOverdueDays,
+        };
       });
 
-      const principal = Number(loan.scored_amount) || 0;
-      const interest = Number(loan.total_interest) || 0;
-      const total_payable = Number(loan.total_payable) || 0;
+      setReports(reports);
+      const grouped = groupByBranchAndOfficer(reports);
+      setFiltered(grouped);
 
-      const total_amount_paid = totalPaidFromC2B;
-      const outstanding_balance = total_payable - total_amount_paid;
-      const percent_paid = total_payable > 0 ? (total_amount_paid / total_payable) * 100 : 0;
-      const percent_unpaid = 100 - percent_paid;
-
-      return {
-        id: loan.id,
-        customer_name,
-        customer_id: customer?.id_number || "N/A",
-        mobile: customer?.mobile || "N/A",
-        product_name: loan.product_name || "N/A",
-        branch: branch?.name || "N/A",
-        branch_id: branch?.id || "N/A",
-        loan_officer: loanOfficer?.full_name || "N/A",
-        loan_officer_id: loanOfficer?.id || "N/A",
-        disbursement_date: loan.disbursed_at
-          ? new Date(loan.disbursed_at).toLocaleDateString()
-          : "N/A",
-        loan_end_date:
-          loan.duration_weeks && loan.disbursed_at
-            ? new Date(
-                new Date(loan.disbursed_at).getTime() +
-                  loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
-              ).toLocaleDateString()
-            : "N/A",
-        repayment_state: loan.repayment_state,
-        status: loan.status,
-
-        principal,
-        interest,
-        total_payable,
-        outstanding_installments: outstandingInstallmentsAtEOM,
-
-        principal_paid: principalPaidAtEOM,
-        interest_paid: interestPaidAtEOM,
-        total_amount_paid,
-
-        outstanding_balance,
-
-        percent_paid,
-        percent_unpaid,
-
-        arrears_amount: overdueAmount,
-        overdue_days: maxOverdueDays,
-      };
-    });
-
-    setReports(reports);
-    const grouped = groupByBranchAndOfficer(reports);
-    setFiltered(grouped);
-
-    const uniqueOfficers = [
-      ...new Set(reports.map((r) => r.loan_officer).filter((o) => o !== "N/A")),
-    ];
-    setOfficers(uniqueOfficers);
-  } catch (err) {
-    console.error("fetchOutstandingLoans error:", err);
-    alert(`Error loading data: ${err.message}`);
-  } finally {
-    setLoading(false);
-  }
-};
-
+      const uniqueOfficers = [
+        ...new Set(reports.map((r) => r.loan_officer).filter((o) => o !== "N/A")),
+      ];
+      setOfficers(uniqueOfficers);
+    } catch (err) {
+      console.error("fetchOutstandingLoans error:", err);
+      alert(`Error loading data: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchOutstandingLoans();
@@ -369,16 +385,15 @@ const fetchOutstandingLoans = async () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-              Outstanding Loan Balance Report as at EOM
+              Outstanding Loan Balance Report as at EOM 
             </h1>
             <p className="text-sm text-gray-600 mt-1">
               Snapshot as at: <span className="font-semibold">{cutoffDate.toLocaleDateString()}</span>
+          
             </p>
           </div>
 
           <div className="flex items-center gap-3">
-           
-
             <button
               onClick={() => setShowFilters(!showFilters)}
               className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all ${showFilters ? "bg-blue-600 text-white shadow-md" : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400"}`}
@@ -460,25 +475,8 @@ const fetchOutstandingLoans = async () => {
           )}
         </div>
       )}
-{/* 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Loans</p>
-          <p className="text-2xl font-bold text-gray-900">{allLoans.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Outstanding</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(totalOutstanding)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Paid</p>
-          <p className="text-2xl font-bold text-green-600">{formatCurrency(totalPaid)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Arrears</p>
-          <p className="text-2xl font-bold text-red-600">{formatCurrency(totalArrears)}</p>
-        </div>
-      </div> */}
+
+    
 
       <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
         {loading ? (
