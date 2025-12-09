@@ -19,16 +19,17 @@ const MpesaRepaymentReports = () => {
   const [repayments, setRepayments] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50); // Changed from 15 to 50
+  const [itemsPerPage] = useState(50);
   const [sortConfig, setSortConfig] = useState({ key: "paymentDate", direction: "desc" });
   const [filters, setFilters] = useState({
     search: "",
     branch: "",
-    status: "",
+    region: "",
     startDate: "",
     endDate: "",
     dateRangeType: "",
@@ -36,7 +37,7 @@ const MpesaRepaymentReports = () => {
 
   const hasFetched = useRef(false);
 
-  // Status mapping with proper display names and colors
+  // Status mapping
   const statusConfig = {
     applied: {
       label: "Success",
@@ -70,27 +71,50 @@ const MpesaRepaymentReports = () => {
     },
   };
 
-  // Fetch branches
+  // Fetch branches with region names
   useEffect(() => {
     const fetchBranches = async () => {
       const { data, error } = await supabase
         .from("branches")
+        .select(`
+          id, 
+          name,
+          regions (
+            id,
+            name
+          )
+        `)
+        .order("name");
+      
+      if (!error && data) {
+        setBranches(data);
+      }
+    };
+    
+    const fetchRegions = async () => {
+      const { data, error } = await supabase
+        .from("regions")
         .select("id, name")
         .order("name");
-      if (!error && data) setBranches(data);
+      
+      if (!error && data) {
+        setRegions(data);
+      }
     };
+    
     fetchBranches();
+    fetchRegions();
   }, []);
 
-  // Fetch repayments from loan_payments table with LEFT joins
+  // Fetch repayments with region names
   const fetchRepayments = useCallback(async (isRefresh = false) => {
     if (!isRefresh && hasFetched.current) return;
 
     try {
       isRefresh ? setRefreshing(true) : setLoading(true);
-      
-      // Query using loan_payments table with proper joins
-      const { data, error } = await supabase
+
+      // 1️⃣ Fetch loan_payments with region names
+      const { data: payments, error: paymentsError } = await supabase
         .from("loan_payments")
         .select(`
           id,
@@ -109,7 +133,10 @@ const MpesaRepaymentReports = () => {
               Surname,
               id_number,
               branches (
-                name
+                name,
+                regions (
+                  name
+                )
               )
             )
           )
@@ -117,43 +144,39 @@ const MpesaRepaymentReports = () => {
         .eq("payment_method", "mpesa_c2b")
         .order("paid_at", { ascending: false });
 
-      if (error) {
-        console.error("Supabase error:", error);
-        throw error;
-      }
+      if (paymentsError) throw paymentsError;
 
-      console.log("Fetched data:", data); // Debug log
+      // 2️⃣ Fetch corresponding mpesa_c2b_transactions
+      const mpesaIds = payments.map(p => p.mpesa_receipt).filter(Boolean);
+      const { data: mpesaData, error: mpesaError } = await supabase
+        .from("mpesa_c2b_transactions")
+        .select("transaction_id, raw_payload")
+        .in("transaction_id", mpesaIds);
 
-      const formatted = data.map((item) => {
+      if (mpesaError) throw mpesaError;
+
+      // 3️⃣ Create a lookup map
+      const mpesaMap = {};
+      mpesaData.forEach(m => {
+        mpesaMap[m.transaction_id] = m.raw_payload;
+      });
+
+      // 4️⃣ Merge and format data with region
+      const formatted = payments.map(item => {
         const customer = item.loans?.customers;
         const branch = customer?.branches;
-        
-        // Debug log for each item
-        console.log("Processing item:", {
-          id: item.id,
-          customer,
-          branch,
-          mpesa_receipt: item.mpesa_receipt
-        });
+        const region = branch?.regions;
 
-        // Build full name safely
-        let fullName = "N/A";
-        if (customer) {
-          const nameParts = [
-            customer.Firstname || "",
-            customer.Middlename || "",
-            customer.Surname || ""
-          ].filter(name => name && String(name).trim() !== "");
-          fullName = nameParts.length > 0 ? nameParts.join(" ") : "N/A";
-        }
+        const fullName = customer
+          ? [customer.Firstname, customer.Middlename, customer.Surname]
+              .filter(n => n && n.trim() !== "")
+              .join(" ")
+          : "N/A";
 
-        const paymentDate = item.paid_at
-          ? new Date(item.paid_at)
-          : null;
+        const paymentDate = item.paid_at ? new Date(item.paid_at) : null;
 
-        // Since loan_payments doesn't have status, we'll default to success
-        const dbStatus = "success";
-        const displayStatus = "success";
+        const rawPayload = mpesaMap[item.mpesa_receipt];
+        const billRef = rawPayload?.BillRefNumber || "N/A";
 
         return {
           id: item.id,
@@ -161,11 +184,12 @@ const MpesaRepaymentReports = () => {
           idNumber: customer?.id_number || "N/A",
           mobile: item.phone_number || "N/A",
           branch: branch?.name || "N/A",
+          region: region?.name || "N/A", // Get region name from the joined table
           transactionId: item.mpesa_receipt || "N/A",
           amountPaid: parseFloat(item.paid_amount) || 0,
-          dbStatus: dbStatus,
-          displayStatus: displayStatus,
-          billRef: item.description || "N/A",
+          dbStatus: "success",
+          displayStatus: "success",
+          billRef,
           paymentDate,
           rawDate: item.paid_at,
           customerId: customer?.id || null,
@@ -173,10 +197,10 @@ const MpesaRepaymentReports = () => {
         };
       });
 
-      console.log("Formatted data:", formatted); // Debug log
       setRepayments(formatted);
       setFiltered(formatted);
       hasFetched.current = true;
+
     } catch (err) {
       console.error("Error fetching repayments:", err.message);
     } finally {
@@ -185,63 +209,70 @@ const MpesaRepaymentReports = () => {
     }
   }, []);
 
-useEffect(() => {
-  if (!hasFetched.current) {
-    fetchRepayments();
-  }
-}, []);
+  useEffect(() => {
+    if (!hasFetched.current) {
+      fetchRepayments();
+    }
+  }, []);
 
-
-  // Filtering logic
+  // Filtering logic with FIXED date filtering
   useEffect(() => {
     if (loading) return;
 
     let result = [...repayments];
-    const { search, branch, status, dateRangeType } = filters;
+    const { search, branch, region, startDate, endDate, dateRangeType } = filters;
 
+    // Search filter
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(
-        (r) =>
-          r.customerName.toLowerCase().includes(q) ||
-          r.mobile.includes(q) ||
-          r.idNumber.includes(q) ||
-          r.transactionId.toLowerCase().includes(q) ||
-          r.billRef.toLowerCase().includes(q)
-      );
-    }
+      result = result.filter((r) => {
+        const customerName = (r.customerName || "").toLowerCase();
+        const mobile = String(r.mobile || "").toLowerCase();
+        const idNumber = String(r.idNumber || "").toLowerCase();
+        const transactionId = (r.transactionId || "").toLowerCase();
+        const billRef = (r.billRef || "").toLowerCase();
 
-    if (branch) result = result.filter((r) => r.branch === branch);
-    
-    if (status) {
-      if (status === "success") {
-        result = result.filter((r) => 
-          r.dbStatus === "applied" || r.displayStatus === "success"
+        return (
+          customerName.includes(q) ||
+          mobile.includes(q) ||
+          idNumber.includes(q) ||
+          transactionId.includes(q) ||
+          billRef.includes(q)
         );
-      } else {
-        result = result.filter((r) => r.dbStatus === status);
+      });
+    }
+
+    // Branch filter
+    if (branch) {
+      result = result.filter((r) => r.branch === branch);
+    }
+
+    // Region filter
+    if (region) {
+      result = result.filter((r) => r.region === region);
+    }
+
+    // Date filtering
+    if (dateRangeType) {
+      const { start, end } = getDateRange(dateRangeType);
+      if (start) {
+        result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
       }
-    }
-
-    // Apply date range filtering
-    const { start, end } = getDateRange(dateRangeType);
-    if (start) {
-      result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
-    }
-    if (end) {
-      result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
-    }
-
-    // Apply custom date range if provided
-    if (filters.startDate && !dateRangeType) {
-      const start = new Date(filters.startDate);
-      start.setHours(0, 0, 0, 0);
-      result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
-    }
-    if (filters.endDate && !dateRangeType) {
-      const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999);
-      result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
+      if (end) {
+        result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
+      }
+    } else {
+      // Custom date range (when dateRangeType is empty or not selected)
+      if (startDate) {
+        const start = new Date(startDate);
+        start.setHours(0, 0, 0, 0);
+        result = result.filter((r) => r.paymentDate && r.paymentDate >= start);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        result = result.filter((r) => r.paymentDate && r.paymentDate <= end);
+      }
     }
 
     // Apply sorting
@@ -272,40 +303,37 @@ useEffect(() => {
   // Function to get start and end date based on range type
   const getDateRange = (type) => {
     const now = new Date();
-    let start, end;
+    let start = null;
+    let end = null;
 
     switch (type) {
       case "today":
-        start = new Date(now.setHours(0, 0, 0, 0));
-        end = new Date(now.setHours(23, 59, 59, 999));
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
         break;
       case "week": {
         const day = now.getDay();
-        start = new Date(now);
-        start.setDate(now.getDate() - day);
+        const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+        start = new Date(now.setDate(diff));
         start.setHours(0, 0, 0, 0);
-        end = new Date();
+        end = new Date(now);
+        end.setDate(start.getDate() + 6);
         end.setHours(23, 59, 59, 999);
         break;
       }
       case "month":
-        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
         end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
         break;
-      case "quarter": {
-        const quarter = Math.floor(now.getMonth() / 3);
-        start = new Date(now.getFullYear(), quarter * 3, 1);
-        end = new Date(now.getFullYear(), quarter * 3 + 3, 0, 23, 59, 59, 999);
-        break;
-      }
       case "year":
-        start = new Date(now.getFullYear(), 0, 1);
+        start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
         end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
         break;
       default:
         start = null;
         end = null;
     }
+    
     return { start, end };
   };
 
@@ -361,21 +389,31 @@ useEffect(() => {
 
   // Filter & Reset handlers
   const handleFilterChange = useCallback((key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => {
+      const newFilters = { ...prev, [key]: value };
+      
+      // Reset startDate and endDate when dateRangeType changes
+      if (key === "dateRangeType" && value !== "custom") {
+        newFilters.startDate = "";
+        newFilters.endDate = "";
+      }
+      
+      return newFilters;
+    });
   }, []);
 
   const clearFilters = useCallback(() => {
     setFilters({
       search: "",
       branch: "",
-      status: "",
+      region: "",
       startDate: "",
       endDate: "",
       dateRangeType: "",
     });
   }, []);
 
-  // CSV Export
+  // CSV Export with region
   const exportToCSV = useCallback(() => {
     if (filtered.length === 0) {
       alert("No data to export");
@@ -390,6 +428,7 @@ useEffect(() => {
         "Mobile",
         "ID Number",
         "Branch",
+        "Region",
         "Transaction ID",
         "Bill Reference",
         "Amount Paid (KES)",
@@ -404,6 +443,7 @@ useEffect(() => {
         r.mobile,
         r.idNumber,
         r.branch,
+        r.region,
         r.transactionId,
         r.billRef,
         r.amountPaid,
@@ -426,12 +466,6 @@ useEffect(() => {
     URL.revokeObjectURL(url);
   }, [filtered]);
 
-  // Get unique statuses for filter
-  const uniqueStatuses = useMemo(() => {
-    const statuses = [...new Set(repayments.map(r => r.dbStatus))];
-    return statuses.filter(Boolean).sort();
-  }, [repayments]);
-
   // Pagination calculations
   const totalPages = Math.ceil(filtered.length / itemsPerPage);
   const startIdx = (currentPage - 1) * itemsPerPage;
@@ -443,28 +477,27 @@ useEffect(() => {
   );
 
   // Sortable Header Component
-const SortableHeader = useCallback(
-  ({ label, sortKey }) => (
-    <th
-      onClick={() => handleSort(sortKey)}
-      className="px-4 py-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-50 whitespace-nowrap text-left text-sm tracking-wider border-b"
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-medium text-sm" style={{ color: "#586ab1" }}>
-          {label}
-        </span>
-        {sortConfig.key === sortKey &&
-          (sortConfig.direction === "asc" ? (
-            <ChevronUp className="w-3 h-3" />
-          ) : (
-            <ChevronDown className="w-3 h-3" />
-          ))}
-      </div>
-    </th>
-  ),
-  [sortConfig, handleSort]
-);
-
+  const SortableHeader = useCallback(
+    ({ label, sortKey }) => (
+      <th
+        onClick={() => handleSort(sortKey)}
+        className="px-4 py-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-50 whitespace-nowrap text-left text-sm tracking-wider border-b"
+      >
+        <div className="flex items-center justify-between">
+          <span className="font-medium text-sm" style={{ color: "#586ab1" }}>
+            {label}
+          </span>
+          {sortConfig.key === sortKey &&
+            (sortConfig.direction === "asc" ? (
+              <ChevronUp className="w-3 h-3" />
+            ) : (
+              <ChevronDown className="w-3 h-3" />
+            ))}
+        </div>
+      </th>
+    ),
+    [sortConfig, handleSort]
+  );
 
   // Pagination controls
   const PaginationControls = useCallback(() => (
@@ -521,8 +554,6 @@ const SortableHeader = useCallback(
     </div>
   ), [startIdx, endIdx, filtered.length, totalPages, currentPage]);
 
-
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-3 md:p-4">
       {/* HEADER */}
@@ -569,8 +600,6 @@ const SortableHeader = useCallback(
             </button>
           </div>
         </div>
-
-    
       </div>
 
       {/* FILTER PANEL */}
@@ -603,6 +632,24 @@ const SortableHeader = useCallback(
               </div>
             </div>
 
+            
+            {/* Region */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Region</label>
+              <select
+                value={filters.region}
+                onChange={(e) => handleFilterChange("region", e.target.value)}
+                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
+              >
+                <option value="">All Regions</option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.name}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {/* Branch */}
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
@@ -620,23 +667,6 @@ const SortableHeader = useCallback(
               </select>
             </div>
 
-            {/* Status */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange("status", e.target.value)}
-                className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white"
-              >
-                <option value="">All Status</option>
-                <option value="success">Success</option>
-                {uniqueStatuses.map((status) => (
-                  <option key={status} value={status}>
-                    {status.charAt(0).toUpperCase() + status.slice(1)}
-                  </option>
-                ))}
-              </select>
-            </div>
 
             {/* Date Range Type */}
             <div>
@@ -655,10 +685,10 @@ const SortableHeader = useCallback(
               </select>
             </div>
 
-            {/* Custom Date Pickers */}
+            {/* Custom Date Pickers - Show when custom is selected */}
             {filters.dateRangeType === "custom" && (
               <>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
                   <input
                     type="date"
@@ -667,7 +697,7 @@ const SortableHeader = useCallback(
                     className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none"
                   />
                 </div>
-                <div className="sm:col-span-2">
+                <div>
                   <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
                   <input
                     type="date"
@@ -686,28 +716,28 @@ const SortableHeader = useCallback(
       <div className="bg-white/80 backdrop-blur-sm rounded-lg border border-white/20 shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full table-auto border-collapse">
-          <thead>
-  <tr className="bg-gray-50 border-b border-gray-200">
-    <th className="px-4 py-3 text-lg font-medium tracking-wider whitespace-nowrap text-[#586ab1]">
-      #
-    </th>
-
-    <SortableHeader label="Customer Name" sortKey="customerName" className="text-lg" />
-    <SortableHeader label="Mobile" sortKey="mobile" className="text-lg" />
-    <SortableHeader label="ID Number" sortKey="idNumber" className="text-lg" />
-    <SortableHeader label="Branch" sortKey="branch" className="text-lg" />
-    <SortableHeader label="Transaction ID" sortKey="transactionId" className="text-lg" />
-    <SortableHeader label="Amount" sortKey="amountPaid" className="text-lg" />
-    <SortableHeader label="Status" sortKey="displayStatus" className="text-lg" />
-    <SortableHeader label="Payment Date & Time" sortKey="paymentDate" className="text-lg" />
-  </tr>
-</thead>
-
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 text-lg font-medium tracking-wider whitespace-nowrap text-[#586ab1]">
+                  #
+                </th>
+                <SortableHeader label="Customer Name" sortKey="customerName" className="text-lg" />
+                <SortableHeader label="Mobile" sortKey="mobile" className="text-lg" />
+                <SortableHeader label="ID Number" sortKey="idNumber" className="text-lg" />
+                <SortableHeader label="Branch" sortKey="branch" className="text-lg" />
+                <SortableHeader label="Region" sortKey="region" className="text-lg" />
+                <SortableHeader label="Transaction ID" sortKey="transactionId" className="text-lg" />
+                <SortableHeader label="Amount" sortKey="amountPaid" className="text-lg" />
+                <SortableHeader label="Account Paid" sortKey="billRef" className="text-lg" />
+                <SortableHeader label="Status" sortKey="displayStatus" className="text-lg" />
+                <SortableHeader label="Date" sortKey="paymentDate" className="text-lg" />
+              </tr>
+            </thead>
 
             <tbody className="divide-y divide-gray-200">
               {loading ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <div className="flex justify-center">
                       <RefreshCw className="w-6 h-6 animate-spin text-blue-600" />
                     </div>
@@ -716,7 +746,7 @@ const SortableHeader = useCallback(
                 </tr>
               ) : currentData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center">
+                  <td colSpan={10} className="px-4 py-12 text-center">
                     <div className="flex flex-col items-center justify-center">
                       <Search className="w-12 h-12 text-gray-400 mb-3" />
                       <p className="text-sm text-gray-500">No transactions found</p>
@@ -735,34 +765,31 @@ const SortableHeader = useCallback(
                 currentData.map((r, i) => (
                   <tr key={r.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{startIdx + i + 1}</td>
-
-                    {/* Customer Name */}
                     <td className="px-4 py-3 text-xs text-gray-700 font-medium min-w-[150px] max-w-xs break-words">
                       {r.customerName}
                     </td>
-
-                    {/* Mobile */}
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap w-36">
                       {r.mobile}
                     </td>
-
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{r.idNumber}</td>
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{r.branch}</td>
-
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{r.region}</td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <div className="font-mono text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200">
                         {r.transactionId}
                       </div>
                     </td>
-
                     <td className="px-4 py-3 text-xs font-semibold text-gray-900 whitespace-nowrap">
                       {formatCurrency(r.amountPaid)}
                     </td>
-
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="font-mono text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+                        {r.billRef}
+                      </div>
+                    </td>
                     <td className="px-4 py-3 whitespace-nowrap">
                       <StatusBadge status={r.displayStatus} />
                     </td>
-
                     <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
                       {formatDate(r.paymentDate)} {formatTime(r.paymentDate)}
                     </td>
@@ -773,14 +800,12 @@ const SortableHeader = useCallback(
 
             <tfoot className="bg-gray-50 border-t border-gray-200">
               <tr>
-                <td colSpan="6" className="px-4 py-3 text-right text-xs font-semibold text-gray-700 whitespace-nowrap">
+                <td colSpan="7" className="px-4 py-3 text-right text-xs font-semibold text-gray-700 whitespace-nowrap">
                   Total ({filtered.length} transactions):
                 </td>
-
                 <td className="px-4 py-3 text-sm font-bold text-emerald-700 whitespace-nowrap">
                   {formatCurrency(totalAmount)}
                 </td>
-
                 <td colSpan="2" className="px-4 py-3"></td>
               </tr>
             </tfoot>

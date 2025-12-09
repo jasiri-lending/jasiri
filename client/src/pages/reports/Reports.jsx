@@ -15,12 +15,15 @@ import SuspensePaymentsReport from './SuspensePaymentsReport';
 import TraceMpesaTransaction from './TraceMpesaTransaction;';
 import LoanArrearsReport from './LoanArrearsReport';
 import InactiveCustomers from './InactiveCustomers';
+import LoginModal from '../registry/LoginModal';
 
 const Reports = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const navigate = useNavigate();
   const reportsPerPage = 10;
+    const [loginOpen, setLoginOpen] = useState(false);
+  const [pendingReport, setPendingReport] = useState(null);
 
   const allReports = [
     {
@@ -149,9 +152,26 @@ const Reports = () => {
   const startIdx = (currentPage - 1) * reportsPerPage;
   const endIdx = startIdx + reportsPerPage;
   const currentReports = filteredReports.slice(startIdx, endIdx);
+const handleViewReport = (report) => {
+  const logged = localStorage.getItem("reportUser");
 
-  const handleViewReport = (report) => {
+  if (logged === "logged") {
+    // already logged in
     navigate(report.route);
+  } else {
+    // not logged in → open modal
+    setPendingReport(report);
+    setLoginOpen(true);
+  }
+};
+
+
+
+   const handleLoginSuccess = () => {
+    if (pendingReport) {
+      navigate(pendingReport.route); // navigate after successful login
+      setPendingReport(null);
+    }
   };
 
   const goToNextPage = () => {
@@ -318,6 +338,11 @@ const Reports = () => {
           )}
         </div>
       </div>
+         <LoginModal
+        isOpen={loginOpen}
+        onClose={() => setLoginOpen(false)}
+        onSuccess={handleLoginSuccess}
+      />
     </div>
   );
 };

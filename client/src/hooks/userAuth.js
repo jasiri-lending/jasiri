@@ -30,6 +30,7 @@ export function useAuth() {
           setUser(null);
           setProfile(null);
           localStorage.removeItem("profile"); // remove profile on logout
+            localStorage.removeItem("reportUser"); 
           setInitializing(false);
         }
       }
@@ -95,6 +96,7 @@ export function useAuth() {
     setUser(null);
     setProfile(null);
     localStorage.removeItem("profile");
+     localStorage.removeItem("reportUser");
     window.location.href = "/";
   };
 

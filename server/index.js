@@ -6,6 +6,8 @@ import { createClient } from "@supabase/supabase-js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
 import stkpush from "./routes/stkpush.js";
+import createReportUser from "./routes/createReportUser.js";
+import checkReportUserRoute from "./routes/checkReportUser.js";
 
 const app = express();
 app.use(cors());
@@ -61,6 +63,9 @@ app.post("/create-user", async (req, res) => {
 app.use("/mpesa/c2b",c2b );
 app.use("/mpesa/b2c", b2c);
 app.use("/mpesa/c2b", stkpush);
+app.use("/api/report-users/create", createReportUser);
+app.use("/api/checkReportUser", checkReportUserRoute);
+
 // Start server
 const PORT = 5000;
 app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));

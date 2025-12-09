@@ -73,6 +73,12 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
         { name: 'Add User', href: '/users/add/admin', icon: UserPlus },
         // { name: 'Roles & Permissions', href: '/users/roles/admin', icon: UserCog },
         { name: 'Suspended Users', href: '/users/suspended/admin', icon: UserX },
+        {
+  name: 'Report Access',
+  href: '/users/report-access/admin',
+  icon: UserCog,
+},
+
         // { name: 'Password Resets', href: '/users/password-resets/admin', icon: Key },
       ],
     },

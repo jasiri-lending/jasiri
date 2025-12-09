@@ -123,6 +123,7 @@ import CustomerTransferForm from "./pages/registry/CustomerTransferForm.jsx";
 import ParentCustomerEditComponent from "./pages/registry/MainEdit.jsx";
 import LoanInstallmentReport from "./pages/reports/LoanInstallmentReport.jsx";
 import Guarantors from "./pages/registry/Guarantors.jsx";
+import AdminCreateReportUser from "./pages/admin/components/AdminCreateReportUser.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -967,9 +968,14 @@ const { user, profile } = useAuth();
                     path="/loans/pending/admin"
                     element={<PendingLoans />}
                   />
+
+                    <Route
+                    path="/loans/pending/admin"
+                    element={<PendingLoans />}
+                  />
                   <Route
-                    path="/loans/approved/admin"
-                    element={<ApprovedLoans />}
+                    path="/users/report-access/admin"
+                    element={<AdminCreateReportUser/>}
                   />
                   <Route
                     path="/loans/product/admin"
