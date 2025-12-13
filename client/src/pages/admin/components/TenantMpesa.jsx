@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import axios from "axios";
 import { supabase } from "../../../supabaseClient";
+import { API_BASE_URL } from "../../../../config.js";
+
 
 export default function TenantMpesaForm() {
   const [tenants, setTenants] = useState([]);
@@ -42,33 +44,44 @@ export default function TenantMpesaForm() {
   };
 
   // Submit MPESA config
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      await axios.post("/api/tenant-mpesa-config", formData);
-      alert("MPESA configuration saved successfully!");
+ const handleSubmit = async (e) => {
+  e.preventDefault();
+  setIsLoading(true);
 
-      // Reset form
-      setFormData({
-        tenant_id: "",
-        paybill_number: "",
-        till_number: "",
-        consumer_key: "",
-        consumer_secret: "",
-        passkey: "",
-        shortcode: "",
-        confirmation_url: "",
-        validation_url: "",
-        callback_url: "",
-      });
-    } catch (err) {
-      console.error(err);
-      alert("Error saving configuration. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  try {
+    await axios.post(
+      `${API_BASE_URL}/api/tenant-mpesa-config`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      }
+    );
+
+    alert("MPESA configuration saved successfully!");
+
+    // Reset form
+    setFormData({
+      tenant_id: "",
+      paybill_number: "",
+      till_number: "",
+      consumer_key: "",
+      consumer_secret: "",
+      passkey: "",
+      shortcode: "",
+      confirmation_url: "",
+      validation_url: "",
+      callback_url: "",
+    });
+  } catch (err) {
+    console.error(err);
+    alert("Error saving configuration. Please try again.");
+  } finally {
+    setIsLoading(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4 sm:px-6 lg:px-8">

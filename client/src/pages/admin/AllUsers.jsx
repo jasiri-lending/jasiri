@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { 
   MagnifyingGlassIcon,
   PencilIcon,
@@ -10,16 +10,20 @@ import {
   MapPinIcon,
   UserPlusIcon,
   ChevronUpDownIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import { API_BASE_URL } from "../../../config.js";
 
 export default function AllUsers() {
   const { profile } = useAuth();
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
+  const [tenants, setTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState('');
@@ -36,6 +40,11 @@ export default function AllUsers() {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddingUser, setIsAddingUser] = useState(false);
 
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(20);
+  const [totalCount, setTotalCount] = useState(0);
+
   const roles = [
     { value: "admin", label: "Admin", color: "emerald" },
     { value: "operation_officer", label: "Operation Officer", color: "amber" },
@@ -47,9 +56,8 @@ export default function AllUsers() {
   ];
 
   const isSuperAdmin = profile?.role === 'superadmin';
-  const isAdmin = profile?.role === 'admin';
 
-  // Memoized fetch functions to prevent unnecessary reloads
+  // Memoized fetch functions with pagination
   const fetchData = useCallback(async (tenantId, userRole) => {
     if (!tenantId && userRole !== 'superadmin') return;
     
@@ -58,7 +66,8 @@ export default function AllUsers() {
       await Promise.all([
         fetchUsers(tenantId, userRole),
         fetchBranches(tenantId, userRole),
-        fetchRegions(tenantId, userRole)
+        fetchRegions(tenantId, userRole),
+        userRole === 'superadmin' ? fetchTenants() : Promise.resolve()
       ]);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -87,9 +96,9 @@ export default function AllUsers() {
     return () => {
       mounted = false;
     };
-  }, [profile, fetchData, refreshKey]); // Added refreshKey as dependency
+  }, [profile, refreshKey]); // Removed fetchData from dependencies
 
-  const fetchUsers = async (tenantId, userRole) => {
+  const fetchUsers = async (tenantId, userRole, page = 1) => {
     try {
       let query = supabase
         .from("users")
@@ -101,6 +110,10 @@ export default function AllUsers() {
           phone,
           created_at,
           tenant_id,
+          tenants!users_tenant_id_fkey (
+            name,
+            company_name
+          ),
           profiles (
             branch_id,
             region_id,
@@ -108,13 +121,20 @@ export default function AllUsers() {
             branches (id, name),
             regions (id, name)
           )
-        `);
+        `, { count: 'exact' });
 
       if (userRole !== 'superadmin' && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
 
-      const { data, error } = await query.order("created_at", { ascending: false });
+      // Apply pagination
+      const from = (page - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      query = query.order("created_at", { ascending: false })
+                  .range(from, to);
+
+      const { data, error, count } = await query;
 
       if (error) throw error;
 
@@ -125,45 +145,109 @@ export default function AllUsers() {
           region_id: u.profiles?.region_id,
           branches: u.profiles?.branches,
           regions: u.profiles?.regions,
+          tenant_name: u.tenants?.name || u.tenants?.company_name || 'N/A'
         }));
         setUsers(mapped);
+        setTotalCount(count || 0);
       }
     } catch (err) {
       console.error("Error fetching users:", err);
     }
   };
 
-  const fetchBranches = async (tenantId, userRole) => {
+  const fetchBranches = async (tenantId, userRole, page = 1) => {
     try {
-      let query = supabase.from("branches").select("*");
+      let query = supabase
+        .from("branches")
+        .select(`
+          *,
+          tenants!branches_tenant_id_fkey (
+            name,
+            company_name
+          ),
+          regions!branches_region_id_fkey (
+            name
+          )
+        `, { count: 'exact' });
       
       if (userRole !== 'superadmin' && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
 
-      const { data, error } = await query;
+      // Apply pagination
+      const from = (page - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      query = query.order("created_at", { ascending: false })
+                  .range(from, to);
+
+      const { data, error, count } = await query;
       
       if (error) throw error;
-      if (data) setBranches(data);
+      if (data) {
+        const mapped = data.map(branch => ({
+          ...branch,
+          tenant_name: branch.tenants?.name || branch.tenants?.company_name || 'N/A',
+          region_name: branch.regions?.name || 'N/A'
+        }));
+        setBranches(mapped);
+        setTotalCount(count || 0);
+      }
     } catch (err) {
       console.error("Error fetching branches:", err);
     }
   };
 
-  const fetchRegions = async (tenantId, userRole) => {
+  const fetchRegions = async (tenantId, userRole, page = 1) => {
     try {
-      let query = supabase.from("regions").select("*");
+      let query = supabase
+        .from("regions")
+        .select(`
+          *,
+          tenants!regions_tenant_id_fkey (
+            name,
+            company_name
+          )
+        `, { count: 'exact' });
       
       if (userRole !== 'superadmin' && tenantId) {
         query = query.eq('tenant_id', tenantId);
       }
 
-      const { data, error } = await query;
+      // Apply pagination
+      const from = (page - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+      
+      query = query.order("created_at", { ascending: false })
+                  .range(from, to);
+
+      const { data, error, count } = await query;
       
       if (error) throw error;
-      if (data) setRegions(data);
+      if (data) {
+        const mapped = data.map(region => ({
+          ...region,
+          tenant_name: region.tenants?.name || region.tenants?.company_name || 'N/A'
+        }));
+        setRegions(mapped);
+        setTotalCount(count || 0);
+      }
     } catch (err) {
       console.error("Error fetching regions:", err);
+    }
+  };
+
+  const fetchTenants = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("id, name, company_name")
+        .order("name", { ascending: true });
+      
+      if (error) throw error;
+      if (data) setTenants(data);
+    } catch (err) {
+      console.error("Error fetching tenants:", err);
     }
   };
 
@@ -176,7 +260,6 @@ export default function AllUsers() {
     setEditingItem(item);
     
     if (type === 'user' && !item) {
-      // New user form
       setIsAddingUser(true);
       setFormData({
         password: '',
@@ -184,10 +267,8 @@ export default function AllUsers() {
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
       });
     } else if (item) {
-      // Edit mode
       setFormData(item);
     } else {
-      // New branch/region
       setFormData({
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
       });
@@ -205,7 +286,28 @@ export default function AllUsers() {
   };
 
   const handleManualRefresh = () => {
+    setCurrentPage(1);
     setRefreshKey(prev => prev + 1);
+  };
+
+  const handlePageChange = (page) => {
+    setCurrentPage(page);
+    fetchPageData(page);
+  };
+
+  const fetchPageData = (page) => {
+    if (!profile) return;
+    
+    const tenantId = profile.tenant_id;
+    const userRole = profile.role;
+    
+    if (activeTab === 'users') {
+      fetchUsers(tenantId, userRole, page);
+    } else if (activeTab === 'branches') {
+      fetchBranches(tenantId, userRole, page);
+    } else if (activeTab === 'regions') {
+      fetchRegions(tenantId, userRole, page);
+    }
   };
 
   const handleSubmit = async (e) => {
@@ -225,7 +327,8 @@ export default function AllUsers() {
         await handleRegionSubmit();
       }
 
-      await fetchData(currentUserTenantId, profile?.role);
+      // Refresh current page after successful operation
+      fetchPageData(currentPage);
       closeModal();
       alert(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} ${editingItem ? 'updated' : 'created'} successfully!`);
     } catch (error) {
@@ -247,7 +350,7 @@ export default function AllUsers() {
 
     const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
 
-    const response = await fetch("http://localhost:5000/create-user", {
+    const response = await fetch(`${API_BASE_URL}/create-user`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -258,7 +361,7 @@ export default function AllUsers() {
         phone: formData.phone?.trim() || null,
         branch_id: requiresBranchRegion ? (formData.branch_id || null) : null,
         region_id: requiresBranchRegion ? (formData.region_id || null) : null,
-        logged_in_tenant_id: currentUserTenantId
+        logged_in_tenant_id: currentUserTenantId,
       }),
     });
 
@@ -376,33 +479,40 @@ export default function AllUsers() {
         }
       }
       alert(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
+      fetchPageData(currentPage);
     } catch (err) {
       alert(`Error deleting ${type}: ` + err.message);
     }
   };
 
-  const filteredUsers = users.filter(user => {
-    const matchesSearch = 
-      (user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (user.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesRole = !filterRole || user.role === filterRole;
-    const matchesRegion = !filterRegion || user.region_id === filterRegion;
-    const matchesBranch = !filterBranch || user.branch_id === filterBranch;
+  // Filter data for display
+  const filteredData = useMemo(() => {
+    if (activeTab === 'users') {
+      return users.filter(user => {
+        const matchesSearch = 
+          (user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (user.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+        
+        const matchesRole = !filterRole || user.role === filterRole;
+        const matchesRegion = !filterRegion || user.region_id === filterRegion;
+        const matchesBranch = !filterBranch || user.branch_id === filterBranch;
 
-    return matchesSearch && matchesRole && matchesRegion && matchesBranch;
-  });
-
-  const filteredBranches = branches.filter(b =>
-    (b.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (b.code || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const filteredRegions = regions.filter(r =>
-    (r.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (r.code || '').toLowerCase().includes(searchTerm.toLowerCase())
-  );
+        return matchesSearch && matchesRole && matchesRegion && matchesBranch;
+      });
+    } else if (activeTab === 'branches') {
+      return branches.filter(b =>
+        (b.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (b.address || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    } else {
+      return regions.filter(r =>
+        (r.name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (r.code || '').toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+  }, [users, branches, regions, activeTab, searchTerm, filterRole, filterRegion, filterBranch]);
 
   const clearFilters = () => {
     setFilterRole('');
@@ -425,6 +535,22 @@ export default function AllUsers() {
     return colors[index % colors.length];
   };
 
+  // Calculate pagination values
+  const totalPages = Math.ceil(totalCount / itemsPerPage);
+  const pageNumbers = [];
+  for (let i = 1; i <= totalPages; i++) {
+    pageNumbers.push(i);
+  }
+
+  // Handle tab change
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    setCurrentPage(1);
+    setSearchTerm('');
+    clearFilters();
+    setShowFilters(false);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
@@ -442,8 +568,7 @@ export default function AllUsers() {
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-sm  text-slate-600">User Management</h1>
-         
+              <h1 className="text-sm text-slate-600">User Management</h1>
             </div>
             <div className="flex items-center gap-3">
               <button
@@ -451,19 +576,8 @@ export default function AllUsers() {
                 className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 <ArrowPathIcon className="h-5 w-5 mr-2" />
-                <h3 className='text-sm text-slate-600'> Refresh</h3>
-               
+                <h3 className='text-sm text-slate-600'>Refresh</h3>
               </button>
-              {/* {isAdmin && currentUserTenantId && (
-                <div className="text-sm bg-emerald-100 text-emerald-800 px-3 py-1 rounded-lg font-medium">
-                  Admin - Tenant View
-                </div>
-              )}
-              {isSuperAdmin && (
-                <div className="text-sm bg-amber-100 text-amber-800 px-3 py-1 rounded-lg font-medium">
-                  Super Admin Mode
-                </div>
-              )} */}
             </div>
           </div>
         </div>
@@ -472,7 +586,7 @@ export default function AllUsers() {
           <div className="border-b border-gray-200">
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
               <button
-                onClick={() => setActiveTab('users')}
+                onClick={() => handleTabChange('users')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'users'
                     ? 'border-[#586ab1] text-[#586ab1]'
@@ -482,11 +596,11 @@ export default function AllUsers() {
                 <UserCircleIcon className="h-5 w-5 inline-block mr-2" />
                 Users
                 <span className="ml-2 bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
-                  {users.length}
+                  {totalCount}
                 </span>
               </button>
               <button
-                onClick={() => setActiveTab('branches')}
+                onClick={() => handleTabChange('branches')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'branches'
                     ? 'border-[#586ab1] text-[#586ab1]'
@@ -496,11 +610,11 @@ export default function AllUsers() {
                 <BuildingOfficeIcon className="h-5 w-5 inline-block mr-2" />
                 Branches
                 <span className="ml-2 bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
-                  {branches.length}
+                  {totalCount}
                 </span>
               </button>
               <button
-                onClick={() => setActiveTab('regions')}
+                onClick={() => handleTabChange('regions')}
                 className={`py-4 px-1 border-b-2 font-medium text-sm ${
                   activeTab === 'regions'
                     ? 'border-[#586ab1] text-[#586ab1]'
@@ -510,7 +624,7 @@ export default function AllUsers() {
                 <MapPinIcon className="h-5 w-5 inline-block mr-2" />
                 Regions
                 <span className="ml-2 bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
-                  {regions.length}
+                  {totalCount}
                 </span>
               </button>
             </nav>
@@ -640,7 +754,7 @@ export default function AllUsers() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
               {[
-                { label: 'Total Users', value: users.length, icon: UserCircleIcon },
+                { label: 'Total Users', value: totalCount, icon: UserCircleIcon },
                 { label: 'Admins', value: users.filter(u => u.role === 'admin').length, icon: null },
                 { label: 'Managers', value: users.filter(u => u.role?.includes('manager')).length, icon: null },
                 { label: 'Officers', value: users.filter(u => u.role?.includes('officer')).length, icon: null },
@@ -679,13 +793,13 @@ export default function AllUsers() {
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Branch</th>
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Region</th>
                       {isSuperAdmin && (
-                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant ID</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
                       )}
                       <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {filteredUsers.map((user) => {
+                    {filteredData.map((user) => {
                       const roleColor = getRoleColor(user.role);
                       return (
                         <tr key={user.id} className="hover:bg-gray-50">
@@ -725,8 +839,8 @@ export default function AllUsers() {
                             }
                           </td>
                           {isSuperAdmin && (
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                              {user.tenant_id ? user.tenant_id.substring(0, 8) + '...' : 'N/A'}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                              {user.tenant_name}
                             </td>
                           )}
                           <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -752,11 +866,75 @@ export default function AllUsers() {
                 </table>
               </div>
 
-              {filteredUsers.length === 0 && (
+              {filteredData.length === 0 && (
                 <div className="text-center py-12">
                   <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
                   <h3 className="mt-2 text-sm font-medium text-gray-900">No users found</h3>
                   <p className="mt-1 text-sm text-gray-500">Try adjusting your search or filter criteria</p>
+                </div>
+              )}
+
+              {/* Pagination Component */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                  <div className="flex flex-1 justify-between sm:hidden">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of{' '}
+                        <span className="font-medium">{totalCount}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">Previous</span>
+                          <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        {pageNumbers.slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map((number) => (
+                          <button
+                            key={number}
+                            onClick={() => handlePageChange(number)}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                              currentPage === number
+                                ? 'z-10 bg-[#586ab1] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#586ab1]'
+                                : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {number}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <span className="sr-only">Next</span>
+                          <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -775,13 +953,13 @@ export default function AllUsers() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Address</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
                     {isSuperAdmin && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
                     )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredBranches.map((branch) => (
+                  {filteredData.map((branch) => (
                     <tr key={branch.id} className="hover:bg-gray-50">
                       <td className="px-6 py-4 whitespace-nowrap font-medium">{branch.name}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -790,7 +968,7 @@ export default function AllUsers() {
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        {regions.find(r => r.id === branch.region_id)?.name || 'N/A'}
+                        {branch.region_name}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-600">{branch.address || 'N/A'}</td>
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -799,8 +977,8 @@ export default function AllUsers() {
                         </span>
                       </td>
                       {isSuperAdmin && (
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                          {branch.tenant_id ? branch.tenant_id.substring(0, 8) + '...' : 'N/A'}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          {branch.tenant_name}
                         </td>
                       )}
                       <td className="px-6 py-4 whitespace-nowrap">
@@ -823,9 +1001,71 @@ export default function AllUsers() {
                   ))}
                 </tbody>
               </table>
-              {filteredBranches.length === 0 && (
+              {filteredData.length === 0 && (
                 <div className="text-center py-12 text-gray-400">
                   No branches found
+                </div>
+              )}
+
+              {/* Pagination for Branches */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                  <div className="flex flex-1 justify-between sm:hidden">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of{' '}
+                        <span className="font-medium">{totalCount}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        {pageNumbers.slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map((number) => (
+                          <button
+                            key={number}
+                            onClick={() => handlePageChange(number)}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                              currentPage === number
+                                ? 'z-10 bg-[#586ab1] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#586ab1]'
+                                : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {number}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -843,13 +1083,13 @@ export default function AllUsers() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branches</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Users</th>
                     {isSuperAdmin && (
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant ID</th>
+                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
                     )}
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {filteredRegions.map((region) => {
+                  {filteredData.map((region) => {
                     const regionBranches = branches.filter(b => b.region_id === region.id);
                     const regionUsers = users.filter(u => u.region_id === region.id);
                     return (
@@ -871,8 +1111,8 @@ export default function AllUsers() {
                           </span>
                         </td>
                         {isSuperAdmin && (
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono">
-                            {region.tenant_id ? region.tenant_id.substring(0, 8) + '...' : 'N/A'}
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {region.tenant_name}
                           </td>
                         )}
                         <td className="px-6 py-4 whitespace-nowrap">
@@ -896,9 +1136,71 @@ export default function AllUsers() {
                   })}
                 </tbody>
               </table>
-              {filteredRegions.length === 0 && (
+              {filteredData.length === 0 && (
                 <div className="text-center py-12 text-gray-400">
                   No regions found
+                </div>
+              )}
+
+              {/* Pagination for Regions */}
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
+                  <div className="flex flex-1 justify-between sm:hidden">
+                    <button
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1}
+                      className="relative inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Previous
+                    </button>
+                    <button
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages}
+                      className="relative ml-3 inline-flex items-center rounded-md border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      Next
+                    </button>
+                  </div>
+                  <div className="hidden sm:flex sm:flex-1 sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-sm text-gray-700">
+                        Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
+                        <span className="font-medium">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of{' '}
+                        <span className="font-medium">{totalCount}</span> results
+                      </p>
+                    </div>
+                    <div>
+                      <nav className="isolate inline-flex -space-x-px rounded-md shadow-sm" aria-label="Pagination">
+                        <button
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          disabled={currentPage === 1}
+                          className="relative inline-flex items-center rounded-l-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronLeftIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                        {pageNumbers.slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map((number) => (
+                          <button
+                            key={number}
+                            onClick={() => handlePageChange(number)}
+                            className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${
+                              currentPage === number
+                                ? 'z-10 bg-[#586ab1] text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#586ab1]'
+                                : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                            }`}
+                          >
+                            {number}
+                          </button>
+                        ))}
+                        <button
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          disabled={currentPage === totalPages}
+                          className="relative inline-flex items-center rounded-r-md px-2 py-2 text-gray-400 ring-1 ring-inset ring-gray-300 hover:bg-gray-50 focus:z-20 focus:outline-offset-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          <ChevronRightIcon className="h-5 w-5" aria-hidden="true" />
+                        </button>
+                      </nav>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
@@ -1033,14 +1335,19 @@ export default function AllUsers() {
 
                   {isSuperAdmin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
-                      <input
-                        type="text"
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                      <select
                         value={formData.tenant_id || ''}
                         onChange={(e) => setFormData({ ...formData, tenant_id: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
-                        placeholder="Leave empty for current tenant"
-                      />
+                      >
+                        <option value="">Select Tenant</option>
+                        {tenants.map(tenant => (
+                          <option key={tenant.id} value={tenant.id}>
+                            {tenant.name || tenant.company_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
 
@@ -1122,14 +1429,19 @@ export default function AllUsers() {
 
                   {isSuperAdmin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
-                      <input
-                        type="text"
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                      <select
                         value={formData.tenant_id || ''}
                         onChange={(e) => setFormData({ ...formData, tenant_id: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
-                        placeholder="Leave empty for current tenant"
-                      />
+                      >
+                        <option value="">Select Tenant</option>
+                        {tenants.map(tenant => (
+                          <option key={tenant.id} value={tenant.id}>
+                            {tenant.name || tenant.company_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
 
@@ -1179,14 +1491,19 @@ export default function AllUsers() {
 
                   {isSuperAdmin && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant ID</label>
-                      <input
-                        type="text"
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
+                      <select
                         value={formData.tenant_id || ''}
                         onChange={(e) => setFormData({ ...formData, tenant_id: e.target.value })}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
-                        placeholder="Leave empty for current tenant"
-                      />
+                      >
+                        <option value="">Select Tenant</option>
+                        {tenants.map(tenant => (
+                          <option key={tenant.id} value={tenant.id}>
+                            {tenant.name || tenant.company_name}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
 

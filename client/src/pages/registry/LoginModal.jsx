@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { API_BASE_URL } from "../../../config.js";
 
 const LoginModal = ({ isOpen, onClose, onSuccess }) => {
   const [email, setEmail] = useState('');
@@ -8,40 +9,39 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
-      const res = await fetch('http://localhost:5000/api/checkReportUser', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      });
+  try {
+    const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
 
-      const data = await res.json();
+    const data = await res.json();
 
-      if (res.ok) {
-        // 🟢 Save login for this session
-        localStorage.setItem("reportUser", "logged");
+    if (res.ok) {
+      // 🟢 Save login for this session
+      localStorage.setItem("reportUser", "logged");
 
-        setEmail('');
-        setPassword('');
-        setLoading(false);
-
-        onSuccess();
-        onClose();
-      } else {
-        setLoading(false);
-        setError(data.error || 'Invalid credentials');
-      }
-
-    } catch (err) {
+      setEmail("");
+      setPassword("");
       setLoading(false);
-      setError('Something went wrong. Please try again.');
+
+      onSuccess();
+      onClose();
+    } else {
+      setLoading(false);
+      setError(data.error || "Invalid credentials");
     }
-  };
+  } catch (err) {
+    setLoading(false);
+    setError("Something went wrong. Please try again.");
+  }
+};
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { API_BASE_URL } from "../../../../config.js";
 
 const AdminCreateReportUser = () => {
   const [email, setEmail] = useState("");
@@ -11,11 +12,11 @@ const AdminCreateReportUser = () => {
     setLoading(true);
     setMessage("");
 
-    const res = await fetch("http://localhost:5000/api/report-users/create", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+  const res = await fetch(`${API_BASE_URL}/api/report-users/create`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email, password }),
+});
 
     const data = await res.json();
     setLoading(false);

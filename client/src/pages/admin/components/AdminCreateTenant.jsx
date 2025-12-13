@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, BuildingOfficeIcon, CalendarIcon, EyeIcon, ArrowUpRightIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../../supabaseClient";
 import { useNavigate } from "react-router-dom";
+import { API_BASE_URL } from "../../../../config.js";
 
 // Define color constants for consistency
 const PRIMARY_COLOR = "#586ab1";
@@ -62,11 +63,11 @@ export default function AdminCreateTenant() {
     setSuccess(false);
 
     try {
-      const res = await fetch("http://localhost:5000/api/tenant/create-tenant", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+     const res = await fetch(`${API_BASE_URL}/api/tenant/create-tenant`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify(formData),
+});
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to create tenant");

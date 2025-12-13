@@ -5,6 +5,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient";
+import { API_BASE_URL } from "../../../config.js";
 
 // Assuming you have a way to get the current user profile
 import { useAuth } from "../../hooks/userAuth"; // replace with your auth hook
@@ -98,21 +99,22 @@ const handleSubmit = async (e) => {
     }
 
     const logged_in_tenant_id = profile?.tenant_id;
+const response = await fetch(`${API_BASE_URL}/create-user`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    full_name: formData.full_name.trim(),
+    email: formData.email.trim(),
+    password: formData.password.trim(),
+    role: formData.role,
+    phone: formData.phone?.trim() || null,
+    branch_id: requiresBranchRegion ? formData.branch_id || null : null,
+    region_id: requiresBranchRegion ? formData.region_id || null : null,
+    logged_in_tenant_id,
+  }),
+});
 
-    const response = await fetch("http://localhost:5000/create-user", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: formData.full_name.trim(),
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        role: formData.role,
-        phone: formData.phone?.trim() || null,
-        branch_id: requiresBranchRegion ? formData.branch_id || null : null,
-        region_id: requiresBranchRegion ? formData.region_id || null : null,
-        logged_in_tenant_id
-      }),
-    });
+
 
     const data = await response.json();
 

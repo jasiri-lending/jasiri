@@ -20,6 +20,12 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
+
+app.use(cors({
+  origin: "https://jasirilending.software/", 
+}));
+
+
 // Create user endpoint
 app.post("/create-user", async (req, res) => {
   try {
