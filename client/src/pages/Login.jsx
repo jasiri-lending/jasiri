@@ -5,7 +5,6 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/userAuth";
 import { useGlobalLoading } from "../hooks/LoadingContext";
 
-
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -18,7 +17,7 @@ export default function Login() {
 
   const currentYear = new Date().getFullYear();
 
- const handleLogin = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setError(null);
     setLoading(true);
@@ -83,20 +82,26 @@ export default function Login() {
         region: regionName,
       };
 
+      // Set user and profile
       setUser(authData.user);
       setProfile(profileData);
 
-      // Redirect based on role
-      switch (userData.role) {
-        case "relationship_officer":
-          navigate("/dashboard");
-          break;
-        case "admin":
-          navigate("/dashboard/admin");
-          break;
-        default:
-          navigate("/dashboard");
-      }
+      // Store profile in localStorage to prevent race conditions
+      localStorage.setItem("profile", JSON.stringify(profileData));
+
+      // Redirect based on role AFTER setting everything
+      // Use setTimeout to ensure state updates complete before navigation
+      setTimeout(() => {
+        switch (userData.role) {
+          case "superadmin":
+          case "admin":
+            navigate("/dashboard/admin", { replace: true });
+            break;
+          default:
+            navigate("/dashboard", { replace: true });
+        }
+      }, 100);
+
     } catch (err) {
       console.error("Login error:", err);
       setError(err.message || "Something went wrong. Please try again.");
@@ -123,9 +128,9 @@ export default function Login() {
 
           <div className="relative z-10 mb-6 flex flex-col items-center">
             {/* Jasiri Logo Image */}
-            <div className="  rounded-2xl  flex items-center justify-center  overflow-hidden">
+            <div className="rounded-2xl flex items-center justify-center overflow-hidden">
               <img
-                src="jasiri-white.png"   // <-- replace this with your logo path
+                src="jasiri-white.png"
                 alt="Jasiri Logo"
                 className="object-contain w-full h-full"
               />

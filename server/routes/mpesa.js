@@ -1,15 +1,27 @@
+// mpesa.js
 import axios from "axios";
 
-export async function getMpesaToken() {
-const url = "https://api.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials";
-  
-  const auth = Buffer.from(
-    process.env.MPESA_CONSUMER_KEY + ":" + process.env.MPESA_CONSUMER_SECRET
-  ).toString("base64");
+/**
+ * Get tenant-specific MPESA access token
+ * @param {Object} tenantConfig
+ */
+export async function getMpesaToken(tenantConfig) {
+  try {
+    const { consumer_key, consumer_secret } = tenantConfig;
 
-  const { data } = await axios.get(url, {
-    headers: { Authorization: "Basic " + auth },
-  });
+    const response = await axios.get(
+      "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
+      {
+        auth: {
+          username: consumer_key,
+          password: consumer_secret,
+        },
+      }
+    );
 
-  return data.access_token;
+    return response.data.access_token;
+  } catch (err) {
+    console.error("Failed to get MPESA token:", err.message);
+    throw new Error("Failed to get MPESA token");
+  }
 }

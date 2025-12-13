@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Users,
   FileText,
@@ -6,837 +6,967 @@ import {
   AlertTriangle,
   TrendingUp,
   Coins,
-  UserPlus,
-  CheckCircle,
-  FileBarChart,
-  Settings,
-  Shield,
-  Activity,
-  Clock,
-  XCircle,
+  Building,
+  Target,
+  RefreshCw,
+  TrendingDown,
+  Search,
+  Plus,
+  Eye,
+  MoreVertical,
   CreditCard,
+  Banknote,
+  Wallet,
+  ChevronRight,
+  Calendar,
+  Filter,
+  ArrowUpRight,
+  ArrowDownRight,
+  Loader2,
 } from 'lucide-react';
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
+import { format } from 'date-fns';
+
+// Stat Card Component
+const StatCard = ({ name, value, change, icon: Icon, color, changeType, description, loading }) => {
+  return (
+    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-5 hover:shadow-md transition-shadow duration-200">
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <p className="text-sm font-medium text-gray-500 mb-2">{name}</p>
+          <div className="flex items-baseline gap-2">
+            <p className="text-2xl font-bold text-gray-900">
+              {loading ? (
+                <div className="h-8 w-24 bg-gray-200 rounded animate-pulse"></div>
+              ) : (
+                value
+              )}
+            </p>
+            {change && (
+              <span className={`text-sm font-medium flex items-center gap-1 ${changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
+                {changeType === 'positive' ? (
+                  <ArrowUpRight className="h-4 w-4" />
+                ) : (
+                  <ArrowDownRight className="h-4 w-4" />
+                )}
+                {change}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-gray-500 mt-2">{description}</p>
+        </div>
+        <div className={`${color} p-3 rounded-lg ml-4 flex-shrink-0`}>
+          <Icon className="h-6 w-6 text-white" />
+        </div>
+      </div>
+    </div>
+  );
+};
 
 const AdminDashboard = () => {
+  const { profile } = useAuth();
   const [stats, setStats] = useState([]);
-  const [recentActivity, setRecentActivity] = useState([]);
-  const [pendingActions, setPendingActions] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [tenants, setTenants] = useState([]);
+  const [filteredTenants, setFilteredTenants] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [currentUserTenantId, setCurrentUserTenantId] = useState(null);
+  const [userRole, setUserRole] = useState(null);
+  const [timeFilter, setTimeFilter] = useState('month');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [lastRefresh, setLastRefresh] = useState(Date.now());
 
-  // Quick Actions (static - same as original)
-  const quickActions = [
-    { 
-      name: 'Add User', 
-      icon: UserPlus, 
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-50',
-      hoverBorder: 'hover:border-blue-300'
-    },
-    { 
-      name: 'Approve Loan', 
-      icon: CheckCircle, 
-      color: 'text-green-600',
-      bgColor: 'bg-green-50',
-      hoverBorder: 'hover:border-green-300'
-    },
-    { 
-      name: 'Generate Report', 
-      icon: FileBarChart, 
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-50',
-      hoverBorder: 'hover:border-purple-300'
-    },
-    { 
-      name: 'System Settings', 
-      icon: Settings, 
-      color: 'text-red-600',
-      bgColor: 'bg-red-50',
-      hoverBorder: 'hover:border-red-300'
-    },
-    { 
-      name: 'View Analytics', 
-      icon: TrendingUp, 
-      color: 'text-cyan-600',
-      bgColor: 'bg-cyan-50',
-      hoverBorder: 'hover:border-cyan-300'
-    },
-    { 
-      name: 'Security Center', 
-      icon: Shield, 
-      color: 'text-yellow-600',
-      bgColor: 'bg-yellow-50',
-      hoverBorder: 'hover:border-yellow-300'
-    },
-  ];
+  // Memoized time filters to prevent re-renders
+  const timeFilters = useMemo(() => [
+    { id: 'day', label: 'Today' },
+    { id: 'week', label: 'This Week' },
+    { id: 'month', label: 'This Month' },
+    { id: 'quarter', label: 'This Quarter' },
+    { id: 'year', label: 'This Year' },
+  ], []);
 
+  // Load profile and initial data once
   useEffect(() => {
-    fetchDashboardData();
+    if (profile && !currentUserTenantId) {
+      const tenantId = profile.tenant_id;
+      const role = profile.role;
+      
+      setCurrentUserTenantId(tenantId);
+      setUserRole(role);
+      
+      if (role) {
+        fetchDashboardData(tenantId, role);
+        if (role === 'superadmin') {
+          fetchTenants();
+        }
+      }
+    }
+  }, [profile]);
+
+  // Update data when time filter changes
+  useEffect(() => {
+    if (currentUserTenantId && userRole) {
+      fetchDashboardData(currentUserTenantId, userRole);
+    }
+  }, [timeFilter, lastRefresh]);
+
+  // Filter tenants when search query changes
+  useEffect(() => {
+    if (searchQuery.trim() === '') {
+      setFilteredTenants(tenants.slice(0, 5)); // Only show first 5
+    } else {
+      const filtered = tenants.filter(tenant =>
+        tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenant.company_name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        tenant.tenant_slug?.toLowerCase().includes(searchQuery.toLowerCase())
+      );
+      setFilteredTenants(filtered);
+    }
+  }, [searchQuery, tenants]);
+
+  // Helper function to get tenant user IDs (ROs)
+  const getTenantUserIds = useCallback(async (tenantId, userRole) => {
+    if (userRole === 'superadmin') {
+      // Superadmin sees all users
+      const { data } = await supabase
+        .from('users')
+        .select('id');
+      return data?.map(u => u.id) || [];
+    } else {
+      // Get users (ROs) for this tenant
+      const { data } = await supabase
+        .from('users')
+        .select('id')
+        .eq('tenant_id', tenantId);
+      return data?.map(u => u.id) || [];
+    }
   }, []);
 
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async (tenantId, userRole) => {
     try {
-      setLoading(true);
+      setDashboardLoading(true);
       
+      // Fetch basic stats
       const [
+        totalTenants,
         totalUsers,
         totalCustomers,
-        activeLoans,
-        totalDisbursed,
-        outstandingAmount,
-        repaymentRate,
-        revenue,
-        pendingApprovals,
-        overdueLoans,
-        recentActivities,
-        passwordResetRequests,
-        systemAlerts
+        totalLoans,
+        disbursedStats,
+        outstandingStats,
+        revenueStats,
+        collectionsAmount,
       ] = await Promise.all([
-        fetchTotalUsers(),
-        fetchTotalCustomers(),
-        fetchActiveLoans(),
-        fetchTotalDisbursed(),
-        fetchOutstandingAmount(),
-        fetchRepaymentRate(),
-        fetchRevenue(),
-        fetchPendingApprovals(),
-        fetchOverdueLoans(),
-        fetchRecentActivity(),
-        fetchPasswordResetRequests(),
-        fetchSystemAlerts()
+        userRole === 'superadmin' ? fetchTotalTenants() : 0,
+        fetchTotalUsers(tenantId, userRole),
+        fetchTotalCustomers(tenantId, userRole),
+        fetchTotalLoans(tenantId, userRole),
+        fetchDisbursedStats(tenantId, userRole),
+        fetchOutstandingStats(tenantId, userRole),
+        fetchRevenueStats(tenantId, userRole),
+        fetchCollectionsAmount(tenantId, userRole),
       ]);
 
-      // Update stats with real data
-      setStats([
-        { 
-          name: 'Total Users', 
-          value: totalUsers.toLocaleString(), 
-          change: await calculateUserGrowth(), 
-          icon: Users, 
-          color: 'bg-blue-500', 
-          changeType: 'positive',
-          description: 'Active system users'
-        },
-        { 
-          name: 'Total Customers', 
-          value: totalCustomers.toLocaleString(), 
-          change: await calculateCustomerGrowth(), 
-          icon: Users, 
-          color: 'bg-green-500', 
-          changeType: 'positive',
-          description: 'Registered customers'
-        },
-        { 
-          name: 'Active Loans', 
-          value: activeLoans.toLocaleString(), 
-          change: await calculateLoanGrowth(), 
-          icon: FileText, 
-          color: 'bg-purple-500', 
-          changeType: 'positive',
-          description: 'Currently running'
-        },
-        { 
-          name: 'Total Disbursed', 
-          value: `KES ${(totalDisbursed / 1000000).toFixed(1)}M`, 
-          change: await calculateDisbursementGrowth(), 
-          icon: DollarSign, 
-          color: 'bg-orange-500', 
-          changeType: 'positive',
-          description: 'This month'
-        },
-        { 
-          name: 'Outstanding', 
-          value: `KES ${(outstandingAmount / 1000000).toFixed(1)}M`, 
-          change: await calculateOutstandingChange(), 
-          icon: AlertTriangle, 
-          color: 'bg-cyan-500', 
-          changeType: 'negative',
-          description: 'Pending collection'
-        },
-        { 
-          name: 'Revenue (MTD)', 
-          value: `KES ${(revenue / 1000000).toFixed(1)}M`, 
-          change: await calculateRevenueGrowth(), 
-          icon: Coins, 
-          color: 'bg-indigo-500', 
-          changeType: 'positive',
-          description: 'Interest & fees'
-        },
-      ]);
+      // Build stats array based on user role
+      const statsArray = [];
 
-      // Update pending actions with real data
-      setPendingActions([
-        { 
-          title: 'Pending Loan Approvals', 
-          count: pendingApprovals, 
-          priority: 'high',
-          icon: Clock,
-          color: 'text-red-600',
-          bgColor: 'bg-red-50'
+      // For superadmin, show tenant stats first
+      if (userRole === 'superadmin') {
+        statsArray.push({
+          name: 'Total Tenants',
+          value: totalTenants.toLocaleString(),
+          change: await calculateTenantGrowth(),
+          icon: Building,
+          color: 'bg-violet-500',
+          changeType: 'positive',
+          description: 'Active SaaS tenants',
+        });
+      }
+
+      // Add core stats
+      statsArray.push(
+        {
+          name: 'Total Users',
+          value: totalUsers.toLocaleString(),
+          change: await calculateUserGrowth(tenantId, userRole),
+          icon: Users,
+          color: 'bg-blue-500',
+          changeType: 'positive',
+          description: 'System users',
         },
-        { 
-          title: 'Password Reset Requests', 
-          count: passwordResetRequests, 
-          priority: 'medium',
-          icon: Shield,
-          color: 'text-yellow-600',
-          bgColor: 'bg-yellow-50'
+        {
+          name: 'Total Customers',
+          value: totalCustomers.toLocaleString(),
+          change: await calculateCustomerGrowth(tenantId, userRole),
+          icon: Users,
+          color: 'bg-green-500',
+          changeType: 'positive',
+          description: 'Registered customers',
         },
-        { 
-          title: 'Overdue Loans', 
-          count: overdueLoans, 
-          priority: 'high',
+        {
+          name: 'Total Loans',
+          value: totalLoans.toLocaleString(),
+          change: await calculateLoanGrowth(tenantId, userRole),
+          icon: FileText,
+          color: 'bg-purple-500',
+          changeType: 'positive',
+          description: 'All loan applications',
+        }
+      );
+
+      // Add financial stats
+      const financialStats = [
+        {
+          name: 'Disbursed Loans',
+          value: `KES ${formatLargeNumber(disbursedStats.amount)}`,
+          secondaryValue: `${disbursedStats.count} loans`,
+          change: await calculateDisbursementGrowth(tenantId, userRole),
+          icon: DollarSign,
+          color: 'bg-orange-500',
+          changeType: 'positive',
+          description: 'Total amount disbursed',
+        },
+        {
+          name: 'Outstanding Amount',
+          value: `KES ${formatLargeNumber(outstandingStats.amount)}`,
+          change: await calculateOutstandingChange(tenantId, userRole),
           icon: AlertTriangle,
-          color: 'text-orange-600',
-          bgColor: 'bg-orange-50'
+          color: 'bg-red-500',
+          changeType: 'negative',
+          description: 'Pending collection',
         },
-        { 
-          title: 'System Alerts', 
-          count: systemAlerts, 
-          priority: 'low',
-          icon: Activity,
-          color: 'text-blue-600',
-          bgColor: 'bg-blue-50'
+        {
+          name: 'Total Revenue',
+          value: `KES ${formatLargeNumber(revenueStats.amount)}`,
+          change: await calculateRevenueGrowth(tenantId, userRole),
+          icon: Coins,
+          color: 'bg-amber-500',
+          changeType: 'positive',
+          description: 'Fees & interest',
         },
-      ]);
+        {
+          name: 'Collections',
+          value: `KES ${formatLargeNumber(collectionsAmount)}`,
+          change: await calculateCollectionsGrowth(tenantId, userRole),
+          icon: Banknote,
+          color: 'bg-emerald-500',
+          changeType: 'positive',
+          description: 'Amount collected',
+        },
+      ];
 
-      setRecentActivity(recentActivities);
+      setStats([...statsArray, ...financialStats]);
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
+      setDashboardLoading(false);
+    }
+  }, []);
+
+  const fetchTenants = useCallback(async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      setTenants(data || []);
+      setFilteredTenants(data?.slice(0, 5) || []);
+    } catch (error) {
+      console.error('Error fetching tenants:', error);
+    } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  // Fetch total users (system users/admins)
-  const fetchTotalUsers = async () => {
-    const { count, error } = await supabase
-      .from('users')
+  // Helper function to format large numbers
+  const formatLargeNumber = useCallback((num) => {
+    if (num >= 1000000000) {
+      return `${(num / 1000000000).toFixed(2)}B`;
+    } else if (num >= 1000000) {
+      return `${(num / 1000000).toFixed(2)}M`;
+    } else if (num >= 1000) {
+      return `${(num / 1000).toFixed(1)}K`;
+    }
+    return num.toFixed(0);
+  }, []);
+
+  // Helper function to get date range
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    const ranges = {
+      day: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1),
+      week: new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7),
+      month: new Date(now.getFullYear(), now.getMonth() - 1, now.getDate()),
+      quarter: new Date(now.getFullYear(), now.getMonth() - 3, now.getDate()),
+      year: new Date(now.getFullYear() - 1, now.getMonth(), now.getDate()),
+    };
+    return ranges[timeFilter] || ranges.month;
+  }, [timeFilter]);
+
+  // ========== DATA FETCHING FUNCTIONS ==========
+
+  const fetchTotalTenants = useCallback(async () => {
+    const { count } = await supabase
+      .from('tenants')
       .select('*', { count: 'exact', head: true });
     
-    if (error) {
-      console.error('Error fetching users:', error);
-      return 0;
-    }
-    
     return count || 0;
-  };
+  }, []);
 
-  // Fetch total customers (loan applicants/borrowers)
-  const fetchTotalCustomers = async () => {
-    const { count, error } = await supabase
-      .from('customers')
-      .select('*', { count: 'exact', head: true });
-    
-    if (error) {
-      console.error('Error fetching customers:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-
-  // Fetch active loans
-  const fetchActiveLoans = async () => {
-    const { count, error } = await supabase
-      .from('loans')
-      .select('*', { count: 'exact', head: true })
-      .in('status', ['active', 'disbursed', 'approved']);
-    
-    if (error) {
-      console.error('Error fetching active loans:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-
-  // Fetch total disbursed amount for current month
-  const fetchTotalDisbursed = async () => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-
-    const { data, error } = await supabase
-      .from('loans')
-      .select('amount, disbursed_at')
-      .eq('status', 'disbursed')
-      .gte('disbursed_at', `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`)
-      .lt('disbursed_at', `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-01`);
-
-    if (error) {
-      console.error('Error fetching disbursed amount:', error);
-      return 0;
-    }
-
-    return data?.reduce((sum, loan) => sum + (loan.amount || 0), 0) || 0;
-  };
-
-  // Fetch outstanding amount
-  const fetchOutstandingAmount = async () => {
-    const { data, error } = await supabase
-      .from('loans')
-      .select('amount, amount_paid')
-      .in('status', ['active', 'disbursed']);
-
-    if (error) {
-      console.error('Error fetching outstanding amount:', error);
-      return 0;
-    }
-
-    return data?.reduce((sum, loan) => {
-      const remaining = (loan.amount || 0) - (loan.amount_paid || 0);
-      return sum + Math.max(0, remaining);
-    }, 0) || 0;
-  };
-
-  // Fetch repayment rate
-  const fetchRepaymentRate = async () => {
-    const { data: payments, error } = await supabase
-      .from('payments')
-      .select('*')
-      .gte('payment_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
-
-    if (error) {
-      console.error('Error fetching payments:', error);
-      return 0;
-    }
-
-    const totalPayments = payments?.length || 0;
-    const onTimePayments = payments?.filter(p => p.status === 'completed' && !p.is_late)?.length || 0;
-    
-    return totalPayments > 0 ? (onTimePayments / totalPayments) * 100 : 0;
-  };
-
-  // Fetch revenue
-  const fetchRevenue = async () => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-
-    const { data, error } = await supabase
-      .from('payments')
-      .select('interest_amount, fees, payment_date')
-      .eq('status', 'completed')
-      .gte('payment_date', `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`)
-      .lt('payment_date', `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-01`);
-
-    if (error) {
-      console.error('Error fetching revenue:', error);
-      return 0;
-    }
-
-    return data?.reduce((sum, payment) => sum + (payment.interest_amount || 0) + (payment.fees || 0), 0) || 0;
-  };
-
-  // Fetch pending loan approvals
-  const fetchPendingApprovals = async () => {
-    const { count, error } = await supabase
-      .from('loans')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'disbursed');
-    
-    if (error) {
-      console.error('Error fetching pending approvals:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-
-  // Fetch overdue loans
-  const fetchOverdueLoans = async () => {
-    const { count, error } = await supabase
-      .from('loans')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'overdue');
-    
-    if (error) {
-      console.error('Error fetching overdue loans:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-
-  // Fetch password reset requests
-  const fetchPasswordResetRequests = async () => {
-    const { count, error } = await supabase
-      .from('password_reset_requests')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'pending');
-    
-    if (error) {
-      console.error('Error fetching password reset requests:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-
-  // Fetch system alerts
-  const fetchSystemAlerts = async () => {
-    const { count, error } = await supabase
-      .from('system_alerts')
-      .select('*', { count: 'exact', head: true })
-      .eq('status', 'active');
-    
-    if (error) {
-      console.error('Error fetching system alerts:', error);
-      return 0;
-    }
-    
-    return count || 0;
-  };
-// Fetch recent activity across all regions and branches
-  const fetchRecentActivity = async () => {
-    try {
-      const activities = [];
-
-      // 1. Fetch recent loan activities with customer, region, and branch info
-      const { data: loanActivities, error: loansError } = await supabase
-        .from("loans")
-        .select(`
-          *,
-          customers:customer_id (
-            Firstname,
-            Surname
-          ),
-          regions:region_id (
-            region_name
-          ),
-          branches:branch_id (
-            branch_name
-          )
-        `)
-        .order("created_at", { ascending: false })
-        .limit(2);
-
-      if (loansError) console.error('Loans error:', loansError);
-
-      // 2. Fetch recent payments with customer info
-      const { data: recentPayments, error: paymentsError } = await supabase
-        .from('payments')
-        .select(`
-          id,
-          amount,
-          payment_date,
-          status,
-          created_at,
-          customers:customer_id (
-            Firstname,
-            Surname
-          )
-        `)
-        .order('payment_date', { ascending: false })
-        .limit(2);
-
-      if (paymentsError) console.error('Payments error:', paymentsError);
-
-      // 3. Fetch new user registrations
-      const { data: newUsers, error: usersError } = await supabase
+  const fetchTotalUsers = useCallback(async (tenantId, userRole) => {
+    if (userRole === 'superadmin') {
+      const { count } = await supabase
         .from('users')
-        .select(`
-          id,
-          full_name,
-          email,
-          role,
-          created_at
-        `)
-        .order('created_at', { ascending: false })
-        .limit(20);
-
-      if (usersError) console.error('Users error:', usersError);
-
-      // 4. Fetch new customer registrations with region/branch
-      const { data: newCustomers, error: customersError } = await supabase
-        .from('customers')
-        .select(`
-          id,
-          Firstname,
-          Surname,
-          created_at,
-          regions:region_id (
-            region_name
-          ),
-          branches:branch_id (
-            branch_name
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(2);
-
-      if (customersError) console.error('Customers error:', customersError);
-
-      // 5. Fetch user login activities (if you have an audit/login table)
-      const { data: loginActivities, error: loginError } = await supabase
-        .from('user_login_logs')
-        .select(`
-          id,
-          created_at,
-          users:user_id (
-            full_name,
-            email
-          )
-        `)
-        .order('created_at', { ascending: false })
-        .limit(2);
-
-      if (loginError) console.error('Login logs error:', loginError);
-
-      // Format loan activities
-      loanActivities?.forEach(loan => {
-        let action = '';
-        let type = 'info';
-        let icon = FileText;
-        const location = loan.branches?.branch_name 
-          ? `${loan.branches.branch_name}${loan.regions?.region_name ? `, ${loan.regions.region_name}` : ''}`
-          : loan.regions?.region_name || 'Unknown location';
-
-        switch (loan.status) {
-          case 'approved':
-            action = 'Loan Approved';
-            type = 'success';
-            icon = CheckCircle;
-            break;
-          case 'rejected':
-            action = 'Loan Rejected';
-            type = 'error';
-            icon = XCircle;
-            break;
-          case 'pending':
-            action = 'Loan Application';
-            type = 'info';
-            icon = Clock;
-            break;
-          case 'disbursed':
-            action = 'Loan Disbursed';
-            type = 'success';
-            icon = DollarSign;
-            break;
-          default:
-            action = 'Loan Updated';
-            type = 'info';
-            icon = FileText;
-        }
-
-        activities.push({
-          action,
-          user: `${loan.customers?.Firstname || 'Unknown'} ${loan.customers?.Surname || ''}`.trim(),
-          details: `KES ${loan.amount?.toLocaleString()} • ${location}`,
-          time: loan.updated_at || loan.created_at,
-          type,
-          icon
-        });
-      });
-
-      // Format payment activities
-      recentPayments?.forEach(payment => {
-        activities.push({
-          action: 'Payment Received',
-          user: `${payment.customers?.Firstname || 'Unknown'} ${payment.customers?.Surname || ''}`.trim(),
-          details: `KES ${payment.amount?.toLocaleString()}`,
-          time: payment.payment_date || payment.created_at,
-          type: payment.status === 'completed' ? 'success' : 'info',
-          icon: CreditCard
-        });
-      });
-
-      // Format new user registrations
-      newUsers?.forEach(user => {
-        activities.push({
-          action: 'New User Registered',
-          user: user.full_name || user.email,
-          details: `Role: ${user.role || 'User'}`,
-          time: user.created_at,
-          type: 'info',
-          icon: UserPlus
-        });
-      });
-
-      // Format new customer registrations
-      newCustomers?.forEach(customer => {
-        const location = customer.branches?.branch_name 
-          ? `${customer.branches.branch_name}${customer.regions?.region_name ? `, ${customer.regions.region_name}` : ''}`
-          : customer.regions?.region_name || '';
-
-        activities.push({
-          action: 'New Customer',
-          user: `${customer.Firstname || ''} ${customer.Surname || ''}`.trim() || 'Unknown',
-          details: location ? `Registered in ${location}` : 'Registered',
-          time: customer.created_at,
-          type: 'success',
-          icon: Users
-        });
-      });
-
-      // Format login activities
-      loginActivities?.forEach(login => {
-        activities.push({
-          action: 'User Login',
-          user: login.users?.full_name || login.users?.email || 'Unknown',
-          details: 'Signed in',
-          time: login.created_at,
-          type: 'info',
-          icon: Activity
-        });
-      });
-
-      // Sort all activities by time (most recent first) and return top 10
-      return activities
-        .filter(activity => activity.time) // Remove activities without timestamp
-        .sort((a, b) => new Date(b.time) - new Date(a.time))
-        .slice(0, 10)
-        .map(activity => ({
-          ...activity,
-          time: formatTimeAgo(activity.time)
-        }));
-
-    } catch (error) {
-      console.error('Error fetching recent activity:', error);
-      return [];
+        .select('id', { count: 'exact', head: true });
+      return count || 0;
     }
-  };
 
-  // Growth calculation functions
-  const calculateUserGrowth = async () => {
-    const currentMonth = new Date().getMonth() + 1;
-    const currentYear = new Date().getFullYear();
-    const lastMonth = currentMonth === 1 ? 12 : currentMonth - 1;
-    const lastMonthYear = currentMonth === 1 ? currentYear - 1 : currentYear;
+    const { count } = await supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId);
+    
+    return count || 0;
+  }, []);
+
+  const fetchTotalCustomers = useCallback(async (tenantId, userRole) => {
+    // Get tenant user IDs (ROs)
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return 0;
+
+    // Fetch customers created by these ROs
+    const { count } = await supabase
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .in('created_by', userIds);
+    
+    return count || 0;
+  }, [getTenantUserIds]);
+
+  const fetchTotalLoans = useCallback(async (tenantId, userRole) => {
+    // Get tenant user IDs (ROs)
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return 0;
+
+    // Option A: Fetch loans booked by these ROs directly
+    const { count } = await supabase
+      .from('loans')
+      .select('id', { count: 'exact', head: true })
+      .in('booked_by', userIds);
+    
+    return count || 0;
+  }, [getTenantUserIds]);
+
+  const fetchDisbursedStats = useCallback(async (tenantId, userRole) => {
+    const dateRange = getDateRange();
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return { count: 0, amount: 0 };
+
+    const { data } = await supabase
+      .from('loans')
+      .select('scored_amount, id')
+      .eq('status', 'disbursed')
+      .in('booked_by', userIds)
+      .gte('disbursed_at', dateRange.toISOString());
+    
+    return {
+      count: data?.length || 0,
+      amount: data?.reduce((sum, loan) => sum + (loan.scored_amount || 0), 0) || 0,
+    };
+  }, [getDateRange, getTenantUserIds]);
+
+  const fetchOutstandingStats = useCallback(async (tenantId, userRole) => {
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return { count: 0, amount: 0 };
+
+    // Get all disbursed loans for this tenant
+    const { data: loans } = await supabase
+      .from('loans')
+      .select('id, scored_amount')
+      .eq('status', 'disbursed')
+      .in('booked_by', userIds);
+    
+    if (!loans || loans.length === 0) {
+      return { count: 0, amount: 0 };
+    }
+
+    // Get loan IDs
+    const loanIds = loans.map(loan => loan.id);
+
+    // Get total payments for these loans
+    const { data: payments } = await supabase
+      .from('loan_payments')
+      .select('loan_id, paid_amount')
+      .in('loan_id', loanIds);
+
+    // Calculate outstanding per loan
+    const loanPayments = {};
+    payments?.forEach(payment => {
+      if (!loanPayments[payment.loan_id]) {
+        loanPayments[payment.loan_id] = 0;
+      }
+      loanPayments[payment.loan_id] += payment.paid_amount || 0;
+    });
+
+    // Calculate total outstanding
+    const totalOutstanding = loans.reduce((total, loan) => {
+      const paid = loanPayments[loan.id] || 0;
+      const outstanding = (loan.scored_amount || 0) - paid;
+      return total + Math.max(0, outstanding);
+    }, 0);
+
+    return {
+      count: loans.length,
+      amount: totalOutstanding,
+    };
+  }, [getTenantUserIds]);
+
+  const fetchRevenueStats = useCallback(async (tenantId, userRole) => {
+    const dateRange = getDateRange();
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return { amount: 0 };
+
+    const { data } = await supabase
+      .from('loans')
+      .select('processing_fee, registration_fee, total_interest')
+      .in('booked_by', userIds)
+      .gte('created_at', dateRange.toISOString());
+    
+    if (!data) return { amount: 0 };
+
+    const total = data.reduce((sum, loan) => {
+      const fees = (loan.processing_fee || 0) + (loan.registration_fee || 0);
+      const interest = loan.total_interest || 0;
+      return sum + fees + interest;
+    }, 0);
+
+    return { amount: total };
+  }, [getDateRange, getTenantUserIds]);
+
+  const fetchCollectionsAmount = useCallback(async (tenantId, userRole) => {
+    const dateRange = getDateRange();
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return 0;
+
+    // Get customers created by tenant ROs
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id')
+      .in('created_by', userIds);
+
+    if (!customers || customers.length === 0) return 0;
+
+    const customerIds = customers.map(c => c.id);
+
+    // Get loans for these customers
+    const { data: loans } = await supabase
+      .from('loans')
+      .select('id')
+      .in('customer_id', customerIds);
+
+    if (!loans || loans.length === 0) return 0;
+
+    const loanIds = loans.map(l => l.id);
+
+    // Get payments for these loans
+    const { data } = await supabase
+      .from('loan_payments')
+      .select('paid_amount')
+      .in('loan_id', loanIds)
+      .gte('paid_at', dateRange.toISOString());
+    
+    return data?.reduce((sum, payment) => sum + (payment.paid_amount || 0), 0) || 0;
+  }, [getDateRange, getTenantUserIds]);
+
+  // ========== GROWTH CALCULATION FUNCTIONS ==========
+
+  const calculateGrowthForTenantUsers = useCallback(async (table, tenantId, userRole, column = 'created_at', filterField = 'created_by') => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
+
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return '+0%';
 
     const { count: currentCount } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', `${currentYear}-${currentMonth.toString().padStart(2, '0')}-01`)
-      .lt('created_at', `${currentYear}-${(currentMonth + 1).toString().padStart(2, '0')}-01`);
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .in(filterField, userIds)
+      .gte(column, currentPeriod.toISOString());
 
     const { count: previousCount } = await supabase
-      .from('users')
-      .select('*', { count: 'exact', head: true })
-      .gte('created_at', `${lastMonthYear}-${lastMonth.toString().padStart(2, '0')}-01`)
-      .lt('created_at', `${lastMonthYear}-${(lastMonth + 1).toString().padStart(2, '0')}-01`);
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .in(filterField, userIds)
+      .gte(column, previousPeriod.toISOString())
+      .lt(column, currentPeriod.toISOString());
 
     if (!previousCount || previousCount === 0) return '+0%';
     
     const growth = ((currentCount - previousCount) / previousCount) * 100;
-    return `${growth >= 0 ? '+' : ''}${growth.toFixed(1)}%`;
-  };
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange, getTenantUserIds]);
 
-  const calculateCustomerGrowth = async () => {
-    // Similar implementation as calculateUserGrowth but for customers
-    return '+8.2%'; // Placeholder - implement similar to calculateUserGrowth
-  };
+  const calculateTenantGrowth = useCallback(async () => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
 
-  const calculateLoanGrowth = async () => {
-    // Similar implementation as calculateUserGrowth but for loans
-    return '+8.2%'; // Placeholder - implement similar to calculateUserGrowth
-  };
+    const { count: currentCount } = await supabase
+      .from('tenants')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', currentPeriod.toISOString());
 
-  const calculateDisbursementGrowth = async () => {
-    // Similar implementation as calculateUserGrowth but for disbursements
-    return '+15.3%'; // Placeholder - implement similar to calculateUserGrowth
-  };
+    const { count: previousCount } = await supabase
+      .from('tenants')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', previousPeriod.toISOString())
+      .lt('created_at', currentPeriod.toISOString());
 
-  const calculateOutstandingChange = async () => {
-    // Calculate change in outstanding amount
-    return '-3.1%'; // Placeholder - implement similar to calculateUserGrowth
-  };
-
-  const calculateRevenueGrowth = async () => {
-    // Similar implementation as calculateUserGrowth but for revenue
-    return '+18.7%'; // Placeholder - implement similar to calculateUserGrowth
-  };
-
-  // Helper function to format time ago
-  const formatTimeAgo = (timestamp) => {
-    if (!timestamp) return 'Unknown time';
+    if (!previousCount || previousCount === 0) return '+0%';
     
-    const now = new Date();
-    const time = new Date(timestamp);
-    const diffInMinutes = Math.floor((now - time) / (1000 * 60));
-    
-    if (diffInMinutes < 1) return 'Just now';
-    if (diffInMinutes < 60) return `${diffInMinutes} mins ago`;
-    if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)} hours ago`;
-    return `${Math.floor(diffInMinutes / 1440)} days ago`;
-  };
+    const growth = ((currentCount - previousCount) / previousCount) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange]);
 
-  if (loading) {
+  const calculateUserGrowth = useCallback(async (tenantId, userRole) => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
+
+    let currentQuery = supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', currentPeriod.toISOString());
+
+    let previousQuery = supabase
+      .from('users')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', previousPeriod.toISOString())
+      .lt('created_at', currentPeriod.toISOString());
+
+    if (userRole !== 'superadmin') {
+      currentQuery = currentQuery.eq('tenant_id', tenantId);
+      previousQuery = previousQuery.eq('tenant_id', tenantId);
+    }
+
+    const { count: currentCount } = await currentQuery;
+    const { count: previousCount } = await previousQuery;
+
+    if (!previousCount || previousCount === 0) return '+0%';
+    
+    const growth = ((currentCount - previousCount) / previousCount) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange]);
+
+  const calculateCustomerGrowth = useCallback((tenantId, userRole) => 
+    calculateGrowthForTenantUsers('customers', tenantId, userRole, 'created_at', 'created_by'), 
+    [calculateGrowthForTenantUsers]
+  );
+
+  const calculateLoanGrowth = useCallback((tenantId, userRole) => 
+    calculateGrowthForTenantUsers('loans', tenantId, userRole, 'created_at', 'booked_by'), 
+    [calculateGrowthForTenantUsers]
+  );
+
+  const calculateDisbursementGrowth = useCallback(async (tenantId, userRole) => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
+
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return '+0%';
+
+    const { data: currentData } = await supabase
+      .from('loans')
+      .select('scored_amount')
+      .eq('status', 'disbursed')
+      .in('booked_by', userIds)
+      .gte('disbursed_at', currentPeriod.toISOString());
+
+    const currentTotal = currentData?.reduce((sum, loan) => sum + (loan.scored_amount || 0), 0) || 0;
+
+    const { data: previousData } = await supabase
+      .from('loans')
+      .select('scored_amount')
+      .eq('status', 'disbursed')
+      .in('booked_by', userIds)
+      .gte('disbursed_at', previousPeriod.toISOString())
+      .lt('disbursed_at', currentPeriod.toISOString());
+
+    const previousTotal = previousData?.reduce((sum, loan) => sum + (loan.scored_amount || 0), 0) || 0;
+
+    if (!previousTotal || previousTotal === 0) return '+0%';
+    
+    const growth = ((currentTotal - previousTotal) / previousTotal) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange, getTenantUserIds]);
+
+  const calculateOutstandingChange = useCallback(async (tenantId, userRole) => {
+    const currentOutstanding = (await fetchOutstandingStats(tenantId, userRole)).amount;
+
+    // Calculate previous period outstanding
+    const previousDateRange = new Date(getDateRange().getTime());
+    previousDateRange.setMonth(previousDateRange.getMonth() - 2);
+
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return '+0%';
+
+    const { data: previousLoans } = await supabase
+      .from('loans')
+      .select('id, scored_amount')
+      .eq('status', 'disbursed')
+      .in('booked_by', userIds)
+      .gte('disbursed_at', previousDateRange.toISOString())
+      .lt('disbursed_at', getDateRange().toISOString());
+    
+    if (!previousLoans || previousLoans.length === 0) return '+0%';
+
+    const previousLoanIds = previousLoans.map(loan => loan.id);
+
+    const { data: previousPayments } = await supabase
+      .from('loan_payments')
+      .select('loan_id, paid_amount')
+      .in('loan_id', previousLoanIds);
+
+    const previousLoanPayments = {};
+    previousPayments?.forEach(payment => {
+      if (!previousLoanPayments[payment.loan_id]) {
+        previousLoanPayments[payment.loan_id] = 0;
+      }
+      previousLoanPayments[payment.loan_id] += payment.paid_amount || 0;
+    });
+
+    const previousOutstanding = previousLoans.reduce((total, loan) => {
+      const paid = previousLoanPayments[loan.id] || 0;
+      const outstanding = (loan.scored_amount || 0) - paid;
+      return total + Math.max(0, outstanding);
+    }, 0);
+
+    if (!previousOutstanding || previousOutstanding === 0) return '+0%';
+    
+    const change = ((currentOutstanding - previousOutstanding) / previousOutstanding) * 100;
+    return `${change >= 0 ? '+' : ''}${Math.abs(change).toFixed(1)}%`;
+  }, [getDateRange, getTenantUserIds, fetchOutstandingStats]);
+
+  const calculateRevenueGrowth = useCallback(async (tenantId, userRole) => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
+
+    const currentRevenue = (await fetchRevenueStats(tenantId, userRole)).amount;
+
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return '+0%';
+
+    const { data: previousData } = await supabase
+      .from('loans')
+      .select('processing_fee, registration_fee, total_interest')
+      .in('booked_by', userIds)
+      .gte('created_at', previousPeriod.toISOString())
+      .lt('created_at', currentPeriod.toISOString());
+    
+    const previousRevenue = previousData?.reduce((sum, loan) => {
+      const fees = (loan.processing_fee || 0) + (loan.registration_fee || 0);
+      const interest = loan.total_interest || 0;
+      return sum + fees + interest;
+    }, 0) || 0;
+
+    if (!previousRevenue || previousRevenue === 0) return '+0%';
+    
+    const growth = ((currentRevenue - previousRevenue) / previousRevenue) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange, getTenantUserIds, fetchRevenueStats]);
+
+  const calculateCollectionsGrowth = useCallback(async (tenantId, userRole) => {
+    const currentPeriod = getDateRange();
+    const previousPeriod = new Date(currentPeriod.getTime());
+    previousPeriod.setMonth(previousPeriod.getMonth() - 1);
+
+    const currentCollections = await fetchCollectionsAmount(tenantId, userRole);
+
+    const userIds = await getTenantUserIds(tenantId, userRole);
+    
+    if (userIds.length === 0) return '+0%';
+
+    const { data: customers } = await supabase
+      .from('customers')
+      .select('id')
+      .in('created_by', userIds);
+
+    if (!customers || customers.length === 0) return '+0%';
+
+    const customerIds = customers.map(c => c.id);
+
+    const { data: loans } = await supabase
+      .from('loans')
+      .select('id')
+      .in('customer_id', customerIds);
+
+    if (!loans || loans.length === 0) return '+0%';
+
+    const loanIds = loans.map(l => l.id);
+
+    const { data: previousData } = await supabase
+      .from('loan_payments')
+      .select('paid_amount')
+      .in('loan_id', loanIds)
+      .gte('paid_at', previousPeriod.toISOString())
+      .lt('paid_at', currentPeriod.toISOString());
+    
+    const previousCollections = previousData?.reduce((sum, payment) => sum + (payment.paid_amount || 0), 0) || 0;
+
+    if (!previousCollections || previousCollections === 0) return '+0%';
+    
+    const growth = ((currentCollections - previousCollections) / previousCollections) * 100;
+    return `${growth >= 0 ? '+' : ''}${Math.abs(growth).toFixed(1)}%`;
+  }, [getDateRange, getTenantUserIds, fetchCollectionsAmount]);
+
+
+
+
+  const handleViewTenant = useCallback((tenant) => {
+    window.location.href = `/tenants/${tenant.id}`;
+  }, []);
+
+  const handleAddTenant = useCallback(() => {
+    window.location.href = '/users/create-tenant/admin';
+  }, []);
+
+
+  if (dashboardLoading) {
     return (
       <div className="flex h-screen bg-gray-50 items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard data...</p>
+          <Loader2 className="h-12 w-12 text-blue-600 animate-spin mx-auto" />
+          <p className="mt-4 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen bg-gray-50 overflow-hidden">
-      <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Dashboard Content */}
-        <main className="flex-1 overflow-y-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            
-          
+    <div className="min-h-screen bg-gray-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        
+        {/* Header with Search for Superadmin */}
+        <div className="mb-0">
+       
 
-            {/* Statistics Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {stats.map((stat) => (
-                <div 
-                  key={stat.name} 
-                  className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 hover:shadow-md transition-shadow duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-600">{stat.name}</p>
-                      <p className="text-3xl font-bold text-gray-900 mt-2">{stat.value}</p>
-                      <div className="flex items-center justify-between mt-3">
-                        <p className={`text-sm font-medium ${
-                          stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'
-                        }`}>
-                          {stat.change}
-                        </p>
-                        <p className="text-xs text-gray-500">{stat.description}</p>
-                      </div>
-                    </div>
-                    <div className={`${stat.color} w-14 h-14 rounded-xl flex items-center justify-center ml-4 flex-shrink-0`}>
-                      <stat.icon className="h-7 w-7 text-white" />
-                    </div>
+          {/* Search Bar for Tenants (Superadmin only) */}
+          {userRole === 'superadmin' && (
+            <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex-1 max-w-md">
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+                    <input
+                      type="text"
+                      placeholder="Search tenants by name, company, or slug..."
+                      className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                    />
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Pending Actions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-              {pendingActions.map((action, index) => (
-                <div 
-                  key={index}
-                  className={`${action.bgColor} rounded-xl p-5 border-2 border-transparent hover:border-gray-200 transition-all duration-200 cursor-pointer`}
+                <button
+                  onClick={handleAddTenant}
+                  className="ml-4 px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 whitespace-nowrap"
                 >
-                  <div className="flex items-center justify-between mb-3">
-                    <action.icon className={`h-6 w-6 ${action.color}`} />
-                    <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                      action.priority === 'high' ? 'bg-red-100 text-red-700' :
-                      action.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
-                      'bg-green-100 text-green-700'
-                    }`}>
-                      {action.priority.toUpperCase()}
-                    </span>
-                  </div>
-                  <p className="text-sm font-medium text-gray-700 mb-1">{action.title}</p>
-                  <p className={`text-2xl font-bold ${action.color}`}>{action.count}</p>
-                </div>
-              ))}
-            </div>
-
-            {/* Main Content Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-              
-              {/* Recent Activity */}
-              <div className="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-lg font-semibold text-gray-900">Recent Activity</h3>
-                  <button className="text-sm text-indigo-600 hover:text-indigo-700 font-medium">
-                    View All
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  {recentActivity.length > 0 ? (
-                    recentActivity.map((activity, index) => (
-                      <div 
-                        key={index} 
-                        className="flex items-start space-x-4 p-4 rounded-lg hover:bg-gray-50 transition-colors duration-150"
-                      >
-                        <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          activity.type === 'success' ? 'bg-green-100' :
-                          activity.type === 'warning' ? 'bg-yellow-100' :
-                          activity.type === 'error' ? 'bg-red-100' : 'bg-blue-100'
-                        }`}>
-                          <activity.icon className={`h-5 w-5 ${
-                            activity.type === 'success' ? 'text-green-600' :
-                            activity.type === 'warning' ? 'text-yellow-600' :
-                            activity.type === 'error' ? 'text-red-600' : 'text-blue-600'
-                          }`} />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-900">{activity.action}</p>
-                          <p className="text-sm text-gray-600 mt-0.5">
-                            <span className="font-medium">{activity.user}</span>
-                            {' • '}
-                            {activity.details}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">{activity.time}</p>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-8">
-                      <p className="text-gray-500">No recent activity found</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Quick Actions */}
-              <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-6">Quick Actions</h3>
-                <div className="space-y-3">
-                  {quickActions.map((action, index) => (
-                    <button 
-                      key={index}
-                      className={`w-full p-4 border-2 border-gray-200 rounded-lg ${action.hoverBorder} hover:shadow-sm transition-all duration-200 text-left group`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <div className={`${action.bgColor} w-10 h-10 rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform duration-200`}>
-                          <action.icon className={`h-5 w-5 ${action.color}`} />
-                        </div>
-                        <span className="text-sm font-medium text-gray-900">{action.name}</span>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                  <Plus className="h-4 w-4" />
+                  <span className="text-sm font-medium">Add Tenant</span>
+                </button>
               </div>
             </div>
+          )}
+        </div>
 
-            {/* System Health Status */}
-            <div className="bg-gradient-to-r from-red-600 to-orange-600 rounded-xl shadow-lg p-6 text-white">
+        {/* Statistics Grid */}
+        <div className="mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            {stats.map((stat, index) => (
+              <StatCard key={index} {...stat} loading={dashboardLoading} />
+            ))}
+          </div>
+        </div>
+
+        {/* Tenant Management Table (Superadmin only) */}
+        {userRole === 'superadmin' && (
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden mb-8">
+            <div className="p-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <div className="flex items-center space-x-2 mb-2">
-                    <Shield className="h-6 w-6" />
-                    <h3 className="text-xl font-bold">System Health</h3>
-                  </div>
-                  <p className="text-red-100">All systems operational • Last checked: Just now</p>
-                  <div className="flex items-center space-x-6 mt-4">
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                      <span className="text-sm font-medium">Database</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                      <span className="text-sm font-medium">API Services</span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
-                      <span className="text-sm font-medium">Payment Gateway</span>
-                    </div>
-                  </div>
+                  <h2 className="text-lg font-semibold text-gray-900">Tenant Management</h2>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {searchQuery ? `Search results for "${searchQuery}"` : 'Recently added tenants'}
+                  </p>
                 </div>
-                <div className="flex flex-col items-end">
-                  <div className="flex items-center space-x-2 mb-2">
-                    <div className="w-3 h-3 bg-green-400 rounded-full animate-pulse" />
-                    <span className="text-sm font-semibold">Online</span>
-                  </div>
-                  <span className="text-xs text-red-100">Uptime: 99.98%</span>
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <Calendar className="h-4 w-4" />
+                  <span>Showing {filteredTenants.length} of {tenants.length} tenants</span>
                 </div>
               </div>
             </div>
 
+            {loading ? (
+              <div className="p-12 text-center">
+                <Loader2 className="h-8 w-8 text-gray-400 animate-spin mx-auto" />
+                <p className="mt-2 text-gray-500">Loading tenants...</p>
+              </div>
+            ) : filteredTenants.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tenant Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Company Name
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Tenant Slug
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Created Date
+                      </th>
+                      <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {filteredTenants.map((tenant) => (
+                      <tr key={tenant.id} className="hover:bg-gray-50 transition-colors">
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center">
+                            {tenant.logo_url ? (
+                              <img src={tenant.logo_url} alt={tenant.name} className="h-8 w-8 rounded-lg object-cover mr-3" />
+                            ) : (
+                              <div className="h-8 w-8 bg-gradient-to-r from-blue-500 to-blue-600 rounded-lg flex items-center justify-center mr-3">
+                                <Building className="h-4 w-4 text-white" />
+                              </div>
+                            )}
+                            <div>
+                              <div className="text-sm font-medium text-gray-900">{tenant.name}</div>
+                              <div className="text-xs text-gray-500">{tenant.tenant_slug}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">{tenant.company_name || '—'}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900 font-mono">{tenant.tenant_slug}</div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="text-sm text-gray-900">
+                            {format(new Date(tenant.created_at), 'MMM d, yyyy')}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {format(new Date(tenant.created_at), 'h:mm a')}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => handleViewTenant(tenant)}
+                              className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span>View</span>
+                            </button>
+                            <button className="p-1 hover:bg-gray-100 rounded">
+                              <MoreVertical className="h-4 w-4 text-gray-400" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-12 text-center">
+                <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Building className="h-8 w-8 text-gray-400" />
+                </div>
+                <p className="text-gray-500">No tenants found</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  {searchQuery ? 'Try a different search term' : 'Add your first tenant to get started'}
+                </p>
+              </div>
+            )}
+
+            {filteredTenants.length > 0 && (
+              <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-gray-600">
+                    {searchQuery ? `Found ${filteredTenants.length} matching tenants` : `Showing ${Math.min(5, filteredTenants.length)} of ${tenants.length} tenants`}
+                  </p>
+                  <button
+                    onClick={() => window.location.href = '/tenants'}
+                    className="text-sm text-blue-600 hover:text-blue-700 font-medium flex items-center gap-1"
+                  >
+                    View All Tenants
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        </main>
+        )}
+
+        {/* Financial Summary */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Financial Summary</h2>
+              <p className="text-sm text-gray-600 mt-1">Key financial metrics for {timeFilter}</p>
+            </div>
+            <div className="flex items-center gap-2 text-sm text-gray-500">
+              <Calendar className="h-4 w-4" />
+              <span>
+                Last updated: {format(new Date(lastRefresh), 'MMM d, h:mm a')}
+              </span>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {stats.slice(userRole === 'superadmin' ? 4 : 3).map((stat, index) => (
+              <div key={index} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`${stat.color.replace('bg-', 'bg-').replace('500', '100')} p-2 rounded`}>
+                      <stat.icon className={`h-4 w-4 ${stat.color.replace('bg-', 'text-')}`} />
+                    </div>
+                    <span className="text-sm font-medium text-gray-700">{stat.name}</span>
+                  </div>
+                  <span className={`text-xs font-medium flex items-center gap-1 ${stat.changeType === 'positive' ? 'text-green-600' : 'text-red-600'}`}>
+                    {stat.change}
+                  </span>
+                </div>
+                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+                <p className="text-xs text-gray-500 mt-1">{stat.description}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

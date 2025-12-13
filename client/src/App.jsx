@@ -124,11 +124,14 @@ import ParentCustomerEditComponent from "./pages/registry/MainEdit.jsx";
 import LoanInstallmentReport from "./pages/reports/LoanInstallmentReport.jsx";
 import Guarantors from "./pages/registry/Guarantors.jsx";
 import AdminCreateReportUser from "./pages/admin/components/AdminCreateReportUser.jsx";
+import AdminCreateTenant from "./pages/admin/components/AdminCreateTenant.jsx";
+import TenantMpesaForm from "./pages/admin/components/TenantMpesa.jsx";
+import TenantViewPage from "./pages/admin/components/TenantViewPage.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-const { user, profile } = useAuth();
+const { user, profile, initializing } = useAuth(); // ADD initializing
 
 
  
@@ -142,66 +145,67 @@ const { user, profile } = useAuth();
   const sharedRoles = ['branch_manager', 'regional_manager', 'credit_analyst_officer', 'customer_service_officer', 'relationship_officer'];
   const isSharedRole = sharedRoles.includes(role);
 
-  const renderSidebar = () => {
-    if (role === "admin") {
-      return (
-        <SidebarAdmin
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
-      );
-    }
-    
-    if (isSharedRole) {
-      return (
-        <SharedSidebar
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          userRole={role}
-        />
-      );
-    }
-    
-    return null;
-  };
+const renderSidebar = () => {
+  if (role === "admin" || role === "superadmin") {  // ADD superadmin here
+    return (
+      <SidebarAdmin
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
+    );
+  }
+  
+  if (isSharedRole) {
+    return (
+      <SharedSidebar
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        userRole={role}
+      />
+    );
+  }
+  
+  return null;
+};
 
-  const renderHeader = () => {
-    if (role === "admin") {
-      return (
-        <HeaderAdmin
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
-      );
-    }
-    
-    if (isSharedRole) {
-      return (
-        <SharedHeader
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-          userRole={role}
-        />
-      );
-    }
-    
-    return null;
-  };
+ const renderHeader = () => {
+  if (role === "admin" || role === "superadmin") {  // ADD superadmin here
+    return (
+      <HeaderAdmin
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+      />
+    );
+  }
+  
+  if (isSharedRole) {
+    return (
+      <SharedHeader
+        sidebarOpen={sidebarOpen}
+        setSidebarOpen={setSidebarOpen}
+        userRole={role}
+      />
+    );
+  }
+  
+  return null;
+};
 
-  const getDefaultRoute = () => {
-    switch (role) {
-      case "relationship_officer":
-      case "branch_manager":
-      case "regional_manager":
-      case "credit_analyst_officer":
-      case "customer_service_officer":
-        return "/dashboard";
-      case "admin":
-        return "/dashboard/admin";
-      default:
-        return "/dashboard";
-    }
-  };
+const getDefaultRoute = () => {
+  switch (role) {
+    case "relationship_officer":
+    case "branch_manager":
+    case "regional_manager":
+    case "credit_analyst_officer":
+    case "customer_service_officer":
+      return "/dashboard";
+    case "admin":
+    case "superadmin":  // ADD THIS
+      return "/dashboard/admin";
+    default:
+      return "/dashboard";
+  }
+};
 
   const ReportWrapper = memo(function ReportWrapper({ component: Component, userRole }) {
     return (
@@ -226,32 +230,54 @@ const { user, profile } = useAuth();
         theme="colored"
       />
       <div className="flex h-screen bg-gray-100 overflow-hidden">
-        {profile && <>{renderSidebar()}</>}
+         {!initializing && profile && <>{renderSidebar()}</>}
 
         <div className="flex flex-col flex-1 min-w-0">
-          {profile && renderHeader()}
+     {!initializing && profile && renderHeader()}
 
           <div className="flex-1 overflow-y-auto p-6">
 
             <Routes>
               {/* Public route */}
 
-              
- <Route
-    path="/login"
-    element={!user ? <Login /> : <Navigate to={getDefaultRoute()} replace />}
-  />
-
-
-              {/* Default redirect based on role */}
-             <Route
-    path="/dashboard"
+  <Route
+    path="/"
     element={
-      <ProtectedRoute>
-        <Dashboard userRole={role} />
-      </ProtectedRoute>
+      initializing ? (
+       
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      ) : user && profile ? (
+        <Navigate to={getDefaultRoute()} replace />
+      ) : (
+        <Navigate to="/login" replace />
+      )
     }
   />
+
+
+  <Route
+    path="/login"
+    element={
+      initializing ? (
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+            <p className="mt-4 text-gray-600">Loading...</p>
+          </div>
+        </div>
+      ) : user && profile ? (
+        <Navigate to={getDefaultRoute()} replace />
+      ) : (
+        <Login />
+      )
+    }
+  />
+   
 
               {/* Shared Routes for RM, BM, CA, CSO, and Relationship Officer */}
               {isSharedRole && (
@@ -954,7 +980,7 @@ const { user, profile } = useAuth();
               <Route path="/operations" element={<OperationsManagement />} />
 
               {/* Admin Routes */}
-              {role === "admin" && (
+             {(role === "admin" || role === "superadmin") && (
                 <>
                   <Route path="/dashboard/admin" element={<AdminDashboard />} />
                   <Route path="/users/all/admin" element={<AllUsers />} />
@@ -977,6 +1003,10 @@ const { user, profile } = useAuth();
                     path="/users/report-access/admin"
                     element={<AdminCreateReportUser/>}
                   />
+                   <Route
+                    path="/users/create-tenant/admin"
+                    element={<AdminCreateTenant/>}
+                  />
                   <Route
                     path="/loans/product/admin"
                     element={<LoanProduct />}
@@ -984,6 +1014,20 @@ const { user, profile } = useAuth();
                   <Route
                     path="/loans/restructure/admin"
                     element={<RestructureLoans />}
+                  />
+
+
+ <Route
+  path="/tenants_details/:tenantId"
+  element={<TenantViewPage />}
+/>
+
+
+
+
+                     <Route
+                    path="/tenants/mpesa-config/admin"
+                    element={<TenantMpesaForm />}
                   />
                   <Route
                     path="/loans/rejected/admin"
@@ -1000,8 +1044,15 @@ const { user, profile } = useAuth();
                 </>
               )}
             
-              <Route path="*" element={<Navigate to="/login" replace />} />
-            </Routes>
+  <Route 
+    path="*" 
+    element={
+      <Navigate to={user && profile ? getDefaultRoute() : "/login"} replace />
+    } 
+  />   
+  
+  
+          </Routes>
           </div>
         </div>
       </div>

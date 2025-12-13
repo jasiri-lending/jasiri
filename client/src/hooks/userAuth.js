@@ -29,8 +29,8 @@ export function useAuth() {
         } else {
           setUser(null);
           setProfile(null);
-          localStorage.removeItem("profile"); // remove profile on logout
-            localStorage.removeItem("reportUser"); 
+          localStorage.removeItem("profile");
+          localStorage.removeItem("reportUser");
           setInitializing(false);
         }
       }
@@ -43,9 +43,10 @@ export function useAuth() {
     try {
       setGlobalLoading(true);
 
+      // Fetch user data with tenant_id
       const { data: userData } = await supabase
         .from("users")
-        .select("id, full_name, email, role")
+        .select("id, full_name, email, role, tenant_id") // Added tenant_id here
         .eq("id", userId)
         .single();
 
@@ -72,6 +73,7 @@ export function useAuth() {
         name: userData.full_name,
         email: userData.email,
         role: userData.role,
+        tenant_id: userData.tenant_id, // Added tenant_id here
         branch_id: profileData?.branch_id || null,
         region_id: profileData?.region_id || null,
         branch: branchData?.name || "N/A",
@@ -79,7 +81,7 @@ export function useAuth() {
       };
 
       setProfile(profileObj);
-      localStorage.setItem("profile", JSON.stringify(profileObj)); // persist profile
+      localStorage.setItem("profile", JSON.stringify(profileObj));
 
     } catch (err) {
       console.error("Auth loading error:", err);
@@ -96,7 +98,7 @@ export function useAuth() {
     setUser(null);
     setProfile(null);
     localStorage.removeItem("profile");
-     localStorage.removeItem("reportUser");
+    localStorage.removeItem("reportUser");
     window.location.href = "/";
   };
 

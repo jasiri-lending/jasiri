@@ -53,7 +53,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
           ✕
         </button>
 
-        <h2 className="text-2xl text-slate-700 mb-6 text-center">Report Login</h2>
+        <h2 className="text-2xl font-bold mb-6 text-center">Report Login</h2>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>

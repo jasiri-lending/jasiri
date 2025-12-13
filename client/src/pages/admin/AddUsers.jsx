@@ -1,27 +1,32 @@
-import { useState, useEffect } from 'react';
-import { 
+import { useState, useEffect } from "react";
+import {
   XMarkIcon,
   UserPlusIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient";
 
+// Assuming you have a way to get the current user profile
+import { useAuth } from "../../hooks/userAuth"; // replace with your auth hook
+
 export default function AddUsers() {
+  const { profile } = useAuth(); // profile contains role, tenant_id, etc.
+
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
-  const [error, setError] = useState('');
-  
+  const [error, setError] = useState("");
+
   const [formData, setFormData] = useState({
-    full_name: '',
-    email: '',
-    password: '',
-    role: '',
-    phone: '',
-    branch_id: '',
-    region_id: ''
+    full_name: "",
+    email: "",
+    password: "",
+    role: "",
+    phone: "",
+    branch_id: "",
+    region_id: "",
   });
 
   const roles = [
@@ -34,8 +39,13 @@ export default function AddUsers() {
     { value: "branch_manager", label: "Branch Manager" },
   ];
 
+  const filteredRoles =
+    profile?.role === "superadmin"
+      ? roles
+      : roles.filter((r) => r.value !== "admin"); // Admins cannot create other admins
+
   const roleRequiresBranchRegion = (role) => {
-    return role && role !== 'admin' && role !== 'operation_officer';
+    return role && role !== "admin" && role !== "operation_officer";
   };
 
   useEffect(() => {
@@ -44,61 +54,90 @@ export default function AddUsers() {
 
   const fetchData = async () => {
     setLoading(true);
-    const [branchesRes, regionsRes] = await Promise.all([
-      supabase.from("branches").select("*"),
-      supabase.from("regions").select("*")
-    ]);
-    
-    if (branchesRes.data) setBranches(branchesRes.data);
-    if (regionsRes.data) setRegions(regionsRes.data);
-    setLoading(false);
+    try {
+      const branchQuery = supabase.from("branches").select("*");
+      const regionQuery = supabase.from("regions").select("*");
+
+      if (profile?.role !== "superadmin") {
+        branchQuery.eq("tenant_id", profile.tenant_id);
+        regionQuery.eq("tenant_id", profile.tenant_id);
+      }
+
+      const [branchesRes, regionsRes] = await Promise.all([
+        branchQuery,
+        regionQuery,
+      ]);
+
+      if (branchesRes.data) setBranches(branchesRes.data);
+      if (regionsRes.data) setRegions(regionsRes.data);
+    } catch (err) {
+      console.error(err);
+      setError("Failed to load branches or regions.");
+    } finally {
+      setLoading(false);
+    }
   };
 
 const handleSubmit = async (e) => {
   e.preventDefault();
+
+  if (submitting) return; // ⛔ Prevent double clicks
+
   setSubmitting(true);
-  setError('');
+  setError("");
 
   try {
     const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
 
-    if (!formData.email || !formData.password) {
-      throw new Error("Email and password are required");
+    if (!formData.email || !formData.password || !formData.full_name || !formData.role) {
+      throw new Error("All required fields must be filled");
     }
+
     if (formData.password.length < 6) {
       throw new Error("Password must be at least 6 characters");
     }
 
-    //  Send to backend
+    const logged_in_tenant_id = profile?.tenant_id;
+
     const response = await fetch("http://localhost:5000/create-user", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        full_name: formData.full_name?.trim(),
+        full_name: formData.full_name.trim(),
         email: formData.email.trim(),
         password: formData.password.trim(),
         role: formData.role,
         phone: formData.phone?.trim() || null,
-        branch_id: requiresBranchRegion ? (formData.branch_id || null) : null,
-        region_id: requiresBranchRegion ? (formData.region_id || null) : null,
+        branch_id: requiresBranchRegion ? formData.branch_id || null : null,
+        region_id: requiresBranchRegion ? formData.region_id || null : null,
+        logged_in_tenant_id
       }),
     });
 
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Failed to create user");
+
+    if (!response.ok) {
+      throw new Error(data.error || "Failed to create user");
+    }
+
+    if (!data.success) {
+      throw new Error(data.error || "User creation failed");
+    }
 
     setShowSuccess(true);
+
     setFormData({
-      full_name: '',
-      email: '',
-      password: '',
-      role: '',
-      phone: '',
-      branch_id: '',
-      region_id: ''
+      full_name: "",
+      email: "",
+      password: "",
+      role: "",
+      phone: "",
+      branch_id: "",
+      region_id: "",
     });
 
     setTimeout(() => setShowSuccess(false), 5000);
+
   } catch (err) {
     setError(err.message || "Failed to create user");
   } finally {
@@ -118,17 +157,25 @@ const handleSubmit = async (e) => {
   return (
     <div className="min-h-screen bg-gray-50 p-6">
       <div className="max-w-3xl mx-auto">
-       
-
         {showSuccess && (
           <div className="mb-6 bg-green-50 border border-green-200 rounded-lg p-4 flex items-start">
             <div className="flex-shrink-0">
-              <svg className="h-5 w-5 text-green-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              <svg
+                className="h-5 w-5 text-green-400"
+                viewBox="0 0 20 20"
+                fill="currentColor"
+              >
+                <path
+                  fillRule="evenodd"
+                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
+                  clipRule="evenodd"
+                />
               </svg>
             </div>
             <div className="ml-3">
-              <p className="text-sm font-medium text-green-800">User created successfully!</p>
+              <p className="text-sm font-medium text-green-800">
+                User created successfully!
+              </p>
             </div>
           </div>
         )}
@@ -139,7 +186,7 @@ const handleSubmit = async (e) => {
             <div className="ml-3">
               <p className="text-sm font-medium text-red-800">{error}</p>
             </div>
-            <button onClick={() => setError('')} className="ml-auto">
+            <button onClick={() => setError("")} className="ml-auto">
               <XMarkIcon className="h-5 w-5 text-red-400" />
             </button>
           </div>
@@ -149,12 +196,13 @@ const handleSubmit = async (e) => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex items-center">
               <UserPlusIcon className="h-6 w-6 text-indigo-600 mr-2" />
-              <h2 className="text-xl font-semibold text-gray-900">User Information</h2>
+              <h2 className="text-sm font-semibold text-slate-600">User Information</h2>
             </div>
           </div>
 
           <form onSubmit={handleSubmit} className="p-6">
             <div className="space-y-6">
+              {/* Full Name & Email */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -164,7 +212,9 @@ const handleSubmit = async (e) => {
                     type="text"
                     required
                     value={formData.full_name}
-                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, full_name: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="John Doe"
                   />
@@ -178,13 +228,16 @@ const handleSubmit = async (e) => {
                     type="email"
                     required
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="john@example.com"
                   />
                 </div>
               </div>
 
+              {/* Password & Phone */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -194,7 +247,9 @@ const handleSubmit = async (e) => {
                     type="password"
                     required
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="Min 6 characters"
                     minLength={6}
@@ -208,13 +263,16 @@ const handleSubmit = async (e) => {
                   <input
                     type="tel"
                     value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) =>
+                      setFormData({ ...formData, phone: e.target.value })
+                    }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     placeholder="+254 700 000 000"
                   />
                 </div>
               </div>
 
+              {/* Role */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Role <span className="text-red-500">*</span>
@@ -222,59 +280,86 @@ const handleSubmit = async (e) => {
                 <select
                   required
                   value={formData.role}
-                  onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                  onChange={(e) =>
+                    setFormData({ ...formData, role: e.target.value })
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                 >
                   <option value="">Select a role</option>
-                  {roles.map(role => (
-                    <option key={role.value} value={role.value}>{role.label}</option>
+                  {filteredRoles.map((role) => (
+                    <option key={role.value} value={role.value}>
+                      {role.label}
+                    </option>
                   ))}
                 </select>
               </div>
 
+              {/* Branch & Region */}
               {roleRequiresBranchRegion(formData.role) && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Region
+                    </label>
                     <select
                       value={formData.region_id}
-                      onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, region_id: e.target.value })
+                      }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     >
                       <option value="">Select Region</option>
-                      {regions.map(region => (
-                        <option key={region.id} value={region.id}>{region.name}</option>
+                      {regions.map((region) => (
+                        <option key={region.id} value={region.id}>
+                          {region.name}
+                        </option>
                       ))}
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Branch
+                    </label>
                     <select
                       value={formData.branch_id}
-                      onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                      onChange={(e) =>
+                        setFormData({ ...formData, branch_id: e.target.value })
+                      }
                       className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     >
                       <option value="">Select Branch</option>
-                      {branches.map(branch => (
-                        <option key={branch.id} value={branch.id}>{branch.name}</option>
+                      {branches.map((branch) => (
+                        <option key={branch.id} value={branch.id}>
+                          {branch.name}
+                        </option>
                       ))}
                     </select>
                   </div>
                 </div>
               )}
 
+              {/* System-wide note */}
               {!roleRequiresBranchRegion(formData.role) && formData.role && (
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                   <div className="flex">
                     <div className="flex-shrink-0">
-                      <svg className="h-5 w-5 text-blue-400" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      <svg
+                        className="h-5 w-5 text-blue-400"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
+                        <path
+                          fillRule="evenodd"
+                          d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z"
+                          clipRule="evenodd"
+                        />
                       </svg>
                     </div>
                     <div className="ml-3">
                       <p className="text-sm text-blue-800">
-                        <strong>System-wide Access:</strong> This role has access to all branches and regions.
+                        <strong>System-wide Access:</strong> This role has access
+                        to all branches and regions.
                       </p>
                     </div>
                   </div>
@@ -282,18 +367,21 @@ const handleSubmit = async (e) => {
               )}
             </div>
 
+            {/* Buttons */}
             <div className="mt-8 flex justify-end space-x-4">
               <button
                 type="button"
-                onClick={() => setFormData({
-                  full_name: '',
-                  email: '',
-                  password: '',
-                  role: '',
-                  phone: '',
-                  branch_id: '',
-                  region_id: ''
-                })}
+                onClick={() =>
+                  setFormData({
+                    full_name: "",
+                    email: "",
+                    password: "",
+                    role: "",
+                    phone: "",
+                    branch_id: "",
+                    region_id: "",
+                  })
+                }
                 className="px-6 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 transition-colors"
               >
                 Clear Form
@@ -305,9 +393,24 @@ const handleSubmit = async (e) => {
               >
                 {submitting ? (
                   <>
-                    <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    <svg
+                      className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                    >
+                      <circle
+                        className="opacity-25"
+                        cx="12"
+                        cy="12"
+                        r="10"
+                        stroke="currentColor"
+                        strokeWidth="4"
+                      ></circle>
+                      <path
+                        className="opacity-75"
+                        fill="currentColor"
+                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                      ></path>
                     </svg>
                     Creating...
                   </>

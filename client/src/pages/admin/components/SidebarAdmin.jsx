@@ -1,6 +1,8 @@
 // src/components/SidebarAdmin.jsx
 import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
+import { useAuth } from '../../../hooks/userAuth';
+
 import {
   Home,
   Users,
@@ -23,37 +25,35 @@ import {
   UserPlus,
   UserX,
   Key,
-  CheckCircle,
   XCircle,
+  Building,
   Clock,
   CreditCard,
   Landmark,
-  RefreshCw,
-  ShieldAlert,
-  Lock,
-  Activity,
-  Download,
+  CalendarDays,
+  Coins,
+  Percent,
   Mail,
   MessageSquare,
   Zap,
-  Coins,
-  Percent,
-  CalendarDays,
-  FolderOpen,
+  Activity,
+  Download,
   Eye,
-  Archive,
+  ShieldAlert,
 } from 'lucide-react';
 
 const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
+  const { profile } = useAuth();
   const [expandedItems, setExpandedItems] = useState({});
 
   const toggleItem = (itemName) => {
-    setExpandedItems(prev => ({
+    setExpandedItems((prev) => ({
       ...prev,
-      [itemName]: !prev[itemName]
+      [itemName]: !prev[itemName],
     }));
   };
 
+  // Base Navigation (before filtering by role)
   const navigation = [
     { 
       name: 'Dashboard', 
@@ -62,6 +62,8 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
       color: 'text-blue-400',
       bgColor: 'bg-blue-400/10'
     },
+
+    // USER MANAGEMENT
     {
       name: 'User Management',
       href: '/users/admin',
@@ -71,17 +73,27 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
       children: [
         { name: 'All Users', href: '/users/all/admin', icon: Users },
         { name: 'Add User', href: '/users/add/admin', icon: UserPlus },
-        // { name: 'Roles & Permissions', href: '/users/roles/admin', icon: UserCog },
         { name: 'Suspended Users', href: '/users/suspended/admin', icon: UserX },
-        {
-  name: 'Report Access',
-  href: '/users/report-access/admin',
-  icon: UserCog,
-},
-
-        // { name: 'Password Resets', href: '/users/password-resets/admin', icon: Key },
+        { name: 'Report Access', href: '/users/report-access/admin', icon: UserCog },
       ],
     },
+
+    // TENANT MANAGEMENT (SUPER ADMIN ONLY)
+    {
+      name: 'Tenant Management',
+      href: '/tenants/admin',
+      icon: Building,
+      color: 'text-green-400',
+      bgColor: 'bg-green-400/10',
+      superAdminOnly: true, // Mark as superadmin only
+      children: [
+        { name: 'All Tenants', href: '/users/create-tenant/admin', icon: Building },
+        { name: 'MPESA Config', href: '/tenants/mpesa-config/admin', icon: CreditCard },
+        { name: 'Tenant Reports', href: '/tenants/reports/admin', icon: FileText },
+      ],
+    },
+
+    // LOANS
     {
       name: 'Loan Management',
       href: '/loans/admin',
@@ -91,14 +103,12 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
       children: [
         { name: 'All Loans', href: '/loans/all/admin', icon: FileText },
         { name: 'Pending Disbursement', href: '/loans/pending/admin', icon: Clock },
-        // { name: 'Approved Loans', href: '/loans/approved/admin', icon: CheckCircle },
         { name: 'Rejected Loans', href: '/loans/rejected/admin', icon: XCircle },
         { name: 'Disbursed Loans', href: '/loans/disbursed/admin', icon: CreditCard },
-        // { name: 'Loan Products', href: '/loans/products/admin', icon: FolderOpen },
-        // { name: 'Restructure Loans', href: '/loans/restructure/admin', icon: RefreshCw },
-        // { name: 'Write-offs', href: '/loans/writeoffs/admin', icon: Archive },
       ],
     },
+
+    // FINANCIAL TRANSACTIONS
     {
       name: 'Financial Transactions',
       href: '/transactions/admin',
@@ -111,24 +121,10 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
         { name: 'Disbursements', href: '/transactions/disbursements/admin', icon: Landmark },
         { name: 'Outstanding Balances', href: '/transactions/outstanding/admin', icon: AlertTriangle },
         { name: 'Overdue Loans', href: '/transactions/overdue/admin', icon: CalendarDays },
-        // { name: 'Payment Integrations', href: '/transactions/integrations/admin', icon: Zap },
       ],
     },
-    // {
-    //   name: 'Security & Risk',
-    //   href: '/security/admin',
-    //   icon: Shield,
-    //   color: 'text-yellow-400',
-    //   bgColor: 'bg-yellow-400/10',
-    //   children: [
-    //     { name: 'Guarantors', href: '/security/guarantors/admin', icon: Users },
-    //     { name: 'Collateral Management', href: '/security/collateral/admin', icon: Lock },
-    //     { name: 'Fraud Detection', href: '/security/fraud/admin', icon: ShieldAlert },
-    //     { name: 'Blacklisted Borrowers', href: '/security/blacklist/admin', icon: UserX },
-    //     { name: 'Credit Scoring', href: '/security/credit-scoring/admin', icon: BarChart3 },
-    //     { name: 'Loan Limits', href: '/security/limits/admin', icon: Percent },
-    //   ],
-    // },
+
+    // REPORTS
     {
       name: 'Reports & Analytics',
       href: '/reports/admin',
@@ -144,6 +140,8 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
         { name: 'Export Data', href: '/reports/export/admin', icon: Download },
       ],
     },
+
+    // SETTINGS
     {
       name: 'System Settings',
       href: '/settings/admin',
@@ -161,6 +159,8 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
         { name: 'Backup & Restore', href: '/settings/backup/admin', icon: Database },
       ],
     },
+
+    // AUDIT
     {
       name: 'Audit & Logs',
       href: '/audit/admin',
@@ -177,8 +177,18 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
     },
   ];
 
+  // ⭐ FIXED: Filter out items that require superadmin role
+  const allowedNavigation = navigation.filter(item => {
+    // If item is marked as superAdminOnly, only show to superadmin
+    if (item.superAdminOnly && profile?.role !== "superadmin") {
+      return false;
+    }
+    return true;
+  });
+
   return (
     <div className="h-full bg-gray-900 text-white w-64 overflow-y-auto border-r border-gray-800 flex-shrink-0">
+
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-gray-800">
         <div className="flex items-center space-x-2">
@@ -187,22 +197,20 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
           </div>
           <span className="text-xl font-bold">Admin Panel</span>
         </div>
+
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors md:hidden"
         >
-          {sidebarOpen ? (
-            <ChevronLeft className="h-5 w-5" />
-          ) : (
-            <ChevronRight className="h-5 w-5" />
-          )}
+          {sidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
         </button>
       </div>
-      
+
       {/* Navigation */}
       <nav className="p-4 space-y-1">
-        {navigation.map((item) => (
+        {allowedNavigation.map((item) => (
           <div key={item.name} className="relative">
+
             {/* Main Navigation Item */}
             {item.children ? (
               <div
@@ -221,11 +229,7 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                 </div>
 
                 <div className="text-gray-400 group-hover:text-white">
-                  {expandedItems[item.name] ? (
-                    <ChevronUp className="h-4 w-4" />
-                  ) : (
-                    <ChevronDown className="h-4 w-4" />
-                  )}
+                  {expandedItems[item.name] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
               </div>
             ) : (
@@ -233,9 +237,7 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                 to={item.href}
                 className={({ isActive }) =>
                   `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                    isActive
-                      ? 'bg-gray-800 text-white'
-                      : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
                   }`
                 }
               >
@@ -246,9 +248,9 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
               </NavLink>
             )}
 
-            {/* Submenu Items */}
+            {/* Submenu */}
             {item.children && (
-              <div 
+              <div
                 className={`overflow-hidden transition-all duration-300 ease-in-out ${
                   expandedItems[item.name] ? 'max-h-[600px]' : 'max-h-0'
                 }`}
@@ -273,6 +275,7 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                 </div>
               </div>
             )}
+
           </div>
         ))}
       </nav>

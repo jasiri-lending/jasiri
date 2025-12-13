@@ -54,18 +54,7 @@ const HeaderAdmin = ({ sidebarOpen, setSidebarOpen }) => {
           >
             <Menu className="h-5 w-5 group-hover:scale-110 transition-transform" />
           </button>
-          
-          <div className="flex items-center space-x-3">
-            <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-orange-600 rounded-lg flex items-center justify-center shadow-sm">
-              <Shield className="text-white h-5 w-5" />
-            </div>
-            <div>
-              <h1 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
-                Admin Dashboard
-              </h1>
-              <p className="text-xs text-gray-500">Full System Control</p>
-            </div>
-          </div>
+        
         </div>
 
         {/* Right Section - User Profile */}
