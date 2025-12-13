@@ -44,7 +44,9 @@ app.post("/create-user", async (req, res) => {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const tenant_id = logged_in_tenant_id;
+    if (!logged_in_tenant_id) {
+      return res.status(400).json({ error: "Tenant ID is required" });
+    }
 
     const { data, error } =
       await supabaseAdmin.auth.admin.createUser({
@@ -56,37 +58,43 @@ app.post("/create-user", async (req, res) => {
           role,
           phone,
           branch_id,
-          tenant_id,
+          tenant_id: logged_in_tenant_id,
           region_id,
         },
       });
 
     if (error) {
-      console.error("Supabase error:", error);
       return res.status(400).json({ error: error.message });
     }
 
-    await supabaseAdmin.from("users").upsert(
-      {
+    const { error: usersError } = await supabaseAdmin
+      .from("users")
+      .upsert({
         id: data.user.id,
+        auth_id: data.user.id,
         full_name,
         email,
         role,
-        tenant_id,
+        tenant_id: logged_in_tenant_id,
         phone,
-      },
-      { onConflict: "id" }
-    );
+      });
 
-    await supabaseAdmin.from("profiles").upsert(
-      {
+    if (usersError) {
+      return res.status(400).json({ error: usersError.message });
+    }
+
+    const { error: profilesError } = await supabaseAdmin
+      .from("profiles")
+      .upsert({
         id: data.user.id,
         branch_id,
         region_id,
-        tenant_id,
-      },
-      { onConflict: "id" }
-    );
+        tenant_id: logged_in_tenant_id,
+      });
+
+    if (profilesError) {
+      return res.status(400).json({ error: profilesError.message });
+    }
 
     return res.json({ success: true, user: data.user });
   } catch (err) {
@@ -94,7 +102,6 @@ app.post("/create-user", async (req, res) => {
     return res.status(500).json({ error: err.message });
   }
 });
-
 
 
 app.use("/mpesa/c2b",c2b );
