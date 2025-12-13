@@ -81,16 +81,12 @@ export default function AddUsers() {
 
 const handleSubmit = async (e) => {
   e.preventDefault();
-
   if (submitting) return;
 
   setSubmitting(true);
   setError("");
 
   try {
-    const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
-
-    // Validation
     if (!formData.email || !formData.password || !formData.full_name || !formData.role) {
       throw new Error("All required fields must be filled");
     }
@@ -100,12 +96,10 @@ const handleSubmit = async (e) => {
     }
 
     const logged_in_tenant_id = profile?.tenant_id;
-
     if (!logged_in_tenant_id) {
-      throw new Error("Tenant ID not found. Please log in again.");
+      throw new Error("Tenant ID not found. Please login again.");
     }
 
-    // Make API request
     const response = await fetch(`${API_BASE_URL}/create-user`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -114,41 +108,20 @@ const handleSubmit = async (e) => {
         email: formData.email.trim(),
         password: formData.password.trim(),
         role: formData.role,
-        phone: formData.phone?.trim() || null,
-        branch_id: requiresBranchRegion ? formData.branch_id || null : null,
-        region_id: requiresBranchRegion ? formData.region_id || null : null,
+        phone: formData.phone || null,
+        branch_id: formData.branch_id || null,
+        region_id: formData.region_id || null,
         logged_in_tenant_id,
       }),
     });
 
-    // Read response body once
-    const text = await response.text();
-    console.log("Response status:", response.status);
-    console.log("Response body:", text);
+    const data = await response.json();
 
-    // Parse JSON
-    let data = null;
-    try {
-      data = text ? JSON.parse(text) : {};
-    } catch (parseError) {
-      console.error("JSON parse error:", parseError);
-      console.error("Raw text:", text);
-      throw new Error(`Server returned invalid response: ${text.substring(0, 100)}`);
+    if (!response.ok || !data.success) {
+      throw new Error(data.error || "User creation failed");
     }
 
-    // Handle errors
-    if (!response.ok) {
-      throw new Error(data?.error || `Server error: ${response.status}`);
-    }
-
-    if (!data.success) {
-      throw new Error(data?.error || "User creation failed");
-    }
-
-    // Success! Show success message
     setShowSuccess(true);
-
-    // Reset form
     setFormData({
       full_name: "",
       email: "",
@@ -159,16 +132,15 @@ const handleSubmit = async (e) => {
       region_id: "",
     });
 
-    // Hide success message after 5 seconds
     setTimeout(() => setShowSuccess(false), 5000);
 
   } catch (err) {
-    console.error("Submit error:", err);
-    setError(err.message || "Failed to create user");
+    setError(err.message);
   } finally {
     setSubmitting(false);
   }
 };
+
 
   if (loading) {
     return (

@@ -41,39 +41,35 @@ app.post("/create-user", async (req, res) => {
       logged_in_tenant_id,
     } = req.body;
 
-    console.log("=== Create User Request ===");
-    console.log("Email:", email);
-    console.log("Role:", role);
-    console.log("Tenant ID:", logged_in_tenant_id);
+    console.log("=== Create User Request ===", {
+      email,
+      role,
+      logged_in_tenant_id,
+    });
 
-    // Validation
+    // 1️⃣ Validation
     if (!email || !password || !full_name || !role) {
-      console.error("Missing required fields");
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "Missing required fields: email, password, full_name, and role are required" 
+        error: "email, password, full_name and role are required",
       });
     }
 
     if (!logged_in_tenant_id) {
-      console.error("Missing tenant ID");
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "Tenant ID is required" 
+        error: "Tenant ID is required",
       });
     }
 
     if (password.length < 6) {
-      console.error("Password too short");
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: "Password must be at least 6 characters" 
+        error: "Password must be at least 6 characters",
       });
     }
 
-    console.log("Creating auth user...");
-
-    // Step 1: Create auth user
+    // 2️⃣ Create Supabase Auth user
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -84,105 +80,85 @@ app.post("/create-user", async (req, res) => {
           role,
           phone,
           branch_id,
-          tenant_id: logged_in_tenant_id,
           region_id,
+          tenant_id: logged_in_tenant_id,
         },
       });
 
     if (authError) {
       console.error("Auth error:", authError);
-      return res.status(400).json({ 
+      return res.status(400).json({
         success: false,
-        error: authError.message 
+        error: authError.message,
       });
     }
 
-    console.log("Auth user created:", authData.user.id);
+    const userId = authData.user.id;
 
-    // Step 2: Insert into users table
-    const { data: userData, error: usersError } = await supabaseAdmin
+    // 3️⃣ Insert into users table
+    const { error: usersError } = await supabaseAdmin
       .from("users")
       .insert({
-        id: authData.user.id,
-        auth_id: authData.user.id,
+        id: userId,
+        auth_id: userId,
         full_name,
         email,
         role,
-        tenant_id: logged_in_tenant_id,
         phone: phone || null,
-      })
-      .select()
-      .single();
+        tenant_id: logged_in_tenant_id,
+      });
 
     if (usersError) {
       console.error("Users table error:", usersError);
-      
-      // Rollback: delete auth user
-      console.log("Rolling back auth user...");
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      
-      return res.status(400).json({ 
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+
+      return res.status(400).json({
         success: false,
-        error: `Failed to create user record: ${usersError.message}` 
+        error: usersError.message,
       });
     }
 
-    console.log("User record created successfully");
-
-    // Step 3: Insert into profiles table
-    const { data: profileData, error: profilesError } = await supabaseAdmin
+    // 4️⃣ Insert into profiles table
+    const { error: profilesError } = await supabaseAdmin
       .from("profiles")
       .insert({
-        id: authData.user.id,
+        id: userId,
         branch_id: branch_id || null,
         region_id: region_id || null,
         tenant_id: logged_in_tenant_id,
-      })
-      .select()
-      .single();
+      });
 
     if (profilesError) {
       console.error("Profiles table error:", profilesError);
-      
-      // Rollback: delete auth user (cascade will handle users table)
-      console.log("Rolling back auth user and users record...");
-      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      
-      return res.status(400).json({ 
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+
+      return res.status(400).json({
         success: false,
-        error: `Failed to create profile: ${profilesError.message}` 
+        error: profilesError.message,
       });
     }
 
-    console.log("Profile created successfully");
-    console.log("=== User Creation Complete ===");
-
-    // Success response
-    return res.status(201).json({ 
-      success: true, 
+    // ✅ Success
+    return res.status(201).json({
+      success: true,
       user: {
-        id: authData.user.id,
-        email: authData.user.email,
+        id: userId,
+        email,
         full_name,
         role,
-      }
+      },
     });
 
   } catch (err) {
-    console.error("=== Create User Crash ===");
-    console.error("Error:", err);
-    console.error("Stack:", err.stack);
-    
-    // Always return JSON, even on crash
-    if (!res.headersSent) {
-      return res.status(500).json({ 
-        success: false,
-        error: err.message || "Internal server error",
-        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-      });
-    }
+    console.error("Create user crash:", err);
+
+    return res.status(500).json({
+      success: false,
+      error: err.message || "Internal server error",
+    });
   }
 });
+
 
 
 // Error handling middleware
