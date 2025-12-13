@@ -115,8 +115,28 @@ const response = await fetch(`${API_BASE_URL}/create-user`, {
   }),
 });
 
-let data = {};
+// Check if response is OK before parsing
+if (!response.ok) {
+  const text = await response.text();
+  console.error("Server error response:", text);
+  throw new Error(`Server error: ${response.status} - ${text}`);
+}
+
+// Get the raw text first to debug
 const text = await response.text();
+console.log("Raw response:", text);
+
+// Try to parse it
+try {
+  const data = JSON.parse(text);
+  console.log("Parsed data:", data);
+} catch (e) {
+  console.error("Failed to parse JSON:", e);
+  console.error("Response text was:", text);
+  throw new Error("Invalid JSON response from server");
+}
+
+let data = {};
 if (text) data = JSON.parse(text);
 
 if (!response.ok) {

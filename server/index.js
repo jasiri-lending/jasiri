@@ -40,6 +40,7 @@ app.post("/create-user", async (req, res) => {
       logged_in_tenant_id,
     } = req.body;
 
+    // Validation
     if (!email || !password || !full_name || !role) {
       return res.status(400).json({ error: "Missing required fields" });
     }
@@ -48,7 +49,10 @@ app.post("/create-user", async (req, res) => {
       return res.status(400).json({ error: "Tenant ID is required" });
     }
 
-    const { data, error } =
+    console.log("Creating auth user for:", email);
+
+    // Create auth user
+    const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
         password,
@@ -63,43 +67,73 @@ app.post("/create-user", async (req, res) => {
         },
       });
 
-    if (error) {
-      return res.status(400).json({ error: error.message });
+    if (authError) {
+      console.error("Auth error:", authError);
+      return res.status(400).json({ error: authError.message });
     }
 
-    const { error: usersError } = await supabaseAdmin
+    console.log("Auth user created:", authData.user.id);
+
+    // Insert into users table
+    const { data: userData, error: usersError } = await supabaseAdmin
       .from("users")
-      .upsert({
-        id: data.user.id,
-        auth_id: data.user.id,
+      .insert({
+        id: authData.user.id,
+        auth_id: authData.user.id,
         full_name,
         email,
         role,
         tenant_id: logged_in_tenant_id,
         phone,
-      });
+      })
+      .select()
+      .single();
 
     if (usersError) {
+      console.error("Users table error:", usersError);
+      // Rollback: delete auth user
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return res.status(400).json({ error: usersError.message });
     }
 
-    const { error: profilesError } = await supabaseAdmin
+    console.log("User record created");
+
+    // Insert into profiles table
+    const { data: profileData, error: profilesError } = await supabaseAdmin
       .from("profiles")
-      .upsert({
-        id: data.user.id,
-        branch_id,
-        region_id,
+      .insert({
+        id: authData.user.id,
+        branch_id: branch_id || null,
+        region_id: region_id || null,
         tenant_id: logged_in_tenant_id,
-      });
+      })
+      .select()
+      .single();
 
     if (profilesError) {
+      console.error("Profiles table error:", profilesError);
+      // Rollback: delete auth user (cascade will delete users record)
+      await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
       return res.status(400).json({ error: profilesError.message });
     }
 
-    return res.json({ success: true, user: data.user });
+    console.log("Profile created successfully");
+
+    return res.status(201).json({ 
+      success: true, 
+      user: authData.user 
+    });
+
   } catch (err) {
     console.error("Create user crash:", err);
-    return res.status(500).json({ error: err.message });
+    
+    // Ensure we always return JSON
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        error: err.message || "Internal server error",
+        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+      });
+    }
   }
 });
 
