@@ -82,7 +82,7 @@ export default function AddUsers() {
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (submitting) return; // ⛔ Prevent double clicks
+  if (submitting) return; // 
 
   setSubmitting(true);
   setError("");
@@ -99,6 +99,7 @@ const handleSubmit = async (e) => {
     }
 
     const logged_in_tenant_id = profile?.tenant_id;
+
 const response = await fetch(`${API_BASE_URL}/create-user`, {
   method: "POST",
   headers: { "Content-Type": "application/json" },
@@ -114,9 +115,21 @@ const response = await fetch(`${API_BASE_URL}/create-user`, {
   }),
 });
 
+let data = {};
+const text = await response.text();
+if (text) data = JSON.parse(text);
+
+if (!response.ok) {
+  throw new Error(data.error || "Failed to create user");
+}
+
+if (!data.success) {
+  throw new Error(data.error || "User creation failed");
+}
 
 
-    const data = await response.json();
+
+
 
     if (!response.ok) {
       throw new Error(data.error || "Failed to create user");

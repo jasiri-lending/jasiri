@@ -29,53 +29,73 @@ app.use(cors({
 // Create user endpoint
 app.post("/create-user", async (req, res) => {
   try {
-    const { email, password, full_name, role, phone, branch_id, region_id, logged_in_tenant_id } = req.body;
+    const {
+      email,
+      password,
+      full_name,
+      role,
+      phone,
+      branch_id,
+      region_id,
+      logged_in_tenant_id,
+    } = req.body;
 
     if (!email || !password || !full_name || !role) {
       return res.status(400).json({ error: "Missing required fields" });
     }
 
-    const tenant_id = logged_in_tenant_id; // Fix undefined variable
+    const tenant_id = logged_in_tenant_id;
 
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password,
-      email_confirm: true,
-      user_metadata: {
+    const { data, error } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+        user_metadata: {
+          full_name,
+          role,
+          phone,
+          branch_id,
+          tenant_id,
+          region_id,
+        },
+      });
+
+    if (error) {
+      console.error("Supabase error:", error);
+      return res.status(400).json({ error: error.message });
+    }
+
+    await supabaseAdmin.from("users").upsert(
+      {
+        id: data.user.id,
         full_name,
+        email,
         role,
-        phone,
-        branch_id,
         tenant_id,
-        region_id,
+        phone,
       },
-    });
+      { onConflict: "id" }
+    );
 
-    if (error) return res.status(400).json({ error: error.message });
+    await supabaseAdmin.from("profiles").upsert(
+      {
+        id: data.user.id,
+        branch_id,
+        region_id,
+        tenant_id,
+      },
+      { onConflict: "id" }
+    );
 
-    // Upsert into users table
-    await supabaseAdmin.from("users").upsert({
-      id: data.user.id,
-      full_name,
-      email,
-      role,
-      tenant_id,
-      phone,
-    }, { onConflict: 'id' });
-
-    // Upsert into profiles table
-    await supabaseAdmin.from("profiles").upsert({
-      id: data.user.id,
-      branch_id,
-      region_id,
-      tenant_id,
-    }, { onConflict: 'id' });
-
-    res.json({ success: true, user: data.user });
+    return res.json({ success: true, user: data.user });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("Create user crash:", err);
+    return res.status(500).json({ error: err.message });
   }
 });
+
+
 
 app.use("/mpesa/c2b",c2b );
 app.use("/mpesa/b2c", b2c);
