@@ -12,7 +12,8 @@ import tenantRouter from "./routes/tenantRoutes.js";
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());
+app.use(bodyParser.json());app.use(express.json());
+
 
 // Initialize Supabase with service role key
 const supabaseAdmin = createClient(
@@ -40,18 +41,39 @@ app.post("/create-user", async (req, res) => {
       logged_in_tenant_id,
     } = req.body;
 
+    console.log("=== Create User Request ===");
+    console.log("Email:", email);
+    console.log("Role:", role);
+    console.log("Tenant ID:", logged_in_tenant_id);
+
     // Validation
     if (!email || !password || !full_name || !role) {
-      return res.status(400).json({ error: "Missing required fields" });
+      console.error("Missing required fields");
+      return res.status(400).json({ 
+        success: false,
+        error: "Missing required fields: email, password, full_name, and role are required" 
+      });
     }
 
     if (!logged_in_tenant_id) {
-      return res.status(400).json({ error: "Tenant ID is required" });
+      console.error("Missing tenant ID");
+      return res.status(400).json({ 
+        success: false,
+        error: "Tenant ID is required" 
+      });
     }
 
-    console.log("Creating auth user for:", email);
+    if (password.length < 6) {
+      console.error("Password too short");
+      return res.status(400).json({ 
+        success: false,
+        error: "Password must be at least 6 characters" 
+      });
+    }
 
-    // Create auth user
+    console.log("Creating auth user...");
+
+    // Step 1: Create auth user
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email,
@@ -69,12 +91,15 @@ app.post("/create-user", async (req, res) => {
 
     if (authError) {
       console.error("Auth error:", authError);
-      return res.status(400).json({ error: authError.message });
+      return res.status(400).json({ 
+        success: false,
+        error: authError.message 
+      });
     }
 
     console.log("Auth user created:", authData.user.id);
 
-    // Insert into users table
+    // Step 2: Insert into users table
     const { data: userData, error: usersError } = await supabaseAdmin
       .from("users")
       .insert({
@@ -84,21 +109,27 @@ app.post("/create-user", async (req, res) => {
         email,
         role,
         tenant_id: logged_in_tenant_id,
-        phone,
+        phone: phone || null,
       })
       .select()
       .single();
 
     if (usersError) {
       console.error("Users table error:", usersError);
+      
       // Rollback: delete auth user
+      console.log("Rolling back auth user...");
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return res.status(400).json({ error: usersError.message });
+      
+      return res.status(400).json({ 
+        success: false,
+        error: `Failed to create user record: ${usersError.message}` 
+      });
     }
 
-    console.log("User record created");
+    console.log("User record created successfully");
 
-    // Insert into profiles table
+    // Step 3: Insert into profiles table
     const { data: profileData, error: profilesError } = await supabaseAdmin
       .from("profiles")
       .insert({
@@ -112,31 +143,59 @@ app.post("/create-user", async (req, res) => {
 
     if (profilesError) {
       console.error("Profiles table error:", profilesError);
-      // Rollback: delete auth user (cascade will delete users record)
+      
+      // Rollback: delete auth user (cascade will handle users table)
+      console.log("Rolling back auth user and users record...");
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
-      return res.status(400).json({ error: profilesError.message });
+      
+      return res.status(400).json({ 
+        success: false,
+        error: `Failed to create profile: ${profilesError.message}` 
+      });
     }
 
     console.log("Profile created successfully");
+    console.log("=== User Creation Complete ===");
 
+    // Success response
     return res.status(201).json({ 
       success: true, 
-      user: authData.user 
+      user: {
+        id: authData.user.id,
+        email: authData.user.email,
+        full_name,
+        role,
+      }
     });
 
   } catch (err) {
-    console.error("Create user crash:", err);
+    console.error("=== Create User Crash ===");
+    console.error("Error:", err);
+    console.error("Stack:", err.stack);
     
-    // Ensure we always return JSON
+    // Always return JSON, even on crash
     if (!res.headersSent) {
       return res.status(500).json({ 
+        success: false,
         error: err.message || "Internal server error",
-        details: process.env.NODE_ENV === 'development' ? err.stack : undefined
+        ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
       });
     }
   }
 });
 
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error("Express error handler:", err);
+  
+  if (!res.headersSent) {
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error" 
+    });
+  }
+});
 
 app.use("/mpesa/c2b",c2b );
 app.use("/mpesa/b2c", b2c);

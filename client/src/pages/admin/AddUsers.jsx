@@ -82,7 +82,7 @@ export default function AddUsers() {
 const handleSubmit = async (e) => {
   e.preventDefault();
 
-  if (submitting) return; // 
+  if (submitting) return;
 
   setSubmitting(true);
   setError("");
@@ -90,6 +90,7 @@ const handleSubmit = async (e) => {
   try {
     const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
 
+    // Validation
     if (!formData.email || !formData.password || !formData.full_name || !formData.role) {
       throw new Error("All required fields must be filled");
     }
@@ -100,67 +101,54 @@ const handleSubmit = async (e) => {
 
     const logged_in_tenant_id = profile?.tenant_id;
 
-const response = await fetch(`${API_BASE_URL}/create-user`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({
-    full_name: formData.full_name.trim(),
-    email: formData.email.trim(),
-    password: formData.password.trim(),
-    role: formData.role,
-    phone: formData.phone?.trim() || null,
-    branch_id: requiresBranchRegion ? formData.branch_id || null : null,
-    region_id: requiresBranchRegion ? formData.region_id || null : null,
-    logged_in_tenant_id,
-  }),
-});
+    if (!logged_in_tenant_id) {
+      throw new Error("Tenant ID not found. Please log in again.");
+    }
 
-// Check if response is OK before parsing
-if (!response.ok) {
-  const text = await response.text();
-  console.error("Server error response:", text);
-  throw new Error(`Server error: ${response.status} - ${text}`);
-}
+    // Make API request
+    const response = await fetch(`${API_BASE_URL}/create-user`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        full_name: formData.full_name.trim(),
+        email: formData.email.trim(),
+        password: formData.password.trim(),
+        role: formData.role,
+        phone: formData.phone?.trim() || null,
+        branch_id: requiresBranchRegion ? formData.branch_id || null : null,
+        region_id: requiresBranchRegion ? formData.region_id || null : null,
+        logged_in_tenant_id,
+      }),
+    });
 
-// Get the raw text first to debug
-const text = await response.text();
-console.log("Raw response:", text);
+    // Read response body once
+    const text = await response.text();
+    console.log("Response status:", response.status);
+    console.log("Response body:", text);
 
-// Try to parse it
-try {
-  const data = JSON.parse(text);
-  console.log("Parsed data:", data);
-} catch (e) {
-  console.error("Failed to parse JSON:", e);
-  console.error("Response text was:", text);
-  throw new Error("Invalid JSON response from server");
-}
+    // Parse JSON
+    let data = null;
+    try {
+      data = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error("JSON parse error:", parseError);
+      console.error("Raw text:", text);
+      throw new Error(`Server returned invalid response: ${text.substring(0, 100)}`);
+    }
 
-let data = {};
-if (text) data = JSON.parse(text);
-
-if (!response.ok) {
-  throw new Error(data.error || "Failed to create user");
-}
-
-if (!data.success) {
-  throw new Error(data.error || "User creation failed");
-}
-
-
-
-
-
+    // Handle errors
     if (!response.ok) {
-      throw new Error(data.error || "Failed to create user");
+      throw new Error(data?.error || `Server error: ${response.status}`);
     }
 
     if (!data.success) {
-      throw new Error(data.error || "User creation failed");
+      throw new Error(data?.error || "User creation failed");
     }
 
+    // Success! Show success message
     setShowSuccess(true);
 
+    // Reset form
     setFormData({
       full_name: "",
       email: "",
@@ -171,15 +159,16 @@ if (!data.success) {
       region_id: "",
     });
 
+    // Hide success message after 5 seconds
     setTimeout(() => setShowSuccess(false), 5000);
 
   } catch (err) {
+    console.error("Submit error:", err);
     setError(err.message || "Failed to create user");
   } finally {
     setSubmitting(false);
   }
 };
-
 
   if (loading) {
     return (
