@@ -9,64 +9,58 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
+const handleLogin = async (e) => {
+  e.preventDefault();
+  setError("");
+  setLoading(true);
 
-    try {
+  try {
     const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ email: email.trim(), password }),
-});
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim(),
+        password,
+      }),
+    });
 
-const text = await res.text();
+    let data;
+    const contentType = res.headers.get("content-type");
 
-try {
-  data = JSON.parse(text);
-} catch {
-  console.error("❌ Non-JSON response:", text);
-  throw new Error("Server returned invalid JSON");
-}
-
-if (!res.ok) {
-  throw new Error(data.error || "Login failed");
-}
-
-
-      let data;
-      try {
-        data = await res.json();
-      } catch {
-        throw new Error("Server returned invalid JSON");
-      }
-
-      console.log("🔵 Login response:", res.status, data);
-
-      if (!res.ok) {
-        setError(data?.error || "Invalid email or password");
-        return;
-      }
-
-      // ✅ success
-      localStorage.setItem("reportUser", "logged");
-      setEmail("");
-      setPassword("");
-      onSuccess();
-      onClose();
-
-    } catch (err) {
-      console.error("🔴 Login error:", err);
-      setError(
-        err.message === "Failed to fetch"
-          ? "Server unreachable. Please try again later."
-          : err.message
-      );
-    } finally {
-      setLoading(false);
+    if (contentType && contentType.includes("application/json")) {
+      data = await res.json();
+    } else {
+      const text = await res.text();
+      console.error("❌ Non-JSON response:", text);
+      throw new Error("Server returned invalid JSON");
     }
-  };
+
+    console.log("🔵 Login response:", res.status, data);
+
+    if (!res.ok) {
+      setError(data?.error || "Invalid email or password");
+      return;
+    }
+
+    // ✅ Success
+    localStorage.setItem("reportUser", "logged");
+    setEmail("");
+    setPassword("");
+    onSuccess();
+    onClose();
+
+  } catch (err) {
+    console.error("🔴 Login error:", err);
+    setError(
+      err.message === "Failed to fetch"
+        ? "Server unreachable. Please try again later."
+        : err.message
+    );
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
