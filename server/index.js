@@ -1,7 +1,6 @@
 import "dotenv/config";  // load .env first
 import express from "express";
 import cors from "cors";
-import bodyParser from "body-parser";
 import { createClient } from "@supabase/supabase-js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
@@ -12,7 +11,8 @@ import tenantRouter from "./routes/tenantRoutes.js";
 
 const app = express();
 app.use(cors());
-app.use(bodyParser.json());app.use(express.json());
+
+
 
 
 // Initialize Supabase with service role key
@@ -21,10 +21,13 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-
 app.use(cors({
-  origin: "https://jasirilending.software/", 
+  origin: "https://jasirilending.software",
+  credentials: true
 }));
+
+app.use(express.json()); // ✅ ONLY THIS
+
 
 
 // Create user endpoint
