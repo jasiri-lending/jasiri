@@ -15,14 +15,25 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
-      });
+    const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ email: email.trim(), password }),
+});
+
+const text = await res.text();
+
+try {
+  data = JSON.parse(text);
+} catch {
+  console.error("❌ Non-JSON response:", text);
+  throw new Error("Server returned invalid JSON");
+}
+
+if (!res.ok) {
+  throw new Error(data.error || "Login failed");
+}
+
 
       let data;
       try {
