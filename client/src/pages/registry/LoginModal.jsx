@@ -1,47 +1,61 @@
-import { useState } from 'react';
+import { useState } from "react";
 import { API_BASE_URL } from "../../../config.js";
 
 const LoginModal = ({ isOpen, onClose, onSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
 
   if (!isOpen) return null;
 
-const handleLogin = async (e) => {
-  e.preventDefault();
-  setError("");
-  setLoading(true);
+  const handleLogin = async (e) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ email, password }),
-    });
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
 
-    const data = await res.json();
+      let data;
+      try {
+        data = await res.json();
+      } catch {
+        throw new Error("Server returned invalid JSON");
+      }
 
-    if (res.ok) {
-      // 🟢 Save login for this session
+      console.log("🔵 Login response:", res.status, data);
+
+      if (!res.ok) {
+        setError(data?.error || "Invalid email or password");
+        return;
+      }
+
+      // ✅ success
       localStorage.setItem("reportUser", "logged");
-
       setEmail("");
       setPassword("");
-      setLoading(false);
-
       onSuccess();
       onClose();
-    } else {
+
+    } catch (err) {
+      console.error("🔴 Login error:", err);
+      setError(
+        err.message === "Failed to fetch"
+          ? "Server unreachable. Please try again later."
+          : err.message
+      );
+    } finally {
       setLoading(false);
-      setError(data.error || "Invalid credentials");
     }
-  } catch (err) {
-    setLoading(false);
-    setError("Something went wrong. Please try again.");
-  }
-};
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
@@ -65,7 +79,8 @@ const handleLogin = async (e) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1]"
+              autoComplete="email"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1]"
             />
           </div>
 
@@ -78,19 +93,19 @@ const handleLogin = async (e) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               required
-              className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1]"
+              autoComplete="current-password"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1]"
             />
           </div>
 
-          {error && <p className="text-red-500 text-sm">{error}</p>}
+          {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <button
             type="submit"
             disabled={loading}
-            style={{ backgroundColor: "#586ab1" }}
-            className="w-full text-white py-2 rounded-lg hover:brightness-110 transition disabled:opacity-50"
+            className="w-full text-white py-2 rounded-lg bg-[#586ab1] hover:brightness-110 disabled:opacity-50"
           >
-            {loading ? 'Logging in...' : 'Login'}
+            {loading ? "Logging in..." : "Login"}
           </button>
         </form>
       </div>

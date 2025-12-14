@@ -14,29 +14,49 @@ router.post("/", async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    if (!email || !password)
-      return res.status(400).json({ error: "Email and password required" });
+    console.log("🔐 Login attempt:", email);
 
-    // 1️⃣ Look for user in report_users
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
+    }
+
     const { data: user, error } = await supabase
       .from("report_users")
-      .select("*")
+      .select("id, email, password")
       .eq("email", email)
-      .single();
+      .maybeSingle();
 
-    if (error || !user)
+    if (error) {
+      console.error("❌ Supabase error:", error);
+      return res.status(500).json({ error: "Database error" });
+    }
+
+    if (!user) {
+      console.warn("⚠️ User not found:", email);
       return res.status(401).json({ error: "Invalid email or password" });
+    }
 
-    // 2️⃣ Compare password
-    const valid = await bcrypt.compare(password, user.password);
-    if (!valid)
+    const validPassword = await bcrypt.compare(password, user.password);
+
+    if (!validPassword) {
+      console.warn("⚠️ Invalid password:", email);
       return res.status(401).json({ error: "Invalid email or password" });
+    }
 
-    // 3️⃣ SUCCESS
-    res.json({ message: "Login success", userId: user.id });
+    console.log("✅ Login success:", user.id);
+
+    res.json({
+      message: "Login success",
+      userId: user.id,
+    });
 
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error("🔥 Login server error:", err);
+    res.status(500).json({
+      error: "Internal server error",
+    });
   }
 });
 
