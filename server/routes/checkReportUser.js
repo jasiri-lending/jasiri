@@ -12,9 +12,9 @@ const supabase = createClient(
 // POST /api/checkReportUser
 router.post("/", async (req, res) => {
   try {
-    const { email, password } = req.body;
+    const { email, password, tenant_id } = req.body;
 
-    console.log("🔐 Login attempt:", email);
+    console.log("🔐 Login attempt:", { email, tenant_id });
 
     if (!email || !password) {
       return res.status(400).json({
@@ -22,10 +22,18 @@ router.post("/", async (req, res) => {
       });
     }
 
+    if (!tenant_id) {
+      return res.status(400).json({
+        error: "Tenant ID is required",
+      });
+    }
+
+    // Fetch user with tenant_id validation
     const { data: user, error } = await supabase
       .from("report_users")
-      .select("id, email, password")
+      .select("id, email, password, tenant_id, created_at")
       .eq("email", email)
+      .eq("tenant_id", tenant_id) // Must match the logged-in user's tenant
       .maybeSingle();
 
     if (error) {
@@ -34,10 +42,11 @@ router.post("/", async (req, res) => {
     }
 
     if (!user) {
-      console.warn("⚠️ User not found:", email);
+      console.warn("⚠️ User not found or tenant mismatch:", email);
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
+    // Verify password
     const validPassword = await bcrypt.compare(password, user.password);
 
     if (!validPassword) {
@@ -45,11 +54,14 @@ router.post("/", async (req, res) => {
       return res.status(401).json({ error: "Invalid email or password" });
     }
 
-    console.log("✅ Login success:", user.id);
+    console.log("✅ Login success:", { userId: user.id, tenant: user.tenant_id });
 
     res.json({
+      success: true,
       message: "Login success",
       userId: user.id,
+      email: user.email,
+      tenant_id: user.tenant_id,
     });
 
   } catch (err) {
