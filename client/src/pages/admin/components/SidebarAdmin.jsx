@@ -187,22 +187,27 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
   });
 
   return (
-    <div className="h-full bg-gray-900 text-white w-64 overflow-y-auto border-r border-gray-800 flex-shrink-0">
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 w-64 overflow-y-auto border-r border-gray-200 flex-shrink-0">
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-800">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-gradient-to-br from-red-600 to-orange-600 rounded-md flex items-center justify-center">
-            <Shield className="h-5 w-5" />
-          </div>
-          <span className="text-xl font-bold">Admin Panel</span>
+      <div className="flex items-center justify-between p-4 border-b border-gray-200 h-20">
+        <div className="flex items-center justify-start">
+          <img
+            src="/jasirif.png"
+            alt="Jasiri Logo"
+            className="w-32 h-auto object-contain"
+          />
         </div>
 
         <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="p-1.5 rounded-md text-gray-400 hover:text-white hover:bg-gray-800 transition-colors md:hidden"
+          className="p-2 rounded-lg hover:bg-white transition-colors md:hidden"
         >
-          {sidebarOpen ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}
+          {sidebarOpen ? (
+            <ChevronLeft className="h-5 w-5" style={{ color: "#586ab1" }} />
+          ) : (
+            <ChevronRight className="h-5 w-5" style={{ color: "#586ab1" }} />
+          )}
         </button>
       </div>
 
@@ -217,18 +222,16 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                 onClick={() => toggleItem(item.name)}
                 className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${
                   expandedItems[item.name] || window.location.pathname.startsWith(item.href)
-                    ? 'bg-gray-800 text-white'
-                    : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    ? 'bg-white shadow-sm'
+                    : 'hover:bg-white/60'
                 }`}
               >
                 <div className="flex items-center">
-                  <div className={`w-8 h-8 rounded-md flex items-center justify-center mr-3 ${item.bgColor}`}>
-                    <item.icon className={`h-4 w-4 ${item.color}`} />
-                  </div>
-                  <span className="text-sm font-medium">{item.name}</span>
+                  <item.icon className="h-4 w-4 mr-3" style={{ color: "#586ab1" }} />
+                  <span className="text-sm font-medium" style={{ color: "#586ab1" }}>{item.name}</span>
                 </div>
 
-                <div className="text-gray-400 group-hover:text-white">
+                <div className="text-gray-400">
                   {expandedItems[item.name] ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </div>
               </div>
@@ -237,14 +240,12 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                 to={item.href}
                 className={({ isActive }) =>
                   `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
-                    isActive ? 'bg-gray-800 text-white' : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                    isActive ? 'bg-white shadow-sm' : 'hover:bg-white/60'
                   }`
                 }
               >
-                <div className={`w-8 h-8 rounded-md flex items-center justify-center mr-3 ${item.bgColor}`}>
-                  <item.icon className={`h-4 w-4 ${item.color}`} />
-                </div>
-                <span className="text-sm font-medium">{item.name}</span>
+                <item.icon className="h-4 w-4 mr-3" style={{ color: "#586ab1" }} />
+                <span className="text-sm font-medium" style={{ color: "#586ab1" }}>{item.name}</span>
               </NavLink>
             )}
 
@@ -255,21 +256,21 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
                   expandedItems[item.name] ? 'max-h-[600px]' : 'max-h-0'
                 }`}
               >
-                <div className="ml-4 pl-6 mt-1 space-y-1 border-l border-gray-700">
+                <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-200">
                   {item.children.map((child) => (
                     <NavLink
                       key={child.name}
                       to={child.href}
                       className={({ isActive }) =>
-                        `flex items-center px-3 py-2 text-sm rounded-md transition-colors duration-200 ${
+                        `flex items-center px-3 py-2 text-xs rounded-lg transition-all duration-200 ${
                           isActive
-                            ? 'bg-indigo-900/30 text-indigo-200 border-l-2 border-indigo-500'
-                            : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800/50'
+                            ? 'bg-white shadow-sm'
+                            : 'hover:bg-white/60'
                         }`
                       }
                     >
-                      {child.icon && <child.icon className="h-3.5 w-3.5 mr-2.5" />}
-                      <span>{child.name}</span>
+                      {child.icon && <child.icon className="h-3.5 w-3.5 mr-2.5" style={{ color: "#586ab1" }} />}
+                      <span className="font-medium" style={{ color: "#586ab1" }}>{child.name}</span>
                     </NavLink>
                   ))}
                 </div>

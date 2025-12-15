@@ -500,7 +500,7 @@ const TenantViewPage = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-gray-900">Tenant Profile</h2>
+            <h2 className="text-lg font-semibold text-slate-600">Tenant Profile</h2>
             <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
               Active
             </span>
@@ -514,7 +514,7 @@ const TenantViewPage = () => {
                 <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Company Name</p>
-                  <p className="text-lg font-semibold text-gray-900">{tenant.company_name || 'N/A'}</p>
+                  <p className="text-lg font-semibold text-slate-600">{tenant.company_name || 'N/A'}</p>
                 </div>
               </div>
               
@@ -522,7 +522,7 @@ const TenantViewPage = () => {
                 <IdentificationIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Tenant Owner</p>
-                  <p className="text-lg font-semibold text-gray-900">{tenant.name}</p>
+                  <p className="text-lg font-semibold text-slate-600">{tenant.name}</p>
                 </div>
               </div>
               
@@ -530,7 +530,7 @@ const TenantViewPage = () => {
                 <GlobeAltIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Tenant Slug</p>
-                  <p className="text-lg font-mono font-semibold text-gray-900">{tenant.tenant_slug}</p>
+                  <p className="text-lg font-mono font-semibold text-slate-600">{tenant.tenant_slug}</p>
                 </div>
               </div>
               
@@ -538,56 +538,14 @@ const TenantViewPage = () => {
                 <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
                   <p className="text-sm font-medium text-gray-500">Date Created</p>
-                  <p className="text-lg font-semibold text-gray-900">
+                  <p className="text-lg font-semibold text-slate-600">
                     {format(new Date(tenant.created_at), 'MMMM d, yyyy')}
                   </p>
                 </div>
               </div>
             </div>
             
-            <div className="space-y-6">
-              <div className="flex items-start">
-                <PaintBrushIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Brand Colors</p>
-                  <div className="flex items-center gap-3 mt-2">
-                    <div className="flex flex-col items-center">
-                      <div 
-                        className="w-12 h-12 rounded-lg border shadow-sm"
-                        style={{ backgroundColor: tenant.primary_color || '#586ab1' }}
-                      />
-                      <span className="text-xs mt-1 text-gray-600">Primary</span>
-                    </div>
-                    <div className="flex flex-col items-center">
-                      <div 
-                        className="w-12 h-12 rounded-lg border shadow-sm"
-                        style={{ backgroundColor: tenant.secondary_color || '#f0f0f0' }}
-                      />
-                      <span className="text-xs mt-1 text-gray-600">Secondary</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {tenant.logo_url && (
-                <div className="flex items-start">
-                  <div className="h-5 w-5 text-gray-400 mr-3 mt-0.5 flex items-center justify-center">
-                    <div className="w-4 h-4 border rounded"></div>
-                  </div>
-                  <div>
-                    <p className="text-sm font-medium text-gray-500 mb-2">Logo</p>
-                    <div className="p-4 border border-gray-200 rounded-lg bg-gray-50">
-                      <img 
-                        src={tenant.logo_url} 
-                        alt="Tenant Logo" 
-                        className="h-16 object-contain"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
+         
           </div>
         </div>
       </div>
@@ -595,7 +553,7 @@ const TenantViewPage = () => {
       {/* Activity Summary */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="p-6 border-b border-gray-200">
-          <h2 className="text-sm  text-slate-900">Activity Summary</h2>
+          <h2 className="text-sm  text-slate-600">Activity Summary</h2>
           <p className="text-sm text-gray-600 mt-1">Key metrics for this tenant</p>
         </div>
         

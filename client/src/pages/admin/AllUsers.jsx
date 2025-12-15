@@ -45,6 +45,10 @@ export default function AllUsers() {
   const [itemsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
+  // Filtered state for modal dropdowns
+  const [filteredRegions, setFilteredRegions] = useState([]);
+  const [filteredBranches, setFilteredBranches] = useState([]);
+
   const roles = [
     { value: "admin", label: "Admin", color: "emerald" },
     { value: "operation_officer", label: "Operation Officer", color: "amber" },
@@ -56,6 +60,63 @@ export default function AllUsers() {
   ];
 
   const isSuperAdmin = profile?.role === 'superadmin';
+
+  // Filter regions based on tenant and current selection
+  const filterRegionsByTenant = useCallback((tenantId) => {
+    if (!tenantId) {
+      setFilteredRegions(regions);
+      return;
+    }
+    
+    const filtered = regions.filter(region => region.tenant_id === tenantId);
+    setFilteredRegions(filtered);
+  }, [regions]);
+
+  // Filter branches based on region and tenant
+  const filterBranchesByRegionAndTenant = useCallback((regionId, tenantId) => {
+    let filtered = branches;
+    
+    // Filter by tenant first
+    if (tenantId) {
+      filtered = filtered.filter(branch => branch.tenant_id === tenantId);
+    }
+    
+    // Then filter by region if selected
+    if (regionId) {
+      filtered = filtered.filter(branch => branch.region_id === regionId);
+    }
+    
+    setFilteredBranches(filtered);
+  }, [branches]);
+
+  // Handle region change in the form
+  const handleRegionChange = (e) => {
+    const regionId = e.target.value;
+    setFormData(prev => ({ 
+      ...prev, 
+      region_id: regionId,
+      branch_id: '' // Reset branch when region changes
+    }));
+    
+    // Filter branches based on selected region
+    const tenantId = isSuperAdmin ? formData.tenant_id : currentUserTenantId;
+    filterBranchesByRegionAndTenant(regionId, tenantId);
+  };
+
+  // Handle tenant change (for superadmin only)
+  const handleTenantChange = (e) => {
+    const tenantId = e.target.value;
+    setFormData(prev => ({ 
+      ...prev, 
+      tenant_id: tenantId,
+      region_id: '', // Reset region when tenant changes
+      branch_id: ''  // Reset branch when tenant changes
+    }));
+    
+    // Filter regions and branches based on selected tenant
+    filterRegionsByTenant(tenantId);
+    filterBranchesByRegionAndTenant(null, tenantId);
+  };
 
   // Memoized fetch functions with pagination
   const fetchData = useCallback(async (tenantId, userRole) => {
@@ -96,7 +157,7 @@ export default function AllUsers() {
     return () => {
       mounted = false;
     };
-  }, [profile, refreshKey]); // Removed fetchData from dependencies
+  }, [profile, refreshKey]);
 
   const fetchUsers = async (tenantId, userRole, page = 1) => {
     try {
@@ -261,17 +322,50 @@ export default function AllUsers() {
     
     if (type === 'user' && !item) {
       setIsAddingUser(true);
-      setFormData({
+      const initialFormData = {
         password: '',
         confirmPassword: '',
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
-      });
+      };
+      
+      // Set initial filtered regions and branches
+      if (currentUserTenantId && !isSuperAdmin) {
+        filterRegionsByTenant(currentUserTenantId);
+        filterBranchesByRegionAndTenant(null, currentUserTenantId);
+      } else {
+        setFilteredRegions(regions);
+        setFilteredBranches(branches);
+      }
+      
+      setFormData(initialFormData);
     } else if (item) {
       setFormData(item);
+      
+      // Filter based on item's tenant_id or current user's tenant
+      const tenantId = isSuperAdmin ? (item.tenant_id || currentUserTenantId) : currentUserTenantId;
+      filterRegionsByTenant(tenantId);
+      
+      // If user has a region, filter branches by that region and tenant
+      if (item.region_id) {
+        filterBranchesByRegionAndTenant(item.region_id, tenantId);
+      } else {
+        filterBranchesByRegionAndTenant(null, tenantId);
+      }
     } else {
-      setFormData({
+      const initialData = {
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
-      });
+      };
+      
+      // Set initial filtered regions and branches
+      if (currentUserTenantId && !isSuperAdmin) {
+        filterRegionsByTenant(currentUserTenantId);
+        filterBranchesByRegionAndTenant(null, currentUserTenantId);
+      } else {
+        setFilteredRegions(regions);
+        setFilteredBranches(branches);
+      }
+      
+      setFormData(initialData);
     }
     
     setShowModal(true);
@@ -283,6 +377,8 @@ export default function AllUsers() {
     setEditingItem(null);
     setIsAddingUser(false);
     setFormData({});
+    setFilteredRegions([]);
+    setFilteredBranches([]);
   };
 
   const handleManualRefresh = () => {
@@ -710,13 +806,21 @@ export default function AllUsers() {
                   <div className="relative">
                     <select
                       value={filterRegion}
-                      onChange={(e) => setFilterRegion(e.target.value)}
+                      onChange={(e) => {
+                        setFilterRegion(e.target.value);
+                        if (e.target.value !== filterRegion) {
+                          setFilterBranch('');
+                        }
+                      }}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] appearance-none"
                     >
                       <option value="">All Regions</option>
-                      {regions.map(region => (
-                        <option key={region.id} value={region.id}>{region.name}</option>
-                      ))}
+                      {regions
+                        .filter(region => isSuperAdmin || region.tenant_id === currentUserTenantId)
+                        .map(region => (
+                          <option key={region.id} value={region.id}>{region.name}</option>
+                        ))
+                      }
                     </select>
                     <ChevronUpDownIcon className="h-5 w-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
@@ -730,9 +834,18 @@ export default function AllUsers() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] appearance-none"
                     >
                       <option value="">All Branches</option>
-                      {branches.map(branch => (
-                        <option key={branch.id} value={branch.id}>{branch.name}</option>
-                      ))}
+                      {branches
+                        .filter(branch => {
+                          // Filter by tenant for non-superadmins
+                          if (!isSuperAdmin && branch.tenant_id !== currentUserTenantId) return false;
+                          // Filter by region if region filter is active
+                          if (filterRegion && branch.region_id !== filterRegion) return false;
+                          return true;
+                        })
+                        .map(branch => (
+                          <option key={branch.id} value={branch.id}>{branch.name}</option>
+                        ))
+                      }
                     </select>
                     <ChevronUpDownIcon className="h-5 w-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                   </div>
@@ -1262,17 +1375,7 @@ export default function AllUsers() {
                           minLength={6}
                         />
                       </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Confirm Password *</label>
-                        <input
-                          type="password"
-                          value={formData.confirmPassword || ''}
-                          onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
-                          required={isAddingUser}
-                          minLength={6}
-                        />
-                      </div>
+                 
                     </div>
                   )}
 
@@ -1308,14 +1411,17 @@ export default function AllUsers() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Region</label>
                         <select
                           value={formData.region_id || ''}
-                          onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
+                          onChange={handleRegionChange}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
                         >
                           <option value="">Select Region</option>
-                          {regions.map(region => (
+                          {filteredRegions.map(region => (
                             <option key={region.id} value={region.id}>{region.name}</option>
                           ))}
                         </select>
+                        {filteredRegions.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">No regions available for this tenant</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">Branch</label>
@@ -1323,12 +1429,19 @@ export default function AllUsers() {
                           value={formData.branch_id || ''}
                           onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
                           className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
+                          disabled={!formData.region_id}
                         >
                           <option value="">Select Branch</option>
-                          {branches.map(branch => (
+                          {filteredBranches.map(branch => (
                             <option key={branch.id} value={branch.id}>{branch.name}</option>
                           ))}
                         </select>
+                        {formData.region_id && filteredBranches.length === 0 && (
+                          <p className="text-xs text-amber-600 mt-1">No branches available for this region</p>
+                        )}
+                        {!formData.region_id && (
+                          <p className="text-xs text-gray-500 mt-1">Select a region first</p>
+                        )}
                       </div>
                     </div>
                   )}
@@ -1338,7 +1451,7 @@ export default function AllUsers() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
                       <select
                         value={formData.tenant_id || ''}
-                        onChange={(e) => setFormData({ ...formData, tenant_id: e.target.value })}
+                        onChange={handleTenantChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
                       >
                         <option value="">Select Tenant</option>
@@ -1411,10 +1524,13 @@ export default function AllUsers() {
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
                     >
                       <option value="">Select Region</option>
-                      {regions.map(region => (
+                      {filteredRegions.map(region => (
                         <option key={region.id} value={region.id}>{region.name}</option>
                       ))}
                     </select>
+                    {filteredRegions.length === 0 && (
+                      <p className="text-xs text-amber-600 mt-1">No regions available</p>
+                    )}
                   </div>
 
                   <div>
@@ -1432,7 +1548,7 @@ export default function AllUsers() {
                       <label className="block text-sm font-medium text-gray-700 mb-1">Tenant</label>
                       <select
                         value={formData.tenant_id || ''}
-                        onChange={(e) => setFormData({ ...formData, tenant_id: e.target.value })}
+                        onChange={handleTenantChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
                       >
                         <option value="">Select Tenant</option>

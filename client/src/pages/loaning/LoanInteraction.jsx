@@ -36,11 +36,11 @@ const LoanInteraction = () => {
   });
 
   const interactionTypes = [
-    { value: 'Phone Call', icon: PhoneIcon, color: 'text-blue-600' },
-    { value: 'SMS', icon: DevicePhoneMobileIcon, color: 'text-green-600' },
-    { value: 'Visit', icon: UserGroupIcon, color: 'text-purple-600' },
-    { value: 'Reminder', icon: BellAlertIcon, color: 'text-amber-600' },
-    { value: 'Follow-up', icon: ClockIcon, color: 'text-indigo-600' },
+    { value: 'Phone Call', icon: PhoneIcon, color: 'text-[#586ab1]' },
+    { value: 'SMS', icon: DevicePhoneMobileIcon, color: 'text-[#586ab1]' },
+    { value: 'Visit', icon: UserGroupIcon, color: 'text-[#586ab1]' },
+    { value: 'Reminder', icon: BellAlertIcon, color: 'text-[#586ab1]' },
+    { value: 'Follow-up', icon: ClockIcon, color: 'text-[#586ab1]' },
   ];
 
   useEffect(() => {
@@ -148,27 +148,27 @@ const LoanInteraction = () => {
 
   const getInteractionIcon = (type) => {
     const interaction = interactionTypes.find(t => t.value === type);
-    if (!interaction) return <ChatBubbleLeftRightIcon className="h-5 w-5 text-gray-600" />;
+    if (!interaction) return <ChatBubbleLeftRightIcon className="h-4 w-4 text-gray-600" />;
     
     const Icon = interaction.icon;
-    return <Icon className={`h-5 w-5 ${interaction.color}`} />;
+    return <Icon className={`h-4 w-4 ${interaction.color}`} />;
   };
 
   const getStatusBadge = (status) => {
     const badges = {
-      completed: 'bg-green-100 text-green-800 border-green-200',
-      pending: 'bg-amber-100 text-amber-800 border-amber-200',
-      'follow-up scheduled': 'bg-blue-100 text-blue-800 border-blue-200',
+      completed: 'bg-green-100 text-green-800 border border-green-200 text-xs px-2 py-1 rounded-full',
+      pending: 'bg-amber-100 text-amber-800 border border-amber-200 text-xs px-2 py-1 rounded-full',
+      'follow-up scheduled': 'bg-[#586ab1]/10 text-[#586ab1] border border-[#586ab1]/20 text-xs px-2 py-1 rounded-full',
     };
-    return badges[status] || 'bg-gray-100 text-gray-800 border-gray-200';
+    return badges[status] || 'bg-gray-100 text-gray-800 border border-gray-200 text-xs px-2 py-1 rounded-full';
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading loan interactions...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#586ab1]/20 border-t-[#586ab1] mb-4 mx-auto"></div>
+          <p className="text-gray-700 text-sm font-medium">Loading loan interactions...</p>
         </div>
       </div>
     );
@@ -176,13 +176,13 @@ const LoanInteraction = () => {
 
   if (!loan) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
         <div className="text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Loan Not Found</h2>
-          <p className="text-gray-600 mb-4">The requested loan could not be found.</p>
+          <h2 className="text-sm text-gray-800 mb-2">Loan Not Found</h2>
+          <p className="text-gray-600 text-xs mb-4">The requested loan could not be found.</p>
           <button
             onClick={() => navigate('/loans')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-4 py-2 bg-[#586ab1] text-white text-sm rounded-lg hover:bg-[#47578c] transition-colors"
           >
             Back to Loans
           </button>
@@ -192,31 +192,31 @@ const LoanInteraction = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-200">
+        <div className="p-4 mb-4">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
               <button
                 onClick={() => navigate(-1)}
-                className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+                className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
-                <ArrowLeftIcon className="h-6 w-6 text-gray-600" />
+                <ArrowLeftIcon className="h-4 w-4 text-gray-600" />
               </button>
-              <div className="flex items-center gap-3">
-                <div className="p-3 bg-blue-100 rounded-xl">
-                  <ChatBubbleLeftRightIcon className="h-8 w-8 text-blue-600" />
+              <div className="flex items-center gap-2">
+                <div className="p-2 bg-[#586ab1]/10 rounded-lg">
+                  <ChatBubbleLeftRightIcon className="h-5 w-5 text-[#586ab1]" />
                 </div>
                 <div>
-                  <h1 className="text-3xl font-bold text-gray-900">Loan Interactions</h1>
-                  <p className="text-gray-600 mt-1">
+                  <h1 className="text-sm font-medium text-gray-800">Loan Interactions</h1>
+                  <p className="text-gray-600 text-xs mt-0.5">
                     {loan.customers?.Firstname} {loan.customers?.Surname} • 
                     Loan #{loan.id} • 
                     KES {loan.scored_amount?.toLocaleString()}
                   </p>
-                  <p className="text-sm text-gray-500 mt-1">
+                  <p className="text-xs text-gray-500 mt-0.5">
                     Branch: {loan.customers?.branches?.name} • 
                     Phone: {loan.customers?.mobile}
                   </p>
@@ -224,42 +224,42 @@ const LoanInteraction = () => {
               </div>
             </div>
             
-            <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
-              <ClockIcon className="h-5 w-5 text-blue-600" />
-              <span className="text-blue-700 font-semibold">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#586ab1]/10 rounded-lg border border-[#586ab1]/20">
+              <ClockIcon className="h-4 w-4 text-[#586ab1]" />
+              <span className="text-[#586ab1] text-sm font-medium">
                 {interactions.length} Interactions
               </span>
             </div>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Main Content */}
           <div className="lg:col-span-2">
             {/* Add Interaction Button */}
             {!showForm && (
               <button
                 onClick={() => setShowForm(true)}
-                className="w-full mb-6 flex items-center justify-center gap-2 px-6 py-4 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg hover:shadow-xl font-semibold text-lg"
+                className="w-full mb-4 flex items-center justify-center gap-2 px-4 py-2.5 bg-[#586ab1] text-white text-sm rounded-lg hover:bg-[#47578c] transition-all shadow-sm hover:shadow font-medium"
               >
-                <PlusCircleIcon className="h-6 w-6" />
+                <PlusCircleIcon className="h-4 w-4" />
                 Log New Interaction
               </button>
             )}
 
             {/* Interaction Form */}
             {showForm && (
-              <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-blue-200">
-                <h3 className="text-xl font-bold text-gray-800 mb-6">New Interaction</h3>
-                <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="bg-white rounded-lg shadow-sm p-4 mb-6 border border-gray-200">
+                <h3 className="text-sm font-semibold text-gray-800 mb-4">New Interaction</h3>
+                <form onSubmit={handleSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
                       Interaction Type
                     </label>
                     <select
                       value={formData.interaction_type}
                       onChange={(e) => setFormData({ ...formData, interaction_type: e.target.value })}
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1]"
                       required
                     >
                       {interactionTypes.map(type => (
@@ -271,39 +271,39 @@ const LoanInteraction = () => {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-3">
+                    <label className="block text-xs font-medium text-gray-700 mb-1.5">
                       Notes
                     </label>
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 min-h-[120px] text-lg"
+                      className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1] min-h-[100px]"
                       placeholder="Enter details about this interaction..."
                       required
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">
                         Next Follow-up Date (Optional)
                       </label>
                       <input
                         type="date"
                         value={formData.next_follow_up_date}
                         onChange={(e) => setFormData({ ...formData, next_follow_up_date: e.target.value })}
-                        className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                        className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1]"
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm font-semibold text-gray-700 mb-3">
+                      <label className="block text-xs font-medium text-gray-700 mb-1.5">
                         Status
                       </label>
                       <select
                         value={formData.status}
                         onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                        className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-lg"
+                        className="w-full p-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1]"
                         required
                       >
                         <option value="completed">Completed</option>
@@ -313,20 +313,20 @@ const LoanInteraction = () => {
                     </div>
                   </div>
 
-                  <div className="flex gap-4 pt-4">
+                  <div className="flex gap-3 pt-3">
                     <button
                       type="submit"
                       disabled={submitting}
-                      className="flex-1 flex items-center justify-center gap-3 px-6 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-[#586ab1] text-white text-sm rounded-lg hover:bg-[#47578c] transition-all shadow-sm hover:shadow font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {submitting ? (
                         <>
-                          <div className="animate-spin rounded-full h-6 w-6 border-2 border-white border-t-transparent"></div>
+                          <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-white border-t-transparent"></div>
                           Saving...
                         </>
                       ) : (
                         <>
-                          <CheckCircleIcon className="h-6 w-6" />
+                          <CheckCircleIcon className="h-4 w-4" />
                           Save Interaction
                         </>
                       )}
@@ -334,7 +334,7 @@ const LoanInteraction = () => {
                     <button
                       type="button"
                       onClick={() => setShowForm(false)}
-                      className="px-8 py-4 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-semibold text-lg"
+                      className="px-4 py-2 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors font-medium"
                     >
                       Cancel
                     </button>
@@ -344,54 +344,54 @@ const LoanInteraction = () => {
             )}
 
             {/* Interactions List */}
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-200">
-              <h3 className="text-xl font-bold text-gray-800 flex items-center gap-3 mb-6">
-                <ClockIcon className="h-6 w-6 text-gray-600" />
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
+              <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-4">
+                <ClockIcon className="h-4 w-4 text-gray-600" />
                 Interaction History ({interactions.length})
               </h3>
 
               {interactions.length === 0 ? (
-                <div className="text-center py-12 bg-gray-50 rounded-xl border-2 border-dashed border-gray-300">
-                  <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No interactions yet</h3>
-                  <p className="text-gray-600">
+                <div className="text-center py-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+                  <ChatBubbleLeftRightIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                  <h3 className="text-sm font-medium text-gray-800 mb-1.5">No interactions yet</h3>
+                  <p className="text-gray-600 text-xs">
                     Log your first interaction with this customer to start tracking communication.
                   </p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {interactions.map((interaction) => (
                     <div
                       key={interaction.id}
-                      className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-all duration-200"
+                      className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-all duration-200"
                     >
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 bg-gray-50 rounded-lg">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-gray-50 rounded-lg">
                             {getInteractionIcon(interaction.interaction_type)}
                           </div>
                           <div>
-                            <h4 className="font-semibold text-gray-900 text-lg">
+                            <h4 className="font-medium text-gray-800 text-sm">
                               {interaction.interaction_type}
                             </h4>
-                            <p className="text-gray-500">
+                            <p className="text-gray-500 text-xs">
                               by {interaction.users?.full_name || 'Unknown'}
                             </p>
                           </div>
                         </div>
-                        <span className={`px-4 py-2 rounded-full text-sm font-medium border ${getStatusBadge(interaction.status)}`}>
+                        <span className={getStatusBadge(interaction.status)}>
                           {interaction.status}
                         </span>
                       </div>
 
-                      <p className="text-gray-700 mb-4 bg-gray-50 p-4 rounded-lg text-lg">
+                      <p className="text-gray-700 mb-3 bg-gray-50 p-3 rounded-lg text-sm">
                         {interaction.notes}
                       </p>
 
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-6 text-gray-500">
-                          <span className="flex items-center gap-2">
-                            <CalendarIcon className="h-4 w-4" />
+                      <div className="flex items-center justify-between text-xs">
+                        <div className="flex items-center gap-4 text-gray-500">
+                          <span className="flex items-center gap-1.5">
+                            <CalendarIcon className="h-3.5 w-3.5" />
                             {new Date(interaction.created_at).toLocaleDateString('en-GB')}
                           </span>
                           <span>
@@ -402,8 +402,8 @@ const LoanInteraction = () => {
                           </span>
                         </div>
                         {interaction.next_follow_up_date && (
-                          <span className="flex items-center gap-2 text-blue-600 font-medium">
-                            <ClockIcon className="h-4 w-4" />
+                          <span className="flex items-center gap-1.5 text-[#586ab1] font-medium">
+                            <ClockIcon className="h-3.5 w-3.5" />
                             Follow-up: {new Date(interaction.next_follow_up_date).toLocaleDateString('en-GB')}
                           </span>
                         )}
@@ -417,48 +417,48 @@ const LoanInteraction = () => {
 
           {/* Sidebar - Loan Summary */}
           <div className="lg:col-span-1">
-            <div className="bg-white rounded-2xl shadow-lg p-6 border border-blue-200 sticky top-8">
-              <h3 className="text-xl font-bold text-gray-800 mb-6">Loan Summary</h3>
+            <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 sticky top-8">
+              <h3 className="text-sm font-semibold text-gray-800 mb-4">Loan Summary</h3>
               
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Customer</label>
-                  <p className="text-lg font-medium text-gray-900">
+                  <label className="text-xs font-medium text-gray-600">Customer</label>
+                  <p className="text-sm font-medium text-gray-800">
                     {loan.customers?.Firstname} {loan.customers?.Surname}
                   </p>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Loan Amount</label>
-                  <p className="text-xl font-bold text-emerald-600">
+                  <label className="text-xs font-medium text-gray-600">Loan Amount</label>
+                  <p className="text-base font-bold text-[#586ab1]">
                     KES {loan.scored_amount?.toLocaleString()}
                   </p>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Duration</label>
-                  <p className="text-lg font-medium text-gray-900">
+                  <label className="text-xs font-medium text-gray-600">Duration</label>
+                  <p className="text-sm font-medium text-gray-800">
                     {loan.duration_weeks} weeks
                   </p>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Branch</label>
-                  <p className="text-lg font-medium text-gray-900">
+                  <label className="text-xs font-medium text-gray-600">Branch</label>
+                  <p className="text-sm font-medium text-gray-800">
                     {loan.customers?.branches?.name}
                   </p>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Status</label>
-                  <p className="text-lg font-medium text-blue-600 capitalize">
+                  <label className="text-xs font-medium text-gray-600">Status</label>
+                  <p className="text-sm font-medium text-[#586ab1] capitalize">
                     {loan.status?.replace('_', ' ')}
                   </p>
                 </div>
                 
                 <div>
-                  <label className="text-sm font-semibold text-gray-600">Created</label>
-                  <p className="text-lg font-medium text-gray-900">
+                  <label className="text-xs font-medium text-gray-600">Created</label>
+                  <p className="text-sm font-medium text-gray-800">
                     {new Date(loan.created_at).toLocaleDateString('en-GB')}
                   </p>
                 </div>

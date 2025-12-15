@@ -21,8 +21,7 @@ import {
   Handshake,
   UserPlus,
   ClipboardList,
- 
-   FileSpreadsheet,
+  FileSpreadsheet,
   X,
   Menu,
 } from "lucide-react";
@@ -218,12 +217,12 @@ const SharedSidebar = () => {
         name: "Prequalified Amount Edit",
         href: "/registry/prequalified-amount-edit",
         icon: CreditCard,
+      },
+      {
+        name: "Guarantors",
+        href: "/registry/guarantors",
+        icon: Handshake,
       }
-      ,  {
-    name: "Guarantors",
-    href: "/registry/guarantors",
-    icon: Handshake, // choose an appropriate icon
-  }
     );
 
     // Drafts Navigation - Dynamic based on role
@@ -336,19 +335,21 @@ const SharedSidebar = () => {
           />
         )}
 
-        {/* Sidebar */}
+        {/* Sidebar - Reduced width from w-72 to w-64 */}
         <div
-          className={`fixed inset-y-0 left-0 w-72 bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ${
+          className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ${
             isMobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
-          {/* Header with Logo and Close Icon */}
-<div className="flex  mt-6 justify-start flex-shrink-0 h-20 relative">        
-      <img
-              src="/jasiri.png"
-              alt="Jasiri Logo"
-              className="w-40 h-40 object-contain rounded-lg"
-            />
+          {/* Header with Logo at the beginning (far left) */}
+          <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 h-20">
+            <div className="flex items-center justify-start">
+              <img
+                src="/jasiri.png"
+                alt="Jasiri Logo"
+                className="w-32 h-auto object-contain"
+              />
+            </div>
             <button
               onClick={() => setIsMobileOpen(false)}
               className="p-2 rounded-lg hover:bg-white transition-colors"
@@ -358,7 +359,7 @@ const SharedSidebar = () => {
           </div>
 
           {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto px-4 py-4 space-y-2">
+          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
             {navigation.map((item) => (
               <div key={item.name}>
                 {item.children ? (
@@ -373,10 +374,10 @@ const SharedSidebar = () => {
                     >
                       <div className="flex items-center">
                         <item.icon
-                          className="h-5 w-5 mr-3 flex-shrink-0"
+                          className="h-4 w-4 mr-3 flex-shrink-0"
                           style={{ color: "#586ab1" }}
                         />
-                        <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                        <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
                           {item.name}
                         </span>
                       </div>
@@ -397,8 +398,8 @@ const SharedSidebar = () => {
                             className={({ isActive }) =>
                               `flex items-center px-3 py-2 text-xs rounded-lg transition-all duration-200 whitespace-nowrap ${
                                 isActive
-                                  ? "bg-white shadow-sm text-gray-900"
-                                  : "text-gray-600 hover:bg-white/60 hover:text-gray-900"
+                                  ? "bg-white shadow-sm"
+                                  : "hover:bg-white/60"
                               }`
                             }
                           >
@@ -406,7 +407,7 @@ const SharedSidebar = () => {
                               className="h-3.5 w-3.5 mr-2 flex-shrink-0"
                               style={{ color: "#586ab1" }}
                             />
-                            <span className="font-medium truncate">
+                            <span className="font-medium truncate" style={{ color: "#586ab1" }}>
                               {child.name}
                             </span>
                           </NavLink>
@@ -427,10 +428,10 @@ const SharedSidebar = () => {
                     }
                   >
                     <item.icon
-                      className="h-5 w-5 mr-3 flex-shrink-0"
+                      className="h-4 w-4 mr-3 flex-shrink-0"
                       style={{ color: "#586ab1" }}
                     />
-                    <span className="text-sm font-medium text-gray-700 truncate">
+                    <span className="text-sm font-medium truncate" style={{ color: "#586ab1" }}>
                       {item.name}
                     </span>
                   </NavLink>
@@ -443,32 +444,32 @@ const SharedSidebar = () => {
     );
   }
 
-  // Desktop Sidebar
+  // Desktop Sidebar - Reduced width from w-72 to w-64
   return (
     <div
       className={`h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 ${
-        isCollapsed ? "w-20" : "w-72"
+        isCollapsed ? "w-16" : "w-64"
       } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
-      {/* Header - Logo and collapse button */}
-      <div className="flex  p-4 mt-6 justify-left flex-shrink-0 h-20">
-        {/* Logo - Only shown when sidebar is expanded */}
+      {/* Header - Logo at the beginning (far left) */}
+      <div className="flex items-center p-4 border-b border-gray-200 flex-shrink-0 h-20 relative">
+        {/* Logo - Left aligned when sidebar is expanded */}
         {!isCollapsed && (
-          <div className="flex items-center justify-center w-full">
+          <div className="flex items-start justify-start w-full">
             <img
-              src="/jasiri.png"
+              src="/jasirif.png"
               alt="Jasiri Logo"
-              className="w-40 h-40 object-contain"
+              className="w-32 h-auto object-contain"
             />
           </div>
         )}
         
-        {/* Collapse Button - Centered when collapsed, positioned appropriately when expanded */}
+        {/* Collapse Button */}
         <button
           onClick={toggleSidebar}
           className={`p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-200 ${
             isCollapsed 
-              ? "absolute top-4 left-1/2 transform -translate-x-1/2" 
+              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" 
               : "absolute top-4 right-4"
           }`}
         >
@@ -481,7 +482,7 @@ const SharedSidebar = () => {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-4 pb-4 space-y-2">
+      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
         {navigation.map((item) => (
           <div key={item.name}>
             {item.children ? (
@@ -505,7 +506,7 @@ const SharedSidebar = () => {
                     />
                   </div>
                   {!isCollapsed && (
-                    <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                    <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
                       {item.name}
                     </span>
                   )}
@@ -540,7 +541,7 @@ const SharedSidebar = () => {
                   <item.icon className="h-4 w-4" style={{ color: "#586ab1" }} />
                 </div>
                 {!isCollapsed && (
-                  <span className="text-sm font-medium text-gray-700 whitespace-nowrap">
+                  <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
                     {item.name}
                   </span>
                 )}
@@ -557,8 +558,8 @@ const SharedSidebar = () => {
                     className={({ isActive }) =>
                       `flex items-center px-3 py-2 text-xs rounded-lg transition-all duration-200 whitespace-nowrap ${
                         isActive
-                          ? "bg-white shadow-sm text-gray-900"
-                          : "text-gray-600 hover:bg-white/60 hover:text-gray-900"
+                          ? "bg-white shadow-sm"
+                          : "hover:bg-white/60"
                       }`
                     }
                   >
@@ -566,7 +567,9 @@ const SharedSidebar = () => {
                       className="h-3.5 w-3.5 mr-2 flex-shrink-0"
                       style={{ color: "#586ab1" }}
                     />
-                    <span className="font-medium truncate">{child.name}</span>
+                    <span className="font-medium truncate" style={{ color: "#586ab1" }}>
+                      {child.name}
+                    </span>
                   </NavLink>
                 ))}
               </div>

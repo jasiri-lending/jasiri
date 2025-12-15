@@ -13,10 +13,10 @@ const supabase = createClient(
 
 // Email transporter using .env variables
 const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE, // e.g., "Gmail"
+  service: process.env.EMAIL_SERVICE, 
   auth: {
-    user: process.env.EMAIL_USERNAME,   // e.g., "your@gmail.com"
-    pass: process.env.EMAIL_PASSWORD,   // app password or SMTP password
+    user: process.env.EMAIL_USERNAME,   
+    pass: process.env.EMAIL_PASSWORD,   
   },
 });
 
@@ -52,7 +52,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
     // 1️⃣ Insert tenant
     const { data: tenant, error: tenantErr } = await supabase
       .from("tenants")
-      .insert([{ name, company_name, tenant_slug, logo_url: logo_url || null, primary_color, secondary_color }])
+      .insert([{ name, company_name, tenant_slug }])
       .select()
       .single();
     if (tenantErr) throw tenantErr;

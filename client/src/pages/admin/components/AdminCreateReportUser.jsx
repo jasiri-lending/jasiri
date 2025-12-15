@@ -3,7 +3,7 @@ import { API_BASE_URL } from "../../../../config.js";
 import { useAuth } from "../../../hooks/userAuth.js";
 
 const AdminCreateReportUser = () => {
-  const { profile } = useAuth(); // Get profile with tenant_id
+  const { profile } = useAuth();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
@@ -33,18 +33,40 @@ const AdminCreateReportUser = () => {
       };
 
       console.log("📤 Creating report user:", payload);
+      console.log("🌐 API URL:", `${API_BASE_URL}/api/report-users/create`);
 
       const res = await fetch(`${API_BASE_URL}/api/report-users/create`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json"
+        },
         body: JSON.stringify(payload),
       });
 
+      console.log("📡 Response status:", res.status, res.statusText);
+
+      // Check if response is ok before parsing
+      if (!res.ok) {
+        let errorMsg = "Failed to create user";
+        try {
+          const errorData = await res.json();
+          errorMsg = errorData.error || errorMsg;
+          console.log("❌ Error response:", errorData);
+        } catch (jsonErr) {
+          console.error("❌ Failed to parse error JSON:", jsonErr);
+          errorMsg = `Server error: ${res.status} ${res.statusText}`;
+        }
+        setError(errorMsg);
+        setLoading(false);
+        return;
+      }
+
+      // Parse successful response
       const data = await res.json();
-      console.log("📥 Response:", data);
+      console.log("✅ Success response:", data);
       setLoading(false);
 
-      if (res.ok) {
+      if (data.success) {
         setMessage("User created successfully!");
         setGeneratedPassword(data.password);
         setShowPassword(true);
@@ -52,10 +74,18 @@ const AdminCreateReportUser = () => {
       } else {
         setError(data.error || "Failed to create user");
       }
+
     } catch (err) {
       setLoading(false);
-      setError("Network error. Please try again.");
       console.error("❌ Create user error:", err);
+      
+      if (err.message === "Failed to fetch") {
+        setError(`Cannot connect to server at ${API_BASE_URL}. Please check if the server is running.`);
+      } else if (err.name === "SyntaxError") {
+        setError("Server returned invalid response. Please check server logs.");
+      } else {
+        setError(err.message || "Network error. Please try again.");
+      }
     }
   };
 
@@ -76,7 +106,7 @@ const AdminCreateReportUser = () => {
     return (
       <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow">
         <h2 className="text-2xl font-bold mb-4">Create Report Access User</h2>
-        <p className="text-center text-gray-600">Loading...</p>
+        <p className="text-center text-gray-600">Loading profile...</p>
       </div>
     );
   }
@@ -84,6 +114,14 @@ const AdminCreateReportUser = () => {
   return (
     <div className="p-6 max-w-md mx-auto bg-white rounded-xl shadow">
       <h2 className="text-2xl font-bold mb-4">Create Report Access User</h2>
+
+      {/* Debug info - only shows API URL */}
+      {import.meta.env.DEV && (
+        <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
+          <p><strong>API:</strong> {API_BASE_URL}</p>
+          <p><strong>Tenant ID:</strong> {profile?.tenant_id}</p>
+        </div>
+      )}
 
       {!showPassword ? (
         <form onSubmit={handleCreate} className="space-y-4">
@@ -110,9 +148,10 @@ const AdminCreateReportUser = () => {
           )}
 
           {error && (
-            <p className="text-sm text-center text-red-600 bg-red-50 p-2 rounded">
-              {error}
-            </p>
+            <div className="text-sm text-red-600 bg-red-50 p-3 rounded border border-red-200">
+              <p className="font-semibold">Error:</p>
+              <p>{error}</p>
+            </div>
           )}
 
           <button

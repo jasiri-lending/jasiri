@@ -76,9 +76,6 @@ export default function AdminCreateTenant() {
       setFormData({
         name: "",
         company_name: "",
-        logo_url: "",
-        primary_color: PRIMARY_COLOR,
-        secondary_color: "#6366f1",
         admin_full_name: "",
         admin_email: "",
       });
@@ -158,9 +155,7 @@ export default function AdminCreateTenant() {
     setFormData({
       name: tenant.name || "",
       company_name: tenant.company_name || "",
-      logo_url: tenant.logo_url || "",
-      primary_color: tenant.primary_color || PRIMARY_COLOR,
-      secondary_color: tenant.secondary_color || "#6366f1",
+    
       admin_full_name: "",
       admin_email: "",
     });
@@ -174,9 +169,7 @@ export default function AdminCreateTenant() {
     setFormData({
       name: "",
       company_name: "",
-      logo_url: "",
-      primary_color: PRIMARY_COLOR,
-      secondary_color: "#6366f1",
+    
       admin_full_name: "",
       admin_email: "",
     });
@@ -193,9 +186,7 @@ export default function AdminCreateTenant() {
     setFormData({
       name: "",
       company_name: "",
-      logo_url: "",
-      primary_color: PRIMARY_COLOR,
-      secondary_color: "#6366f1",
+    
       admin_full_name: "",
       admin_email: "",
     });
@@ -208,9 +199,7 @@ export default function AdminCreateTenant() {
       const updates = {
         name: formData.name,
         company_name: formData.company_name,
-        logo_url: formData.logo_url,
-        primary_color: formData.primary_color,
-        secondary_color: formData.secondary_color,
+     
       };
       
       await handleUpdateTenant(editingTenant.id, updates);
@@ -318,7 +307,7 @@ export default function AdminCreateTenant() {
           <div className="px-5 py-4 border-b border-gray-200 bg-white">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h2 className="text-lg font-semibold text-gray-900">All Tenants</h2>
+                <h2 className="text-lg  text-slate-600">All Tenants</h2>
                 <p className="text-gray-500 text-xs mt-1">View and manage tenant organizations</p>
               </div>
               <div className="flex items-center gap-2">
@@ -415,49 +404,12 @@ export default function AdminCreateTenant() {
                       <tr key={tenant.id} className="group hover:bg-gray-50/50 transition-colors duration-150">
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-3">
-                            <div className="relative">
-                              {tenant.logo_url ? (
-                                <img 
-                                  src={tenant.logo_url} 
-                                  alt={tenant.name}
-                                  className="h-8 w-8 rounded-lg object-cover border border-gray-200"
-                                />
-                              ) : (
-                                <div 
-                                  className="h-8 w-8 rounded-lg flex items-center justify-center text-white text-xs font-bold"
-                                  style={{ background: `linear-gradient(135deg, ${tenant.primary_color || PRIMARY_COLOR} 0%, ${tenant.secondary_color || PRIMARY_DARK} 100%)` }}
-                                >
-                                  {tenant.name.charAt(0).toUpperCase()}
-                                </div>
-                              )}
-                              <div className="absolute -bottom-1 -right-1 h-2.5 w-2.5 rounded-full border border-white"
-                                style={{ backgroundColor: tenant.primary_color || PRIMARY_COLOR }}
-                              ></div>
-                            </div>
+                         
                             <div>
-                              <h3 className="text-sm font-medium text-gray-900">
+                              <h3 className="text-sm  text-slate-600">
                                 {tenant.name}
                               </h3>
-                              <div className="flex items-center gap-2 mt-1">
-                                <div className="flex items-center gap-1">
-                                  <div className="h-2 w-2 rounded-full border border-white shadow-xs"
-                                    style={{ backgroundColor: tenant.primary_color || PRIMARY_COLOR }}
-                                  />
-                                  <div className="h-2 w-2 rounded-full border border-white shadow-xs"
-                                    style={{ backgroundColor: tenant.secondary_color || PRIMARY_LIGHT }}
-                                  />
-                                </div>
-                                {tenant.tenant_slug && (
-                                  <span className="text-xs px-1.5 py-0.5 rounded-full font-medium"
-                                    style={{ 
-                                      background: `${PRIMARY_COLOR}10`,
-                                      color: PRIMARY_COLOR
-                                    }}
-                                  >
-                                    {tenant.tenant_slug}
-                                  </span>
-                                )}
-                              </div>
+                            
                             </div>
                           </div>
                         </td>
@@ -470,7 +422,6 @@ export default function AdminCreateTenant() {
                             </div>
                             <div>
                               <p className="text-sm text-gray-900">{tenant.company_name}</p>
-                              <p className="text-xs text-gray-500 mt-0.5">Legal entity</p>
                             </div>
                           </div>
                         </td>
@@ -647,7 +598,7 @@ export default function AdminCreateTenant() {
                             />
                           </div>
                         </div>
-
+{/* 
                         <div>
                           <label className="block text-xs font-medium text-gray-700 mb-2">
                             Logo URL
@@ -660,11 +611,11 @@ export default function AdminCreateTenant() {
                             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500 transition-all"
                           />
                           <p className="text-xs text-gray-500 mt-1">Optional. Displayed on dashboard</p>
-                        </div>
+                        </div> */}
                       </div>
 
                       {/* Color Settings */}
-                      <div className="space-y-4">
+                      {/* <div className="space-y-4">
                         <div className="pb-3 border-b border-gray-100">
                           <h3 className="text-sm font-semibold text-gray-900">Brand Colors</h3>
                           <p className="text-gray-500 text-xs mt-1">Customize dashboard appearance</p>
@@ -711,7 +662,7 @@ export default function AdminCreateTenant() {
                             </div>
                           </div>
                         </div>
-                      </div>
+                      </div> */}
 
                       {/* Admin Information - Only for new tenants */}
                       {!editingTenant && (
