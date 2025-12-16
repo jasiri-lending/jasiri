@@ -6,6 +6,9 @@ import {
   
 } from "@heroicons/react/24/outline";
 
+import Spinner from "../components/Spinner";
+
+
 const Dashboard = () => {
   const [userRegion, setUserRegion] = useState(null);
   const [userBranch, setUserBranch] = useState(null);
@@ -1854,23 +1857,10 @@ const ProgressBar = ({
     )
   };
 
-  if (loading && !userRegion && !userBranch && !userRole) {
+ if (loading && !userRegion && !userBranch && !userRole) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50">
-        <div className="text-center">
-          <div className="relative">
-            <div className="animate-spin rounded-full h-20 w-20 border-4 border-blue-200 border-t-blue-600 mx-auto"></div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <div className="h-12 w-12 bg-blue-100 rounded-full animate-pulse"></div>
-            </div>
-          </div>
-          <p className="mt-8 text-xl text-gray-700 font-semibold">
-            Loading dashboard...
-          </p>
-          <p className="mt-2 text-sm text-gray-500">
-            Please wait while we fetch your data
-          </p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading Dashboard..." />
       </div>
     );
   }
@@ -2244,42 +2234,41 @@ const ProgressBar = ({
   {/* Collections Performance with Background Image */}
        
 
-       
-<OverviewSection title="Collections Performance" backgroundImage="/images/bg1.jpg">
-  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-    {/* Today's Collection */}
-    <ProgressBar
-      label="Today's Collection"
-      type="collection"
-      numerator={dashboardMetrics.collectionOverview.todayCollectionAmount || 0}
-      denominator={dashboardMetrics.collectionOverview.todayCollectionDue || 0}
-    />
+ <OverviewSection title="Collections Performance" backgroundImage="/images/bg1.jpg">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Today's Collection */}
+            <ProgressBar
+              label="Today's Collection"
+              type="collection"
+              numerator={dashboardMetrics.collectionOverview.todayCollectionAmount || 0}
+              denominator={dashboardMetrics.collectionOverview.todayCollectionDue || 0}
+            />
 
-    {/* Monthly Collection */}
-    <ProgressBar
-      label="Monthly Collection"
-      type="collection"
-      numerator={dashboardMetrics.collectionOverview.monthlyCollectionAmount || 0}
-      denominator={dashboardMetrics.collectionOverview.monthlyCollectionDue || 0}
-    />
+            {/* Monthly Collection - FIXED: Should now display correctly */}
+            <ProgressBar
+              label="Monthly Collection"
+              type="collection"
+              numerator={dashboardMetrics.collectionOverview.monthlyCollectionAmount || 0}
+              denominator={dashboardMetrics.collectionOverview.monthlyCollectionDue || 0}
+            />
 
-    {/* Prepayment Rate (Tomorrow's Collection) */}
-    <ProgressBar
-      label="Tomorrow's Collection"
-      type="collection"
-      numerator={dashboardMetrics.collectionOverview.tomorrowCollection || 0}
-      denominator={dashboardMetrics.collectionOverview.prepaymentDue || 0}
-    />
+            {/* Prepayment Rate */}
+            <ProgressBar
+              label="Tomorrow's Collection"
+              type="collection"
+              numerator={dashboardMetrics.collectionOverview.tomorrowCollection || 0}
+              denominator={dashboardMetrics.collectionOverview.prepaymentDue || 0}
+            />
 
-    {/* Portfolio at Risk */}
-    <ProgressBar
-      label="Portfolio at Risk (PAR)"
-      type="par"
-      numerator={dashboardMetrics.loanOverview.totalLoanArrears || 0}  
-      denominator={dashboardMetrics.outstandingBalance || 0}            
-    />
-  </div>
-</OverviewSection>
+            {/* Portfolio at Risk */}
+            <ProgressBar
+              label="Portfolio at Risk (PAR)"
+              type="par"
+              numerator={dashboardMetrics.loanOverview.totalLoanArrears || 0}
+              denominator={dashboardMetrics.outstandingBalance || 0}
+            />
+          </div>
+        </OverviewSection>
 
 
         {/* Pending Actions with Background Image */}

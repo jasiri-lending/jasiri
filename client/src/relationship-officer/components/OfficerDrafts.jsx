@@ -1,9 +1,19 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "../../supabaseClient";
-import { Eye, Loader2, FileText } from "lucide-react";
+import { 
+  EyeIcon, 
+  DocumentTextIcon, 
+  UserIcon, 
+  PhoneIcon, 
+  IdentificationIcon,
+  BuildingStorefrontIcon,
+  MapPinIcon,
+  ArrowPathIcon
+} from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
 import { useAuth } from "../../hooks/userAuth";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../../components/Spinner";
 
 const OfficerDrafts = () => {
   const { profile, loading: authLoading } = useAuth();
@@ -11,9 +21,13 @@ const OfficerDrafts = () => {
   const [loading, setLoading] = useState(true);
 
   const navigate = useNavigate();
+  
+  // Use refs to track if data has been loaded
+  const hasLoadedRef = useRef(false);
+  const profileIdRef = useRef(null);
 
-  // Fetch drafts
-  const fetchDrafts = async () => {
+  // Memoized fetch function
+  const fetchDrafts = useCallback(async () => {
     if (!profile?.id) {
       console.warn("No profile ID found. Skipping fetch.");
       setLoading(false);
@@ -25,7 +39,7 @@ const OfficerDrafts = () => {
       const { data, error } = await supabase
         .from("customers")
         .select(
-          "id, prefix, Firstname, Surname, mobile, id_number, business_name, business_location, form_status, created_by"
+          "id, prefix, Firstname, Surname, mobile, id_number, business_name, business_location, form_status, created_by, created_at"
         )
         .eq("form_status", "draft")
         .eq("status", "pending")
@@ -45,153 +59,171 @@ const OfficerDrafts = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [profile?.id]);
 
-  // FIX: Use profile.id instead of profile object to prevent infinite re-renders
+  // Load data only once when profile becomes available
   useEffect(() => {
-    if (!authLoading && profile?.id) {
+    if (profile?.id && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
+      profileIdRef.current = profile.id;
       fetchDrafts();
     }
-  }, [profile?.id, authLoading]); // Only depend on profile.id, not the entire profile object
+    
+    // If profile changes (user switches accounts), reload
+    if (profile?.id && profileIdRef.current !== profile.id) {
+      hasLoadedRef.current = false;
+      profileIdRef.current = profile.id;
+      fetchDrafts();
+    }
+  }, [profile?.id, fetchDrafts]);
 
-  const handleViewDraft = (draftId) => {
+  const handleViewDraft = useCallback((draftId) => {
     navigate(`/officer/drafts/view/${draftId}`);
-  };
+  }, [navigate]);
 
-  const renderContent = () => {
-    if (loading) {
-      return (
-        <div className="flex justify-center items-center py-20">
-          <div className="text-center">
-            <Loader2 className="animate-spin h-8 w-8 mx-auto mb-3" style={{ color: "#586ab1" }} />
-            <p className="text-gray-500 text-sm">Loading drafts...</p>
-          </div>
-        </div>
-      );
-    }
+  const handleRefresh = useCallback(() => {
+    fetchDrafts();
+  }, [fetchDrafts]);
 
-    if (drafts.length === 0) {
-      return (
-        <div className="text-center py-16 bg-white rounded-lg shadow-sm">
-          <FileText className="h-16 w-16 mx-auto mb-4 text-gray-300" />
-          <p className="text-gray-500 text-lg font-medium mb-2">No drafts available</p>
-          <p className="text-gray-400 text-sm">Draft entries will appear here</p>
-        </div>
-      );
-    }
-
+  if (authLoading || loading) {
     return (
-      <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead style={{ backgroundColor: "#586ab1" }}>
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Prefix
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  First Name
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Surname
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Mobile
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  ID Number
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Business
-                </th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-white uppercase tracking-wider">
-                  Location
-                </th>
-                <th className="px-6 py-4 text-center text-xs font-semibold text-white uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {drafts.map((draft, index) => (
-                <tr
-                  key={draft.id}
-                  className={`transition-colors hover:bg-gray-50 ${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  }`}
-                >
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {draft.prefix || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                    {draft.Firstname || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700 font-medium">
-                    {draft.Surname || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {draft.mobile || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {draft.id_number || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {draft.business_name || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                    {draft.business_location || "N/A"}
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-center">
-                    <button
-                      onClick={() => handleViewDraft(draft.id)}
-                      className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-md transition-all duration-200 hover:shadow-md"
-                      style={{ backgroundColor: "#586ab1" }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.backgroundColor = "#4a5a9d";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.backgroundColor = "#586ab1";
-                      }}
-                    >
-                      <Eye className="h-4 w-4" />
-                      <span>View</span>
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-    );
-  };
-
-  if (authLoading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <div className="text-center">
-          <Loader2 className="animate-spin h-10 w-10 mx-auto mb-3" style={{ color: "#586ab1" }} />
-          <p className="text-gray-500">Loading...</p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading drafts..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-     <div className="max-w-7xl mx-auto">
-  {/* Header */}
-  <div className="mb-6 flex justify-between items-center">
-    <h1 className="text-sm text-slate-600">Customer Drafts</h1>
-    <p className="text-xs font-bold" style={{ color: "#586ab1" }}>
-      {drafts.length}
-    </p>
-  </div>
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      {/* Header */}
+      <div className="mb-4 flex justify-between items-center">
+        <h1 className="text-xs text-slate-500 font-medium">Customer Drafts</h1>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-md bg-white border border-gray-200 shadow-sm">
+            <DocumentTextIcon className="h-4 w-4 text-gray-500" />
+            <span className="text-xs font-semibold text-slate-700">
+              {drafts.length} Draft{drafts.length !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <button 
+            onClick={handleRefresh}
+            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+            style={{ 
+              backgroundColor: "#586ab1",
+              color: "white",
+              borderColor: "#586ab1"
+            }}
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
+      </div>
 
-  {/* Content */}
-  {renderContent()}
-</div>
-
+      {/* Content */}
+      {drafts.length === 0 ? (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="text-center py-16">
+            <DocumentTextIcon className="h-16 w-16 mx-auto mb-4 text-gray-300" />
+            <h3 className="text-sm font-medium text-gray-900 mb-2">No drafts available</h3>
+            <p className="text-xs text-gray-500">Draft entries will appear here</p>
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="overflow-x-auto">
+            <table className="w-full whitespace-nowrap">
+              <thead>
+                <tr style={{ backgroundColor: "#fff" }}>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <UserIcon className="h-3 w-3" />
+                      Prefix
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    First Name
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    Surname
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <PhoneIcon className="h-3 w-3" />
+                      Mobile
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <IdentificationIcon className="h-3 w-3" />
+                      ID Number
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <BuildingStorefrontIcon className="h-3 w-3" />
+                      Business
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    <div className="flex items-center gap-1">
+                      <MapPinIcon className="h-3 w-3" />
+                      Location
+                    </div>
+                  </th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {drafts.map((draft) => (
+                  <tr
+                    key={draft.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                  >
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {draft.prefix || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap">
+                      {draft.Firstname || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap">
+                      {draft.Surname || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {draft.mobile || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {draft.id_number || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {draft.business_name || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {draft.business_location || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleViewDraft(draft.id)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md transition inline-flex items-center gap-1"
+                        style={{ 
+                          backgroundColor: "#586ab1",
+                          color: "white",
+                          borderColor: "#586ab1"
+                        }}
+                      >
+                        <EyeIcon className="h-4 w-4" />
+                        View
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

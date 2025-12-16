@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   UserPlusIcon,
   MagnifyingGlassIcon,
@@ -14,7 +14,7 @@ import {
   TagIcon,
   ArrowUpIcon,
   ArrowDownIcon,
-  XCircleIcon,
+  XMarkIcon,
   CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../hooks/userAuth";
@@ -22,6 +22,7 @@ import { supabase } from "../supabaseClient";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import { useNavigate } from 'react-router-dom';
+import Spinner from "../components/Spinner.jsx";
 
 const Leads = () => {
   const [leads, setLeads] = useState([]);
@@ -29,6 +30,7 @@ const Leads = () => {
   const navigate = useNavigate();
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
   const [statusFilter, setStatusFilter] = useState("all");
@@ -42,6 +44,9 @@ const Leads = () => {
     status: "Cold",
   });
 
+  // Use ref to track if data has been fetched
+  const hasFetchedData = useRef(false);
+
   const handleConvertToCustomer = (lead) => {
     navigate('/officer/customer-form', { 
       state: { 
@@ -54,7 +59,12 @@ const Leads = () => {
   //  Fetch leads for logged-in officer
   const fetchLeads = async () => {
     try {
-      if (!profile?.id) return;
+      if (!profile?.id) {
+        setIsLoading(false);
+        return;
+      }
+
+      setIsLoading(true);
 
       const { data, error } = await supabase
         .from("leads")
@@ -70,11 +80,17 @@ const Leads = () => {
     } catch (err) {
       console.error("Error fetching leads:", err);
       toast.error("Failed to fetch leads");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    if (profile) fetchLeads();
+    // Only fetch data once when profile is available
+    if (profile && !hasFetchedData.current) {
+      hasFetchedData.current = true;
+      fetchLeads();
+    }
   }, [profile]);
 
   // Handle form changes
@@ -175,7 +191,7 @@ const Leads = () => {
         status: "Cold",
       });
       setShowLeadForm(false);
-      toast.success("Lead saved successfully ");
+      toast.success("Lead saved successfully");
     } catch (err) {
       console.error("Error saving lead:", err);
       toast.error("Error saving lead");
@@ -222,39 +238,38 @@ const Leads = () => {
   const getStatusIcon = (status) => {
     switch (status) {
       case "Hot":
-        return <FireIcon className="h-4 w-4 text-red-600" />;
+        return <FireIcon className="h-3 w-3" />;
       case "Warm":
-        return <SunIcon className="h-4 w-4 text-yellow-600" />;
+        return <SunIcon className="h-3 w-3" />;
       case "Cold":
-        return <CloudIcon className="h-4 w-4 text-blue-600" />;
+        return <CloudIcon className="h-3 w-3" />;
       default:
-        return <CloudIcon className="h-4 w-4 text-gray-600" />;
+        return <CloudIcon className="h-3 w-3" />;
     }
   };
 
   const getStatusColor = (status) => {
     switch (status) {
       case "Hot":
-        return "bg-red-100 text-red-700 border-red-200";
+        return "#ef4444";
       case "Warm":
-        return "bg-yellow-100 text-yellow-700 border-yellow-200";
+        return "#f59e0b";
       case "Cold":
-        return "bg-blue-100 text-blue-700 border-blue-200";
+        return "#3b82f6";
       default:
-        return "bg-gray-100 text-gray-700 border-gray-200";
+        return "#6b7280";
     }
   };
 
   // Sort button
-  const SortButton = ({ column, label, icon: Icon }) => (
+  const SortButton = ({ column, label }) => (
     <button
       onClick={() => handleSort(column)}
-      className="flex items-center gap-2 text-left hover:text-indigo-600 transition-colors group w-full"
+      className="flex items-center gap-1 text-left hover:text-gray-900 transition-colors w-full"
     >
-      <Icon className="h-4 w-4 text-gray-500 group-hover:text-indigo-600" />
-      <span className="font-medium">{label}</span>
+      <span>{label}</span>
       {sortConfig.key === column && (
-        <span className="ml-1">
+        <span>
           {sortConfig.direction === "asc" ? (
             <ArrowUpIcon className="h-3 w-3" />
           ) : (
@@ -265,25 +280,35 @@ const Leads = () => {
     </button>
   );
 
+  if (isLoading) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading leads..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-        {/* Controls */}
-        <div className="bg-white rounded-2xl shadow-lg p-6 mb-8 border border-indigo-100">
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        Leads Management
+      </h1>
+
+      {/* Search and Actions Bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             {/* Search and Filter */}
-            <div className="flex flex-col sm:flex-row gap-4 flex-1">
+            <div className="flex flex-col sm:flex-row gap-3 flex-1">
               {/* Search Bar */}
               <div className="relative flex-1 max-w-md">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MagnifyingGlassIcon className="h-4 w-4 text-gray-400" />
-                </div>
+                <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search leads..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="block w-full pl-9 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
+                  className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
 
@@ -292,30 +317,49 @@ const Leads = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-xl px-4 py-3 pr-10 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors h-[46px]"
+                  className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1.5 pr-8 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="all">All Status</option>
                   <option value="Hot">Hot</option>
                   <option value="Warm">Warm</option>
                   <option value="Cold">Cold</option>
                 </select>
-                <TagIcon className="absolute right-3 top-3.5 h-5 w-5 text-gray-400 pointer-events-none" />
+                <TagIcon className="absolute right-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
               </div>
             </div>
 
-            {/* Add Lead Button */}
-            <button
-              onClick={() => setShowLeadForm(true)}
-              className="flex items-center gap-2 px-4 py-3 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg h-[46px]"
-              style={{ backgroundColor: "#586ab1" }}              
-            >
-              <PlusIcon className="h-5 w-5" />
-              Add Lead
-            </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button
+                onClick={fetchLeads}
+                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+                style={{ 
+                  backgroundColor: "#586ab1",
+                  color: "white",
+                  borderColor: "#586ab1"
+                }}
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Refresh
+              </button>
+
+              <button
+                onClick={() => setShowLeadForm(true)}
+                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+                style={{ 
+                  backgroundColor: "#586ab1",
+                  color: "white",
+                  borderColor: "#586ab1"
+                }}
+              >
+                <PlusIcon className="h-4 w-4" />
+                Add Lead
+              </button>
+            </div>
           </div>
 
           {/* Results Info */}
-          {/* <div className="mt-4 flex items-center justify-between text-sm text-gray-600">
+          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
             <span>
               Showing {sortedLeads.length} of {leads.length} leads
             </span>
@@ -325,288 +369,294 @@ const Leads = () => {
                   setSearchTerm("");
                   setStatusFilter("all");
                 }}
-                className="text-indigo-600 hover:text-indigo-800 underline"
+                className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
               >
+                <XMarkIcon className="h-3 w-3" />
                 Clear filters
               </button>
             )}
-          </div> */}
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
-          {/* Total Leads Badge - Top Right */}
-          <div className="flex justify-end p-4 pb-0">
-            <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-50 to-green-50 rounded-xl border border-emerald-200">
-              <UserPlusIcon className="h-5 w-5 text-emerald-600" />
-              <span className="text-emerald-700 font-semibold text-sm">{leads.length} Total Leads</span>
-            </div>
           </div>
-
-          {sortedLeads.length === 0 ? (
-            <div className="p-12 text-center">
-              <UserPlusIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No leads found</h3>
-              <p className="text-gray-500 mb-6">
-                {searchTerm || statusFilter !== "all" 
-                  ? "No leads match your current filters. Try adjusting your search or filter criteria."
-                  : "Start building your pipeline by adding your first lead."
-                }
-              </p>
-              <button
-                onClick={() => setShowLeadForm(true)}
-                className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Your First Lead
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full table-auto border-collapse text-sm text-gray-700">
-                <thead>
-                  <tr className="bg-gradient-to-r from-indigo-50 to-blue-50 border-b border-indigo-100 text-xs uppercase tracking-wide text-gray-600">
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="Firstname" label="First Name" icon={UserCircleIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="Surname" label="Surname" icon={UserCircleIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="mobile" label="Phone" icon={DevicePhoneMobileIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="business_name" label="Business" icon={BuildingOffice2Icon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="business_type" label="Type" icon={TagIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="business_location" label="Location" icon={MapPinIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-left whitespace-nowrap">
-                      <SortButton column="status" label="Status" icon={TagIcon} />
-                    </th>
-                    <th className="p-4 font-semibold text-center whitespace-nowrap">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-
-                <tbody className="divide-y divide-gray-100">
-                  {sortedLeads.map((lead) => (
-                    <tr
-                      key={lead.id}
-                      className="hover:bg-gradient-to-r hover:from-indigo-50 hover:to-blue-50 transition-all duration-200 text-sm"
-                    >
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.Firstname}>
-                        {lead.Firstname}
-                      </td>
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.Surname}>
-                        {lead.Surname}
-                      </td>
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.mobile}>
-                        {lead.mobile}
-                      </td>
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.business_name}>
-                        {lead.business_name}
-                      </td>
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.business_type}>
-                        {lead.business_type}
-                      </td>
-                      <td className="p-4 truncate whitespace-nowrap" title={lead.business_location}>
-                        {lead.business_location}
-                      </td>
-                      <td className="p-4 whitespace-nowrap">
-                        <div
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(
-                            lead.status
-                          )}`}
-                        >
-                          {getStatusIcon(lead.status)}
-                          {lead.status}
-                        </div>
-                      </td>
-                      <td className="p-4 whitespace-nowrap text-center">
-                        <button
-                          onClick={() => handleConvertToCustomer(lead)}
-                          className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                          style={{ backgroundColor: "#586ab1" }}
-                          title="Convert to Customer"
-                        >
-                          <ArrowPathIcon className="h-3.5 w-3.5" />
-                          Convert
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
         </div>
+      </div>
 
-        {/* Add Lead Modal */}
-        {showLeadForm && (
-          <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 m-4 max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-sm font-semibold bg-gradient-to-r from-slate-700 to-slate-700 bg-clip-text text-transparent">
-                  Add New Lead
-                </h2>
-                <button
-                  onClick={() => setShowLeadForm(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <XCircleIcon className="h-4 w-4" />
-                </button>
-              </div>
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        {sortedLeads.length === 0 ? (
+          <div className="p-8 text-center">
+            <UserPlusIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+            <h3 className="text-sm font-medium text-gray-900 mb-2">No leads found</h3>
+            <p className="text-xs text-gray-500 mb-4">
+              {searchTerm || statusFilter !== "all" 
+                ? "No leads match your current filters. Try adjusting your search or filter criteria."
+                : "Start building your pipeline by adding your first lead."
+              }
+            </p>
+            <button
+              onClick={() => setShowLeadForm(true)}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors mx-auto"
+              style={{ 
+                backgroundColor: "#586ab1",
+                color: "white"
+              }}
+            >
+              <PlusIcon className="h-4 w-4" />
+              Add Your First Lead
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full whitespace-nowrap">
+              <thead>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="Firstname" label="First Name" />
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="Surname" label="Surname" />
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="mobile" label="Phone" />
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="business_name" label="Business" />
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="business_type" label="Type" />
+                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="business_location" label="Location" />
+                  </th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    <SortButton column="status" label="Status" />
+                  </th>
+                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
 
-              <form onSubmit={addLead} className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      First Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="Firstname"
-                      value={newLead.Firstname}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-colors"
-                      placeholder="Enter first name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Surname *
-                    </label>
-                    <input
-                      type="text"
-                      name="Surname"
-                      value={newLead.Surname}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="Enter surname"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Phone Number *
-                    </label>
-                    <input
-                      type="text"
-                      name="mobile"
-                      value={newLead.mobile}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Status
-                    </label>
-                    <select
-                      name="status"
-                      value={newLead.status}
-                      onChange={handleChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                    >
-                      <option value="Hot">Hot</option>
-                      <option value="Warm">Warm</option>
-                      <option value="Cold">Cold</option>
-                    </select>
-                  </div>
-
-                  <div className="md:col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Business Name *
-                    </label>
-                    <input
-                      type="text"
-                      name="business_name"
-                      value={newLead.business_name}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="Enter business name"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Business Type *
-                    </label>
-                    <input
-                      type="text"
-                      name="business_type"
-                      value={newLead.business_type}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="e.g., Retail, Restaurant, Service"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Business Location *
-                    </label>
-                    <input
-                      type="text"
-                      name="business_location"
-                      value={newLead.business_location}
-                      onChange={handleChange}
-                      required
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors"
-                      placeholder="Enter business location"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-                  <button
-                    type="button"
-                    onClick={() => setShowLeadForm(false)}
-                    className="px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors font-medium"
+              <tbody>
+                {sortedLeads.map((lead) => (
+                  <tr
+                    key={lead.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                   >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isSaving}
-                    className={`flex items-center gap-2 px-6 py-3 text-white rounded-xl font-medium transition-all ${
-                      isSaving
-                        ? "bg-gray-400 cursor-not-allowed"
-                        : "bg-gradient-to-r from-blue-300 to-blue-300 hover:from-blue-300 hover:to-green-500 shadow-lg hover:shadow-xl"
-                    }`}
-                  >
-                    {isSaving ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-                        Saving...
-                      </>
-                    ) : (
-                      <>
-                        <CheckCircleIcon className="h-5 w-5" />
-                        Save Lead
-                      </>
-                    )}
-                  </button>
-                </div>
-              </form>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Firstname}>
+                      {lead.Firstname}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Surname}>
+                      {lead.Surname}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap" title={lead.mobile}>
+                      {lead.mobile}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_name}>
+                      {lead.business_name}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_type}>
+                      {lead.business_type}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_location}>
+                      {lead.business_location}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span 
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        style={{ backgroundColor: getStatusColor(lead.status) }}
+                      >
+                        {getStatusIcon(lead.status)}
+                        {lead.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <button
+                        onClick={() => handleConvertToCustomer(lead)}
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                        style={{ backgroundColor: "#586ab1" }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = "#4a5a9d"}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = "#586ab1"}
+                        title="Convert to Customer"
+                      >
+                        <ArrowPathIcon className="h-3 w-3" />
+                        Convert
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {/* Pagination info */}
+        {sortedLeads.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-200">
+            <div className="text-xs text-gray-600">
+              Total leads: <span className="font-medium">{leads.length}</span>
             </div>
           </div>
         )}
       </div>
+
+      {/* Add Lead Modal */}
+      {showLeadForm && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white w-full max-w-2xl rounded-lg shadow-xl p-6 m-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-gray-800">
+                Add New Lead
+              </h2>
+              <button
+                onClick={() => setShowLeadForm(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form onSubmit={addLead} className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    First Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="Firstname"
+                    value={newLead.Firstname}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter first name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Surname *
+                  </label>
+                  <input
+                    type="text"
+                    name="Surname"
+                    value={newLead.Surname}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter surname"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="text"
+                    name="mobile"
+                    value={newLead.mobile}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter phone number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    name="status"
+                    value={newLead.status}
+                    onChange={handleChange}
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="Hot">Hot</option>
+                    <option value="Warm">Warm</option>
+                    <option value="Cold">Cold</option>
+                  </select>
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Business Name *
+                  </label>
+                  <input
+                    type="text"
+                    name="business_name"
+                    value={newLead.business_name}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter business name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Business Type *
+                  </label>
+                  <input
+                    type="text"
+                    name="business_type"
+                    value={newLead.business_type}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., Retail, Restaurant, Service"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Business Location *
+                  </label>
+                  <input
+                    type="text"
+                    name="business_location"
+                    value={newLead.business_location}
+                    onChange={handleChange}
+                    required
+                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Enter business location"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setShowLeadForm(false)}
+                  className="px-4 py-2 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isSaving}
+                  className="flex items-center gap-1.5 px-4 py-2 text-xs text-white rounded-md font-medium transition-all"
+                  style={{ 
+                    backgroundColor: isSaving ? "#9ca3af" : "#586ab1",
+                    cursor: isSaving ? "not-allowed" : "pointer"
+                  }}
+                >
+                  {isSaving ? (
+                    <>
+                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircleIcon className="h-4 w-4" />
+                      Save Lead
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

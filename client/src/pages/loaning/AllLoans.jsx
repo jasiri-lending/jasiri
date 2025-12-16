@@ -1,32 +1,31 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import {
-  CurrencyDollarIcon,
+  MagnifyingGlassIcon,
+  FunnelIcon,
+  XMarkIcon,
+  ArrowPathIcon,
+  EyeIcon,
+  ChatBubbleLeftRightIcon,
   CalendarIcon,
   ClockIcon,
-  XCircleIcon,
-  BanknotesIcon,
-  EyeIcon,
-  FunnelIcon,
   BuildingOfficeIcon,
-  ChatBubbleLeftRightIcon,
-  XMarkIcon,
+  UserIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  UserIcon,
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../../components/Spinner";
 
 const AllLoans = () => {
-  const { profile, loading: authLoading } = useAuth();
-  const [allROs, setAllROs] = useState([]);
+  const { profile } = useAuth();
   const [loans, setLoans] = useState([]);
+  const [customers, setCustomers] = useState({}); // Store customer data
   const [filteredLoans, setFilteredLoans] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [regions, setRegions] = useState([]);
-  const [relationshipOfficers, setRelationshipOfficers] = useState([]);
-  const [allBranches, setAllBranches] = useState([]);
+  const [branches, setBranches] = useState({});
+  const [regions, setRegions] = useState({});
+  const [roUsers, setRoUsers] = useState({});
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState("all");
   const [regionFilter, setRegionFilter] = useState("all");
@@ -34,9 +33,11 @@ const AllLoans = () => {
   const [roFilter, setRoFilter] = useState("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
+
+  const navigate = useNavigate();
+  const hasFetchedData = useRef(false);
 
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
   const isCustomerService = profile?.role === "customer_service_officer";
@@ -44,19 +45,15 @@ const AllLoans = () => {
   const isBranchManager = profile?.role === "branch_manager";
   const isRelationshipOfficer = profile?.role === "relationship_officer";
   const isSuperAdmin = profile?.role === "super_admin";
-
   const isGlobalRole = isCreditAnalyst || isCustomerService || isSuperAdmin;
 
-  const navigate = useNavigate();
-
   useEffect(() => {
-    if (profile) {
-      fetchRegions();
-      fetchBranches();
-      fetchRelationshipOfficers();
+    if (profile && !hasFetchedData.current) {
+      hasFetchedData.current = true;
+      fetchReferenceData();
       fetchLoans();
     }
-  }, [profile]);
+  }, [profile?.id]);
 
   useEffect(() => {
     filterLoans();
@@ -99,172 +96,67 @@ const AllLoans = () => {
     return pageNumbers;
   };
 
-  const fetchRegions = async () => {
+  const fetchReferenceData = async () => {
     try {
-      if (isGlobalRole) {
-        // Super Admin, Credit Analyst, Customer Service can see all regions
-        const { data, error } = await supabase.from("regions").select("id, name").order("name");
-        if (error) throw error;
-        setRegions(data || []);
-      } else if (isRegionalManager && profile?.region_id) {
-        // Regional Manager can only see their assigned region
-        const { data, error } = await supabase.from("regions").select("id, name").eq("id", profile.region_id);
-        if (error) throw error;
-        setRegions(data || []);
-        setRegionFilter(profile.region_id.toString()); // Auto-select their region
-      } else if (isBranchManager && profile?.branch_id) {
-        // Branch Manager - get their region from branch
-        const { data: branchData, error: branchError } = await supabase
-          .from("branches")
-          .select("region_id")
-          .eq("id", profile.branch_id)
-          .single();
-        
-        if (branchError) throw branchError;
-        
-        if (branchData?.region_id) {
-          const { data: regionData, error: regionError } = await supabase
-            .from("regions")
-            .select("id, name")
-            .eq("id", branchData.region_id);
-          
-          if (regionError) throw regionError;
-          setRegions(regionData || []);
-          setRegionFilter(branchData.region_id.toString()); // Auto-select their region
-        }
-      } else if (isRelationshipOfficer && profile?.branch_id) {
-        // Relationship Officer - get their region from branch
-        const { data: branchData, error: branchError } = await supabase
-          .from("branches")
-          .select("region_id")
-          .eq("id", profile.branch_id)
-          .single();
-        
-        if (branchError) throw branchError;
-        
-        if (branchData?.region_id) {
-          const { data: regionData, error: regionError } = await supabase
-            .from("regions")
-            .select("id, name")
-            .eq("id", branchData.region_id);
-          
-          if (regionError) throw regionError;
-          setRegions(regionData || []);
-          setRegionFilter(branchData.region_id.toString()); // Auto-select their region
-        }
-      }
-    } catch (error) {
-      console.error("Error fetching regions:", error);
-    }
-  };
+      const [branchesResponse, regionsResponse, usersResponse, customersResponse] = await Promise.all([
+        supabase.from('branches').select('id, name, region_id'),
+        supabase.from('regions').select('id, name'),
+        supabase.from('users').select('id, full_name'),
+        supabase.from('customers').select('id, prefix, "Firstname", "Surname", "Middlename", id_number, mobile') // Use exact column names
+      ]);
 
-  const fetchBranches = async () => {
-    try {
-      let query = supabase.from("branches").select("id, name, region_id").order("name");
-      
-      if (isBranchManager && profile?.branch_id) {
-        // Branch Manager can only see their branch
-        query = query.eq("id", profile.branch_id);
-        setBranchFilter(profile.branch_id.toString()); // Auto-select their branch
-      } else if (isRegionalManager && profile?.region_id) {
-        // Regional Manager can see all branches in their region
-        query = query.eq("region_id", profile.region_id);
-      } else if (isRelationshipOfficer && profile?.branch_id) {
-        // Relationship Officer can only see their branch
-        query = query.eq("id", profile.branch_id);
-        setBranchFilter(profile.branch_id.toString()); // Auto-select their branch
+      if (branchesResponse.data) {
+        const branchesMap = {};
+        branchesResponse.data.forEach(branch => {
+          branchesMap[branch.id] = { name: branch.name, region_id: branch.region_id };
+        });
+        setBranches(branchesMap);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
-      setAllBranches(data || []);
-      setBranches(data || []);
-    } catch (error) {
-      console.error("Error fetching branches:", error);
-    }
-  };
-
-  const fetchRelationshipOfficers = async () => {
-    try {
-      let query = supabase
-        .from("users")
-        .select(`
-          id,
-          full_name,
-          role,
-          profiles:profiles_user_id_fkey (
-            branch_id,
-            region_id
-          )
-        `)
-        .eq("role", "relationship_officer")
-        .order("full_name");
-
-      if (isBranchManager && profile?.branch_id) {
-        // Branch Manager can only see ROs in their branch
-        query = query.eq("profiles.branch_id", profile.branch_id);
-      } else if (isRegionalManager && profile?.region_id) {
-        // Regional Manager can see all ROs in their region
-        query = query.eq("profiles.region_id", profile.region_id);
-      } else if (isRelationshipOfficer) {
-        // Relationship Officer can only see themselves
-        query = query.eq("id", profile.id);
-        setRoFilter(profile.id.toString()); // Auto-select themselves
+      if (regionsResponse.data) {
+        const regionsMap = {};
+        regionsResponse.data.forEach(region => {
+          regionsMap[region.id] = region.name;
+        });
+        setRegions(regionsMap);
       }
 
-      const { data, error } = await query;
-      if (error) throw error;
+      if (usersResponse.data) {
+        const usersMap = {};
+        usersResponse.data.forEach(user => {
+          usersMap[user.id] = user.full_name;
+        });
+        setRoUsers(usersMap);
+      }
 
-      const formatted = data.map((ro) => ({
-        id: ro.id,
-        full_name: ro.full_name,
-        branch_id: ro.profiles?.branch_id,
-        region_id: ro.profiles?.region_id,
-      }));
-
-      setAllROs(formatted);
-      setRelationshipOfficers(formatted);
+      if (customersResponse.data) {
+        const customersMap = {};
+        customersResponse.data.forEach(customer => {
+          customersMap[customer.id] = {
+            fullName: `${customer.prefix ? customer.prefix + ' ' : ''}${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.replace(/\s+/g, ' ').trim(),
+            idNumber: customer.id_number,
+            mobile: customer.mobile
+          };
+        });
+        setCustomers(customersMap);
+      }
     } catch (error) {
-      console.error("Error fetching relationship officers:", error);
+      console.error("Error fetching reference data:", error);
     }
   };
 
   const fetchLoans = async () => {
+    if (!profile) {
+      console.warn("No profile available, skipping fetch");
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     try {
       let query = supabase
         .from("loans")
-        .select(`
-          *,
-          customers (
-            Firstname,
-            Surname,
-            mobile,
-            id_number,
-            branches (
-              id,
-              name,
-              region_id,
-              regions (
-                id,
-                name
-              )
-            )
-          ),
-       booked_by_user:users!loans_created_by_fkey(
-  id,
-  full_name
-),
-
-          branch:branches!loans_branch_id_fkey (
-            id,
-            name,
-            region_id,
-            regions (
-              id,
-              name
-            )
-          )
-        `)
+        .select("*")
         .order("created_at", { ascending: false });
 
       // Role-based filtering for loans
@@ -291,111 +183,47 @@ const AllLoans = () => {
     }
   };
 
-  const handleRegionChange = (regionId) => {
-    setRegionFilter(regionId);
-    setBranchFilter("all");
-    setRoFilter("all");
-
-    if (regionId === "all") {
-      // Show all branches and ROs when "All Regions" is selected
-      setBranches(allBranches);
-      setRelationshipOfficers(allROs);
-      return;
-    }
-
-    // Filter branches by selected region
-    const filteredBranches = allBranches.filter((b) => b.region_id?.toString() === regionId);
-    setBranches(filteredBranches);
-
-    // Filter ROs by selected region
-    const filteredROs = allROs.filter((ro) => ro.region_id?.toString() === regionId);
-    setRelationshipOfficers(filteredROs);
-  };
-
-  const handleBranchChange = (branchId) => {
-    setBranchFilter(branchId);
-    setRoFilter("all");
-
-    if (branchId === "all") {
-      // If "All Branches" is selected, show ROs filtered by current region (if any)
-      if (regionFilter !== "all") {
-        setRelationshipOfficers(allROs.filter((ro) => ro.region_id?.toString() === regionFilter));
-      } else {
-        setRelationshipOfficers(allROs);
-      }
-      return;
-    }
-
-    // Filter ROs by selected branch
-    const filteredROs = allROs.filter((ro) => ro.branch_id?.toString() === branchId);
-    setRelationshipOfficers(filteredROs);
-  };
-
-  const clearFilters = () => {
-    setStatusFilter("all");
-    setRegionFilter("all");
-    setBranchFilter("all");
-    setRoFilter("all");
-    setSearchTerm("");
-
-    // Reset dropdown options based on user role
-    setBranches(allBranches);
-    
-    if (isRegionalManager && profile?.region_id) {
-      // Regional Manager should only see their region's ROs after clear
-      setRelationshipOfficers(allROs.filter((ro) => ro.region_id?.toString() === profile.region_id.toString()));
-    } else if (isBranchManager && profile?.branch_id) {
-      // Branch Manager should only see their branch's ROs after clear
-      setRelationshipOfficers(allROs.filter((ro) => ro.branch_id?.toString() === profile.branch_id.toString()));
-    } else if (isRelationshipOfficer) {
-      // Relationship Officer should only see themselves after clear
-      setRelationshipOfficers(allROs.filter((ro) => ro.id === profile.id));
-      setRoFilter(profile.id.toString());
-    } else {
-      setRelationshipOfficers(allROs);
-    }
-    
-    setCurrentPage(1);
-  };
-
   const filterLoans = () => {
     let filtered = loans;
 
     if (statusFilter !== "all") filtered = filtered.filter((loan) => loan.status === statusFilter);
-    if (regionFilter !== "all") filtered = filtered.filter((loan) => loan.branch?.region_id?.toString() === regionFilter);
+    if (regionFilter !== "all") filtered = filtered.filter((loan) => loan.branch_id && branches[loan.branch_id]?.region_id?.toString() === regionFilter);
     if (branchFilter !== "all") filtered = filtered.filter((loan) => loan.branch_id?.toString() === branchFilter);
     if (roFilter !== "all") filtered = filtered.filter((loan) => loan.booked_by?.toString() === roFilter);
 
     if (searchTerm) {
       filtered = filtered.filter(
-        (loan) =>
-          loan.customers?.Firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          loan.customers?.Surname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          loan.customers?.mobile?.includes(searchTerm) ||
-          loan.id?.toString().includes(searchTerm)
+        (loan) => {
+          const customer = customers[loan.customer_id];
+          return (
+            (customer?.fullName?.toLowerCase().includes(searchTerm.toLowerCase())) ||
+            (customer?.idNumber?.toString().includes(searchTerm)) ||
+            (customer?.mobile?.includes(searchTerm)) ||
+            loan.id?.toString().includes(searchTerm)
+          );
+        }
       );
     }
 
     setFilteredLoans(filtered);
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "booked":
-        return <ClockIcon className="h-4 w-4 text-amber-600" />;
-      case "bm_review":
-        return <ClockIcon className="h-4 w-4 text-orange-600" />;
-      case "rm_review":
-        return <ClockIcon className="h-4 w-4 text-blue-600" />;
-      case "ca_review":
-        return <ClockIcon className="h-4 w-4 text-purple-600" />;
-      case "disbursed":
-        return <BanknotesIcon className="h-4 w-4 text-emerald-600" />;
-      case "rejected":
-        return <XCircleIcon className="h-4 w-4 text-red-600" />;
-      default:
-        return <ClockIcon className="h-4 w-4 text-gray-600" />;
-    }
+  const getCustomerName = (customerId) => {
+    if (!customerId) return "N/A";
+    const customer = customers[customerId];
+    return customer?.fullName || "N/A";
+  };
+
+  const getCustomerIdNumber = (customerId) => {
+    if (!customerId) return "N/A";
+    const customer = customers[customerId];
+    return customer?.idNumber || "N/A";
+  };
+
+  const getCustomerMobile = (customerId) => {
+    if (!customerId) return "N/A";
+    const customer = customers[customerId];
+    return customer?.mobile || "N/A";
   };
 
   const getStatusBadge = (status) => {
@@ -420,489 +248,420 @@ const AllLoans = () => {
     rejected: loans.filter((l) => l.status === "rejected").length,
   };
 
+  const handleRegionChange = (regionId) => {
+    setRegionFilter(regionId);
+    setBranchFilter("all");
+    setRoFilter("all");
+  };
+
+  const handleBranchChange = (branchId) => {
+    setBranchFilter(branchId);
+    setRoFilter("all");
+  };
+
+  const clearFilters = () => {
+    setStatusFilter("all");
+    setRegionFilter("all");
+    setBranchFilter("all");
+    setRoFilter("all");
+    setSearchTerm("");
+    setCurrentPage(1);
+  };
+
+  const handleRefresh = () => {
+    fetchLoans();
+    fetchReferenceData();
+  };
+
   const handleViewLoan = (loanId) => navigate(`/loans/${loanId}`);
   const handleAddInteraction = (loanId) => navigate(`/loans/${loanId}/interactions`);
 
-  if (authLoading || loading) {
+  if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading loans...</p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading user information..." />
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading loans..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
-      <div className="max-w-7xl mx-auto py-4 px-4 sm:px-6 lg:px-8">
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-indigo-100">
-          <div className="flex flex-col gap-4">
-            {/* First Row - Search and Action Buttons */}
-            <div className="flex flex-col md:flex-row md:items-end gap-4">
-              {/* Search Input */}
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Search Loans
-                </label>
-                <input
-                  type="text"
-                  placeholder="Search by customer name, mobile, or loan ID..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                />
-              </div>
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        All Loans
+      </h1>
 
-              {/* Action Buttons */}
-              <div className="flex items-end space-x-2">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`flex items-center px-4 py-3 border rounded-lg transition-colors text-sm ${
-                    showFilters
-                      ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                  }`}
-                >
-                  <FunnelIcon className="h-5 w-5 mr-2" />
-                  Filters
-                  {(statusFilter !== "all" ||
-                    regionFilter !== "all" ||
-                    branchFilter !== "all" ||
-                    roFilter !== "all") && (
-                    <span className="ml-2 px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">
-                      {[
-                        statusFilter !== "all",
-                        regionFilter !== "all",
-                        branchFilter !== "all",
-                        roFilter !== "all",
-                      ].filter(Boolean).length}
-                    </span>
-                  )}
-                </button>
-              </div>
+      {/* Search and Actions Bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by customer name, ID number, mobile, or loan ID..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
+            
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2">
+              <button 
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border ${
+                  showFilters ? "border-blue-500 bg-blue-50 text-blue-700" : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                }`}
+              >
+                <FunnelIcon className="h-4 w-4" />
+                Filters
+              </button>
+              
+              <button 
+                onClick={handleRefresh}
+                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+                style={{ 
+                  backgroundColor: "#586ab1",
+                  color: "white",
+                  borderColor: "#586ab1"
+                }}
+              >
+                <ArrowPathIcon className="h-4 w-4" />
+                Refresh
+              </button>
+            </div>
+          </div>
 
-            {/* Second Row - Advanced Filters (Collapsible) */}
-            {showFilters && (
-              <div className="border-t pt-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                  {/* Region Filter - For global roles and regional managers */}
-                  {(isGlobalRole || isRegionalManager) && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Filter by Region
-                      </label>
-                      <select
-                        value={regionFilter}
-                        onChange={(e) => handleRegionChange(e.target.value)}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                      >
-                        <option value="all">All Regions</option>
-                        {regions.map((region) => (
-                          <option key={region.id} value={region.id.toString()}>
-                            {region.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Branch Filter - For global, regional, and branch managers */}
-                  {(isGlobalRole || isRegionalManager || isBranchManager) && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Filter by Branch
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <BuildingOfficeIcon className="h-5 w-5 text-gray-400" />
-                        <select
-                          value={branchFilter}
-                          onChange={(e) => handleBranchChange(e.target.value)}
-                          className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        >
-                          <option value="all">All Branches</option>
-                          {branches.map((branch) => (
-                            <option key={branch.id} value={branch.id.toString()}>
-                              {branch.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* RO Filter - For all roles except RO */}
-                  {!isRelationshipOfficer && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Filter by RO
-                      </label>
-                      <div className="flex items-center gap-2">
-                        <UserIcon className="h-5 w-5 text-gray-400" />
-                        <select
-                          value={roFilter}
-                          onChange={(e) => setRoFilter(e.target.value)}
-                          className="flex-1 p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
-                        >
-                          <option value="all">All ROs</option>
-                          {relationshipOfficers.map((ro) => (
-                            <option key={ro.id} value={ro.id.toString()}>
-                              {ro.full_name} 
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Status Filter - Available for all roles */}
+          {/* Filters Section */}
+          {showFilters && (
+            <>
+              <div className="mt-4 pt-4 border-t border-gray-200 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Region Filter */}
+                {(isGlobalRole || isRegionalManager) && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Filter by Status
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Region
                     </label>
                     <select
-                      value={statusFilter}
-                      onChange={(e) => setStatusFilter(e.target.value)}
-                      className="w-full p-3 border border-gray-300 rounded-lg focus:ring-indigo-500 focus:border-indigo-500 text-sm"
+                      value={regionFilter}
+                      onChange={(e) => handleRegionChange(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="all">All Status ({statusCounts.all})</option>
-                      <option value="booked">
-                        Booked ({statusCounts.booked})
-                      </option>
-                      <option value="bm_review">
-                        Pending BM ({statusCounts.bm_review})
-                      </option>
-                      <option value="rm_review">
-                        Pending RM ({statusCounts.rm_review})
-                      </option>
-                      <option value="ca_review">
-                        Pending Disbursement ({statusCounts.ca_review})
-                      </option>
-                      <option value="disbursed">
-                        Disbursed ({statusCounts.disbursed})
-                      </option>
-                      <option value="rejected">
-                        Rejected ({statusCounts.rejected})
-                      </option>
+                      <option value="all">All Regions</option>
+                      {Object.entries(regions).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
                     </select>
                   </div>
+                )}
 
-                  {/* Clear Filters Button */}
-                  <div className="flex items-end">
-                    <button
-                      onClick={clearFilters}
-                      className="flex items-center px-4 py-3 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                {/* Branch Filter */}
+                {(isGlobalRole || isRegionalManager || isBranchManager) && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Branch
+                    </label>
+                    <select
+                      value={branchFilter}
+                      onChange={(e) => handleBranchChange(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <XMarkIcon className="h-4 w-4 mr-1" />
-                      Clear Filters
-                    </button>
+                      <option value="all">All Branches</option>
+                      {Object.entries(branches)
+                        .filter(([id, branch]) => 
+                          regionFilter === "all" || branch.region_id?.toString() === regionFilter
+                        )
+                        .map(([id, branch]) => (
+                          <option key={id} value={id}>
+                            {branch.name}
+                          </option>
+                        ))}
+                    </select>
                   </div>
-                </div>
+                )}
 
-                {/* Active Filters Display */}
-                {(statusFilter !== "all" ||
-                  regionFilter !== "all" ||
-                  branchFilter !== "all" ||
-                  roFilter !== "all") && (
-                  <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
+                {/* RO Filter */}
+                {!isRelationshipOfficer && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Relationship Officer
+                    </label>
+                    <select
+                      value={roFilter}
+                      onChange={(e) => setRoFilter(e.target.value)}
+                      className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    >
+                      <option value="all">All ROs</option>
+                      {Object.entries(roUsers).map(([id, name]) => (
+                        <option key={id} value={id}>
+                          {name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">
+                    Status
+                  </label>
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full border border-gray-300 rounded-md px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">All Status ({statusCounts.all})</option>
+                    <option value="booked">Booked ({statusCounts.booked})</option>
+                    <option value="bm_review">Pending BM ({statusCounts.bm_review})</option>
+                    <option value="rm_review">Pending RM ({statusCounts.rm_review})</option>
+                    <option value="ca_review">Pending CA ({statusCounts.ca_review})</option>
+                    <option value="disbursed">Disbursed ({statusCounts.disbursed})</option>
+                    <option value="rejected">Rejected ({statusCounts.rejected})</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Active Filters */}
+              {(statusFilter !== "all" || regionFilter !== "all" || branchFilter !== "all" || roFilter !== "all") && (
+                <div className="mt-3 pt-3 border-t border-gray-200">
+                  <div className="flex flex-wrap gap-2">
                     <span className="text-xs text-gray-600">Active filters:</span>
                     {regionFilter !== "all" && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        Region:{" "}
-                        {regions.find((r) => r.id.toString() === regionFilter)
-                          ?.name}
-                        <button
-                          onClick={() => handleRegionChange("all")}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
-                        >
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                        Region: {regions[regionFilter]}
+                        <button onClick={() => handleRegionChange("all")} className="ml-1">
                           <XMarkIcon className="h-3 w-3" />
                         </button>
                       </span>
                     )}
                     {branchFilter !== "all" && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        Branch:{" "}
-                        {branches.find((b) => b.id.toString() === branchFilter)
-                          ?.name}
-                        <button
-                          onClick={() => handleBranchChange("all")}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
-                        >
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                        Branch: {branches[branchFilter]?.name}
+                        <button onClick={() => handleBranchChange("all")} className="ml-1">
                           <XMarkIcon className="h-3 w-3" />
                         </button>
                       </span>
                     )}
                     {roFilter !== "all" && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
-                        RO:{" "}
-                        {relationshipOfficers.find((ro) => ro.id.toString() === roFilter)
-                          ? `${relationshipOfficers.find((ro) => ro.id.toString() === roFilter).full_name}`
-                          : ""}
-                        <button
-                          onClick={() => setRoFilter("all")}
-                          className="ml-1 text-blue-600 hover:text-blue-800"
-                        >
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                        RO: {roUsers[roFilter]}
+                        <button onClick={() => setRoFilter("all")} className="ml-1">
                           <XMarkIcon className="h-3 w-3" />
                         </button>
                       </span>
                     )}
                     {statusFilter !== "all" && (
-                      <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                        Status:{" "}
-                        {statusFilter
-                          .replace(/_/g, " ")
-                          .replace(/\b\w/g, (l) => l.toUpperCase())}
-                        <button
-                          onClick={() => setStatusFilter("all")}
-                          className="ml-1 text-green-600 hover:text-green-800"
-                        >
+                      <span className="inline-flex items-center px-2 py-0.5 text-xs font-medium bg-green-100 text-green-800 rounded-full">
+                        Status: {statusFilter.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                        <button onClick={() => setStatusFilter("all")} className="ml-1">
                           <XMarkIcon className="h-3 w-3" />
                         </button>
                       </span>
                     )}
+                    <button
+                      onClick={clearFilters}
+                      className="text-xs text-gray-600 hover:text-gray-800 inline-flex items-center gap-1"
+                    >
+                      <XMarkIcon className="h-3 w-3" />
+                      Clear all
+                    </button>
                   </div>
-                )}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* Results Info */}
+       
         </div>
+      </div>
 
-        {/* Results Summary */}
-        {loans.length > 0 && (
-          <div className="mb-4 flex justify-between items-center">
-            <p className="text-xs text-gray-600">
-              Showing {indexOfFirstItem + 1}-{Math.min(indexOfLastItem, filteredLoans.length)} of {filteredLoans.length} loans
-              {(searchTerm ||
-                statusFilter !== "all" ||
-                regionFilter !== "all" ||
-                branchFilter !== "all" ||
-                roFilter !== "all") &&
-                " (filtered)"}
-            </p>
-            <p className="text-xs font-medium text-gray-900">
-              Total Records: <span className="text-indigo-600">{loans.length}</span>
-            </p>
-          </div>
-        )}
-
-        {/* Table - ALWAYS SHOW ALL COLUMNS */}
-        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-x-auto">
-          <table className="w-full border-collapse min-w-[1200px]">
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="w-full whitespace-nowrap">
             <thead>
-              <tr className="text-white text-xs" style={{ backgroundColor: "#586ab1" }}>
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Customer 
-                </th>
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  ID Number
-                </th>
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Phone
-                </th>
-                {/* ALWAYS SHOW REGION COLUMN */}
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Region
-                </th>
-                {/* ALWAYS SHOW BRANCH COLUMN */}
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Branch
-                </th>
-                {/* ALWAYS SHOW BOOKED BY COLUMN */}
-                <th className="px-3 py-3 text-left font-semibold whitespace-nowrap">
-                  Booked By
-                </th>
-                <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
-                  Product
-                </th>
-                <th className="px-3 py-3 text-right font-semibold whitespace-nowrap">
-                  Amount
-                </th>
-                <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
-                  Weeks
-                </th>
-                <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
-                  Status
-                </th>
-                <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
-                  Date
-                </th>
-                <th className="px-3 py-3 text-center font-semibold whitespace-nowrap">
-                  Actions
-                </th>
+              <tr style={{ backgroundColor: "#ffff" }}>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Customer</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">ID Number</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Mobile</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Region</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Branch</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Booked By</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Product</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-slate-600 whitespace-nowrap">Amount</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">Weeks</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">Status</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">Date</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
 
-            <tbody className="divide-y divide-gray-200 text-xs">
-              {currentLoans.map((loan, index) => (
-                <tr
-                  key={loan.id}
-                  className={`${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } hover:bg-indigo-50 transition-colors`}
-                >
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.customers?.Firstname} {loan.customers?.Surname}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.customers?.id_number}
-                  </td>
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.customers?.mobile}
-                  </td>
-                  {/* ALWAYS SHOW REGION DATA */}
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.branch?.regions?.name || loan.customers?.branches?.regions?.name || "N/A"}
-                  </td>
-                  {/* ALWAYS SHOW BRANCH DATA */}
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.branch?.name || loan.customers?.branches?.name || "N/A"}
-                  </td>
-                  {/* ALWAYS SHOW BOOKED BY DATA */}
-                  <td className="px-3 py-3 whitespace-nowrap">
-                    {loan.booked_by_user?.full_name || "N/A"}
-                  </td>
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    {loan.product_name || loan.product}
-                  </td>
-                  <td className="px-3 py-3 text-right font-bold whitespace-nowrap" style={{ color: "#10b981" }}>
-                    KES {loan.scored_amount?.toLocaleString()}
-                  </td>
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    <span className="px-2 py-0.5 rounded-full text-xs font-medium" style={{ backgroundColor: "#dbeafe", color: "#1e40af" }}>
-                      {loan.duration_weeks}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    <span
-                      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(
-                        loan.status
-                      )}`}
-                    >
-                      {getStatusIcon(loan.status)}
-                      <span className="whitespace-nowrap">
-                        {loan.status.replace(/_/g, " ")}
-                      </span>
-                    </span>
-                  </td>
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    <div className="flex items-center justify-center text-gray-600">
-                      <CalendarIcon className="h-3 w-3 mr-1" />
-                      {new Date(loan.created_at).toLocaleDateString("en-GB")}
-                    </div>
-                  </td>
-                  <td className="px-3 py-3 text-center whitespace-nowrap">
-                    <div className="flex items-center justify-center gap-2">
-                      <button
-                        onClick={() => handleViewLoan(loan.id)}
-                        className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                        style={{ backgroundColor: "#586ab1" }}
-                        title="View Loan Details"
-                      >
-                        <EyeIcon className="h-4 w-4" />
-                        view
-                      </button>
-                      <button
-                        onClick={() => handleAddInteraction(loan.id)}
-                        className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                        style={{ backgroundColor: "#586ab1" }}
-                        title="Add Interaction"
-                      >
-                        <ChatBubbleLeftRightIcon className="h-4 w-4" />
-                        log
-                      </button>
+            <tbody>
+              {filteredLoans.length === 0 ? (
+                <tr>
+                  <td colSpan="12" className="px-6 py-12 text-center">
+                    <div className="text-center">
+                      <BuildingOfficeIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">No loans found</h3>
+                      <p className="text-xs text-gray-500">
+                        {searchTerm || statusFilter !== "all" || regionFilter !== "all" || branchFilter !== "all" || roFilter !== "all"
+                          ? "Try adjusting your filters or search criteria."
+                          : "No loans available."}
+                      </p>
                     </div>
                   </td>
                 </tr>
-              ))}
+              ) : (
+                currentLoans.map((loan) => {
+                  const branch = branches[loan.branch_id];
+                  const regionName = branch ? regions[branch.region_id] : 'N/A';
+                  const branchName = branch?.name || 'N/A';
+                  const roName = roUsers[loan.booked_by] || 'N/A';
+                  const customerName = getCustomerName(loan.customer_id);
+                  const customerIdNumber = getCustomerIdNumber(loan.customer_id);
+                  const customerMobile = getCustomerMobile(loan.customer_id);
+
+                  return (
+                    <tr key={loan.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap">
+                        {customerName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {customerIdNumber}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {customerMobile}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {regionName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {branchName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {roName}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                        {loan.product_name || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 text-right font-medium whitespace-nowrap">
+                        {loan.scored_amount
+                          ? `Ksh ${Number(loan.scored_amount).toLocaleString()}`
+                          : "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 text-center whitespace-nowrap">
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
+                          {loan.duration_weeks || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium border ${getStatusBadge(loan.status)}`}>
+                          <ClockIcon className="h-3 w-3" />
+                          {loan.status.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-gray-700 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1">
+                          <CalendarIcon className="h-3 w-3 text-gray-400" />
+                          {loan.created_at ? new Date(loan.created_at).toLocaleDateString("en-GB") : "N/A"}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => handleViewLoan(loan.id)}
+                            className="p-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition"
+                            title="View Details"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </button>
+                          <button
+                            onClick={() => handleAddInteraction(loan.id)}
+                            className="p-1.5 rounded-md bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 transition"
+                            title="Add Interaction"
+                          >
+                            <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
-
-          {filteredLoans.length === 0 && (
-            <div className="text-center py-12">
-              <ClockIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900">
-                No loans found
-              </h3>
-              <p className="text-sm text-gray-600">
-                {searchTerm ||
-                statusFilter !== "all" ||
-                regionFilter !== "all" ||
-                branchFilter !== "all" ||
-                roFilter !== "all"
-                  ? "Try adjusting your filters or search criteria."
-                  : "No loans available."}
-              </p>
-            </div>
-          )}
         </div>
 
         {/* Pagination */}
         {filteredLoans.length > 0 && totalPages > 1 && (
-          <div className="mt-6 flex items-center justify-between bg-white rounded-xl shadow-lg p-4 border border-indigo-100">
-            <div className="flex items-center space-x-2">
-              <span className="text-xs text-gray-700">
-                Page {currentPage} of {totalPages}
-              </span>
-            </div>
-            
-            <div className="flex items-center space-x-2">
-              {/* Previous Button */}
-              <button
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className={`flex items-center px-3 py-2 text-xs font-medium rounded-lg border ${
-                  currentPage === 1
-                    ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
-                    : "text-white hover:shadow-lg transition-all duration-300"
-                }`}
-                style={currentPage === 1 ? {} : { backgroundColor: "#586ab1" }}
-              >
-                <ChevronLeftIcon className="h-4 w-4 mr-1" />
-                Previous
-              </button>
-
-              {/* Page Numbers */}
-              <div className="flex space-x-1">
-                {getPageNumbers().map((page, index) => (
-                  <button
-                    key={index}
-                    onClick={() => typeof page === 'number' && goToPage(page)}
-                    className={`min-w-[36px] px-3 py-2 text-xs font-medium rounded-lg border transition-all duration-300 ${
-                      page === currentPage
-                        ? "text-white border-transparent hover:shadow-lg"
-                        : page === '...'
-                        ? "text-gray-500 border-transparent cursor-default bg-white"
-                        : "text-gray-700 bg-white border-gray-300 hover:bg-gray-50"
-                    }`}
-                    style={page === currentPage ? { backgroundColor: "#586ab1" } : {}}
-                    disabled={page === '...'}
-                  >
-                    {page}
-                  </button>
-                ))}
+          <div className="px-4 py-3 border-t border-gray-200">
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="text-xs text-gray-600">
+                Page {currentPage} of {totalPages} • {filteredLoans.length} total records
               </div>
+              
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={goToPreviousPage}
+                  disabled={currentPage === 1}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border ${
+                    currentPage === 1
+                      ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
+                      : "text-white"
+                  }`}
+                  style={currentPage === 1 ? {} : { backgroundColor: "#586ab1", borderColor: "#586ab1" }}
+                >
+                  <ChevronLeftIcon className="h-3 w-3" />
+                  Previous
+                </button>
 
-              {/* Next Button */}
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className={`flex items-center px-3 py-2 text-xs font-medium rounded-lg border ${
-                  currentPage === totalPages
-                    ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
-                    : "text-white hover:shadow-lg transition-all duration-300"
-                }`}
-                style={currentPage === totalPages ? {} : { backgroundColor: "#586ab1" }}
-              >
-                Next
-                <ChevronRightIcon className="h-4 w-4 ml-1" />
-              </button>
-            </div>
+                <div className="flex items-center gap-1">
+                  {getPageNumbers().map((page, index) => (
+                    <button
+                      key={index}
+                      onClick={() => typeof page === 'number' && goToPage(page)}
+                      className={`min-w-[32px] px-2 py-1.5 text-xs font-medium rounded-md border ${
+                        page === currentPage
+                          ? "text-white border-transparent"
+                          : page === '...'
+                          ? "text-gray-500 border-transparent cursor-default"
+                          : "text-gray-700 bg-white border-gray-300 hover:bg-gray-50"
+                      }`}
+                      style={page === currentPage ? { backgroundColor: "#586ab1" } : {}}
+                      disabled={page === '...'}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
 
-            <div className="text-xs text-gray-500">
-              {itemsPerPage} per page
+                <button
+                  onClick={goToNextPage}
+                  disabled={currentPage === totalPages}
+                  className={`flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-md border ${
+                    currentPage === totalPages
+                      ? "text-gray-400 bg-gray-100 border-gray-200 cursor-not-allowed"
+                      : "text-white"
+                  }`}
+                  style={currentPage === totalPages ? {} : { backgroundColor: "#586ab1", borderColor: "#586ab1" }}
+                >
+                  Next
+                  <ChevronRightIcon className="h-3 w-3" />
+                </button>
+              </div>
             </div>
           </div>
         )}

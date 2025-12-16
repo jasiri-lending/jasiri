@@ -1,18 +1,14 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "../../hooks/userAuth";
 import { 
   MagnifyingGlassIcon, 
   EyeIcon,
-  CheckIcon,
-  ClockIcon,
-  UserIcon,
   PhoneIcon,
-  BuildingLibraryIcon,
-  MapIcon,
-  FunnelIcon
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from 'react-router-dom';
+import Spinner from "../../components/Spinner.jsx";
 
 const CallbackPending = () => {
   const [customers, setCustomers] = useState([]);
@@ -24,9 +20,12 @@ const CallbackPending = () => {
   const [regions, setRegions] = useState({});
   
   const navigate = useNavigate();
+  
+  // Use ref to track if data has been fetched
+  const hasFetchedData = useRef(false);
 
-  // Fetch branches and regions data - memoized to prevent re-creation
-  const fetchBranchesAndRegions = useCallback(async () => {
+  // Fetch branches and regions data
+  const fetchBranchesAndRegions = async () => {
     try {
       const [branchesResponse, regionsResponse] = await Promise.all([
         supabase.from('branches').select('id, name'),
@@ -51,9 +50,9 @@ const CallbackPending = () => {
     } catch (error) {
       console.error("Error fetching branches and regions:", error);
     }
-  }, []); // No dependencies - only created once
+  };
 
-  const fetchPendingCustomers = useCallback(async () => {
+  const fetchPendingCustomers = async () => {
     if (!profile?.region_id) {
       console.warn("No region in profile yet, skipping fetch");
       setLoading(false);
@@ -89,15 +88,16 @@ const CallbackPending = () => {
     } finally {
       setLoading(false);
     }
-  }, [profile?.region_id]); // Only depends on region_id
+  };
 
   // Initial data fetch - only runs once when profile is available
   useEffect(() => {
-    if (profile?.region_id) {
+    if (profile?.region_id && !hasFetchedData.current) {
+      hasFetchedData.current = true;
       fetchBranchesAndRegions();
       fetchPendingCustomers();
     }
-  }, [profile?.region_id, fetchBranchesAndRegions, fetchPendingCustomers]);
+  }, [profile?.region_id]);
 
   // Search functionality - separate effect
   useEffect(() => {
@@ -127,146 +127,167 @@ const CallbackPending = () => {
     navigate(`/customer/${customer.id}/details`);
   };
 
+  const handleRefresh = () => {
+    fetchPendingCustomers();
+  };
+
+  if (loading) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading pending callbacks..." />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-slate-100 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        Pending Callbacks
+      </h1>
+
+      {/* Search and Actions Bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="p-4">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search customers..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
             
-            {/* Left: Header */}
-            <div className="space-y-1">
-              <h1 className="text-lg  text-slate-600 tracking-tight">
-                Pending Callbacks
-              </h1>
-              <p className="text-sm text-slate-600 flex items-center gap-2">
-                <ClockIcon className="w-4 h-4" />
-                <span className="font-medium text-sm">{filteredCustomers.length}</span> 
-                {filteredCustomers.length === 1 ? 'customer' : 'customers'} awaiting review
-              </p>
-            </div>
+            {/* Refresh Button */}
+            <button 
+              onClick={handleRefresh}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+              style={{ 
+                backgroundColor: "#586ab1",
+                color: "white",
+                borderColor: "#586ab1"
+              }}
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+              Refresh
+            </button>
+          </div>
 
-            {/* Right: Search */}
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200/60 p-1 w-full lg:w-96 hover:shadow-md transition-shadow duration-200">
-              <div className="relative">
-                <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input
-                  type="text"
-                  placeholder="Search customers..."
-                  className="w-full pl-12 pr-4 py-3 text-sm border-0 rounded-lg focus:ring-2 focus:ring-blue-500/20 focus:outline-none transition-all placeholder-slate-400 bg-slate-50/50"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-            </div>
-
+          {/* Results Info */}
+          <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600">
+            <span>
+              Showing <span className="font-medium">{filteredCustomers.length}</span> of <span className="font-medium">{customers.length}</span> customers awaiting review
+            </span>
           </div>
         </div>
+      </div>
 
-   
+      {/* Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+        <div className="overflow-x-auto">
+          <table className="w-full whitespace-nowrap">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">ID Number</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Name</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Branch</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Region</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">Pre-Amount</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Mobile</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
 
-        {/* Table */}
-      <div className="bg-white rounded-xl shadow-lg border border-slate-200/60 overflow-hidden">
-  <div className="overflow-x-auto">
-    <table className="w-full whitespace-nowrap">
-      <thead className="bg-gradient-to-r from-slate-50 to-slate-100 border-b border-slate-200">
-        <tr>
-          {["ID Number", "Name", "Branch", "Region", "Pre-Amount", "Mobile", "Actions"].map((head) => (
-            <th
-              key={head}
-              className="px-6 py-4 text-left text-xs font-bold text-slate-700 uppercase tracking-wider"
-            >
-              {head}
-            </th>
-          ))}
-        </tr>
-      </thead>
-
-      <tbody className="divide-y divide-slate-100">
-        {loading ? (
-          <tr>
-            <td colSpan="7" className="px-6 py-16 text-center">
-              <div className="flex flex-col items-center justify-center">
-                <div className="relative">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 border-t-blue-600"></div>
-                </div>
-                <span className="mt-4 text-slate-600 text-sm font-medium">Loading customers...</span>
-              </div>
-            </td>
-          </tr>
-        ) : filteredCustomers.length === 0 ? (
-          <tr>
-            <td colSpan="7" className="px-6 py-16 text-center">
-              <h3 className="text-lg font-semibold text-slate-900 mb-2">No pending callbacks</h3>
-              <p className="text-slate-500 text-sm max-w-md mx-auto">
-                {searchTerm
-                  ? "No customers match your search criteria. Try adjusting your filters."
-                  : "All customers have been processed. Great job!"}
-              </p>
-            </td>
-          </tr>
-        ) : (
-          filteredCustomers.map((customer, index) => (
-            <tr
-              key={customer.id}
-              className="hover:bg-slate-50/80 transition-colors duration-150"
-              style={{ animationDelay: `${index * 50}ms` }}
-            >
-              <td className="px-6 py-4 text-sm font-semibold text-slate-900">
-                {customer.id_number || customer.national_id || "N/A"}
-              </td>
-
-              <td className="px-6 py-4 text-sm font-medium text-slate-900">
-                {`${customer.Firstname || ''} ${customer.Surname || ''}`.trim() || "N/A"}
-              </td>
-
-              <td className="px-6 py-4 text-sm text-slate-700 font-medium">
-                {branches[customer.branch_id] || "N/A"}
-              </td>
-
-              <td className="px-6 py-4 text-sm text-slate-700 font-medium">
-                {regions[customer.region_id] || "N/A"}
-              </td>
-
-              <td className="px-6 py-4">
-                <span className="inline-flex items-center px-3 py-1.5 text-sm font-bold text-emerald-700   ">
-                  {customer.prequalifiedAmount
-                    ? `KES ${Number(customer.prequalifiedAmount).toLocaleString()}`
-                    : "N/A"}
-                </span>
-              </td>
-
-              <td className="px-6 py-4 text-sm text-slate-700 font-medium">
-                {customer.mobile || "N/A"}
-              </td>
-
-              <td className="px-6 py-4">
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => handleView(customer)}
-                    className="inline-flex items-center px-4 py-2 text-xs font-semibold text-blue-700 bg-blue-50 rounded-lg hover:bg-blue-100 hover:shadow-sm transition-all duration-200 border border-blue-200"
+            <tbody>
+              {filteredCustomers.length === 0 ? (
+                <tr>
+                  <td colSpan="7" className="px-6 py-12 text-center">
+                    <div className="text-center">
+                      <PhoneIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+                      <h3 className="text-sm font-medium text-gray-900 mb-2">No pending callbacks</h3>
+                      <p className="text-xs text-gray-500">
+                        {searchTerm
+                          ? "No customers match your search criteria."
+                          : "All customers have been processed."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredCustomers.map((customer) => (
+                  <tr
+                    key={customer.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                   >
-                    View
-                  </button>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {customer.id_number || customer.national_id || "N/A"}
+                    </td>
 
-                  {profile?.role === "customer_service_officer" && (
-                    <button
-                      onClick={() => handleApprove(customer.id)}
-                      className="inline-flex items-center px-4 py-2 text-xs font-semibold text-emerald-700 bg-emerald-50 rounded-lg hover:bg-emerald-100 hover:shadow-sm transition-all duration-200 border border-emerald-200"
-                    >
-                      Spoof Call
-                    </button>
-                  )}
-                </div>
-              </td>
-            </tr>
-          ))
+                    <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap">
+                      {`${customer.Firstname || ''} ${customer.Surname || ''}`.trim() || "N/A"}
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {branches[customer.branch_id] || "N/A"}
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {regions[customer.region_id] || "N/A"}
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-700 text-right font-medium whitespace-nowrap">
+                      {customer.prequalifiedAmount
+                        ? `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}`
+                        : "N/A"}
+                    </td>
+
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+                      {customer.mobile || "N/A"}
+                    </td>
+
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-2">
+                        <button
+                          onClick={() => handleView(customer)}
+                          className="p-1.5 rounded-md bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 transition"
+                          title="View Customer"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+
+                        {profile?.role === "customer_service_officer" && (
+                          <button
+                            onClick={() => handleApprove(customer.id)}
+                            className="px-3 py-1.5 text-xs font-medium rounded-md text-white transition-colors whitespace-nowrap inline-flex items-center gap-1"
+                            style={{ backgroundColor: "#586ab1" }}
+                            onMouseEnter={(e) => e.target.style.backgroundColor = "#4a5a9d"}
+                            onMouseLeave={(e) => e.target.style.backgroundColor = "#586ab1"}
+                            title="Spoof Call"
+                          >
+                            <PhoneIcon className="h-3 w-3" />
+                            Spoof Call
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination info */}
+        {filteredCustomers.length > 0 && (
+          <div className="px-4 py-3 border-t border-gray-200">
+            <div className="text-xs text-gray-600">
+              Total pending: <span className="font-medium">{customers.length}</span>
+            </div>
+          </div>
         )}
-      </tbody>
-    </table>
-  </div>
-</div>
-
       </div>
     </div>
   );

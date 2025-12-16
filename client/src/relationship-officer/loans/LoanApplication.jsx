@@ -2,10 +2,15 @@ import { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "../../hooks/userAuth";
+import Spinner from "../../components/Spinner.jsx";
+import { 
+  MagnifyingGlassIcon, 
+  ArrowPathIcon 
+} from "@heroicons/react/24/outline";
 
 function LoanApplication() {
   const [customers, setCustomers] = useState([]);
-    const navigate = useNavigate();
+  const navigate = useNavigate();
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -127,86 +132,98 @@ function LoanApplication() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text="Loading loan applications..." />
       </div>
     );
   }
 
   if (!customers.length) {
     return (
-      <div className="text-center py-10 text-gray-600">
-        No approved customers available for loan booking.
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <h1 className="text-xs text-slate-500 mb-4 font-medium">
+          Loan Applications
+        </h1>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+          <div className="text-center text-xs text-gray-500">
+            No approved customers available for loan booking.
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="p-6">
-      <div className="bg-white shadow-md rounded-lg overflow-hidden">
-        {/* Header */}
-        <div className="p-4 flex flex-col md:flex-row justify-between items-center bg-gray-50 gap-4">
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        Loan Applications
+      </h1>
 
-          <h1 className="text-sm  text-slate-500">Loan Applications</h1>
-
-       
-          
-          <div className="flex flex-col md:flex-row items-center gap-4 w-full md:w-auto">
-            {/* Centered Search Bar */}
-            <div className="relative w-full md:w-96 mx-auto">
+      {/* Search and Actions Bar */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="p-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            {/* Search Bar */}
+            <div className="relative flex-1 max-w-md w-full">
+              <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
                 placeholder="Search by ID, phone or name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-600 focus:border-transparent"
+                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
               />
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <svg className="h-5 w-5 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8 4a4 4 0 100 8 4 4 0 000-8zM2 8a6 6 0 1110.89 3.476l4.817 4.817a1 1 0 01-1.414 1.414l-4.816-4.816A6 6 0 012 8z" clipRule="evenodd" />
-                </svg>
-              </div>
             </div>
             
+            {/* Refresh Button */}
             <button 
               onClick={fetchApprovedCustomers}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 flex items-center justify-center whitespace-nowrap"
+              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
+              style={{ 
+                backgroundColor: "#586ab1",
+                color: "white",
+                borderColor: "#586ab1"
+              }}
             >
-              <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
-              </svg>
+              <ArrowPathIcon className="h-4 w-4" />
               Refresh
             </button>
           </div>
         </div>
+      </div>
         
-        {/* Table */}
+      {/* Applications Table */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Customer</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Phone</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loan Amount</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+          <table className="w-full whitespace-nowrap">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Customer</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">ID</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Phone</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">Loan Amount</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Status</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody>
               {filteredCustomers.map((application) => (
-                <tr key={application.id} className="hover:bg-gray-50">
+                <tr 
+                  key={application.id} 
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                >
                   {/* Customer Name */}
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <span className="font-medium text-green-800">
-                          {application.Firstname?.charAt(0)}
-                          {application.Surname?.charAt(0)}
-                        </span>
+                      <div 
+                        className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium"
+                        style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}
+                      >
+                        {application.Firstname?.charAt(0)}
+                        {application.Surname?.charAt(0)}
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-medium text-gray-900">
+                      <div className="ml-3">
+                        <div className="text-xs font-medium text-slate-600">
                           {application.Firstname} {application.Surname}
                         </div>
                       </div>
@@ -214,64 +231,71 @@ function LoanApplication() {
                   </td>
 
                   {/* ID */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{application.id_number}</div>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-xs text-gray-700">{application.id_number}</div>
                   </td>
 
                   {/* Phone */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">{application.mobile}</div>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="text-xs text-gray-700">{application.mobile}</div>
                   </td>
 
                   {/* Loan Amount */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm text-gray-900">
-                      Ksh{" "}
+                  <td className="px-4 py-3 whitespace-nowrap text-right">
+                    <div className="text-xs text-gray-700 font-medium">
                       {application.caScoredAmount
-                        ? Number(application.caScoredAmount).toLocaleString()
+                        ? `Ksh ${Number(application.caScoredAmount).toLocaleString()}`
                         : application.bmScoredAmount
-                        ? Number(application.bmScoredAmount).toLocaleString()
+                        ? `Ksh ${Number(application.bmScoredAmount).toLocaleString()}`
                         : "N/A"}
                     </div>
                   </td>
 
                   {/* Status */}
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-green-100 text-green-800">
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <span 
+                      className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                      style={{ backgroundColor: "#10b981" }}
+                    >
                       Approved
                     </span>
                   </td>
 
                   {/* Actions */}
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
                     {application.lastLoanStatus === "bm_review" ||
                      application.lastLoanStatus === "rm_review" ||
-                      application.lastLoanStatus === "ca_review" ||
+                     application.lastLoanStatus === "ca_review" ||
                      application.lastLoanStatus === "disbursed" ? (
                       <button
                         disabled
-                        className="bg-gray-400 text-white px-4 py-2 rounded-md cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
+                        style={{ backgroundColor: "#9ca3af" }}
                       >
                         Booked
                       </button>
                     ) : application.lastLoanStatus === "rejected" ? (
                       <button
                         disabled
-                        className="bg-red-600 text-white px-4 py-2 rounded-md cursor-not-allowed"
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
+                        style={{ backgroundColor: "#ef4444" }}
                       >
                         Rejected
                       </button>
                     ) : (
                       <button
-          onClick={() =>
-    navigate(`/officer/loan-booking/${application.id}`, {
-      state: { customerData: application },
-    })
-  }
-            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md flex items-center"
-          >
+                        onClick={() =>
+                          navigate(`/officer/loan-booking/${application.id}`, {
+                            state: { customerData: application },
+                          })
+                        }
+                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white transition-colors whitespace-nowrap flex items-center justify-center mx-auto"
+                        style={{ backgroundColor: "#586ab1" }}
+                        onMouseEnter={(e) => e.target.style.backgroundColor = "#4a5a9d"}
+                        onMouseLeave={(e) => e.target.style.backgroundColor = "#586ab1"}
+                      >
                         <svg
-                          className="w-4 h-4 mr-1"
+                          className="w-3 h-3 mr-1"
                           fill="none"
                           stroke="currentColor"
                           viewBox="0 0 24 24"
@@ -284,7 +308,7 @@ function LoanApplication() {
                             d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                           ></path>
                         </svg>
-                        Book 
+                        Book Loan
                       </button>
                     )}
                   </td>
@@ -295,7 +319,7 @@ function LoanApplication() {
         </div>
         
         {filteredCustomers.length === 0 && (
-          <div className="p-8 text-center text-gray-500 bg-gray-50">
+          <div className="p-8 text-center text-xs text-gray-500">
             {searchTerm ? (
               <p>No approved applications match your search</p>
             ) : (
@@ -304,7 +328,6 @@ function LoanApplication() {
           </div>
         )}
       </div>
-
     </div>
   );
 }

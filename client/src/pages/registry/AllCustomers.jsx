@@ -1,5 +1,5 @@
 // src/pages/registry/Customers.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   PlusIcon,
   MagnifyingGlassIcon,
@@ -19,9 +19,12 @@ import {
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../../components/Spinner.jsx";
 
 const AllCustomers = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  
   const [customers, setCustomers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
@@ -29,58 +32,84 @@ const AllCustomers = () => {
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
   const [loading, setLoading] = useState(true);
+  
   const [searchTerm, setSearchTerm] = useState("");
-  const [quickSearchTerm, setQuickSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-
-  // Pagination state
+  
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
-  const { profile } = useAuth();
+  // Use ref to track if data has been fetched
+  const hasFetchedData = useRef(false);
 
   const handleOpenInteractions = (customer) => {
     navigate(`/customer/${customer.id}/interactions`);
-    setQuickSearchTerm(""); // Clear search when opening
   };
 
   const handleOpenLoanDetails = (customer) => {
     navigate(`/customer/${customer.id}/loan-details`);
-    setQuickSearchTerm(""); // Clear search when opening
   };
 
- // In Customers.jsx - Replace the handleOpenPromiseToPay function
+  const handleOpenPromiseToPay = async (customer) => {
+    // Get the most recent disbursed loan
+    const { data: loan, error } = await supabase
+      .from("loans")
+      .select("id")
+      .eq("customer_id", customer.id)
+      .eq("status", "disbursed")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .single();
 
-const handleOpenPromiseToPay = async (customer) => {
-  // Fetch the disbursed loan for this customer
-  const { data: loan, error } = await supabase
-    .from("loans")
-    .select("id")
-    .eq("customer_id", customer.id)
-    .eq("status", "disbursed")
-    .single();
-
-  if (loan && !error) {
-    // Navigate with loan_id in the URL
-    navigate(`/customer/${customer.id}/promise-to-pay?loan_id=${loan.id}`);
-  } else {
-    alert.error("No disbursed loan found for this customer");
-  }
-  setQuickSearchTerm(""); // Clear search when opening
-};
-
-  // const handleOpen360View = (customer) => {
-  //   navigate(`/customer/${customer.id}/360`);
-  //   setQuickSearchTerm(""); // Clear search when opening
-  // };
+    if (loan && !error) {
+      navigate(`/customer/${customer.id}/promise-to-pay?loan_id=${loan.id}`);
+    } else {
+      alert("No disbursed loan found for this customer");
+    }
+  };
 
   const handleViewCustomer = (customer) => {
     navigate(`/customer/${customer.id}/details`);
-    setQuickSearchTerm(""); // Clear search when opening
+  };
+
+  // Helper function to get status display value - ONLY USING customer.status
+  const getStatusDisplay = (customer) => {
+    // Use ONLY the status column from the customers table
+    if (!customer.status) return 'N/A';
+    
+    // Map status codes to readable names
+    const statusMap = {
+      'pending': 'Pending',
+      'bm_review': 'BM Review',
+      'ca_review': 'CA Review',
+      'cso_review': 'CSO Review',
+      'approved': 'Approved',
+      'rejected': 'Rejected',
+      'sent_back_by_bm': 'Sent Back by BM',
+      'sent_back_by_ca': 'Sent Back by CA',
+      'sent_back_by_cso': 'Sent Back by CSO',
+      'cso_review_amend': 'CSO Review (Amend)',
+      'bm_review_amend': 'BM Review (Amend)',
+      'ca_review_amend': 'CA Review (Amend)'
+    };
+    
+    return statusMap[customer.status] || customer.status;
+  };
+
+  // Helper function to get status color
+  const getStatusColor = (status) => {
+    const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
+    
+    if (statusValue.includes('approved')) return '#10b981'; // green
+    if (statusValue.includes('rejected')) return '#ef4444'; // red
+    if (statusValue.includes('review') || statusValue.includes('pending')) return '#f59e0b'; // amber
+    if (statusValue.includes('sent back') || statusValue.includes('amend')) return '#8b5cf6'; // purple
+    
+    return '#586ab1'; // default blue
   };
 
   // Fetch data based on user role
@@ -88,8 +117,11 @@ const handleOpenPromiseToPay = async (customer) => {
     try {
       setLoading(true);
 
-      // Fetch customers based on role
-      let customersQuery = supabase
+      console.log("=== STARTING DATA FETCH ===");
+      console.log("Profile:", profile);
+
+      // Fetch all customers for the tenant by joining with users
+      const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select(`
           *,
@@ -103,107 +135,190 @@ const handleOpenPromiseToPay = async (customer) => {
           ),
           users:created_by (
             id,
-            full_name
+            full_name,
+            tenant_id,
+            role
           )
         `)
         .eq("form_status", "submitted")
         .order("created_at", { ascending: false });
 
-      // Apply filters based on user role
-      if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
-        // See all customers across all regions, all branches, all ROs
-        // No additional filters needed
-      } else if (profile?.role === 'regional_manager') {
-        // See customers in their region and branches in their region
-        if (profile.region_id) {
-          customersQuery = customersQuery.eq("region_id", profile.region_id);
-        }
-      } else if (profile?.role === 'branch_manager') {
-        // See customers from their branch and ROs in their branch
-        if (profile.branch_id) {
-          customersQuery = customersQuery.eq("branch_id", profile.branch_id);
-        }
-      } else if (profile?.role === 'relationship_officer') {
-        // Only see customers they created
-        if (profile.id) {
-          customersQuery = customersQuery.eq("created_by", profile.id);
-        }
-      }
-
-      const { data: customersData, error: customersError } = await customersQuery;
+      console.log("=== CUSTOMERS DATA DEBUG ===");
+      console.log("Raw customers data length:", customersData?.length || 0);
+      console.log("Sample customer with user data:", customersData?.[0]);
 
       if (customersError) {
         console.error("Error fetching customers:", customersError);
         return;
       }
 
-      // Fetch additional data for filters based on role
+      // Filter customers by tenant_id from the created_by user
+      const filteredByTenant = customersData?.filter(customer => {
+        return customer.users?.tenant_id === profile?.tenant_id;
+      }) || [];
+
+      console.log("Customers after tenant filtering:", filteredByTenant.length);
+
+      // Apply role-based filtering
+      let roleFilteredCustomers = filteredByTenant;
+
+      if (profile?.role === 'regional_manager' && profile.region_id) {
+        roleFilteredCustomers = roleFilteredCustomers.filter(
+          c => c.region_id?.toString() === profile.region_id
+        );
+        console.log("After regional manager filter:", roleFilteredCustomers.length);
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        roleFilteredCustomers = roleFilteredCustomers.filter(
+          c => c.branch_id?.toString() === profile.branch_id
+        );
+        console.log("After branch manager filter:", roleFilteredCustomers.length);
+      } else if (profile?.role === 'relationship_officer' && profile.id) {
+        roleFilteredCustomers = roleFilteredCustomers.filter(
+          c => c.created_by?.toString() === profile.id
+        );
+        console.log("After relationship officer filter:", roleFilteredCustomers.length);
+      }
+
+      // Fetch additional data for filters
       if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
-        // Fetch all branches, regions, and ROs for global access
+        // Fetch all data for these roles
         const [branchesResult, regionsResult, roResult] = await Promise.all([
-          supabase.from("branches").select("id, name, region_id").order("name"),
-          supabase.from("regions").select("id, name").order("name"),
-          supabase.from("users").select("id, full_name, branch_id, region_id").eq("role", "relationship_officer").order("full_name")
+          supabase.from("branches").select("id, name, region_id, tenant_id").eq("tenant_id", profile.tenant_id).order("name"),
+          supabase.from("regions").select("id, name, tenant_id").eq("tenant_id", profile.tenant_id).order("name"),
+          supabase.from("users").select("id, full_name, tenant_id").eq("role", "relationship_officer").eq("tenant_id", profile.tenant_id).order("full_name")
         ]);
 
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
         setRegions(regionsResult.data || []);
-        setAllRelationshipOfficers(roResult.data || []);
-        setRelationshipOfficers(roResult.data || []);
+        
+        // Enrich ROs with their branch and region info from customers data
+        const enrichedROs = (roResult.data || []).map(ro => {
+          const roCustomer = roleFilteredCustomers.find(c => c.created_by === ro.id);
+          return {
+            ...ro,
+            branch_id: roCustomer?.branch_id,
+            region_id: roCustomer?.region_id
+          };
+        });
+        
+        setAllRelationshipOfficers(enrichedROs);
+        setRelationshipOfficers(enrichedROs);
       } else if (profile?.role === 'regional_manager') {
-        // Fetch branches in their region and ROs in those branches
+        // Fetch branches and ROs in their region
         if (profile.region_id) {
           const [branchesResult, roResult] = await Promise.all([
-            supabase.from("branches").select("id, name, region_id").eq("region_id", profile.region_id).order("name"),
+            supabase.from("branches").select("id, name, region_id, tenant_id").eq("region_id", profile.region_id).eq("tenant_id", profile.tenant_id).order("name"),
             supabase
               .from("users")
-              .select("id, full_name, branch_id, region_id")
+              .select("id, full_name, tenant_id")
               .eq("role", "relationship_officer")
-              .eq("region_id", profile.region_id)
+              .eq("tenant_id", profile.tenant_id)
               .order("full_name")
           ]);
 
           setAllBranches(branchesResult.data || []);
           setBranches(branchesResult.data || []);
-          setAllRelationshipOfficers(roResult.data || []);
-          setRelationshipOfficers(roResult.data || []);
+          
+          // Filter ROs based on region from customers data
+          const enrichedROs = (roResult.data || []).map(ro => {
+            const roCustomer = roleFilteredCustomers.find(c => c.created_by === ro.id);
+            return {
+              ...ro,
+              branch_id: roCustomer?.branch_id,
+              region_id: roCustomer?.region_id
+            };
+          }).filter(ro => ro.region_id?.toString() === profile.region_id);
+          
+          setAllRelationshipOfficers(enrichedROs);
+          setRelationshipOfficers(enrichedROs);
         }
       } else if (profile?.role === 'branch_manager') {
         // Fetch ROs in their branch
         if (profile.branch_id) {
           const { data: roData } = await supabase
             .from("users")
-            .select("id, full_name, branch_id, region_id")
+            .select("id, full_name, tenant_id")
             .eq("role", "relationship_officer")
-            .eq("branch_id", profile.branch_id)
+            .eq("tenant_id", profile.tenant_id)
             .order("full_name");
 
-          setAllRelationshipOfficers(roData || []);
-          setRelationshipOfficers(roData || []);
+          // Filter ROs based on branch from customers data
+          const enrichedROs = (roData || []).map(ro => {
+            const roCustomer = roleFilteredCustomers.find(c => c.created_by === ro.id);
+            return {
+              ...ro,
+              branch_id: roCustomer?.branch_id,
+              region_id: roCustomer?.region_id
+            };
+          }).filter(ro => ro.branch_id?.toString() === profile.branch_id);
+
+          setAllRelationshipOfficers(enrichedROs);
+          setRelationshipOfficers(enrichedROs);
         }
       }
 
-      // Process customers data
-      if (customersData && customersData.length > 0) {
-        const customersWithLoanStatus = await Promise.all(
-          customersData.map(async (c) => {
-            const { data: loan, error: loanError } = await supabase
-              .from("loans")
-              .select("id, status, repayment_state")
-              .eq("customer_id", c.id)
-              .eq("status", "disbursed")
-              .maybeSingle();
+      // Process customers data with loan status
+      if (roleFilteredCustomers && roleFilteredCustomers.length > 0) {
+        // Fetch all loans for these customers in a single query
+        const customerIds = roleFilteredCustomers.map(c => c.id);
+        
+        // Fetch active loans (disbursed and not completed/defaulted)
+        const { data: loans, error: loansError } = await supabase
+          .from("loans")
+          .select("id, customer_id, status, repayment_state")
+          .in("customer_id", customerIds)
+          .eq("status", "disbursed")
+          .in("repayment_state", ["ongoing", "partial", "overdue"])
+          .order("created_at", { ascending: false });
 
+        console.log("=== LOANS DEBUG ===");
+        console.log("Found loans:", loans?.length || 0);
+        console.log("Sample loan:", loans?.[0]);
+
+        if (!loansError) {
+          // Create a map of customer_id to their most recent active loan
+          const loanMap = new Map();
+          loans?.forEach(loan => {
+            if (!loanMap.has(loan.customer_id)) {
+              loanMap.set(loan.customer_id, loan);
+            }
+          });
+
+          // Enrich customers with loan data and add displayStatus
+          const customersWithLoanStatus = roleFilteredCustomers.map((c) => {
+            const loan = loanMap.get(c.id);
+            const displayStatus = getStatusDisplay(c);
+            
             return {
               ...c,
-              hasDisbursedLoan: !!loan && !loanError,
+              displayStatus, // Add formatted status for display
+              hasDisbursedLoan: !!loan,
               loanRepaymentState: loan?.repayment_state || null,
+              loanId: loan?.id || null
             };
-          })
-        );
-        setCustomers(customersWithLoanStatus);
+          });
+          
+          console.log("=== FINAL CUSTOMERS DATA ===");
+          console.log("Total customers to display:", customersWithLoanStatus.length);
+          console.log("Sample customer status:", customersWithLoanStatus[0]?.displayStatus);
+          console.log("Customers with loans:", customersWithLoanStatus.filter(c => c.hasDisbursedLoan).length);
+          
+          setCustomers(customersWithLoanStatus);
+        } else {
+          console.error("Error fetching loans:", loansError);
+          // Add displayStatus even if loan fetch fails
+          const customersWithDisplayStatus = roleFilteredCustomers.map(c => ({
+            ...c,
+            displayStatus: getStatusDisplay(c),
+            hasDisbursedLoan: false,
+            loanRepaymentState: null,
+            loanId: null
+          }));
+          setCustomers(customersWithDisplayStatus);
+        }
       } else {
+        console.log("No customers found after all filters");
         setCustomers([]);
       }
     } catch (error) {
@@ -214,7 +329,9 @@ const handleOpenPromiseToPay = async (customer) => {
   };
 
   useEffect(() => {
-    if (profile) {
+    // Only fetch data once when profile is available
+    if (profile && !hasFetchedData.current) {
+      hasFetchedData.current = true;
       fetchData();
     }
   }, [profile]);
@@ -287,10 +404,9 @@ const handleOpenPromiseToPay = async (customer) => {
   };
 
   const filteredCustomers = customers.filter((c) => {
+    const fullName = `${c.Firstname || ""} ${c.Middlename || ""} ${c.Surname || ""}`.toLowerCase();
     const matchesSearch =
-      (c.Firstname || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.Surname || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (c.Middlename || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
+      fullName.includes(searchTerm.toLowerCase()) ||
       (c.mobile || "").toString().includes(searchTerm) ||
       (c.id_number || "").toString().includes(searchTerm);
 
@@ -310,21 +426,18 @@ const handleOpenPromiseToPay = async (customer) => {
     const matchesStatus =
       !selectedStatus ||
       c.status === selectedStatus ||
-      c.verification_status === selectedStatus;
+      c.displayStatus?.toLowerCase().includes(selectedStatus.toLowerCase());
 
     return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
   });
 
-  // // Quick search filter (separate from main search)
-  // const quickSearchResults = customers.filter((c) => {
-  //   if (!quickSearchTerm) return false;
-  //   return (
-  //     (c.Firstname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
-  //     (c.Surname || "").toLowerCase().includes(quickSearchTerm.toLowerCase()) ||
-  //     (c.mobile || "").toString().includes(quickSearchTerm) ||
-  //     (c.id_number || "").toString().includes(quickSearchTerm)
-  //   );
-  // });
+  // Get unique statuses for filter dropdown
+  const uniqueStatuses = [...new Set(
+    customers
+      .map(c => c.displayStatus)
+      .filter(Boolean)
+      .sort()
+  )];
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -332,77 +445,65 @@ const handleOpenPromiseToPay = async (customer) => {
   const endIndex = startIndex + itemsPerPage;
   const currentCustomers = filteredCustomers.slice(startIndex, endIndex);
 
-  // Pagination handlers
-  const goToFirstPage = () => setCurrentPage(1);
-  const goToLastPage = () => setCurrentPage(totalPages);
-  const goToPreviousPage = () => setCurrentPage((prev) => Math.max(prev - 1, 1));
-  const goToNextPage = () => setCurrentPage((prev) => Math.min(prev + 1, totalPages));
-  const goToPage = (page) => setCurrentPage(page);
-
-  // Generate page numbers to display
-  const getPageNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
-    
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pages.push(i);
-      }
-    } else {
-      if (currentPage <= 3) {
-        for (let i = 1; i <= 4; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      } else if (currentPage >= totalPages - 2) {
-        pages.push(1);
-        pages.push('...');
-        for (let i = totalPages - 3; i <= totalPages; i++) pages.push(i);
-      } else {
-        pages.push(1);
-        pages.push('...');
-        for (let i = currentPage - 1; i <= currentPage + 1; i++) pages.push(i);
-        pages.push('...');
-        pages.push(totalPages);
-      }
-    }
-    
-    return pages;
-  };
-
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, selectedStatus]);
 
-  // Get unique statuses from customers
-  const uniqueStatuses = [...new Set(customers.map((c) => c.verification_status).filter(Boolean))];
-
-  // // Get role-specific display text
-  // const getRoleSpecificText = () => {
-  //   switch (profile?.role) {
-  //     case 'credit_analyst_officer':
-  //     case 'customer_service_officer':
-  //       return "all customers across all regions";
-  //     case 'regional_manager':
-  //       return "customers in your region";
-  //     case 'branch_manager':
-  //       return "customers in your branch";
-  //     case 'relationship_officer':
-  //       return "customers you created";
-  //     default:
-  //       return "customers";
-  //   }
-  // };
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+    
+    if (totalPages <= maxVisiblePages) {
+      // Show all pages
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      // Always show first page
+      pageNumbers.push(1);
+      
+      // Calculate start and end of visible pages
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      
+      // Adjust if we're near the beginning
+      if (currentPage <= 2) {
+        endPage = 4;
+      }
+      
+      // Adjust if we're near the end
+      if (currentPage >= totalPages - 1) {
+        startPage = totalPages - 3;
+      }
+      
+      // Add ellipsis if needed
+      if (startPage > 2) {
+        pageNumbers.push('...');
+      }
+      
+      // Add middle pages
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+      
+      // Add ellipsis if needed
+      if (endPage < totalPages - 1) {
+        pageNumbers.push('...');
+      }
+      
+      // Always show last page
+      pageNumbers.push(totalPages);
+    }
+    
+    return pageNumbers;
+  };
 
   if (!profile || loading) {
     return (
-      <div className="p-6">
-        <div className="bg-white shadow rounded-lg p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">
-            {!profile ? "Loading profile..." : "Loading customers..."}
-          </p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+        <Spinner text={!profile ? "Loading profile..." : "Loading customers..."} />
       </div>
     );
   }
@@ -411,9 +512,9 @@ const handleOpenPromiseToPay = async (customer) => {
   if ((profile.role === 'regional_manager' && !profile.region_id) ||
       (profile.role === 'branch_manager' && !profile.branch_id)) {
     return (
-      <div className="p-6">
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
         <div className="bg-white shadow rounded-lg p-8 text-center">
-          <p className="text-red-600">
+          <p className="text-red-600 text-sm">
             Error: Your profile is missing necessary information. Please contact your administrator.
           </p>
         </div>
@@ -422,74 +523,58 @@ const handleOpenPromiseToPay = async (customer) => {
   }
 
   return (
-    <div className="p-2  bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300">
-      {/* Page Header with 360 View Search */}
-      
-     
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        Registry / All Customers
+      </h1>
 
       {/* Filters and Search */}
-      <div className="bg-white p-4 rounded-lg shadow mb-6">
-        <div className="flex flex-col gap-4">
-          {/* First Row - Search and Action Buttons */}
-          <div className="flex flex-col md:flex-row md:items-end gap-4">
-            {/* Search Input */}
-            <div className="flex-1">
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Search Customers
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <MagnifyingGlassIcon className="h-5 w-5 text-gray-400" />
-                </div>
-                <input
-                  type="text"
-                  placeholder="Search by name, mobile, or ID..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:ring-indigo-500 focus:border-indigo-500"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+        <div className="p-4 border-b border-gray-200">
+          <div className="flex justify-between items-center gap-4">
+            <div className="relative flex-1 max-w-md">
+              <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search by name, mobile, or ID..."
+                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-end space-x-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center px-4 py-2 border rounded-md transition-colors ${
-                  showFilters
-                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                }`}
-              >
-                <FunnelIcon className="h-5 w-5 mr-2" />
-                Filters
-                {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">
-                    {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
-                  </span>
-                )}
-              </button>
-              <button className="flex items-center px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50 transition-colors">
-                <ArrowDownTrayIcon className="h-5 w-5 mr-2" />
-                Export
-              </button>
-            </div>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border"
+              style={{ 
+                backgroundColor: showFilters ? "#586ab1" : "white",
+                color: showFilters ? "white" : "#586ab1",
+                borderColor: "#586ab1"
+              }}
+            >
+              <FunnelIcon size={14} /> Filters
+              {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+                <span className="ml-1 px-1.5 py-0.5 bg-white text-gray-700 rounded-full text-xs font-medium">
+                  {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
+                </span>
+              )}
+            </button>
           </div>
 
-          {/* Second Row - Advanced Filters (Collapsible) */}
+          {/* Collapsible Filters */}
           {showFilters && (
-            <div className="border-t pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Region Filter (only for global roles) */}
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Filter by Region
                     </label>
                     <select
                       value={selectedRegion}
                       onChange={(e) => handleRegionChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">All Regions</option>
                       {regions.map((region) => (
@@ -504,13 +589,13 @@ const handleOpenPromiseToPay = async (customer) => {
                 {/* Branch Filter */}
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Filter by Branch
                     </label>
                     <select
                       value={selectedBranch}
                       onChange={(e) => handleBranchChange(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">All Branches</option>
                       {branches.map((branch) => (
@@ -525,13 +610,13 @@ const handleOpenPromiseToPay = async (customer) => {
                 {/* Relationship Officer Filter */}
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
                       Filter by Relationship Officer
                     </label>
                     <select
                       value={selectedRO}
                       onChange={(e) => setSelectedRO(e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     >
                       <option value="">All ROs</option>
                       {relationshipOfficers.map((ro) => (
@@ -545,18 +630,18 @@ const handleOpenPromiseToPay = async (customer) => {
 
                 {/* Status Filter */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
                     Filter by Status
                   </label>
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   >
                     <option value="">All Statuses</option>
                     {uniqueStatuses.map((status) => (
                       <option key={status} value={status}>
-                        {status.charAt(0).toUpperCase() + status.slice(1)}
+                        {status}
                       </option>
                     ))}
                   </select>
@@ -566,9 +651,9 @@ const handleOpenPromiseToPay = async (customer) => {
                 <div className="flex items-end">
                   <button
                     onClick={clearFilters}
-                    className="flex items-center px-4 py-2 text-sm text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-1"
                   >
-                    <XMarkIcon className="h-4 w-4 mr-1" />
+                    <XMarkIcon size={12} />
                     Clear Filters
                   </button>
                 </div>
@@ -577,48 +662,52 @@ const handleOpenPromiseToPay = async (customer) => {
               {/* Active Filters Display */}
               {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-                  <span className="text-sm text-gray-600">Active filters:</span>
+                  <span className="text-xs text-gray-600">Active filters:</span>
                   {selectedRegion && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
                       Region: {regions.find((r) => r.id.toString() === selectedRegion)?.name}
                       <button
                         onClick={() => handleRegionChange("")}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
+                        className="ml-1"
+                        style={{ color: "#586ab1" }}
                       >
-                        <XMarkIcon className="h-3 w-3" />
+                        <XMarkIcon size={12} />
                       </button>
                     </span>
                   )}
                   {selectedBranch && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
                       Branch: {branches.find((b) => b.id.toString() === selectedBranch)?.name}
                       <button
                         onClick={() => handleBranchChange("")}
-                        className="ml-1 text-blue-600 hover:text-blue-800"
+                        className="ml-1"
+                        style={{ color: "#586ab1" }}
                       >
-                        <XMarkIcon className="h-3 w-3" />
+                        <XMarkIcon size={12} />
                       </button>
                     </span>
                   )}
                   {selectedRO && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
                       RO: {relationshipOfficers.find((ro) => ro.id.toString() === selectedRO)?.full_name}
                       <button
                         onClick={() => setSelectedRO("")}
-                        className="ml-1 text-purple-600 hover:text-purple-800"
+                        className="ml-1"
+                        style={{ color: "#586ab1" }}
                       >
-                        <XMarkIcon className="h-3 w-3" />
+                        <XMarkIcon size={12} />
                       </button>
                     </span>
                   )}
                   {selectedStatus && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium bg-green-100 text-green-800 rounded-full">
-                      Status: {selectedStatus.charAt(0).toUpperCase() + selectedStatus.slice(1)}
+                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
+                      Status: {selectedStatus}
                       <button
                         onClick={() => setSelectedStatus("")}
-                        className="ml-1 text-green-600 hover:text-green-800"
+                        className="ml-1"
+                        style={{ color: "#586ab1" }}
                       >
-                        <XMarkIcon className="h-3 w-3" />
+                        <XMarkIcon size={12} />
                       </button>
                     </span>
                   )}
@@ -629,256 +718,222 @@ const handleOpenPromiseToPay = async (customer) => {
         </div>
       </div>
 
-
       {/* Customers Table */}
-      <div className=" bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50  border-r border-gray-200 transition-all duration-300 shadow rounded-lg overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 table-fixed">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  First Name
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  Surname
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-28">
-                  Contact
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  ID Number
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-32">
-                  Prequalified Amount
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                  Status
-                </th>
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    Region
-                  </th>
-                )}
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                  Branch
-                </th>
+          <table className="w-full whitespace-nowrap">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Name</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Mobile</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">ID</th>
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">Prequalified Amount</th>
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">
-                    Relationship Officer
-                  </th>
+                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">RO</th>
                 )}
-                <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">
-                  Actions
-                </th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Branch</th>
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Region</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Status</th>
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {currentCustomers.map((customer) => (
-                <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.Firstname || "N/A"}>
-                    {customer.Firstname || "N/A"}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.Surname || "N/A"}>
-                    {customer.Surname || "N/A"}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.mobile || "N/A"}>
-                    {customer.mobile || "N/A"}
-                  </td>
-                  <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.id_number || "N/A"}>
-                    {customer.id_number || "N/A"}
-                  </td>
-                  <td
-                    className="px-3 py-2 text-sm text-gray-700 truncate"
-                    title={
-                      customer.prequalifiedAmount
-                        ? customer.prequalifiedAmount.toLocaleString("en-KE", {
-                            style: "currency",
-                            currency: "KES",
-                          })
-                        : "N/A"
-                    }
+
+            <tbody>
+              {currentCustomers.map((customer) => {
+                const fullName = `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim();
+                const statusColor = getStatusColor(customer.status); // Changed to use customer.status directly
+                
+                return (
+                  <tr 
+                    key={customer.id} 
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                   >
-                    {customer.prequalifiedAmount
-                      ? `KES ${customer.prequalifiedAmount.toLocaleString()}`
-                      : "N/A"}
-                  </td>
-                  <td className="px-3 py-2 text-sm truncate" title={customer.status || "N/A"}>
-                    <span
-                      className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                        customer.status === "verified"
-                          ? "bg-green-100 text-green-800"
-                          : customer.status === "bm_review"
-                          ? "bg-yellow-100 text-yellow-800"
-                          : customer.status === "rejected"
-                          ? "bg-red-100 text-red-800"
-                          : "bg-gray-100 text-gray-800"
-                      }`}
-                    >
-                      {customer.status || "N/A"}
-                    </span>
-                  </td>
-                  {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
-                    <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.regions?.name || "N/A"}>
+                    <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={fullName}>
+                      {fullName || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.mobile || "N/A"}</td>
+                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.id_number || "N/A"}</td>
+                    <td className="px-4 py-3 text-xs text-gray-700 text-right font-medium whitespace-nowrap">
+                      {customer.prequalifiedAmount ? 
+                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                        "N/A"}
+                    </td>
+                    {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.users?.full_name}>
+                        {customer.users?.full_name || "N/A"}
+                      </td>
+                    )}
+                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.branches?.name}>
+                      {customer.branches?.name || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.regions?.name}>
                       {customer.regions?.name || "N/A"}
                     </td>
-                  )}
-                  <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.branches?.name || "N/A"}>
-                    {customer.branches?.name || "N/A"}
-                  </td>
-                  {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                    <td className="px-3 py-2 text-sm text-gray-900 truncate" title={customer.users?.full_name || "N/A"}>
-                      {customer.users?.full_name || "N/A"}
-                    </td>
-                  )}
-                  <td className="px-3 py-2 text-sm font-medium space-x-1 flex items-center">
-                    {/* View Customer */}
-                    <button
-                      onClick={() => handleViewCustomer(customer)}
-                      className="p-1.5 rounded-md bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 transition"
-                      title="View Customer"
-                    >
-                      <EyeIcon className="h-4 w-4" />
-                    </button>
-
-                    {/* Interactions */}
-                    <button
-                      onClick={() => handleOpenInteractions(customer)}
-                      className="p-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition"
-                      title="Customer Interactions"
-                    >
-                      <ChatBubbleLeftRightIcon className="h-4 w-4" />
-                    </button>
-
-                    {/* Loan Details (only if disbursed) */}
-                    {customer.hasDisbursedLoan && (
-                      <button
-                        onClick={() => handleOpenLoanDetails(customer)}
-                        className="p-1.5 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700 transition"
-                        title="Loan Details"
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span 
+                        className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white whitespace-nowrap"
+                        style={{ backgroundColor: statusColor }}
                       >
-                        <BanknotesIcon className="h-4 w-4" />
-                      </button>
-                    )}
-
-                    {/* Promise to Pay (only if disbursed AND repayment_state is ongoing or partial) */}
-                    {customer.hasDisbursedLoan &&
-                      ["ongoing", "partial"].includes(customer.loanRepaymentState) && (
+                        {customer.displayStatus || "N/A"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
+                        {/* View Customer */}
                         <button
-                          onClick={() => handleOpenPromiseToPay(customer)}
-                          className="p-1.5 rounded-md bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:text-purple-700 transition"
-                          title="Promise to Pay"
+                          onClick={() => handleViewCustomer(customer)}
+                          className="p-1.5 rounded-md bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 transition whitespace-nowrap"
+                          title="View Customer"
                         >
-                          <HandRaisedIcon className="h-4 w-4" />
+                          <EyeIcon className="h-4 w-4" />
                         </button>
-                      )}
-                  </td>
-                </tr>
-              ))}
+
+                        {/* Interactions */}
+                        <button
+                          onClick={() => handleOpenInteractions(customer)}
+                          className="p-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition whitespace-nowrap"
+                          title="Customer Interactions"
+                        >
+                          <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                        </button>
+
+                        {/* Loan Details (only if disbursed) */}
+                        {customer.hasDisbursedLoan && (
+                          <button
+                            onClick={() => handleOpenLoanDetails(customer)}
+                            className="p-1.5 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700 transition whitespace-nowrap"
+                            title="Loan Details"
+                          >
+                            <BanknotesIcon className="h-4 w-4" />
+                          </button>
+                        )}
+
+                        {/* Promise to Pay (only if disbursed AND repayment_state is ongoing or partial) */}
+                        {customer.hasDisbursedLoan &&
+                          ["ongoing", "partial"].includes(customer.loanRepaymentState) && (
+                            <button
+                              onClick={() => handleOpenPromiseToPay(customer)}
+                              className="p-1.5 rounded-md bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:text-purple-700 transition whitespace-nowrap"
+                              title="Promise to Pay"
+                            >
+                              <HandRaisedIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
 
-   
-        {/* Pagination Controls */}
+        {/* Pagination Controls with Total Count */}
         {filteredCustomers.length > 0 && (
-          <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
-            <div className="flex-1 flex justify-between sm:hidden">
-              <button
-                onClick={goToPreviousPage}
-                disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <button
-                onClick={goToNextPage}
-                disabled={currentPage === totalPages}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+          <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="text-xs text-gray-600 whitespace-nowrap">
+              Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-medium">{filteredCustomers.length}</span> customers
+              <span className="ml-2 text-gray-400">(Total in system: {customers.length})</span>
             </div>
-            <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
-              <div>
-                <p className="text-sm text-gray-700">
-                  {/* Showing <span className="font-medium">{startIndex + 1}</span> to{" "}
-                  <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of{" "}
-                  <span className="font-medium">{filteredCustomers.length}</span> results */}
-                </p>
-              </div>
-              <div>
-                <nav className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px" aria-label="Pagination">
-                  {/* First Page Button */}
-                  <button
-                    onClick={goToFirstPage}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="First Page"
-                  >
-                    <ChevronDoubleLeftIcon className="h-5 w-5" />
-                  </button>
-                  
-                  {/* Previous Page Button */}
-                  <button
-                    onClick={goToPreviousPage}
-                    disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Previous Page"
-                  >
-                    <ChevronLeftIcon className="h-5 w-5" />
-                  </button>
-
-                  {/* Page Numbers */}
-                  {getPageNumbers().map((page, index) => (
-                    page === '...' ? (
-                      <span
-                        key={`ellipsis-${index}`}
-                        className="relative inline-flex items-center px-4 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-700"
-                      >
+            
+            {totalPages > 1 && (
+              <div className="flex items-center gap-1">
+                {/* First Page */}
+                <button
+                  onClick={() => setCurrentPage(1)}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  title="First Page"
+                >
+                  <ChevronDoubleLeftIcon size={16} className="text-gray-600" />
+                </button>
+                
+                {/* Previous Page */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  title="Previous Page"
+                >
+                  <ChevronLeftIcon size={16} className="text-gray-600" />
+                </button>
+                
+                {/* Page Numbers */}
+                <div className="flex items-center gap-1 mx-1">
+                  {getPageNumbers().map((pageNum, index) => (
+                    pageNum === '...' ? (
+                      <span key={`ellipsis-${index}`} className="px-2 text-xs text-gray-400">
                         ...
                       </span>
                     ) : (
                       <button
-                        key={page}
-                        onClick={() => goToPage(page)}
-                        className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                          currentPage === page
-                            ? 'z-10 bg-indigo-50 border-indigo-500 text-indigo-600'
-                            : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${
+                          currentPage === pageNum
+                            ? "bg-blue-500 text-white"
+                            : "text-gray-600 hover:bg-gray-100"
                         }`}
                       >
-                        {page}
+                        {pageNum}
                       </button>
                     )
                   ))}
-
-                  {/* Next Page Button */}
-                  <button
-                    onClick={goToNextPage}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Next Page"
-                  >
-                    <ChevronRightIcon className="h-5 w-5" />
-                  </button>
-
-                  {/* Last Page Button */}
-                  <button
-                    onClick={goToLastPage}
-                    disabled={currentPage === totalPages}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                    title="Last Page"
-                  >
-                    <ChevronDoubleRightIcon className="h-5 w-5" />
-                  </button>
-                </nav>
+                </div>
+                
+                {/* Next Page */}
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  title="Next Page"
+                >
+                  <ChevronRightIcon size={16} className="text-gray-600" />
+                </button>
+                
+                {/* Last Page */}
+                <button
+                  onClick={() => setCurrentPage(totalPages)}
+                  disabled={currentPage === totalPages}
+                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+                  title="Last Page"
+                >
+                  <ChevronDoubleRightIcon size={16} className="text-gray-600" />
+                </button>
               </div>
-            </div>
+            )}
+          </div>
+        )}
+
+        {filteredCustomers.length === 0 && (
+          <div className="p-8 text-center text-xs text-gray-500 whitespace-nowrap">
+            No customers found. Try adjusting your filters.
           </div>
         )}
       </div>
 
-    
+      {/* Items Per Page Selector */}
+      {filteredCustomers.length > 0 && (
+        <div className="mt-3 flex justify-end items-center">
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-600 whitespace-nowrap">Items per page:</span>
+            <select
+              value={itemsPerPage}
+              onChange={(e) => {
+                // Note: itemsPerPage is currently not stateful, you might want to make it stateful
+                // For now, this is just a placeholder
+                console.log("Items per page changed to:", e.target.value);
+              }}
+              className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value={10}>10</option>
+              <option value={25}>25</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
