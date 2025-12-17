@@ -1,13 +1,16 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { createClient } from "@supabase/supabase-js";
+import supabase from "./supabaseClient.js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
 import stkpush from "./routes/stkpush.js";
 import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import tenantRouter from "./routes/tenantRoutes.js";
+
+import "./cron/loanInstallmentCron.js"; // 
+
 
 const app = express();
 
@@ -29,11 +32,7 @@ app.use(cors({
 // ✅ JSON Parser (before routes)
 app.use(express.json());
 
-// Initialize Supabase with service role key
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {
@@ -97,7 +96,7 @@ app.post("/create-user", async (req, res) => {
 
     // 2️⃣ Create Supabase Auth user
     const { data: authData, error: authError } =
-      await supabaseAdmin.auth.admin.createUser({
+      await supabase.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
@@ -122,7 +121,7 @@ app.post("/create-user", async (req, res) => {
     const userId = authData.user.id;
 
   // 3️⃣ Upsert into users table
-const { error: usersError } = await supabaseAdmin
+const { error: usersError } = await supabase
   .from("users")
   .upsert(
     {
@@ -139,7 +138,7 @@ const { error: usersError } = await supabaseAdmin
 
 if (usersError) {
   console.error("Users table error:", usersError);
-  await supabaseAdmin.auth.admin.deleteUser(userId);
+  await supabase.auth.admin.deleteUser(userId);
 
   return res.status(400).json({
     success: false,
@@ -151,7 +150,7 @@ if (usersError) {
 
     if (usersError) {
       console.error("Users table error:", usersError);
-      await supabaseAdmin.auth.admin.deleteUser(userId);
+      await supabase.auth.admin.deleteUser(userId);
 
       return res.status(400).json({
         success: false,
