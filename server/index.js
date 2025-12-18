@@ -9,7 +9,7 @@ import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import tenantRouter from "./routes/tenantRoutes.js";
 
-import "./cron/loanInstallmentCron.js"; // 
+// import "./cron/loanInstallmentCron.js"; // 
 
 
 const app = express();
