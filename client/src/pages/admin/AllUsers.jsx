@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { 
   MagnifyingGlassIcon,
   PencilIcon,
@@ -17,6 +17,7 @@ import {
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { API_BASE_URL } from "../../../config.js";
+import Spinner from "../../components/Spinner";
 
 export default function AllUsers() {
   const { profile } = useAuth();
@@ -49,6 +50,8 @@ export default function AllUsers() {
   const [filteredRegions, setFilteredRegions] = useState([]);
   const [filteredBranches, setFilteredBranches] = useState([]);
 
+  const mountedRef = useRef(true);
+
   const roles = [
     { value: "admin", label: "Admin", color: "emerald" },
     { value: "operation_officer", label: "Operation Officer", color: "amber" },
@@ -76,12 +79,10 @@ export default function AllUsers() {
   const filterBranchesByRegionAndTenant = useCallback((regionId, tenantId) => {
     let filtered = branches;
     
-    // Filter by tenant first
     if (tenantId) {
       filtered = filtered.filter(branch => branch.tenant_id === tenantId);
     }
     
-    // Then filter by region if selected
     if (regionId) {
       filtered = filtered.filter(branch => branch.region_id === regionId);
     }
@@ -95,10 +96,9 @@ export default function AllUsers() {
     setFormData(prev => ({ 
       ...prev, 
       region_id: regionId,
-      branch_id: '' // Reset branch when region changes
+      branch_id: ''
     }));
     
-    // Filter branches based on selected region
     const tenantId = isSuperAdmin ? formData.tenant_id : currentUserTenantId;
     filterBranchesByRegionAndTenant(regionId, tenantId);
   };
@@ -109,16 +109,15 @@ export default function AllUsers() {
     setFormData(prev => ({ 
       ...prev, 
       tenant_id: tenantId,
-      region_id: '', // Reset region when tenant changes
-      branch_id: ''  // Reset branch when tenant changes
+      region_id: '',
+      branch_id: ''
     }));
     
-    // Filter regions and branches based on selected tenant
     filterRegionsByTenant(tenantId);
     filterBranchesByRegionAndTenant(null, tenantId);
   };
 
-  // Memoized fetch functions with pagination
+  // Memoized fetch functions
   const fetchData = useCallback(async (tenantId, userRole) => {
     if (!tenantId && userRole !== 'superadmin') return;
     
@@ -138,24 +137,23 @@ export default function AllUsers() {
   }, []);
 
   useEffect(() => {
-    let mounted = true;
+    mountedRef.current = true;
     
-    if (profile) {
-      console.log('Profile loaded:', {
-        role: profile.role,
-        tenant_id: profile.tenant_id
-      });
-      
-      const tenantId = profile.tenant_id;
-      setCurrentUserTenantId(tenantId);
-      
-      if (mounted) {
-        fetchData(tenantId, profile.role);
+    const fetchInitialData = async () => {
+      if (profile) {
+        const tenantId = profile.tenant_id;
+        setCurrentUserTenantId(tenantId);
+        
+        if (mountedRef.current) {
+          await fetchData(tenantId, profile.role);
+        }
       }
-    }
+    };
+
+    fetchInitialData();
 
     return () => {
-      mounted = false;
+      mountedRef.current = false;
     };
   }, [profile, refreshKey]);
 
@@ -188,7 +186,6 @@ export default function AllUsers() {
         query = query.eq('tenant_id', tenantId);
       }
 
-      // Apply pagination
       const from = (page - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
@@ -199,7 +196,7 @@ export default function AllUsers() {
 
       if (error) throw error;
 
-      if (data) {
+      if (data && mountedRef.current) {
         const mapped = data.map((u) => ({
           ...u,
           branch_id: u.profiles?.branch_id,
@@ -235,7 +232,6 @@ export default function AllUsers() {
         query = query.eq('tenant_id', tenantId);
       }
 
-      // Apply pagination
       const from = (page - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
@@ -245,7 +241,7 @@ export default function AllUsers() {
       const { data, error, count } = await query;
       
       if (error) throw error;
-      if (data) {
+      if (data && mountedRef.current) {
         const mapped = data.map(branch => ({
           ...branch,
           tenant_name: branch.tenants?.name || branch.tenants?.company_name || 'N/A',
@@ -275,7 +271,6 @@ export default function AllUsers() {
         query = query.eq('tenant_id', tenantId);
       }
 
-      // Apply pagination
       const from = (page - 1) * itemsPerPage;
       const to = from + itemsPerPage - 1;
       
@@ -285,7 +280,7 @@ export default function AllUsers() {
       const { data, error, count } = await query;
       
       if (error) throw error;
-      if (data) {
+      if (data && mountedRef.current) {
         const mapped = data.map(region => ({
           ...region,
           tenant_name: region.tenants?.name || region.tenants?.company_name || 'N/A'
@@ -306,7 +301,7 @@ export default function AllUsers() {
         .order("name", { ascending: true });
       
       if (error) throw error;
-      if (data) setTenants(data);
+      if (data && mountedRef.current) setTenants(data);
     } catch (err) {
       console.error("Error fetching tenants:", err);
     }
@@ -324,11 +319,9 @@ export default function AllUsers() {
       setIsAddingUser(true);
       const initialFormData = {
         password: '',
-        confirmPassword: '',
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
       };
       
-      // Set initial filtered regions and branches
       if (currentUserTenantId && !isSuperAdmin) {
         filterRegionsByTenant(currentUserTenantId);
         filterBranchesByRegionAndTenant(null, currentUserTenantId);
@@ -339,13 +332,12 @@ export default function AllUsers() {
       
       setFormData(initialFormData);
     } else if (item) {
-      setFormData(item);
+      const { password, confirmPassword, ...itemData } = item;
+      setFormData(itemData);
       
-      // Filter based on item's tenant_id or current user's tenant
       const tenantId = isSuperAdmin ? (item.tenant_id || currentUserTenantId) : currentUserTenantId;
       filterRegionsByTenant(tenantId);
       
-      // If user has a region, filter branches by that region and tenant
       if (item.region_id) {
         filterBranchesByRegionAndTenant(item.region_id, tenantId);
       } else {
@@ -356,7 +348,6 @@ export default function AllUsers() {
         ...(currentUserTenantId && !isSuperAdmin ? { tenant_id: currentUserTenantId } : {})
       };
       
-      // Set initial filtered regions and branches
       if (currentUserTenantId && !isSuperAdmin) {
         filterRegionsByTenant(currentUserTenantId);
         filterBranchesByRegionAndTenant(null, currentUserTenantId);
@@ -423,7 +414,6 @@ export default function AllUsers() {
         await handleRegionSubmit();
       }
 
-      // Refresh current page after successful operation
       fetchPageData(currentPage);
       closeModal();
       alert(`${modalType.charAt(0).toUpperCase() + modalType.slice(1)} ${editingItem ? 'updated' : 'created'} successfully!`);
@@ -436,11 +426,7 @@ export default function AllUsers() {
   };
 
   const handleCreateUser = async () => {
-    if (formData.password !== formData.confirmPassword) {
-      throw new Error("Passwords do not match");
-    }
-
-    if (formData.password.length < 6) {
+    if (formData.password && formData.password.length < 6) {
       throw new Error("Password must be at least 6 characters");
     }
 
@@ -650,10 +636,7 @@ export default function AllUsers() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#586ab1] mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading data...</p>
-        </div>
+        <Spinner />
       </div>
     );
   }
@@ -836,9 +819,7 @@ export default function AllUsers() {
                       <option value="">All Branches</option>
                       {branches
                         .filter(branch => {
-                          // Filter by tenant for non-superadmins
                           if (!isSuperAdmin && branch.tenant_id !== currentUserTenantId) return false;
-                          // Filter by region if region filter is active
                           if (filterRegion && branch.region_id !== filterRegion) return false;
                           return true;
                         })
@@ -987,7 +968,6 @@ export default function AllUsers() {
                 </div>
               )}
 
-              {/* Pagination Component */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
                   <div className="flex flex-1 justify-between sm:hidden">
@@ -1120,7 +1100,6 @@ export default function AllUsers() {
                 </div>
               )}
 
-              {/* Pagination for Branches */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
                   <div className="flex flex-1 justify-between sm:hidden">
@@ -1255,7 +1234,6 @@ export default function AllUsers() {
                 </div>
               )}
 
-              {/* Pagination for Regions */}
               {totalPages > 1 && (
                 <div className="flex items-center justify-between border-t border-gray-200 bg-white px-4 py-3 sm:px-6">
                   <div className="flex flex-1 justify-between sm:hidden">
@@ -1363,19 +1341,17 @@ export default function AllUsers() {
                   </div>
 
                   {isAddingUser && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
-                        <input
-                          type="password"
-                          value={formData.password || ''}
-                          onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
-                          required={isAddingUser}
-                          minLength={6}
-                        />
-                      </div>
-                 
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Password *</label>
+                      <input
+                        type="password"
+                        value={formData.password || ''}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1]"
+                        required={isAddingUser}
+                        minLength={6}
+                        placeholder="Enter password (min 6 characters)"
+                      />
                     </div>
                   )}
 
