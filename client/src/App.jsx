@@ -127,6 +127,7 @@ import AdminCreateReportUser from "./pages/admin/components/AdminCreateReportUse
 import AdminCreateTenant from "./pages/admin/components/AdminCreateTenant.jsx";
 import TenantMpesaForm from "./pages/admin/components/TenantMpesa.jsx";
 import TenantViewPage from "./pages/admin/components/TenantViewPage.jsx";
+import PenaltySettingsManager from "./pages/admin/components/PenaltySettingsManager.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -993,6 +994,11 @@ const getDefaultRoute = () => {
                   <Route
                     path="/loans/pending/admin"
                     element={<PendingLoans />}
+                  />
+
+  <Route
+                    path="/penalty-settings/admin"
+                    element={<PenaltySettingsManager />}
                   />
 
                     <Route

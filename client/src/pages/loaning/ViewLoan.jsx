@@ -89,7 +89,6 @@ const ViewLoan = () => {
       }
 
       // Fetch user details
-      const usersToFetch = [];
       const userIds = new Set();
 
       if (loanData.booked_by) userIds.add(loanData.booked_by);
@@ -668,7 +667,7 @@ const ViewLoan = () => {
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
           <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
             <CreditCardIcon className="h-6 w-6 text-amber-600 mr-3" />
-            Charges & Fees
+            Charges & Fees 
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -941,8 +940,8 @@ const ViewLoan = () => {
                 <ArrowLeftIcon className="h-6 w-6 text-gray-600" />
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-900">
-                  Loan Details - #{loanDetails.id}
+                <h1 className="text-sm  text-slate-600">
+                  Loan Details - #{loanDetails.id} 
                 </h1>
                 <p className="text-gray-600 mt-1">
                   Complete information about this loan application
@@ -966,13 +965,13 @@ const ViewLoan = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Full Name:</span>
-                  <span className="text-gray-900 text-lg font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">Full Name:</span>
+                  <span className="text-slate-600 text-sm">
                     {customer.Firstname} {customer.Surname}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">ID Number:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">ID Number:</span>
                   <span className="text-blue-600 font-mono font-semibold">
                     {customer.id_number || 'N/A'}
                   </span>
@@ -985,13 +984,13 @@ const ViewLoan = () => {
                     <PhoneIcon className="h-4 w-4 mr-1" />
                     Mobile:
                   </span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600">
                     {customer.mobile}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Customer Since:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block text-sm mb-1">Customer Since:</span>
+                  <span className="text-slate-600 font-semibold">
                     {formatDate(customer.created_at)}
                   </span>
                 </div>
@@ -999,14 +998,14 @@ const ViewLoan = () => {
 
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Branch:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">Branch:</span>
+                  <span className="text-slate-600 font-semibold">
                     {customer.branches?.name || 'N/A'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Region:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">Region:</span>
+                  <span className="text-slate-600 font-semibold">
                     {customer.branches?.regions?.name || 'N/A'}
                   </span>
                 </div>
@@ -1014,13 +1013,13 @@ const ViewLoan = () => {
 
               <div className="space-y-3">
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Loan Type:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">Loan Type:</span>
                   <span className={`font-semibold text-lg ${loanDetails.is_new_loan ? 'text-green-600' : 'text-blue-600'}`}>
                     {loanDetails.is_new_loan ? 'New Loan' : 'Returning Loan'}
                   </span>
                 </div>
                 <div>
-                  <span className="text-gray-600 font-medium block mb-1">Repayment State:</span>
+                  <span className="text-gray-600 font-medium block mb-1 text-sm ">Repayment State:</span>
                   <span className={`font-semibold px-2 py-1 rounded-full text-sm ${
                     loanDetails.repayment_state === 'completed' ? 'bg-green-100 text-green-800' :
                     loanDetails.repayment_state === 'overdue' ? 'bg-red-100 text-red-800' :

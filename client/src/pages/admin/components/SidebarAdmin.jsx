@@ -142,23 +142,32 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
     },
 
     // SETTINGS
-    {
-      name: 'System Settings',
-      href: '/settings/admin',
-      icon: Settings,
-      color: 'text-indigo-400',
-      bgColor: 'bg-indigo-400/10',
-      children: [
-        { name: 'General Settings', href: '/settings/general/admin', icon: Settings },
-        { name: 'Interest Rates', href: '/settings/rates/admin', icon: Percent },
-        { name: 'Fees & Penalties', href: '/settings/fees/admin', icon: Coins },
-        { name: 'Integrations', href: '/settings/integrations/admin', icon: Zap },
-        { name: 'Notifications', href: '/settings/notifications/admin', icon: Bell },
-        { name: 'Email Templates', href: '/settings/email/admin', icon: Mail },
-        { name: 'SMS Templates', href: '/settings/sms/admin', icon: MessageSquare },
-        { name: 'Backup & Restore', href: '/settings/backup/admin', icon: Database },
-      ],
+   {
+  name: 'System Settings',
+  href: '/settings/admin',
+  icon: Settings,
+  color: 'text-indigo-400',
+  bgColor: 'bg-indigo-400/10',
+  children: [
+    { name: 'General Settings', href: '/settings/general/admin', icon: Settings },
+    { name: 'Interest Rates', href: '/settings/rates/admin', icon: Percent },
+
+    // ✅ NEW PENALTY SETTINGS ROUTE
+    { 
+      name: 'Penalty Settings', 
+      href: '/penalty-settings/admin', 
+      icon: AlertTriangle 
     },
+
+    { name: 'Fees', href: '/settings/fees/admin', icon: Coins },
+    { name: 'Integrations', href: '/settings/integrations/admin', icon: Zap },
+    { name: 'Notifications', href: '/settings/notifications/admin', icon: Bell },
+    { name: 'Email Templates', href: '/settings/email/admin', icon: Mail },
+    { name: 'SMS Templates', href: '/settings/sms/admin', icon: MessageSquare },
+    { name: 'Backup & Restore', href: '/settings/backup/admin', icon: Database },
+  ],
+},
+
 
     // AUDIT
     {
