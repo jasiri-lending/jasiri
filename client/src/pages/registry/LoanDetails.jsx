@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { BanknotesIcon, CreditCardIcon, ClockIcon, ArrowLeftIcon } from "@heroicons/react/24/outline";
+import Spinner from "../../components/Spinner";
 
 const LoanDetails = () => {
   const { customerId } = useParams();
@@ -101,14 +102,10 @@ const LoanDetails = () => {
   };
 
   const totalPaid = loanPayments.reduce((sum, payment) => sum + (Number(payment.paid_amount) || 0), 0);
-
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="flex items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-          <p className="ml-3 text-gray-500">Loading loan details...</p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
       </div>
     );
   }

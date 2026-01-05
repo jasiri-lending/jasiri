@@ -20,6 +20,7 @@ import { useNavigate } from "react-router-dom";
 import ViewCustomer from "./ViewCustomer";
 import CustomerVerification from "./CustomerVerification";
 import Verification from "./Verification";
+import Spinner from "../../components/Spinner";
 
 // Role configuration mapping
 const ROLE_CONFIG = {
@@ -349,10 +350,9 @@ const PendingAmendments = () => {
   if (authLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex items-center justify-center">
-        <div className="flex flex-col items-center justify-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
-          <span className="text-gray-600 text-lg font-medium">Loading...</span>
-        </div>
+       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
+      </div>
       </div>
     );
   }
@@ -381,7 +381,7 @@ const PendingAmendments = () => {
         <div className="mb-6">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-sm  text-slate-900">Pending Amendments well  </h1>
+              <h1 className="text-sm  text-slate-900">Pending Amendments   </h1>
               {/* <p className="text-gray-600 mt-2 text-xs">
                 Recently updated customer records requiring review ({filteredCustomers.length})
               </p> */}

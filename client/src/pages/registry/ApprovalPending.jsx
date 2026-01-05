@@ -309,10 +309,14 @@ const ApprovalPending = () => {
   };
 
   // Show loading if profile is not yet loaded
-  if (!profile || loading) {
+  if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
-        <Spinner text={!profile ? "Loading user information..." : "Loading customers..."} />
+      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <Spinner text="Loading ..." />
+          </div>
+        </div>
       </div>
     );
   }

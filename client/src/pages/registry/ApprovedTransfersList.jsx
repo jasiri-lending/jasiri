@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
+import Spinner from '../../components/Spinner.jsx';
 
 const ApprovedTransfersList = ({  onExecute }) => {
   const [transfers, setTransfers] = useState([]);
@@ -84,8 +85,12 @@ const ApprovedTransfersList = ({  onExecute }) => {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <Spinner text="Loading 360 view..." />
+          </div>
+        </div>
       </div>
     );
   }

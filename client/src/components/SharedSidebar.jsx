@@ -1,5 +1,5 @@
 // src/components/SharedSidebar.jsx
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Home,
@@ -24,6 +24,8 @@ import {
   FileSpreadsheet,
   X,
   Menu,
+  Settings,
+  Sliders,
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 
@@ -35,14 +37,22 @@ const SharedSidebar = () => {
   const { profile } = useAuth();
   const location = useLocation();
 
-  // Detect mobile screen
+  /* -----------------------------------------------------
+   Role access helper
+  ----------------------------------------------------- */
+  const hasAccess = (item) => {
+    if (!item.roles || item.roles.length === 0) return true;
+    return item.roles.includes(profile?.role);
+  };
+
+  /* -----------------------------------------------------
+   Mobile detection
+  ----------------------------------------------------- */
   useEffect(() => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 1024;
       setIsMobile(mobile);
-      if (mobile) {
-        setIsMobileOpen(false);
-      }
+      if (mobile) setIsMobileOpen(false);
     };
 
     checkMobile();
@@ -59,58 +69,40 @@ const SharedSidebar = () => {
 
   const toggleSidebar = () => {
     if (isMobile) {
-      setIsMobileOpen(!isMobileOpen);
+      setIsMobileOpen((v) => !v);
     } else {
-      setIsCollapsed(!isCollapsed);
-      if (!isCollapsed) {
-        setExpandedItems({});
-      }
+      setIsCollapsed((v) => !v);
+      if (!isCollapsed) setExpandedItems({});
     }
   };
 
   const handleNavClick = () => {
-    if (isMobile) {
-      setIsMobileOpen(false);
-    }
+    if (isMobile) setIsMobileOpen(false);
   };
 
-  // Auto-expand parent when child is active
-  useEffect(() => {
-    getNavigation().forEach((item) => {
-      if (item.children) {
-        const isChildActive = item.children.some(
-          (child) =>
-            location.pathname === child.href ||
-            location.pathname.startsWith(child.href + "/")
-        );
-        if (isChildActive) {
-          setExpandedItems((prev) => ({
-            ...prev,
-            [item.name]: true,
-          }));
-        }
-      }
-    });
-  }, [location.pathname, profile?.role]);
-
+  /* -----------------------------------------------------
+   Navigation builder
+  ----------------------------------------------------- */
   const getNavigation = () => {
     const isOfficer = profile?.role === "relationship_officer";
 
     const baseNavigation = [
-      {
-        name: "Dashboard",
-        href: "/dashboard",
-        icon: Home,
-      },
+      { name: "Dashboard", href: "/dashboard", icon: Home },
     ];
+
+    const analyticsNavigation = [
+  {
+    name: "Analytics",
+    href: "/analytics",
+    icon: BarChart3,
+    roles: ["credit_analyst_officer"], // 🔐 ONLY analysts
+  },
+];
+
 
     const officerNavigation = isOfficer
       ? [
-          {
-            name: "Leads",
-            href: "/officer/leads",
-            icon: UserPlus,
-          },
+          { name: "Leads", href: "/officer/leads", icon: UserPlus },
           {
             name: "Loan Applications",
             href: "/officer/loans/applications",
@@ -147,12 +139,8 @@ const SharedSidebar = () => {
         ]
       : [];
 
-    // Registry Children - Dynamic based on role
-    const registryChildren = [
-      { name: "Customers", href: "/registry/customers", icon: Users },
-    ];
+    const registryChildren = [{ name: "Customers", href: "/registry/customers", icon: Users }];
 
-    // Add Customer - Only for Relationship Officers
     if (isOfficer) {
       registryChildren.push({
         name: "Add Customer",
@@ -161,38 +149,21 @@ const SharedSidebar = () => {
       });
     }
 
-    // Pending Amendments - Different routes for officers vs others
-    if (isOfficer) {
-      registryChildren.push({
-        name: "Pending Amendments",
-        href: "/officer/customers/amendments",
-        icon: ClipboardList,
-      });
-    } else {
-      registryChildren.push({
-        name: "Pending Amendments",
-        href: "/registry/pending-amendments",
-        icon: ClipboardList,
-      });
-    }
-
-    // Continue with shared registry items
     registryChildren.push(
       {
-        name: "BM Pending",
-        href: "/registry/bm-pending",
-        icon: UserCheck,
+        name: "Pending Amendments",
+        href: isOfficer
+          ? "/officer/customers/amendments"
+          : "/registry/pending-amendments",
+        icon: ClipboardList,
       },
+      { name: "BM Pending", href: "/registry/bm-pending", icon: UserCheck },
       {
         name: "Callbacks Pending",
         href: "/registry/callbacks-pending",
         icon: PhoneCall,
       },
-      {
-        name: "HQ Pending",
-        href: "/registry/hq-pending",
-        icon: UserCheck,
-      },
+      { name: "HQ Pending", href: "/registry/hq-pending", icon: UserCheck },
       {
         name: "Approvals Pending",
         href: "/registry/approvals-pending",
@@ -218,29 +189,22 @@ const SharedSidebar = () => {
         href: "/registry/prequalified-amount-edit",
         icon: CreditCard,
       },
-      {
-        name: "Guarantors",
-        href: "/registry/guarantors",
-        icon: Handshake,
-      }
+      { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
     );
 
-    // Drafts Navigation - Dynamic based on role
-    const draftsChildren = [];
-
-    if (isOfficer) {
-      draftsChildren.push({
-        name: "Customer Drafts",
-        href: "/officer/customers/drafts",
-        icon: FileText,
-      });
-    } else {
-      draftsChildren.push({
-        name: "Customer Verification Drafts",
-        href: "/drafts/customers",
-        icon: UserCheck,
-      });
-    }
+    const draftsChildren = [
+      isOfficer
+        ? {
+            name: "Customer Drafts",
+            href: "/officer/customers/drafts",
+            icon: FileText,
+          }
+        : {
+            name: "Customer Verification Drafts",
+            href: "/drafts/customers",
+            icon: UserCheck,
+          },
+    ];
 
     const sharedNavigation = [
       {
@@ -285,6 +249,18 @@ const SharedSidebar = () => {
             href: "/loaning/rejected-loans",
             icon: FileText,
           },
+          {
+            name: "Penalty Settings",
+            href: "/loaning/penalty-settings",
+            icon: Settings,
+            roles: ["credit_analyst_officer"],
+          },
+          {
+            name: "Limit Adjustment",
+            href: "/loaning/limit-adjustment",
+            icon: Sliders,
+            roles: ["credit_analyst_officer"],
+          },
         ],
       },
       {
@@ -306,13 +282,46 @@ const SharedSidebar = () => {
 
     return [
       ...baseNavigation,
+        ...analyticsNavigation,
       ...officerNavigation,
       ...accountingNavigation,
       ...sharedNavigation,
     ];
   };
 
-  const navigation = getNavigation();
+  /* -----------------------------------------------------
+   Filter navigation by role (TOP + CHILDREN)
+  ----------------------------------------------------- */
+  const navigation = useMemo(() => {
+    return getNavigation()
+      .filter(hasAccess)
+      .map((item) =>
+        item.children
+          ? {
+              ...item,
+              children: item.children.filter(hasAccess),
+            }
+          : item
+      );
+  }, [profile?.role]);
+
+  /* -----------------------------------------------------
+   Auto-expand active parent
+  ----------------------------------------------------- */
+  useEffect(() => {
+    navigation.forEach((item) => {
+      if (!item.children) return;
+      const active = item.children.some(
+        (child) =>
+          location.pathname === child.href ||
+          location.pathname.startsWith(child.href + "/")
+      );
+      if (active) {
+        setExpandedItems((prev) => ({ ...prev, [item.name]: true }));
+      }
+    });
+  }, [location.pathname, navigation]);
+
 
   // Mobile View
   if (isMobile) {
@@ -579,6 +588,7 @@ const SharedSidebar = () => {
       </nav>
     </div>
   );
+
 };
 
 export default SharedSidebar;

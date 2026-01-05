@@ -165,11 +165,10 @@ const LoanInteraction = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-4 border-[#586ab1]/20 border-t-[#586ab1] mb-4 mx-auto"></div>
-          <p className="text-gray-700 text-sm font-medium">Loading loan interactions...</p>
-        </div>
+     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+               <Spinner text="Loading ..." />
+             </div>
       </div>
     );
   }

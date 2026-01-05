@@ -10,6 +10,7 @@ import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
 } from '@heroicons/react/24/outline';
+import Spinner from '../../components/Spinner';
 
 function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onEdit, onView }) {
   const [amendments, setAmendments] = useState([]);
@@ -176,9 +177,8 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-3 text-gray-500 text-sm">Loading amendments...</span>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
       </div>
     );
   }

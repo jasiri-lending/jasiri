@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import AmendmentDetailsModal from "./AmendmentDetailsModal";
+import Spinner from "../../components/Spinner";
 
 export default function AmendmentDetailsPage() {
   const { amendmentId } = useParams();
@@ -36,8 +37,8 @@ export default function AmendmentDetailsPage() {
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-green-600"></div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
       </div>
     );
   }

@@ -12,6 +12,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import Spinner from '../../components/Spinner';
 
 const PendingBM = () => {
   const [customers, setCustomers] = useState([]);
@@ -134,6 +135,14 @@ const PendingBM = () => {
     return customer.branch?.name || 'N/A';
   };
 
+
+   if (loading) {
+      return (
+        <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+          <Spinner text="Loading ..." />
+        </div>
+      );
+    }
   // Show loading if profile is not yet loaded
   if (!profile) {
     return (

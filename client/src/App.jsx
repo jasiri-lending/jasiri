@@ -128,6 +128,8 @@ import AdminCreateTenant from "./pages/admin/components/AdminCreateTenant.jsx";
 import TenantMpesaForm from "./pages/admin/components/TenantMpesa.jsx";
 import TenantViewPage from "./pages/admin/components/TenantViewPage.jsx";
 import PenaltySettingsManager from "./pages/admin/components/PenaltySettingsManager.jsx";
+import AnalyticsDashBoard from "./pages/registry/AnalyticsDashBoard.jsx";
+import PenaltySettings from "./pages/registry/Penalties.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -445,6 +447,32 @@ const getDefaultRoute = () => {
           path="/chart-of-accounts/new"
           element={  <ProtectedRoute>
                         <NewAccount userRole={role} />
+                      </ProtectedRoute>}
+        />
+
+
+                       <Route
+          path="/loaning/penalty-settings"
+          element={  <ProtectedRoute>
+                        <PenaltySettings userRole={role} />
+                      </ProtectedRoute>}
+        />
+
+
+
+                       <Route
+          path="/chart-of-accounts/new"
+          element={  <ProtectedRoute>
+                        <NewAccount userRole={role} />
+                      </ProtectedRoute>}
+        />
+
+
+        
+                     <Route
+          path="/analytics"
+          element={  <ProtectedRoute>
+                        <AnalyticsDashBoard userRole={role} />
                       </ProtectedRoute>}
         />
 

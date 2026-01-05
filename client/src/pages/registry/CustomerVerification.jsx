@@ -29,6 +29,7 @@ import {
   BriefcaseIcon,
 } from "@heroicons/react/24/outline";
 import { useParams, useNavigate } from "react-router-dom";
+import Spinner from "../../components/Spinner";
 
 const CustomerVerification = () => {
   const { customerId } = useParams(); 
@@ -908,13 +909,8 @@ if (userRole === "credit_analyst_officer") {
   // Loading and error states
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mb-4"></div>
-          <p className="text-gray-600 font-medium">
-            Loading verification details...
-          </p>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
       </div>
     );
   }

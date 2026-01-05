@@ -14,6 +14,7 @@ import {
 
   ClockIcon,
 } from "@heroicons/react/24/outline";
+import Spinner from "../../components/Spinner";
 
 const CustomerInteractions = () => {
   const { customerId } = useParams();
@@ -985,11 +986,10 @@ const CustomerInteractions = () => {
     },
   ];
 
-  if (loading) {
+   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#586ab1]"></div>
-        <p className="ml-3 text-gray-500">Loading interactions...</p>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading interactions..." />
       </div>
     );
   }

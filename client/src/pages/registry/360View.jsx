@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
+import Spinner from "../../components/Spinner.jsx";
 
 // SMS Service Configuration
 const CELCOM_AFRICA_CONFIG = {
@@ -2483,10 +2484,16 @@ const handleSendSms = async () => {
     );
   };
 
+
+  // ========== LOADING STATE ==========
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <Spinner text="Loading 360 view..." />
+          </div>
+        </div>
       </div>
     );
   }

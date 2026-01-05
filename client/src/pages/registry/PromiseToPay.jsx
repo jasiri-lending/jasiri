@@ -4,6 +4,7 @@ import { Loader2, Plus, Calendar, ArrowLeftIcon, User, Phone, DollarSign, Trendi
 import { toast } from "react-toastify";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useAuth } from "../../hooks/userAuth.js";
+import Spinner from "../../components/Spinner.jsx";
 
 const PromiseToPay = () => {
   const { customerId } = useParams();
@@ -279,15 +280,10 @@ const PromiseToPay = () => {
       </div>
     );
   }
-
-  if (loading) {
+ if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
-        <div className="max-w-6xl mx-auto">
-          <div className="flex justify-center items-center py-20">
-            <Loader2 className="animate-spin h-12 w-12 text-indigo-600" />
-          </div>
-        </div>
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+        <Spinner text="Loading ..." />
       </div>
     );
   }
