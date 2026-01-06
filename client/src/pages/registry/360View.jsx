@@ -1821,98 +1821,118 @@ const Customer360View = () => {
     );
   };
 
-  const renderSmsTab = () => {
-const handleSendSms = async () => {
-  if (!smsMessage.trim() || !customer?.mobile) {
-    alert("Please enter a message and ensure customer has a mobile number");
-    return;
-  }
+const renderSmsTab = () => {
 
-  if (!profile?.id) {
-    console.error("Cannot send SMS: profile ID not found");
-    setSmsStatus("Failed to send message: sender profile not found");
-    return;
-  }
+  const handleSendSms = async () => {
+    if (!smsMessage.trim() || !customer?.mobile) {
+      alert("Please enter a message and ensure customer has a mobile number");
+      return;
+    }
 
-  // Limit: max 2 SMS per customer/day
-  const today = new Date().toISOString().split("T")[0];
-  const { count: smsCountToday } = await supabase
-    .from("sms_logs")
-    .select("*", { count: "exact", head: true })
-    .eq("customer_id", customerId)
-    .gte("created_at", `${today}T00:00:00`)
-    .lte(`${today}T23:59:59`);
+    if (!profile?.id) {
+      console.error("SMS blocked: logged-in user not resolved");
+      setSmsStatus("Failed: sender not identified");
+      return;
+    }
 
-  if (smsCountToday >= 2) {
-    alert("You have already sent 2 SMS to this customer today.");
-    return;
-  }
+    const today = new Date().toISOString().split("T")[0];
 
-  setSendingSms(true);
-  setSmsStatus("Sending...");
-
-  try {
-    const result = await SMSService.sendSMS(
-      customer.mobile,
-      smsMessage,
-      CELCOM_AFRICA_CONFIG.defaultShortcode,
-      customerId
-    );
-
-    // Insert only if profile.id exists
-    await supabase.from("sms_logs").insert({
-      customer_id: customerId,
-      message: smsMessage,
-      status: result.success ? "sent" : "failed",
-      message_id: result.messageId || null,
-      sent_by: profile.id // now guaranteed to exist
-    });
-
-    const { data: updatedSms } = await supabase
+    const { count } = await supabase
       .from("sms_logs")
-      .select("*")
+      .select("*", { count: "exact", head: true })
       .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
+      .gte("created_at", `${today}T00:00:00`)
+      .lte("created_at", `${today}T23:59:59`);
 
-    setSmsLogs(updatedSms || []);
-    setSmsMessage("");
-    setSmsStatus("Message sent successfully!");
-    setTimeout(() => setSmsStatus(""), 5000);
-  } catch (error) {
-    console.error("Error sending SMS:", error);
-    setSmsStatus(`Failed to send message: ${error.message}`);
-  } finally {
-    setSendingSms(false);
-  }
-};
+    if ((count ?? 0) >= 2) {
+      alert("You have already sent 2 SMS to this customer today.");
+      return;
+    }
 
+    setSendingSms(true);
+    setSmsStatus("Sending...");
 
+    try {
+      const result = await SMSService.sendSMS(
+        customer.mobile,
+        smsMessage,
+        CELCOM_AFRICA_CONFIG.defaultShortcode,
+        customerId
+      );
 
+      await supabase.from("sms_logs").insert({
+        customer_id: customerId,
+        recipient_phone: customer.mobile,
+        message: smsMessage,
+        status: result.success ? "sent" : "failed",
+        message_id: result.messageId ?? null,
+        sent_by: profile.id,
+        tenant_id: profile.tenant_id
+      });
 
-    return (
-      <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
-        {/* SMS Compose Card */}
-{/* Only show SMS compose for non-relationship officers */}
-{profile?.role !== "relationship_officer" && (
-  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
-          <h3 className="text-base  text-slate-600 mb-4 flex items-center">
+      // Fetch updated SMS logs with sender information
+      const { data, error: fetchError } = await supabase
+        .from("sms_logs")
+        .select(`
+          id,
+          message,
+          status,
+          created_at,
+          error_message,
+          sent_by,
+          sender:users!sent_by (
+            id,
+            full_name,
+            email
+          )
+        `)
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
+
+      if (fetchError) {
+        console.error("Error fetching SMS logs:", fetchError);
+      }
+      
+      // Debug: Log the data to see what's being returned
+      console.log("SMS Logs fetched:", data);
+
+      setSmsLogs(data || []);
+      setSmsMessage("");
+      setSmsStatus("Message sent successfully!");
+      setTimeout(() => setSmsStatus(""), 5000);
+
+    } catch (error) {
+      console.error("SMS send error:", error);
+      setSmsStatus("Failed to send message");
+    } finally {
+      setSendingSms(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+
+      {/* SMS COMPOSE */}
+      {profile?.role !== "relationship_officer" && (
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
+          <h3 className="text-base text-slate-600 mb-4 flex items-center">
             <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2 text-blue-600" />
             Send SMS to Customer
           </h3>
 
           <div className="space-y-4">
+
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
                 Recipient
               </label>
-              <div className="flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200">
-                <div className="flex items-center space-x-2">
-                  <PhoneIcon className="h-4 w-4 text-gray-400" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {customer?.mobile || "No mobile number"} -{" "}
-                    {customer?.Firstname} {customer?.Surname}
-                  </span>
-                </div>
+              <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200">
+                <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-sm font-medium text-gray-900">
+                  {customer?.Firstname && customer?.mobile
+                    ? `${customer.Firstname} - ${customer.mobile}`
+                    : customer?.mobile || "No mobile number"}
+                </span>
               </div>
             </div>
 
@@ -1923,19 +1943,13 @@ const handleSendSms = async () => {
               <textarea
                 value={smsMessage}
                 onChange={(e) => setSmsMessage(e.target.value)}
-                placeholder="Type your message here..."
-                className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                 maxLength={160}
               />
               <div className="flex justify-between mt-1">
-                <div className="flex items-center space-x-4">
-                  <span className="text-xs text-gray-500">
-                    {smsMessage.length}/160 characters
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    ~{Math.ceil(smsMessage.length / 160)} SMS
-                  </span>
-                </div>
+                <span className="text-xs text-gray-500">
+                  {smsMessage.length}/160 characters
+                </span>
                 <span className="text-xs text-gray-500">
                   Sender ID: {CELCOM_AFRICA_CONFIG.defaultShortcode}
                 </span>
@@ -1944,209 +1958,89 @@ const handleSendSms = async () => {
 
             {smsStatus && (
               <div
-                className={`p-3 text-sm rounded-lg flex items-center justify-between ${
+                className={`p-3 text-sm rounded-lg flex items-center ${
                   smsStatus.includes("successfully")
                     ? "bg-green-50 text-green-800 border border-green-200"
                     : "bg-red-50 text-red-800 border border-red-200"
                 }`}
               >
-                <div className="flex items-center">
-                  {smsStatus.includes("successfully") ? (
-                    <CheckCircleIcon className="h-4 w-4 mr-2" />
-                  ) : (
-                    <ExclamationCircleIcon className="h-4 w-4 mr-2" />
-                  )}
-                  <span>{smsStatus}</span>
-                </div>
-                <span className="text-xs font-medium">
-                  {smsStatus.includes("successfully")
-                    ? "✓ Delivered"
-                    : "✗ Failed"}
-                </span>
+                {smsStatus.includes("successfully") ? (
+                  <CheckCircleIcon className="h-4 w-4 mr-2" />
+                ) : (
+                  <ExclamationCircleIcon className="h-4 w-4 mr-2" />
+                )}
+                {smsStatus}
               </div>
             )}
 
-            <div className="flex justify-between items-center pt-4 border-t border-gray-200">
-              <div className="flex space-x-3">
-                <button
-                  onClick={() => setSmsMessage("")}
-                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition border border-gray-300"
-                  disabled={sendingSms}
-                >
-                  Clear
-                </button>
-                <button
-                  onClick={handleSendSms}
-                  disabled={
-                    sendingSms || !smsMessage.trim() || !customer?.mobile
-                  }
-                  className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center shadow-sm"
-                >
-                  {sendingSms ? (
-                    <>
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-3 w-3 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Sending...
-                    </>
-                  ) : (
-                    <>
-                      <ChatBubbleLeftRightIcon className="h-3 w-3 mr-2" />
-                      Send SMS
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-)}
-
-
-        {/* SMS History */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
-            <div className="flex justify-between items-center">
-              <div>
-                <h3 className="text-base  text-slate-600">SMS History</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Recent messages sent to this customer
-                </p>
-              </div>
+            <div className="flex justify-end pt-4 border-t border-gray-200">
               <button
-                onClick={() => fetchCustomerData()}
-                className="px-3 py-1.5 text-xs font-medium text-blue-600 bg-blue-50 hover:bg-blue-100 rounded-lg border border-blue-200 transition"
+                onClick={handleSendSms}
+                disabled={sendingSms || !smsMessage.trim()}
+                className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 flex items-center"
               >
-                Refresh
+                {sendingSms ? "Sending..." : "Send SMS"}
               </button>
             </div>
           </div>
-
-          {smsLogs.length > 0 ? (
-            <div className="overflow-x-auto">
-              <div className="max-h-[400px] overflow-y-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50 sticky top-0 z-10">
-                    <tr>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Date & Time
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Message
-                      </th>
-                      <th className="px-6 py-3 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">
-                        Status
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {smsLogs.map((sms) => (
-                      <tr
-                        key={sms.id}
-                        className="hover:bg-blue-50 transition-colors"
-                      >
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col">
-                            <span className="text-sm font-medium text-gray-900">
-                              {new Date(sms.created_at).toLocaleDateString(
-                                "en-US",
-                                {
-                                  month: "short",
-                                  day: "numeric",
-                                  year: "numeric",
-                                }
-                              )}
-                            </span>
-                            <span className="text-xs text-gray-500 mt-0.5">
-                              {new Date(sms.created_at).toLocaleTimeString(
-                                "en-US",
-                                {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                  hour12: true,
-                                }
-                              )}
-                            </span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="max-w-md">
-                            <p className="text-sm text-gray-900 leading-relaxed">
-                              {sms.message}
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="flex flex-col space-y-1">
-                            <span
-                              className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full w-fit ${
-                                sms.status === "sent" ||
-                                sms.status === "delivered"
-                                  ? "bg-green-100 text-green-800 border border-green-200"
-                                  : sms.status === "pending"
-                                  ? "bg-yellow-100 text-yellow-800 border border-yellow-200"
-                                  : sms.status === "failed"
-                                  ? "bg-red-100 text-red-800 border border-red-200"
-                                  : "bg-gray-100 text-gray-800 border border-gray-200"
-                              }`}
-                            >
-                              {sms.status === "sent" ||
-                              sms.status === "delivered"
-                                ? "✓ "
-                                : sms.status === "failed"
-                                ? "✗ "
-                                : ""}
-                              {sms.status.charAt(0).toUpperCase() +
-                                sms.status.slice(1)}
-                            </span>
-                            {sms.error_message && (
-                              <p
-                                className="text-xs text-red-600 max-w-[180px]"
-                                title={sms.error_message}
-                              >
-                                {sms.error_message}
-                              </p>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-12">
-              <ChatBubbleLeftRightIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-sm font-medium text-gray-500">
-                No SMS messages sent yet
-              </p>
-              <p className="text-xs text-gray-400 mt-1">
-                Send your first message to this customer
-              </p>
-            </div>
-          )}
         </div>
+      )}
+
+      {/* SMS HISTORY */}
+      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+          <h3 className="text-base text-slate-600">SMS History</h3>
+        </div>
+
+        {smsLogs.length > 0 ? (
+          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50 sticky top-0">
+                <tr>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Date & Time</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Message</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Sent By</th>
+                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Status</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y">
+                {smsLogs.map((sms) => (
+                  <tr key={sms.id} className="hover:bg-blue-50">
+                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
+                      {new Date(sms.created_at).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700">
+                      <div className="whitespace-pre-wrap break-words">
+                        {sms.message}
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-700 align-top">
+                      {sms.sender?.full_name || "System"}
+                    </td>
+                    <td className="px-6 py-4 align-top">
+                      <span className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
+                        sms.status === "sent"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
+                      }`}>
+                        {sms.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="text-center py-12 text-gray-500">
+            No SMS messages sent yet
+          </div>
+        )}
       </div>
-    );
-  };
+    </div>
+  );
+};
+
 
   const renderPromisedToPay = () => {
     const outstandingBalance = loanDetails
