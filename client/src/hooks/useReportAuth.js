@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useAuth } from "./useAuth";
+import { useAuth } from "../hooks/userAuth";
 
 export function useReportAuth() {
   const { user, profile, initializing } = useAuth();
