@@ -1,6 +1,5 @@
 import { useState, useEffect, useRef } from "react";
 import {
-  Settings,
   DollarSign,
   Calendar,
   Shield,
@@ -148,24 +147,7 @@ export default function PenaltySettings() {
     }
   };
 
-  if (!profile || loading) {
-    return (
-      <div 
-        className="min-h-screen flex items-center justify-center p-4"
-        style={{ backgroundColor: "#d9e2e8" }}
-      >
-        <div className="text-center">
-          <div 
-            className="w-12 h-12 border-4 rounded-full animate-spin mx-auto mb-4"
-            style={{ borderColor: "#586ab1", borderTopColor: "transparent" }}
-          ></div>
-          <p className="text-slate-600 font-medium">
-            {!profile ? "Loading profile..." : "Loading settings..."}
-          </p>
-        </div>
-      </div>
-    );
-  }
+
 
   return (
     <div 
@@ -173,24 +155,7 @@ export default function PenaltySettings() {
       style={{ backgroundColor: "#d9e2e8" }}
     >
       <div className="max-w-5xl mx-auto">
-        <div className="mb-8">
-          <div className="flex items-center gap-4 mb-3">
-            <div 
-              className="p-3 rounded-xl shadow-lg"
-              style={{ backgroundColor: "#586ab1" }}
-            >
-              <Settings className="text-white w-7 h-7" />
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-bold text-slate-900">
-                Penalty Settings
-              </h1>
-              <p className="text-slate-600 mt-1">
-                Configure loan penalty rules and notifications
-              </p>
-            </div>
-          </div>
-        </div>
+      
 
         {saved && (
           <div className="mb-6 bg-green-50 border border-green-200 rounded-xl p-4 flex items-center gap-3">
@@ -228,7 +193,7 @@ export default function PenaltySettings() {
                   />
                 </div>
                 <div>
-                  <h3 className="font-semibold text-slate-900 text-lg">Enable Penalty System</h3>
+                  <h3 className="font-semibold text-slate-600 text-lg">Enable Penalty System</h3>
                   <p className="text-sm text-slate-600 mt-0.5">
                     Activate automated penalty calculation for overdue loans
                   </p>
@@ -250,7 +215,7 @@ export default function PenaltySettings() {
           </div>
 
           <div className="p-8">
-            <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+            <h3 className="text-lg  text-slate-600 mb-6 flex items-center gap-2">
               <div 
                 className="w-1 h-5 rounded-full"
                 style={{ backgroundColor: "#586ab1" }}
@@ -263,7 +228,7 @@ export default function PenaltySettings() {
                 <select 
                   value={settings.penalty_scope} 
                   onChange={(e) => setSettings({ ...settings, penalty_scope: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-900"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-600"
                   style={{ 
                     outline: "none",
                     boxShadow: "0 0 0 2px rgba(88, 106, 177, 0.2)",
@@ -286,7 +251,7 @@ export default function PenaltySettings() {
                 <select 
                   value={settings.penalty_type} 
                   onChange={(e) => setSettings({ ...settings, penalty_type: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-900"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-600"
                   style={{ 
                     outline: "none",
                     boxShadow: "0 0 0 2px rgba(88, 106, 177, 0.2)",
@@ -309,7 +274,7 @@ export default function PenaltySettings() {
                 <select 
                   value={settings.penalty_rate_mode} 
                   onChange={(e) => setSettings({ ...settings, penalty_rate_mode: e.target.value })}
-                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-900"
+                  className="w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 transition-colors bg-white text-slate-600"
                   style={{ 
                     outline: "none",
                     boxShadow: "0 0 0 2px rgba(88, 106, 177, 0.2)",
@@ -397,7 +362,7 @@ export default function PenaltySettings() {
             </div>
 
             <div className="mt-8">
-              <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+              <h3 className="text-lg font-semibold text-slate-600 mb-6 flex items-center gap-2">
                 <div 
                   className="w-1 h-5 rounded-full"
                   style={{ backgroundColor: "#586ab1" }}
@@ -459,7 +424,7 @@ export default function PenaltySettings() {
             className="p-8 border-t border-slate-200"
             style={{ background: "linear-gradient(to right, #f8fafc, rgba(88, 106, 177, 0.03))" }}
           >
-            <h3 className="text-lg font-semibold text-slate-900 mb-6 flex items-center gap-2">
+            <h3 className="text-lg font-semibold text-slate-600 mb-6 flex items-center gap-2">
               <div 
                 className="w-1 h-5 rounded-full"
                 style={{ backgroundColor: "#586ab1" }}
@@ -480,7 +445,7 @@ export default function PenaltySettings() {
                     />
                   </div>
                   <div>
-                    <span className="font-medium text-slate-900 block">Send Penalty SMS</span>
+                    <span className="font-medium text-slate-600 block">Send Penalty SMS</span>
                     <span className="text-sm text-slate-600">Notify borrowers when penalties are applied</span>
                   </div>
                 </div>
@@ -508,7 +473,7 @@ export default function PenaltySettings() {
                     />
                   </div>
                   <div>
-                    <span className="font-medium text-slate-900 block">Send Waiver SMS</span>
+                    <span className="font-medium text-slate-600 block">Send Waiver SMS</span>
                     <span className="text-sm text-slate-600">Notify borrowers when penalties are waived</span>
                   </div>
                 </div>
@@ -566,7 +531,7 @@ function Field({ label, icon: Icon, children, tooltip }) {
         {tooltip && (
           <div className="group relative">
             <Info className="w-4 h-4 text-slate-400 cursor-help" />
-            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-3 bg-slate-900 text-white text-xs rounded-lg shadow-xl z-10">
+            <div className="absolute left-0 bottom-full mb-2 hidden group-hover:block w-64 p-3 bg-slate-600 text-white text-xs rounded-lg shadow-xl z-10">
               {tooltip}
               <div className="absolute left-4 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-slate-900"></div>
             </div>
