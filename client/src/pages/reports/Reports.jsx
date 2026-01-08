@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import { useEffect } from "react";
+
 import { useNavigate } from 'react-router-dom';
 import { ChevronLeft, ChevronRight, FileText, Search, X } from 'lucide-react';
 import CustomerAccountModal from './CustomerAccountModal';
@@ -152,18 +154,33 @@ const Reports = () => {
   const startIdx = (currentPage - 1) * reportsPerPage;
   const endIdx = startIdx + reportsPerPage;
   const currentReports = filteredReports.slice(startIdx, endIdx);
-const handleViewReport = (report) => {
-  const logged = localStorage.getItem("reportUser");
 
-  if (logged === "logged") {
-    // already logged in
+
+const handleViewReport = (report) => {
+  const reportUser = localStorage.getItem("reportUser");
+
+  if (reportUser) {
+    // already logged in for reports
     navigate(report.route);
   } else {
-    // not logged in → open modal
     setPendingReport(report);
     setLoginOpen(true);
   }
 };
+
+
+useEffect(() => {
+  const onReportLogin = () => {
+    setLoginOpen(false);
+  };
+
+  window.addEventListener("report-login", onReportLogin);
+
+  return () => {
+    window.removeEventListener("report-login", onReportLogin);
+  };
+}, []);
+
 
 
 
