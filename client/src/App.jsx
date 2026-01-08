@@ -130,6 +130,7 @@ import TenantViewPage from "./pages/admin/components/TenantViewPage.jsx";
 import PenaltySettingsManager from "./pages/admin/components/PenaltySettingsManager.jsx";
 import AnalyticsDashBoard from "./pages/registry/AnalyticsDashBoard.jsx";
 import PenaltySettings from "./pages/registry/Penalties.jsx";
+import ReportsLayout from "./context/ReportsLayout.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -684,7 +685,10 @@ const getDefaultRoute = () => {
                     path="/reports"
                     element={
                       <ProtectedRoute>
-                        <Reports userRole={role} />
+                        <ReportsLayout>
+                                                  <Reports userRole={role} />
+
+                        </ReportsLayout>
                       </ProtectedRoute>
                     }
                   />

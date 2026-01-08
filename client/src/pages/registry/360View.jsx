@@ -1823,6 +1823,60 @@ const Customer360View = () => {
 
 const renderSmsTab = () => {
 
+  // Add this useEffect or initial fetch function to load SMS logs on component mount
+  // This is likely where you're fetching SMS logs initially
+  const loadSmsLogs = async () => {
+    console.log("=== LOADING SMS LOGS ON MOUNT/REFRESH ===");
+    
+    const { data, error } = await supabase
+      .from("sms_logs")
+      .select(`
+        id,
+        message,
+        status,
+        created_at,
+        error_message,
+        sent_by,
+        users!sms_logs_sent_by_fkey (
+          id,
+          full_name,
+          email
+        )
+      `)
+      .eq("customer_id", customerId)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error loading SMS logs:", error);
+    } else {
+      console.log("Total logs loaded:", data?.length || 0);
+      
+      // Check each log for missing user data
+      data?.forEach((sms, index) => {
+        console.log(`\n--- Log ${index + 1} ---`);
+        console.log("SMS ID:", sms.id);
+        console.log("sent_by UUID:", sms.sent_by);
+        console.log("users object:", sms.users);
+        
+        if (!sms.sent_by) {
+          console.warn("⚠️ sent_by is NULL for SMS ID:", sms.id);
+        } else if (!sms.users) {
+          console.warn("⚠️ No user found for sent_by UUID:", sms.sent_by);
+          console.warn("This user might not exist in the users table");
+        } else {
+          console.log("✅ User found:", sms.users.full_name);
+        }
+      });
+    }
+
+    setSmsLogs(data || []);
+  };
+
+  // Call this when component mounts or when you need to refresh
+  // React.useEffect(() => {
+  //   loadSmsLogs();
+  // }, [customerId]);
+
   const handleSendSms = async () => {
     if (!smsMessage.trim() || !customer?.mobile) {
       alert("Please enter a message and ensure customer has a mobile number");
@@ -1835,8 +1889,16 @@ const renderSmsTab = () => {
       return;
     }
 
+    // DEBUG: Log the profile information
+    console.log("=== PROFILE INFO ===");
+    console.log("Profile ID:", profile.id);
+    console.log("Profile Full Name:", profile.full_name);
+    console.log("Profile Email:", profile.email);
+    console.log("Profile Tenant ID:", profile.tenant_id);
+
     const today = new Date().toISOString().split("T")[0];
 
+    // Check daily SMS limit (2 per customer per day)
     const { count } = await supabase
       .from("sms_logs")
       .select("*", { count: "exact", head: true })
@@ -1845,7 +1907,7 @@ const renderSmsTab = () => {
       .lte("created_at", `${today}T23:59:59`);
 
     if ((count ?? 0) >= 2) {
-      alert("You have already sent 2 SMS to this customer today.");
+      alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
       return;
     }
 
@@ -1860,17 +1922,34 @@ const renderSmsTab = () => {
         customerId
       );
 
-      await supabase.from("sms_logs").insert({
+      // DEBUG: Log what we're inserting
+      const insertData = {
         customer_id: customerId,
         recipient_phone: customer.mobile,
         message: smsMessage,
         status: result.success ? "sent" : "failed",
         message_id: result.messageId ?? null,
-        sent_by: profile.id,
+        sent_by: profile.id, // This stores the user UUID
         tenant_id: profile.tenant_id
-      });
+      };
+      
+      console.log("=== INSERTING SMS LOG ===");
+      console.log("Insert Data:", insertData);
 
-      // Fetch updated SMS logs with sender information
+      // Insert SMS log with sent_by as user ID
+      const { data: insertedData, error: insertError } = await supabase
+        .from("sms_logs")
+        .insert(insertData)
+        .select();
+
+      if (insertError) {
+        console.error("Insert Error:", insertError);
+      } else {
+        console.log("Inserted SMS Log:", insertedData);
+      }
+
+      // Fetch updated SMS logs with sender full name via join
+      console.log("=== FETCHING SMS LOGS ===");
       const { data, error: fetchError } = await supabase
         .from("sms_logs")
         .select(`
@@ -1880,7 +1959,7 @@ const renderSmsTab = () => {
           created_at,
           error_message,
           sent_by,
-          sender:users!sent_by (
+          users!sms_logs_sent_by_fkey (
             id,
             full_name,
             email
@@ -1890,11 +1969,61 @@ const renderSmsTab = () => {
         .order("created_at", { ascending: false });
 
       if (fetchError) {
-        console.error("Error fetching SMS logs:", fetchError);
+        console.error("Fetch Error:", fetchError);
       }
       
-      // Debug: Log the data to see what's being returned
-      console.log("SMS Logs fetched:", data);
+      console.log("=== FETCHED SMS LOGS ===");
+      console.log("Total logs fetched:", data?.length || 0);
+      
+      // Log each SMS log entry with details
+      data?.forEach((sms, index) => {
+        console.log(`\n--- SMS Log ${index + 1} ---`);
+        console.log("SMS ID:", sms.id);
+        console.log("Message:", sms.message);
+        console.log("Status:", sms.status);
+        console.log("Created At:", sms.created_at);
+        console.log("sent_by UUID:", sms.sent_by);
+        console.log("users object:", sms.users);
+        console.log("Full Name:", sms.users?.full_name || "NOT FOUND");
+        console.log("Email:", sms.users?.email || "NOT FOUND");
+      });
+
+      // Verify the user exists in the users table WITH DIRECT QUERY
+      console.log("\n=== VERIFYING USER IN USERS TABLE ===");
+      const { data: userData, error: userError } = await supabase
+        .from("users")
+        .select("id, full_name, email, role")
+        .eq("id", profile.id)
+        .single();
+
+      if (userError) {
+        console.error("User lookup error:", userError);
+        console.error("This might be an RLS (Row Level Security) issue!");
+      } else {
+        console.log("User found in users table:", userData);
+      }
+
+      // Try to fetch the user from the most recent SMS log's sent_by
+      if (data && data.length > 0 && data[0].sent_by) {
+        console.log("\n=== TESTING DIRECT USER QUERY FOR LATEST SMS ===");
+        const { data: testUser, error: testError } = await supabase
+          .from("users")
+          .select("id, full_name, email")
+          .eq("id", data[0].sent_by)
+          .single();
+        
+        if (testError) {
+          console.error("❌ Cannot fetch user directly:", testError);
+          console.error("RLS POLICY ISSUE: Your users table might have RLS enabled that prevents joining");
+        } else {
+          console.log("✅ User can be fetched directly:", testUser);
+          console.log("But join returned:", data[0].users);
+          if (!data[0].users) {
+            console.error("⚠️ JOIN FAILED even though direct query works!");
+            console.error("Check your foreign key constraint name in Supabase");
+          }
+        }
+      }
 
       setSmsLogs(data || []);
       setSmsMessage("");
@@ -1909,8 +2038,58 @@ const renderSmsTab = () => {
     }
   };
 
+  // Function to check database for orphaned SMS logs
+  const checkOrphanedLogs = async () => {
+    console.log("\n=== CHECKING FOR ORPHANED SMS LOGS ===");
+    
+    // Get all SMS logs for this customer
+    const { data: allLogs } = await supabase
+      .from("sms_logs")
+      .select("id, sent_by, created_at")
+      .eq("customer_id", customerId);
+
+    console.log("Total SMS logs:", allLogs?.length);
+    
+    const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
+    console.log("Logs with NULL sent_by:", logsWithNullSentBy.length);
+    
+    if (logsWithNullSentBy.length > 0) {
+      console.log("These logs have NULL sent_by:");
+      logsWithNullSentBy.forEach(log => {
+        console.log(`  - SMS ID ${log.id} created at ${log.created_at}`);
+      });
+    }
+
+    // Check if sent_by UUIDs exist in users table
+    const sentByIds = allLogs
+      ?.filter(log => log.sent_by)
+      .map(log => log.sent_by) || [];
+    
+    if (sentByIds.length > 0) {
+      const uniqueIds = [...new Set(sentByIds)];
+      console.log("\nChecking if these user IDs exist:", uniqueIds);
+      
+      const { data: existingUsers } = await supabase
+        .from("users")
+        .select("id, full_name")
+        .in("id", uniqueIds);
+      
+      console.log("Users found in database:", existingUsers);
+      
+      const existingUserIds = existingUsers?.map(u => u.id) || [];
+      const missingUserIds = uniqueIds.filter(id => !existingUserIds.includes(id));
+      
+      if (missingUserIds.length > 0) {
+        console.warn("⚠️ These user IDs don't exist in users table:", missingUserIds);
+      }
+    }
+  };
+
   return (
     <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+      
+      {/* Debug: Log smsLogs state on every render */}
+      {console.log("=== RENDER: Current smsLogs state ===", smsLogs)}
 
       {/* SMS COMPOSE */}
       {profile?.role !== "relationship_officer" && (
@@ -1938,13 +2117,14 @@ const renderSmsTab = () => {
 
             <div>
               <label className="block text-xs font-medium text-gray-700 mb-1">
-                Message
+                Message (2 SMS per customer per day)
               </label>
               <textarea
                 value={smsMessage}
                 onChange={(e) => setSmsMessage(e.target.value)}
                 className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
                 maxLength={160}
+                placeholder="Type your message here..."
               />
               <div className="flex justify-between mt-1">
                 <span className="text-xs text-gray-500">
@@ -1988,8 +2168,17 @@ const renderSmsTab = () => {
 
       {/* SMS HISTORY */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100">
+        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
           <h3 className="text-base text-slate-600">SMS History</h3>
+          <button
+            onClick={() => {
+              loadSmsLogs();
+              checkOrphanedLogs();
+            }}
+            className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+          >
+            Debug Logs
+          </button>
         </div>
 
         {smsLogs.length > 0 ? (
@@ -2004,7 +2193,17 @@ const renderSmsTab = () => {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {smsLogs.map((sms) => (
+                {smsLogs.map((sms) => {
+                  // Debug log for each row render
+                  console.log("Rendering SMS row:", {
+                    id: sms.id,
+                    sent_by: sms.sent_by,
+                    users: sms.users,
+                    full_name: sms.users?.full_name,
+                    display: sms.sent_by === null ? "System" : (sms.users?.full_name || "Unknown User")
+                  });
+                  
+                  return (
                   <tr key={sms.id} className="hover:bg-blue-50">
                     <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
                       {new Date(sms.created_at).toLocaleString()}
@@ -2015,7 +2214,9 @@ const renderSmsTab = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-700 align-top">
-                      {sms.sender?.full_name || "System"}
+                      {sms.sent_by === null 
+                        ? "System" 
+                        : (sms.users?.full_name || "Unknown User")}
                     </td>
                     <td className="px-6 py-4 align-top">
                       <span className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
@@ -2027,7 +2228,8 @@ const renderSmsTab = () => {
                       </span>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

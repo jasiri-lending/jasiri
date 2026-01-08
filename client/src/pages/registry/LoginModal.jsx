@@ -11,12 +11,18 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
 
   if (!isOpen) return null;
 
+  // ✅ Proper close handler
+  const handleClose = () => {
+    localStorage.removeItem("reportUser");
+    if (onClose) onClose();
+  };
+
   const handleLogin = async (e) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // Validate tenant_id is available
+    // Validate tenant_id
     if (!profile?.tenant_id) {
       setError("Session expired. Please log in again.");
       setLoading(false);
@@ -24,9 +30,6 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     try {
-      console.log("🔐 Attempting login for:", email.trim());
-      console.log("🌐 API URL:", `${API_BASE_URL}/api/checkReportUser`);
-
       const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -37,39 +40,19 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
         }),
       });
 
-      console.log("📡 Response status:", res.status, res.statusText);
-
-      // Check if response is JSON
       const contentType = res.headers.get("content-type");
-      let data;
-
-      if (contentType && contentType.includes("application/json")) {
-        data = await res.json();
-        console.log("📥 Response data:", data);
-      } else {
-        const text = await res.text();
-        console.error("❌ Non-JSON response:", text);
+      if (!contentType || !contentType.includes("application/json")) {
         throw new Error("Server returned invalid response");
       }
 
-      // Check if request was successful
-      if (!res.ok) {
+      const data = await res.json();
+
+      if (!res.ok || !data?.success || !data?.userId) {
         setError(data?.error || "Invalid email or password");
-        setLoading(false);
         return;
       }
 
-      // Verify we have the expected data
-      if (!data.success || !data.userId) {
-        console.error("❌ Invalid response structure:", data);
-        setError("Login failed. Please try again.");
-        setLoading(false);
-        return;
-      }
-
-      // ✅ Success - store report user info
-      console.log("✅ Login successful!");
-      
+      // ✅ AFTER successful login
       const reportUserData = {
         userId: data.userId,
         email: data.email,
@@ -78,23 +61,20 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
       };
 
       localStorage.setItem("reportUser", JSON.stringify(reportUserData));
-      console.log("💾 Stored in localStorage:", reportUserData);
+
+      // ✅ notify app
+      window.dispatchEvent(new Event("report-login"));
 
       // Clear form
       setEmail("");
       setPassword("");
 
-      // Call success callbacks
       if (onSuccess) onSuccess();
       if (onClose) onClose();
 
     } catch (err) {
-      console.error("Login error:", err);
-      
       if (err.message === "Failed to fetch") {
-        setError(`Cannot connect to server at ${API_BASE_URL}. Please check if the server is running.`);
-      } else if (err.message.includes("JSON")) {
-        setError("Server error. Please contact support.");
+        setError(`Cannot connect to server at ${API_BASE_URL}.`);
       } else {
         setError(err.message || "An unexpected error occurred.");
       }
@@ -107,22 +87,16 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-2xl shadow-lg w-96 p-8 relative">
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-2xl leading-none"
           aria-label="Close"
         >
           ✕
         </button>
 
-        <h2 className="text-xl  mb-6 text-center text-slate-600">Report Login</h2>
-
-        {/* Debug info in development */}
-        {/* {import.meta.env.DEV && (
-          <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
-            <p><strong>API:</strong> {API_BASE_URL}</p>
-            <p><strong>Tenant:</strong> {profile?.tenant_id || "Loading..."}</p>
-          </div>
-        )} */}
+        <h2 className="text-xl mb-6 text-center text-slate-600">
+          Report Login
+        </h2>
 
         <form onSubmit={handleLogin} className="space-y-4">
           <div>
@@ -136,7 +110,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
               required
               autoComplete="email"
               placeholder="user@example.com"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-[#586ab1]"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1]"
             />
           </div>
 
@@ -151,7 +125,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
               required
               autoComplete="current-password"
               placeholder="Enter your password"
-              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-[#586ab1]"
+              className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-[#586ab1]"
             />
           </div>
 
@@ -163,15 +137,14 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
 
           {error && (
             <div className="text-red-600 text-sm bg-red-50 p-3 rounded border border-red-200">
-              <p className="font-semibold">Error:</p>
-              <p>{error}</p>
+              {error}
             </div>
           )}
 
           <button
             type="submit"
             disabled={loading || !profile?.tenant_id}
-            className="w-full text-white py-2 rounded-lg bg-[#586ab1] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="w-full text-white py-2 rounded-lg bg-[#586ab1] hover:brightness-110 disabled:opacity-50"
           >
             {loading ? "Logging in..." : "Login"}
           </button>
