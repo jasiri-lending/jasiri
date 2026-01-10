@@ -128,7 +128,7 @@ import AdminCreateTenant from "./pages/admin/components/AdminCreateTenant.jsx";
 import TenantMpesaForm from "./pages/admin/components/TenantMpesa.jsx";
 import TenantViewPage from "./pages/admin/components/TenantViewPage.jsx";
 import PenaltySettingsManager from "./pages/admin/components/PenaltySettingsManager.jsx";
-import AnalyticsDashBoard from "./pages/registry/AnalyticsDashBoard.jsx";
+import AnalyticsDashBoard from "./pages/analytics/AnalyticsDashboard.jsx";
 import PenaltySettings from "./pages/registry/Penalties.jsx";
 import ReportsLayout from "./context/ReportsLayout.jsx";
 

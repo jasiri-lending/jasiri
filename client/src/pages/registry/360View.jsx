@@ -1823,10 +1823,9 @@ const Customer360View = () => {
 
 const renderSmsTab = () => {
 
-  // Add this useEffect or initial fetch function to load SMS logs on component mount
-  // This is likely where you're fetching SMS logs initially
+  // Load SMS logs on component mount
   const loadSmsLogs = async () => {
-    console.log("=== LOADING SMS LOGS ON MOUNT/REFRESH ===");
+    console.log("=== LOADING SMS LOGS ===");
     
     const { data, error } = await supabase
       .from("sms_logs")
@@ -1848,31 +1847,25 @@ const renderSmsTab = () => {
 
     if (error) {
       console.error("Error loading SMS logs:", error);
-    } else {
-      console.log("Total logs loaded:", data?.length || 0);
-      
-      // Check each log for missing user data
-      data?.forEach((sms, index) => {
-        console.log(`\n--- Log ${index + 1} ---`);
-        console.log("SMS ID:", sms.id);
-        console.log("sent_by UUID:", sms.sent_by);
-        console.log("users object:", sms.users);
-        
-        if (!sms.sent_by) {
-          console.warn("⚠️ sent_by is NULL for SMS ID:", sms.id);
-        } else if (!sms.users) {
-          console.warn("⚠️ No user found for sent_by UUID:", sms.sent_by);
-          console.warn("This user might not exist in the users table");
-        } else {
-          console.log("✅ User found:", sms.users.full_name);
-        }
-      });
+      setSmsLogs([]);
+      return;
     }
+
+    console.log("Loaded SMS logs:", data?.length || 0);
+    
+    // Debug each log
+    data?.forEach((sms, index) => {
+      console.log(`Log ${index + 1}:`, {
+        id: sms.id,
+        sent_by: sms.sent_by,
+        user_data: sms.users
+      });
+    });
 
     setSmsLogs(data || []);
   };
 
-  // Call this when component mounts or when you need to refresh
+  // Call on mount
   // React.useEffect(() => {
   //   loadSmsLogs();
   // }, [customerId]);
@@ -1883,18 +1876,17 @@ const renderSmsTab = () => {
       return;
     }
 
+    // CRITICAL: Verify user is logged in
     if (!profile?.id) {
-      console.error("SMS blocked: logged-in user not resolved");
-      setSmsStatus("Failed: sender not identified");
+      console.error("❌ BLOCKED: No logged-in user profile");
+      setSmsStatus("Failed: You must be logged in to send SMS");
       return;
     }
 
-    // DEBUG: Log the profile information
-    console.log("=== PROFILE INFO ===");
-    console.log("Profile ID:", profile.id);
-    console.log("Profile Full Name:", profile.full_name);
-    console.log("Profile Email:", profile.email);
-    console.log("Profile Tenant ID:", profile.tenant_id);
+    console.log("=== SENDING SMS ===");
+    console.log("Sender (Profile ID):", profile.id);
+    console.log("Sender Name:", profile.full_name);
+    console.log("Sender Email:", profile.email);
 
     const today = new Date().toISOString().split("T")[0];
 
@@ -1922,36 +1914,25 @@ const renderSmsTab = () => {
         customerId
       );
 
-      // DEBUG: Log what we're inserting
+      // CRITICAL: Always set sent_by to the current user's ID
       const insertData = {
         customer_id: customerId,
         recipient_phone: customer.mobile,
         message: smsMessage,
         status: result.success ? "sent" : "failed",
         message_id: result.messageId ?? null,
-        sent_by: profile.id, // This stores the user UUID
+        error_message: result.success ? null : (result.error || "Unknown error"),
+        sent_by: profile.id, // ✅ MUST be the logged-in user's UUID
         tenant_id: profile.tenant_id
       };
       
       console.log("=== INSERTING SMS LOG ===");
-      console.log("Insert Data:", insertData);
+      console.log("Data to insert:", insertData);
 
-      // Insert SMS log with sent_by as user ID
+      // Insert SMS log
       const { data: insertedData, error: insertError } = await supabase
         .from("sms_logs")
         .insert(insertData)
-        .select();
-
-      if (insertError) {
-        console.error("Insert Error:", insertError);
-      } else {
-        console.log("Inserted SMS Log:", insertedData);
-      }
-
-      // Fetch updated SMS logs with sender full name via join
-      console.log("=== FETCHING SMS LOGS ===");
-      const { data, error: fetchError } = await supabase
-        .from("sms_logs")
         .select(`
           id,
           message,
@@ -1965,122 +1946,88 @@ const renderSmsTab = () => {
             email
           )
         `)
-        .eq("customer_id", customerId)
-        .order("created_at", { ascending: false });
-
-      if (fetchError) {
-        console.error("Fetch Error:", fetchError);
-      }
-      
-      console.log("=== FETCHED SMS LOGS ===");
-      console.log("Total logs fetched:", data?.length || 0);
-      
-      // Log each SMS log entry with details
-      data?.forEach((sms, index) => {
-        console.log(`\n--- SMS Log ${index + 1} ---`);
-        console.log("SMS ID:", sms.id);
-        console.log("Message:", sms.message);
-        console.log("Status:", sms.status);
-        console.log("Created At:", sms.created_at);
-        console.log("sent_by UUID:", sms.sent_by);
-        console.log("users object:", sms.users);
-        console.log("Full Name:", sms.users?.full_name || "NOT FOUND");
-        console.log("Email:", sms.users?.email || "NOT FOUND");
-      });
-
-      // Verify the user exists in the users table WITH DIRECT QUERY
-      console.log("\n=== VERIFYING USER IN USERS TABLE ===");
-      const { data: userData, error: userError } = await supabase
-        .from("users")
-        .select("id, full_name, email, role")
-        .eq("id", profile.id)
         .single();
 
-      if (userError) {
-        console.error("User lookup error:", userError);
-        console.error("This might be an RLS (Row Level Security) issue!");
-      } else {
-        console.log("User found in users table:", userData);
+      if (insertError) {
+        console.error("❌ Insert Error:", insertError);
+        throw insertError;
       }
 
-      // Try to fetch the user from the most recent SMS log's sent_by
-      if (data && data.length > 0 && data[0].sent_by) {
-        console.log("\n=== TESTING DIRECT USER QUERY FOR LATEST SMS ===");
-        const { data: testUser, error: testError } = await supabase
-          .from("users")
-          .select("id, full_name, email")
-          .eq("id", data[0].sent_by)
-          .single();
-        
-        if (testError) {
-          console.error("❌ Cannot fetch user directly:", testError);
-          console.error("RLS POLICY ISSUE: Your users table might have RLS enabled that prevents joining");
-        } else {
-          console.log("✅ User can be fetched directly:", testUser);
-          console.log("But join returned:", data[0].users);
-          if (!data[0].users) {
-            console.error("⚠️ JOIN FAILED even though direct query works!");
-            console.error("Check your foreign key constraint name in Supabase");
-          }
-        }
-      }
+      console.log("✅ Inserted SMS Log:", insertedData);
+      console.log("Inserted user data:", insertedData?.users);
 
-      setSmsLogs(data || []);
+      // Reload all SMS logs to refresh the list
+      await loadSmsLogs();
+
       setSmsMessage("");
       setSmsStatus("Message sent successfully!");
       setTimeout(() => setSmsStatus(""), 5000);
 
     } catch (error) {
-      console.error("SMS send error:", error);
+      console.error("❌ SMS send error:", error);
       setSmsStatus("Failed to send message");
     } finally {
       setSendingSms(false);
     }
   };
 
-  // Function to check database for orphaned SMS logs
+  // Debug function to check for data issues
   const checkOrphanedLogs = async () => {
-    console.log("\n=== CHECKING FOR ORPHANED SMS LOGS ===");
+    console.log("\n=== CHECKING FOR DATA ISSUES ===");
     
     // Get all SMS logs for this customer
-    const { data: allLogs } = await supabase
+    const { data: allLogs, error } = await supabase
       .from("sms_logs")
       .select("id, sent_by, created_at")
       .eq("customer_id", customerId);
 
+    if (error) {
+      console.error("Error fetching logs:", error);
+      return;
+    }
+
     console.log("Total SMS logs:", allLogs?.length);
     
+    // Check for NULL sent_by (should not exist)
     const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
-    console.log("Logs with NULL sent_by:", logsWithNullSentBy.length);
+    console.log("⚠️ Logs with NULL sent_by:", logsWithNullSentBy.length);
     
     if (logsWithNullSentBy.length > 0) {
-      console.log("These logs have NULL sent_by:");
+      console.log("These logs have NULL sent_by (BAD - should not happen):");
       logsWithNullSentBy.forEach(log => {
         console.log(`  - SMS ID ${log.id} created at ${log.created_at}`);
       });
     }
 
-    // Check if sent_by UUIDs exist in users table
+    // Verify all sent_by UUIDs exist in users table
     const sentByIds = allLogs
       ?.filter(log => log.sent_by)
       .map(log => log.sent_by) || [];
     
     if (sentByIds.length > 0) {
       const uniqueIds = [...new Set(sentByIds)];
-      console.log("\nChecking if these user IDs exist:", uniqueIds);
+      console.log("\nUnique user IDs in SMS logs:", uniqueIds);
       
-      const { data: existingUsers } = await supabase
+      const { data: existingUsers, error: userError } = await supabase
         .from("users")
-        .select("id, full_name")
+        .select("id, full_name, email")
         .in("id", uniqueIds);
       
-      console.log("Users found in database:", existingUsers);
+      if (userError) {
+        console.error("❌ Error fetching users:", userError);
+        console.error("This could be an RLS (Row Level Security) policy issue!");
+        return;
+      }
+
+      console.log("✅ Users found in database:", existingUsers);
       
       const existingUserIds = existingUsers?.map(u => u.id) || [];
       const missingUserIds = uniqueIds.filter(id => !existingUserIds.includes(id));
       
       if (missingUserIds.length > 0) {
-        console.warn("⚠️ These user IDs don't exist in users table:", missingUserIds);
+        console.error("⚠️ These user IDs in SMS logs don't exist in users table:", missingUserIds);
+      } else {
+        console.log("✅ All user IDs exist in users table");
       }
     }
   };
@@ -2088,10 +2035,10 @@ const renderSmsTab = () => {
   return (
     <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
       
-      {/* Debug: Log smsLogs state on every render */}
-      {console.log("=== RENDER: Current smsLogs state ===", smsLogs)}
+      {/* Debug render */}
+      {console.log("=== RENDER: smsLogs state ===", smsLogs)}
 
-      {/* SMS COMPOSE */}
+      {/* SMS COMPOSE - Only for non-RO users */}
       {profile?.role !== "relationship_officer" && (
         <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
           <h3 className="text-base text-slate-600 mb-4 flex items-center">
@@ -2136,6 +2083,13 @@ const renderSmsTab = () => {
               </div>
             </div>
 
+            {/* Current logged-in user display */}
+            {profile && (
+              <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                Sending as: <span className="font-medium">{profile.full_name}</span>
+              </div>
+            )}
+
             {smsStatus && (
               <div
                 className={`p-3 text-sm rounded-lg flex items-center ${
@@ -2156,7 +2110,7 @@ const renderSmsTab = () => {
             <div className="flex justify-end pt-4 border-t border-gray-200">
               <button
                 onClick={handleSendSms}
-                disabled={sendingSms || !smsMessage.trim()}
+                disabled={sendingSms || !smsMessage.trim() || !profile?.id}
                 className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 flex items-center"
               >
                 {sendingSms ? "Sending..." : "Send SMS"}
@@ -2194,40 +2148,45 @@ const renderSmsTab = () => {
               </thead>
               <tbody className="divide-y">
                 {smsLogs.map((sms) => {
-                  // Debug log for each row render
+                  // Debug log for each row
+                  const senderDisplay = sms.users?.full_name || "Unknown User";
+                  
                   console.log("Rendering SMS row:", {
                     id: sms.id,
                     sent_by: sms.sent_by,
-                    users: sms.users,
+                    users_object: sms.users,
                     full_name: sms.users?.full_name,
-                    display: sms.sent_by === null ? "System" : (sms.users?.full_name || "Unknown User")
+                    display: senderDisplay
                   });
                   
                   return (
-                  <tr key={sms.id} className="hover:bg-blue-50">
-                    <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
-                      {new Date(sms.created_at).toLocaleString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      <div className="whitespace-pre-wrap break-words">
-                        {sms.message}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700 align-top">
-                      {sms.sent_by === null 
-                        ? "System" 
-                        : (sms.users?.full_name || "Unknown User")}
-                    </td>
-                    <td className="px-6 py-4 align-top">
-                      <span className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
-                        sms.status === "sent"
-                          ? "bg-green-100 text-green-800"
-                          : "bg-red-100 text-red-800"
-                      }`}>
-                        {sms.status}
-                      </span>
-                    </td>
-                  </tr>
+                    <tr key={sms.id} className="hover:bg-blue-50">
+                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
+                        {new Date(sms.created_at).toLocaleString()}
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div className="whitespace-pre-wrap break-words">
+                          {sms.message}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700 align-top">
+                        {senderDisplay}
+                        {!sms.users && sms.sent_by && (
+                          <div className="text-xs text-red-500 mt-1">
+                            (User not found: {sms.sent_by.substring(0, 8)}...)
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-6 py-4 align-top">
+                        <span className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
+                          sms.status === "sent"
+                            ? "bg-green-100 text-green-800"
+                            : "bg-red-100 text-red-800"
+                        }`}>
+                          {sms.status}
+                        </span>
+                      </td>
+                    </tr>
                   );
                 })}
               </tbody>
