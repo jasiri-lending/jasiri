@@ -32,14 +32,15 @@ const CustomTooltip = ({ active, payload }) => {
   
   return (
     <div 
-      className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 min-w-80" 
+      className="bg-white p-4 rounded-lg shadow-xl border border-gray-200"
       style={{ 
         zIndex: 10000,
-        position: 'relative',
-        pointerEvents: 'none'
+        pointerEvents: 'none',
+        minWidth: '280px',
+        maxWidth: '320px'
       }}
     >
-      <p className="font-bold text-slate-600 mb-3 text-sm">Branch: {branchData?.name} ({branchData?.code})</p>
+      <p className="font-bold text-slate-600 mb-3 text-sm">Branch: {branchData?.name} </p>
       <div className="space-y-2">
         {/* Region */}
         <div className="flex justify-between gap-4">
@@ -118,9 +119,6 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.arrearsAmount?.toLocaleString()}
           </span>
         </div>
-     
-        
-    
       </div>
     </div>
   );
@@ -576,7 +574,7 @@ const BranchChart = () => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Building className="w-6 h-6" style={{ color: "#586ab1" }} />
-          <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+          <h3 className="text-lg font-light" style={{ color: "#586ab1" }}>
             Branch Performance Analysis
           </h3>
         
@@ -641,7 +639,7 @@ const BranchChart = () => {
               <option value="all">All Branches</option>
               {filteredBranches.map(branch => (
                 <option key={branch.id} value={branch.id}>
-                  {branch.name} ({branch.code})
+                  {branch.name} 
                 </option>
               ))}
             </select>
@@ -698,7 +696,7 @@ const BranchChart = () => {
       </div>
 
       {/* Graph */}
-      <div className="h-96" style={{ position: 'relative' }}>
+     <div className="h-96" style={{ position: 'relative' }}>
         {localData && localData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
@@ -730,6 +728,7 @@ const BranchChart = () => {
                   zIndex: 10000,
                   outline: 'none'
                 }}
+                position={{ y: 0 }}
                 allowEscapeViewBox={{ x: true, y: true }}
               />
               <Legend

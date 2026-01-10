@@ -96,7 +96,6 @@ const AnalyticsDashboard = () => {
     nplData: []
   });
   
-  const [loading, setLoading] = useState(true);
   const [globalFilters, setGlobalFilters] = useState({
     dateRange: 'all',
     region: 'all',
@@ -131,7 +130,6 @@ const AnalyticsDashboard = () => {
 
   const fetchAnalyticsData = useCallback(async () => {
     try {
-      setLoading(true);
 
       const [
         productData,
@@ -188,9 +186,7 @@ const AnalyticsDashboard = () => {
 
     } catch (error) {
       console.error("Error fetching analytics data:", error);
-    } finally {
-      setLoading(false);
-    }
+    } 
   }, [globalFilters]);
 
   useEffect(() => {
@@ -200,18 +196,6 @@ const AnalyticsDashboard = () => {
   const handleGlobalFilterChange = (key, value) => {
     setGlobalFilters(prev => ({ ...prev, [key]: value }));
   };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: CHART_BG }}>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text="Loading Analytics Dashboard..." />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   const summaryStats = calculateSummaryStats();
 
