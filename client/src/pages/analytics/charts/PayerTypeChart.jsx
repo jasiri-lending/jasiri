@@ -1,116 +1,552 @@
-import React from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { Shield, DollarSign } from 'lucide-react';
-import CustomTooltip from '../shared/CustomTooltip';
+import { Shield,  Calendar, Globe, Building, Download } from 'lucide-react';
+import { supabase } from "../../../supabaseClient";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 import { formatCurrencyCompact } from '../shared/Format.js';
 
-const PayerTypeChart = ({ barData, pieData }) => {
+// Helper function to get date range start
+const getDateRangeStart = (dateRange) => {
+  const now = new Date();
+  const startDate = new Date();
+  
+  switch(dateRange) {
+    case 'week':
+      startDate.setDate(now.getDate() - 6);
+      break;
+    case 'month':
+      startDate.setDate(1);
+      break;
+    case 'quarter':
+      const quarter = Math.floor(now.getMonth() / 3);
+      startDate.setMonth(quarter * 3, 1);
+      break;
+    case '6months':
+      startDate.setMonth(now.getMonth() - 5);
+      break;
+    case 'year':
+      startDate.setFullYear(now.getFullYear(), 0, 1);
+      break;
+    default:
+      return null;
+  }
+  
+  startDate.setHours(0, 0, 0, 0);
+  return startDate.toISOString();
+};
+
+// Fetch payer type analysis with filters
+const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+  try {
+    let query = supabase
+      .from('loan_payments')
+      .select(`
+        paid_amount,
+        payer_type,
+        paid_at,
+        loan_id,
+        loans!inner(
+          branch_id,
+          region_id,
+          created_at,
+          branches!inner(name, code, region_id),
+          regions!inner(name)
+        )
+      `)
+      .not('payer_type', 'is', null);
+
+    // Filter by branch if specified
+    if (selectedBranch !== 'all') {
+      query = query.eq('loans.branch_id', selectedBranch);
+    } else if (selectedRegion !== 'all') {
+      const { data: regionData } = await supabase
+        .from('regions')
+        .select('id')
+        .eq('name', selectedRegion)
+        .single();
+      
+      if (regionData) {
+        const { data: branchesInRegion } = await supabase
+          .from('branches')
+          .select('id')
+          .eq('region_id', regionData.id);
+        
+        if (branchesInRegion?.length > 0) {
+          const branchIds = branchesInRegion.map(b => b.id);
+          query = query.in('loans.branch_id', branchIds);
+        }
+      }
+    }
+
+    // Handle date filtering
+    if (customDateRange?.startDate && customDateRange?.endDate) {
+      query = query
+        .gte('paid_at', customDateRange.startDate)
+        .lte('paid_at', customDateRange.endDate);
+    } else if (dateRange !== 'all') {
+      const startDate = getDateRangeStart(dateRange);
+      if (startDate) {
+        query = query.gte('paid_at', startDate);
+      }
+    }
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error("Error fetching payer type analysis:", error);
+      return {
+        payerTypeBreakdown: [],
+        payerTypePieData: []
+      };
+    }
+
+    if (!data || data.length === 0) {
+      return {
+        payerTypeBreakdown: [],
+        payerTypePieData: []
+      };
+    }
+
+    const payerTypeTotals = {
+      'customer': { amount: 0, count: 0, name: 'Customer' },
+      'guarantor': { amount: 0, count: 0, name: 'Guarantor' },
+      'next-of-kin': { amount: 0, count: 0, name: 'Next of Kin' },
+      'third-party': { amount: 0, count: 0, name: 'Third Party' },
+      'other': { amount: 0, count: 0, name: 'Other' }
+    };
+
+    data.forEach(payment => {
+      const payerType = payment.payer_type?.toLowerCase() || 'other';
+      const amount = Number(payment.paid_amount) || 0;
+      
+      if (payerTypeTotals[payerType]) {
+        payerTypeTotals[payerType].amount += amount;
+        payerTypeTotals[payerType].count++;
+      } else {
+        payerTypeTotals['other'].amount += amount;
+        payerTypeTotals['other'].count++;
+      }
+    });
+
+    const totalAmount = Object.values(payerTypeTotals).reduce((sum, type) => sum + type.amount, 0);
+    const totalCount = Object.values(payerTypeTotals).reduce((sum, type) => sum + type.count, 0);
+
+    // Bar chart data
+    const payerTypeBreakdown = Object.entries(payerTypeTotals)
+      .map(([key, value]) => ({
+        type: value.name,
+        amount: value.amount,
+        count: value.count,
+        percentage: totalAmount > 0 ? Math.round((value.amount / totalAmount) * 100) : 0,
+        paymentPercentage: totalCount > 0 ? Math.round((value.count / totalCount) * 100) : 0
+      }))
+      .filter(item => item.amount > 0)
+      .sort((a, b) => b.amount - a.amount);
+
+    // Pie chart data
+    const pieColors = [
+      "#10b981", "#f59e0b", "#8b5cf6", "#586ab1", "#ef4444"
+    ];
+    
+    const payerTypePieData = Object.entries(payerTypeTotals)
+      .filter(([key, value]) => value.amount > 0)
+      .map(([key, value], index) => ({
+        name: value.name,
+        value: value.amount,
+        count: value.count,
+        percentage: totalAmount > 0 ? Math.round((value.amount / totalAmount) * 100) : 0,
+        color: pieColors[index % pieColors.length]
+      }))
+      .sort((a, b) => b.value - a.value);
+
+    return {
+      payerTypeBreakdown,
+      payerTypePieData
+    };
+
+  } catch (error) {
+    console.error("Error in fetchPayerTypeAnalysis:", error);
+    return {
+      payerTypeBreakdown: [],
+      payerTypePieData: []
+    };
+  }
+};
+
+const PayerTypeChart = () => {
+  const [barData, setBarData] = useState([]);
+  const [pieData, setPieData] = useState([]);
+  const [showCustomDate, setShowCustomDate] = useState(false);
+  const [filters, setFilters] = useState({
+    dateRange: 'all',
+    region: 'all',
+    branch: 'all',
+    customStartDate: '',
+    customEndDate: ''
+  });
+  const [availableRegions, setAvailableRegions] = useState([]);
+  const [availableBranches, setAvailableBranches] = useState([]);
+  const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Fetch available regions and branches on mount
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      try {
+        const { data: regionsData, error: regionsError } = await supabase
+          .from('regions')
+          .select('id, name')
+          .order('name');
+        
+        if (regionsError) throw regionsError;
+        if (regionsData) {
+          setAvailableRegions(regionsData);
+        }
+        
+        const { data: branchesData, error: branchesError } = await supabase
+          .from('branches')
+          .select('id, name, code, region_id')
+          .order('name');
+        
+        if (branchesError) throw branchesError;
+        if (branchesData) {
+          setAvailableBranches(branchesData);
+        }
+        
+        await fetchDataWithFilters({
+          dateRange: 'all',
+          region: 'all',
+          branch: 'all'
+        });
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      }
+    };
+    
+    fetchInitialData();
+  }, []);
+
+  // Filter branches by selected region
+  useEffect(() => {
+    if (filters.region === 'all') {
+      setSelectedRegionId(null);
+    } else {
+      const region = availableRegions.find(r => r.name === filters.region);
+      setSelectedRegionId(region?.id || null);
+    }
+  }, [filters.region, availableRegions]);
+
+  const filteredBranches = filters.region === 'all' 
+    ? availableBranches 
+    : availableBranches.filter(branch => branch.region_id === selectedRegionId);
+
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
+    setLoading(true);
+    try {
+      const result = await fetchPayerTypeAnalysis(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange
+      );
+      setBarData(result.payerTypeBreakdown);
+      setPieData(result.payerTypePieData);
+    } catch (error) {
+      console.error("Error fetching payer type data:", error);
+      setBarData([]);
+      setPieData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle filter changes
+  const handleFilterChange = useCallback(async (key, value) => {
+    const newFilters = { ...filters };
+    
+    if (key === 'region') {
+      newFilters.region = value;
+      newFilters.branch = 'all';
+      
+      if (value === 'all') {
+        setSelectedRegionId(null);
+      } else {
+        const region = availableRegions.find(r => r.name === value);
+        setSelectedRegionId(region?.id || null);
+      }
+    } else if (key === 'dateRange') {
+      newFilters.dateRange = value;
+      if (value === 'custom') {
+        setShowCustomDate(true);
+        return;
+      } else {
+        setShowCustomDate(false);
+      }
+    } else {
+      newFilters[key] = value;
+    }
+    
+    setFilters(newFilters);
+    
+    let customDateRange = null;
+    if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
+      customDateRange = {
+        startDate: newFilters.customStartDate,
+        endDate: newFilters.customEndDate
+      };
+    }
+    
+    fetchDataWithFilters(newFilters, customDateRange);
+  }, [filters, availableRegions, fetchDataWithFilters]);
+
+  // Apply custom date filter
+  const applyCustomDateFilter = useCallback(async () => {
+    if (filters.customStartDate && filters.customEndDate) {
+      const customDateRange = {
+        startDate: filters.customStartDate,
+        endDate: filters.customEndDate
+      };
+      await fetchDataWithFilters({ ...filters, dateRange: 'custom' }, customDateRange);
+    }
+  }, [filters, fetchDataWithFilters]);
+
+  // Export function
+  const handleExport = useCallback(() => {
+    if (!barData || barData.length === 0) return;
+    
+    const csvData = barData.map(item => ({
+      'Payer Type': item.type,
+      'Amount Paid': item.amount || 0,
+      'Payment Count': item.count || 0,
+      'Percentage': item.percentage || 0
+    }));
+    
+    const csv = [
+      Object.keys(csvData[0]).join(','),
+      ...csvData.map(row => Object.values(row).join(','))
+    ].join('\n');
+    
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `payer-type-analysis-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  }, [barData]);
+
   const totalAmount = barData?.reduce((sum, item) => sum + (item.amount || 0), 0) || 0;
 
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Shield className="w-6 h-6" style={{ color: HEADER_COLOR }} />
-          <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+          <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>
             Payer Type Analysis
           </h3>
         </div>
-        <div className="text-sm text-gray-500">
-          <div className="flex items-center gap-2">
-            <DollarSign className="w-4 h-4" />
-            <span>Total Paid: {formatCurrencyCompact(totalAmount)}</span>
-          </div>
+        <div className="flex items-center gap-3">
+        
+          <button
+            onClick={handleExport}
+            className="flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            disabled={!barData || barData.length === 0}
+          >
+            <Download className="w-4 h-4" />
+            Export
+          </button>
         </div>
       </div>
-      
-      {/* Bar Chart */}
-      <div className="h-64 mb-6">
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={barData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-            <XAxis dataKey="type" />
-            <YAxis />
-            <Tooltip content={<CustomTooltip />} />
-            <Legend />
-            <Bar dataKey="amount" name="Amount Paid" fill={HEADER_COLOR} radius={[4, 4, 0, 0]} />
-            <Bar dataKey="count" name="Payment Count" fill={COLORS[2]} radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
-      
-      {/* Pie Chart */}
+
+      {/* Filters */}
       <div className="mb-6">
-        <div className="bg-gray-50 p-4 rounded-lg">
-          <h4 className="text-sm font-medium text-gray-700 mb-4 text-center">
-            Payment Distribution by Payer Type
-          </h4>
-          <div className="h-64">
+        <div className="grid grid-cols-3 gap-3 items-center">
+          {/* Date Range */}
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+            <Calendar className="w-4 h-4 text-gray-500" />
+            <select
+              value={filters.dateRange}
+              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
+              className="bg-transparent border-none text-sm focus:outline-none w-full"
+              disabled={loading}
+            >
+              <option value="all">All Time</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
+              <option value="6months">Last 6 Months</option>
+              <option value="year">This Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
+
+          {/* Region */}
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+            <Globe className="w-4 h-4 text-gray-500" />
+            <select
+              value={filters.region}
+              onChange={(e) => handleFilterChange('region', e.target.value)}
+              className="bg-transparent border-none text-sm focus:outline-none w-full"
+              disabled={loading}
+            >
+              <option value="all">All Regions</option>
+              {availableRegions.map(region => (
+                <option key={region.id} value={region.name}>
+                  {region.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Branch */}
+          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+            <Building className="w-4 h-4 text-gray-500" />
+            <select
+              value={filters.branch}
+              onChange={(e) => handleFilterChange('branch', e.target.value)}
+              className="bg-transparent border-none text-sm focus:outline-none w-full"
+              disabled={loading}
+            >
+              <option value="all">All Branches</option>
+              {filteredBranches.map(branch => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name} ({branch.code})
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Custom Date Range Inputs */}
+        {showCustomDate && (
+          <div className="mt-4 flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">From:</label>
+              <input
+                type="date"
+                value={filters.customStartDate}
+                onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+                disabled={loading}
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-gray-600">To:</label>
+              <input
+                type="date"
+                value={filters.customEndDate}
+                onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
+                className="border rounded px-2 py-1 text-sm"
+                disabled={loading}
+              />
+            </div>
+            <button
+              onClick={applyCustomDateFilter}
+              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+              disabled={!filters.customStartDate || !filters.customEndDate || loading}
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
+            <p className="text-gray-500">Loading payer type data...</p>
+          </div>
+        </div>
+      ) : barData && barData.length > 0 ? (
+        <>
+          {/* Bar Chart */}
+          <div className="h-64 mb-6">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={pieData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={40}
-                  outerRadius={80}
-                  paddingAngle={2}
-                  dataKey="value"
-                  label={({ name, percentage }) => `${name}: ${percentage}%`}
-                >
-                  {pieData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
-                          <p className="font-semibold text-gray-900">{data.name}</p>
-                          <p className="text-sm text-gray-600">
-                            Amount: {formatCurrencyCompact(data.value)}
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Payments: {data.count} transactions
-                          </p>
-                          <p className="text-sm text-gray-600">
-                            Share: {data.percentage}%
-                          </p>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
+              <BarChart data={barData}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="type" />
+                <YAxis />
+                <Tooltip />
                 <Legend />
-              </PieChart>
+                <Bar dataKey="amount" name="Amount Paid" fill={HEADER_COLOR} radius={[4, 4, 0, 0]} />
+                <Bar dataKey="count" name="Payment Count" fill={COLORS[2]} radius={[4, 4, 0, 0]} />
+              </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
-      </div>
-      
-      {/* Summary Stats */}
-      <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
-        {barData.map((payer, index) => (
-          <div key={payer.type} className="bg-white p-3 rounded-lg border border-gray-200">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: COLORS[index] }} />
-              <p className="text-xs font-medium text-gray-700">{payer.type}</p>
+          
+          {/* Pie Chart */}
+          <div className="mb-6">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h4 className="text-sm font-medium text-gray-700 mb-4 text-center">
+                Payment Distribution by Payer Type
+              </h4>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={pieData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={40}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ name, percentage }) => `${name}: ${percentage}%`}
+                    >
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      content={({ active, payload }) => {
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          return (
+                            <div className="bg-white p-4 border border-gray-200 rounded-lg shadow-lg">
+                              <p className="font-semibold text-gray-900">{data.name}</p>
+                              <p className="text-sm text-gray-600">
+                                Amount: {formatCurrencyCompact(data.value)}
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Payments: {data.count} transactions
+                              </p>
+                              <p className="text-sm text-gray-600">
+                                Share: {data.percentage}%
+                              </p>
+                            </div>
+                          );
+                        }
+                        return null;
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
             </div>
-            <p className="text-lg font-bold mt-1" style={{ color: HEADER_COLOR }}>
-              {formatCurrencyCompact(payer.amount)}
-            </p>
-            <p className="text-xs text-gray-500">
-              {payer.count} payments ({payer.percentage}%)
+          </div>
+          
+        
+        </>
+      ) : (
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <Shield className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-500">No payer type data available</p>
+            <p className="text-gray-400 text-sm mt-1">
+              Try adjusting your filters or date range
             </p>
           </div>
-        ))}
-      </div>
+        </div>
+      )}
     </div>
   );
 };
