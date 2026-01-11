@@ -1,6 +1,5 @@
 // AnalyticsDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
-import Spinner from "../../components/Spinner";
 import { CHART_BG } from "./shared/constants";
 
 // Chart components
@@ -203,7 +202,7 @@ const AnalyticsDashboard = () => {
     <div className="min-h-screen p-4 md:p-6" style={{ backgroundColor: CHART_BG }}>
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-sm md:text-sm font-bold text-slate-600 mb-2">
+        <h1 className="text-sm md:text-sm  text-slate-600 mb-2">
           Loan Portfolio Analytics
         </h1>
       </div>
@@ -242,23 +241,25 @@ const AnalyticsDashboard = () => {
         />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        {/* Row 3: Repayment (3/4) and Customer Age (1/4) */}
-        <div className="lg:col-span-3">
-          <RepaymentChart 
-            data={analyticsData.repaymentTrends}
-            filters={globalFilters}
-            onFilterChange={handleGlobalFilterChange}
-          />
-        </div>
-        <div className="lg:col-span-1">
-          <CustomerAgeChart 
-            data={analyticsData.customerAges}
-            filters={globalFilters}
-            onFilterChange={handleGlobalFilterChange}
-          />
-        </div>
-      </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+  {/* Row 3: Repayment (2/3) and Customer Age (1/3) */}
+  <div className="lg:col-span-2">
+    <RepaymentChart 
+      data={analyticsData.repaymentTrends}
+      filters={globalFilters}
+      onFilterChange={handleGlobalFilterChange}
+    />
+  </div>
+
+  <div className="lg:col-span-1">
+    <CustomerAgeChart 
+      data={analyticsData.customerAges}
+      filters={globalFilters}
+      onFilterChange={handleGlobalFilterChange}
+    />
+  </div>
+</div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
         {/* Row 4: Business (3/4) and Guarantor Age (1/4) */}
