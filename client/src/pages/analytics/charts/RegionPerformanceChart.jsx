@@ -32,7 +32,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   
   return (
     <div 
-      className="bg-white p-4 rounded-lg shadow-xl border border-gray-200 min-w-80" 
+      className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200 min-w-80" 
       style={{ 
         zIndex: 10000,
         position: 'relative',
@@ -465,7 +465,7 @@ const RegionChart = () => {
   }, [localData]);
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+<div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Header with title and export */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -477,7 +477,7 @@ const RegionChart = () => {
         
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
           disabled={!localData || localData.length === 0}
         >
           <Download className="w-4 h-4" />
@@ -485,65 +485,96 @@ const RegionChart = () => {
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-          <Calendar className="w-4 h-4 text-gray-500" />
-          <select
-            value={localFilters.dateRange}
-            onChange={(e) => handleLocalFilterChange('dateRange', e.target.value)}
-            className="bg-transparent border-none text-sm focus:outline-none"
-          >
-            <option value="all">All Time</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
-            <option value="quarter">This Quarter</option>
-            <option value="6months">Last 6 Months</option>
-            <option value="year">This Year</option>
-            <option value="custom">Custom Range</option>
-          </select>
-        </div>
+    {/* Filters */}
+<div className="mb-6">
+  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
 
-        {showCustomDate && (
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <input
-              type="date"
-              value={localFilters.customStartDate}
-              onChange={(e) => handleLocalFilterChange('customStartDate', e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-            />
-            <span className="text-gray-500">to</span>
-            <input
-              type="date"
-              value={localFilters.customEndDate}
-              onChange={(e) => handleLocalFilterChange('customEndDate', e.target.value)}
-              className="border rounded px-2 py-1 text-sm"
-            />
-            <button
-              onClick={applyCustomDateFilter}
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-              disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-            >
-              Apply
-            </button>
-          </div>
-        )}
-
-        <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-          <Globe className="w-4 h-4 text-gray-500" />
-          <select
-            value={localFilters.region}
-            onChange={(e) => handleLocalFilterChange('region', e.target.value)}
-            className="bg-transparent border-none text-sm focus:outline-none"
-          >
-            <option value="all">All Regions</option>
-            {availableRegions.map(region => (
-              <option key={region} value={region}>{region}</option>
-            ))}
-          </select>
-        </div>
+    {[
+      {
+        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+        value: localFilters.dateRange,
+        onChange: (e) =>
+          handleLocalFilterChange('dateRange', e.target.value),
+        options: [
+          { value: "all", label: "All Time" },
+          { value: "week", label: "This Week" },
+          { value: "month", label: "This Month" },
+          { value: "quarter", label: "This Quarter" },
+          { value: "6months", label: "Last 6 Months" },
+          { value: "year", label: "This Year" },
+          { value: "custom", label: "Custom Range" }
+        ]
+      },
+      {
+        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+        value: localFilters.region,
+        onChange: (e) =>
+          handleLocalFilterChange('region', e.target.value),
+        options: [
+          { value: "all", label: "All Regions" },
+          ...availableRegions.map(region => ({
+            value: region,
+            label: region
+          }))
+        ]
+      }
+    ].map((item, idx) => (
+      <div
+        key={idx}
+        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+      >
+        {item.icon}
+        <select
+          value={item.value}
+          onChange={item.onChange}
+          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+        >
+          {item.options.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
+    ))}
+  </div>
+
+  {/* Custom Date Range */}
+  {showCustomDate && (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <Calendar className="w-4 h-4 text-slate-500" />
+
+      <input
+        type="date"
+        value={localFilters.customStartDate}
+        onChange={(e) =>
+          handleLocalFilterChange('customStartDate', e.target.value)
+        }
+        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      />
+
+      <span className="text-slate-500 text-sm">to</span>
+
+      <input
+        type="date"
+        value={localFilters.customEndDate}
+        onChange={(e) =>
+          handleLocalFilterChange('customEndDate', e.target.value)
+        }
+        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      />
+
+      <button
+        onClick={applyCustomDateFilter}
+        disabled={!localFilters.customStartDate || !localFilters.customEndDate}
+        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+      >
+        Apply
+      </button>
+    </div>
+  )}
+</div>
+
 
       {/* Graph */}
       <div className="h-96" style={{ position: 'relative' }}>

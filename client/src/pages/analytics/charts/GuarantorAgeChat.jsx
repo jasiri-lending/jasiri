@@ -12,7 +12,7 @@ const CustomTooltip = ({ active, payload, label }) => {
   const data = payload[0]?.payload;
   
   return (
-    <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200">
+    <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
       <p className="font-bold text-slate-600 mb-3 text-sm">{label}</p>
       <div className="space-y-2">
         <div className="flex justify-between gap-4">
@@ -192,26 +192,28 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
   }
 };
 
-// Fetch guarantor age and gender data
+// Fetch guarantor age and gender data - DIRECT FROM GUARANTORS TABLE
 const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
   try {
     let query = supabase
-      .from('loans')
+      .from('guarantors')
       .select(`
-        id,
+        date_of_birth,
+        gender,
         created_at,
         branch_id,
         region_id,
-        branches!inner(name, code, region_id),
-        regions!inner(name),
-        guarantors!inner(date_of_birth, gender, loan_id)
+        branches(name, code, region_id),
+        regions(name)
       `)
-      .eq('status', 'disbursed');
+      .eq('is_guarantor', true)  // Only get actual guarantors
+      .not('date_of_birth', 'is', null);  // Only get guarantors with date_of_birth
 
     // Filter by branch if specified
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
     } else if (selectedRegion !== 'all') {
+      // First get the region by name
       const { data: regionData } = await supabase
         .from('regions')
         .select('id')
@@ -219,19 +221,11 @@ const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBr
         .single();
       
       if (regionData) {
-        const { data: branchesInRegion } = await supabase
-          .from('branches')
-          .select('id')
-          .eq('region_id', regionData.id);
-        
-        if (branchesInRegion?.length > 0) {
-          const branchIds = branchesInRegion.map(b => b.id);
-          query = query.in('branch_id', branchIds);
-        }
+        query = query.eq('region_id', regionData.id);
       }
     }
 
-    // Handle date filtering
+    // Handle date filtering - using guarantor's created_at
     if (customDateRange?.startDate && customDateRange?.endDate) {
       query = query
         .gte('created_at', customDateRange.startDate)
@@ -243,14 +237,14 @@ const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBr
       }
     }
 
-    const { data: loansData, error: loansError } = await query;
+    const { data: guarantorsData, error: guarantorsError } = await query;
     
-    if (loansError) {
-      console.error("Error fetching guarantor age data:", loansError);
+    if (guarantorsError) {
+      console.error("Error fetching guarantor age data:", guarantorsError);
       return [];
     }
 
-    if (!loansData || loansData.length === 0) {
+    if (!guarantorsData || guarantorsData.length === 0) {
       return [];
     }
 
@@ -270,29 +264,25 @@ const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBr
       other: 0
     }));
 
-    loansData.forEach(loan => {
-      const guarantors = Array.isArray(loan.guarantors) ? loan.guarantors : [loan.guarantors];
-      
-      guarantors.forEach(guarantor => {
-        if (guarantor && guarantor.date_of_birth) {
-          const birthDate = new Date(guarantor.date_of_birth);
-          const age = new Date().getFullYear() - birthDate.getFullYear();
+    guarantorsData.forEach(guarantor => {
+      if (guarantor && guarantor.date_of_birth) {
+        const birthDate = new Date(guarantor.date_of_birth);
+        const age = new Date().getFullYear() - birthDate.getFullYear();
+        
+        const group = ageGroups.find(g => age >= g.min && age <= g.max);
+        if (group) {
+          const index = ageGroups.indexOf(group);
+          const gender = (guarantor.gender || 'other').toLowerCase();
           
-          const group = ageGroups.find(g => age >= g.min && age <= g.max);
-          if (group) {
-            const index = ageGroups.indexOf(group);
-            const gender = (guarantor.gender || 'other').toLowerCase();
-            
-            if (gender === 'male' || gender === 'm') {
-              distribution[index].male++;
-            } else if (gender === 'female' || gender === 'f') {
-              distribution[index].female++;
-            } else {
-              distribution[index].other++;
-            }
+          if (gender === 'male' || gender === 'm') {
+            distribution[index].male++;
+          } else if (gender === 'female' || gender === 'f') {
+            distribution[index].female++;
+          } else {
+            distribution[index].other++;
           }
         }
-      });
+      }
     });
 
     return distribution
@@ -511,7 +501,7 @@ const AgeGenderChart = ({ type = 'customer' }) => {
   const Icon = icon;
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 h-full">
+    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6 h-full">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -673,8 +663,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
           </div>
         )}
       </div>
-
-   
     </div>
   );
 };

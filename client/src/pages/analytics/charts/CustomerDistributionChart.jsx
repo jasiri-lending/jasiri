@@ -8,7 +8,7 @@ import { COLORS } from '../shared/constants';
 
 const CustomerDistributionChart = ({ data }) => {
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <UserCog className="w-6 h-6" style={{ color: "#586ab1" }} />

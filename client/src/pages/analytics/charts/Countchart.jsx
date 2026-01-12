@@ -293,7 +293,7 @@ const CountyChart = () => {
     const item = payload[0].payload;
     
     return (
-      <div className="bg-white p-4 rounded-lg shadow-xl border border-gray-200">
+      <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
         <p className="font-bold text-slate-600 mb-2 text-sm">{item.county}</p>
         <div className="space-y-1">
           <p className="text-xs text-gray-600">
@@ -308,7 +308,7 @@ const CountyChart = () => {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
@@ -321,7 +321,7 @@ const CountyChart = () => {
        
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 bg-gray-50 text-gray-700 hover:bg-gray-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
             disabled={!data || data.length === 0}
           >
             <Download className="w-4 h-4" />
@@ -330,98 +330,112 @@ const CountyChart = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="grid grid-cols-3 gap-3 items-center">
-          {/* Date Range */}
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-            <Calendar className="w-4 h-4 text-gray-500" />
-            <select
-              value={filters.dateRange}
-              onChange={(e) => handleFilterChange('dateRange', e.target.value)}
-              className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
-            >
-              <option value="all">All Time</option>
-              <option value="week">This Week</option>
-              <option value="month">This Month</option>
-              <option value="quarter">This Quarter</option>
-              <option value="6months">Last 6 Months</option>
-              <option value="year">This Year</option>
-              <option value="custom">Custom Range</option>
-            </select>
-          </div>
+    {/* Filters */}
+<div className="mb-6">
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-          {/* Region */}
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-            <Globe className="w-4 h-4 text-gray-500" />
-            <select
-              value={filters.region}
-              onChange={(e) => handleFilterChange('region', e.target.value)}
-              className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
-            >
-              <option value="all">All Regions</option>
-              {availableRegions.map(region => (
-                <option key={region.id} value={region.name}>
-                  {region.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          {/* Branch */}
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-            <Building className="w-4 h-4 text-gray-500" />
-            <select
-              value={filters.branch}
-              onChange={(e) => handleFilterChange('branch', e.target.value)}
-              className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
-            >
-              <option value="all">All Branches</option>
-              {filteredBranches.map(branch => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name} ({branch.code})
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* Custom Date Range Inputs */}
-        {showCustomDate && (
-          <div className="mt-4 flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">From:</label>
-              <input
-                type="date"
-                value={filters.customStartDate}
-                onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
-                disabled={loading}
-              />
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-600">To:</label>
-              <input
-                type="date"
-                value={filters.customEndDate}
-                onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
-                className="border rounded px-2 py-1 text-sm"
-                disabled={loading}
-              />
-            </div>
-            <button
-              onClick={applyCustomDateFilter}
-              className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-              disabled={!filters.customStartDate || !filters.customEndDate || loading}
-            >
-              Apply
-            </button>
-          </div>
-        )}
+    {[
+      {
+        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+        value: filters.dateRange,
+        onChange: (e) =>
+          handleFilterChange('dateRange', e.target.value),
+        options: [
+          { value: "all", label: "All Time" },
+          { value: "week", label: "This Week" },
+          { value: "month", label: "This Month" },
+          { value: "quarter", label: "This Quarter" },
+          { value: "6months", label: "Last 6 Months" },
+          { value: "year", label: "This Year" },
+          { value: "custom", label: "Custom Range" }
+        ]
+      },
+      {
+        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+        value: filters.region,
+        onChange: (e) =>
+          handleFilterChange('region', e.target.value),
+        options: [
+          { value: "all", label: "All Regions" },
+          ...availableRegions.map(region => ({
+            value: region.name,
+            label: region.name
+          }))
+        ]
+      },
+      {
+        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+        value: filters.branch,
+        onChange: (e) =>
+          handleFilterChange('branch', e.target.value),
+        options: [
+          { value: "all", label: "All Branches" },
+          ...filteredBranches.map(branch => ({
+            value: branch.id,
+            label: `${branch.name} (${branch.code})`
+          }))
+        ]
+      }
+    ].map((item, idx) => (
+      <div
+        key={idx}
+        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+      >
+        {item.icon}
+        <select
+          value={item.value}
+          onChange={item.onChange}
+          disabled={loading}
+          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+        >
+          {item.options.map(opt => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
       </div>
+    ))}
+  </div>
+
+  {/* Custom Date Range */}
+  {showCustomDate && (
+    <div className="mt-4 flex flex-wrap items-center gap-3">
+      <Calendar className="w-4 h-4 text-slate-500" />
+
+      <input
+        type="date"
+        value={filters.customStartDate}
+        onChange={(e) =>
+          handleFilterChange('customStartDate', e.target.value)
+        }
+        disabled={loading}
+        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      />
+
+      <span className="text-slate-500 text-sm">to</span>
+
+      <input
+        type="date"
+        value={filters.customEndDate}
+        onChange={(e) =>
+          handleFilterChange('customEndDate', e.target.value)
+        }
+        disabled={loading}
+        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+      />
+
+      <button
+        onClick={applyCustomDateFilter}
+        disabled={!filters.customStartDate || !filters.customEndDate || loading}
+        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+      >
+        Apply
+      </button>
+    </div>
+  )}
+</div>
+
 
       {/* Chart */}
       <div className="h-80">
@@ -466,35 +480,6 @@ const CountyChart = () => {
         )}
       </div>
 
-      {/* Summary Stats */}
-      {data && data.length > 0 && (
-        <div className="mt-6">
-          <div className="bg-gray-50 rounded-lg p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-3">Top Counties</h4>
-            <div className="space-y-2">
-              {data.slice(0, 5).map((county, index) => (
-                <div key={county.county} className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-3 h-3 rounded-full" 
-                      style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                    />
-                    <span className="text-sm text-gray-700">{county.county}</span>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-gray-900">
-                      {county.customers.toLocaleString()}
-                    </span>
-                    <span className="text-xs text-gray-500 w-12 text-right">
-                      {county.percentage}%
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
