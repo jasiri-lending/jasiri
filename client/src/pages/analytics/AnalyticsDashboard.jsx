@@ -70,7 +70,6 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
         <p className="text-2xl font-bold text-orange-900">
           {totalBranches?.toLocaleString() || '0'}
         </p>
-        <p className="text-xs text-orange-600 mt-2">Nationwide</p>
       </div>
     </div>
   </div>
@@ -241,9 +240,9 @@ const AnalyticsDashboard = () => {
         />
       </div>
 
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-  {/* Row 3: Repayment (2/3) and Customer Age (1/3) */}
-  <div className="lg:col-span-2">
+<div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+  {/* Repayment Chart – 3/5 */}
+  <div className="lg:col-span-3">
     <RepaymentChart 
       data={analyticsData.repaymentTrends}
       filters={globalFilters}
@@ -251,7 +250,8 @@ const AnalyticsDashboard = () => {
     />
   </div>
 
-  <div className="lg:col-span-1">
+  {/* Customer Age Chart – 2/5 */}
+  <div className="lg:col-span-2">
     <CustomerAgeChart 
       data={analyticsData.customerAges}
       filters={globalFilters}
@@ -261,23 +261,27 @@ const AnalyticsDashboard = () => {
 </div>
 
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 mb-8">
-        {/* Row 4: Business (3/4) and Guarantor Age (1/4) */}
-        <div className="lg:col-span-3">
-          <BusinessChart 
-            data={analyticsData.businessTypes}
-            filters={globalFilters}
-            onFilterChange={handleGlobalFilterChange}
-          />
-        </div>
-        <div className="lg:col-span-1">
-          <GuarantorAgeChart 
-            data={analyticsData.ageGenderDistribution}
-            filters={globalFilters}
-            onFilterChange={handleGlobalFilterChange}
-          />
-        </div>
-      </div>
+
+    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+  {/* Business Chart – 3/5 */}
+  <div className="lg:col-span-3">
+    <BusinessChart 
+      data={analyticsData.businessTypes}
+      filters={globalFilters}
+      onFilterChange={handleGlobalFilterChange}
+    />
+  </div>
+
+  {/* Guarantor Age Chart – 2/5 */}
+  <div className="lg:col-span-2">
+    <GuarantorAgeChart 
+      data={analyticsData.ageGenderDistribution}
+      filters={globalFilters}
+      onFilterChange={handleGlobalFilterChange}
+    />
+  </div>
+</div>
+
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Row 5: Payer Analysis and County */}

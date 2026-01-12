@@ -44,7 +44,6 @@ const CustomTooltip = ({ active, payload, label }) => {
   );
 };
 
-// Helper function to get date range start
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
@@ -74,7 +73,6 @@ const getDateRangeStart = (dateRange) => {
   return startDate.toISOString();
 };
 
-// Fetch customer age and gender data
 const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
   try {
     let query = supabase
@@ -90,7 +88,6 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
       `)
       .eq('status', 'disbursed');
 
-    // Filter by branch if specified
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
     } else if (selectedRegion !== 'all') {
@@ -113,7 +110,6 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
       }
     }
 
-    // Handle date filtering
     if (customDateRange?.startDate && customDateRange?.endDate) {
       query = query
         .gte('created_at', customDateRange.startDate)
@@ -192,7 +188,6 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
   }
 };
 
-// Fetch guarantor age and gender data - DIRECT FROM GUARANTORS TABLE
 const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
   try {
     let query = supabase
@@ -206,14 +201,12 @@ const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBr
         branches(name, code, region_id),
         regions(name)
       `)
-      .eq('is_guarantor', true)  // Only get actual guarantors
-      .not('date_of_birth', 'is', null);  // Only get guarantors with date_of_birth
+      .eq('is_guarantor', true)
+      .not('date_of_birth', 'is', null);
 
-    // Filter by branch if specified
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
     } else if (selectedRegion !== 'all') {
-      // First get the region by name
       const { data: regionData } = await supabase
         .from('regions')
         .select('id')
@@ -225,7 +218,6 @@ const fetchGuarantorAgeGenderData = async (dateRange, selectedRegion, selectedBr
       }
     }
 
-    // Handle date filtering - using guarantor's created_at
     if (customDateRange?.startDate && customDateRange?.endDate) {
       query = query
         .gte('created_at', customDateRange.startDate)
@@ -313,13 +305,10 @@ const AgeGenderChart = ({ type = 'customer' }) => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
-  const [loading, setLoading] = useState(false);
 
   const isCustomer = type === 'customer';
   const title = isCustomer ? 'Customer Age & Gender Analysis' : 'Guarantor Age & Gender Analysis';
-  const icon = Users;
 
-  // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
@@ -357,7 +346,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     fetchInitialData();
   }, [type]);
 
-  // Filter branches by selected region
   useEffect(() => {
     if (filters.region === 'all') {
       setSelectedRegionId(null);
@@ -371,9 +359,7 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     ? availableBranches 
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    setLoading(true);
     try {
       const fetchFunction = isCustomer ? fetchCustomerAgeGenderData : fetchGuarantorAgeGenderData;
       const ageGenderData = await fetchFunction(
@@ -386,12 +372,9 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     } catch (error) {
       console.error("Error fetching age gender data:", error);
       setData([]);
-    } finally {
-      setLoading(false);
     }
   }, [isCustomer]);
 
-  // Handle filter changes
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
     
@@ -430,7 +413,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     fetchDataWithFilters(newFilters, customDateRange);
   }, [filters, availableRegions, fetchDataWithFilters]);
 
-  // Apply custom date filter
   const applyCustomDateFilter = useCallback(async () => {
     if (filters.customStartDate && filters.customEndDate) {
       const customDateRange = {
@@ -441,7 +423,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     }
   }, [filters, fetchDataWithFilters]);
 
-  // Apply local gender filter to data
   const getFilteredData = () => {
     if (filters.gender === 'all') {
       return data;
@@ -463,7 +444,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
     });
   };
 
-  // Export function
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
     
@@ -493,20 +473,13 @@ const AgeGenderChart = ({ type = 'customer' }) => {
   }, [data, isCustomer]);
 
   const filteredData = getFilteredData();
-  const totalMale = data.reduce((sum, group) => sum + group.male, 0);
-  const totalFemale = data.reduce((sum, group) => sum + group.female, 0);
-  const totalOther = data.reduce((sum, group) => sum + group.other, 0);
-  const total = totalMale + totalFemale + totalOther;
-
-  const Icon = icon;
 
   return (
     <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-      {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <Icon className="w-6 h-6" style={{ color: HEADER_COLOR }} />
-          <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>{title}</h3>
+          <Users className="w-6 h-6" style={{ color: HEADER_COLOR }} />
+          <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>Guarantor Age</h3>
         </div>
         
         <div className="flex items-center gap-3">
@@ -521,17 +494,14 @@ const AgeGenderChart = ({ type = 'customer' }) => {
         </div>
       </div>
 
-      {/* Filters */}
       <div className="mb-6">
-        <div className="grid grid-cols-4 gap-3 items-center">
-          {/* Date Range */}
+        <div className="grid grid-cols-3 gap-3 items-center">
           <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
             <Calendar className="w-4 h-4 text-gray-500" />
             <select
               value={filters.dateRange}
               onChange={(e) => handleFilterChange('dateRange', e.target.value)}
               className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
             >
               <option value="all">All Time</option>
               <option value="week">This Week</option>
@@ -543,14 +513,12 @@ const AgeGenderChart = ({ type = 'customer' }) => {
             </select>
           </div>
 
-          {/* Region */}
           <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
             <Globe className="w-4 h-4 text-gray-500" />
             <select
               value={filters.region}
               onChange={(e) => handleFilterChange('region', e.target.value)}
               className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
             >
               <option value="all">All Regions</option>
               {availableRegions.map(region => (
@@ -561,14 +529,12 @@ const AgeGenderChart = ({ type = 'customer' }) => {
             </select>
           </div>
 
-          {/* Branch */}
           <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
             <Building className="w-4 h-4 text-gray-500" />
             <select
               value={filters.branch}
               onChange={(e) => handleFilterChange('branch', e.target.value)}
               className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
             >
               <option value="all">All Branches</option>
               {filteredBranches.map(branch => (
@@ -579,23 +545,9 @@ const AgeGenderChart = ({ type = 'customer' }) => {
             </select>
           </div>
 
-          {/* Gender Filter */}
-          <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
-            <Filter className="w-4 h-4 text-gray-500" />
-            <select
-              value={filters.gender}
-              onChange={(e) => handleFilterChange('gender', e.target.value)}
-              className="bg-transparent border-none text-sm focus:outline-none w-full"
-              disabled={loading}
-            >
-              <option value="all">All Genders</option>
-              <option value="male">Male Only</option>
-              <option value="female">Female Only</option>
-            </select>
-          </div>
+       
         </div>
 
-        {/* Custom Date Range Inputs */}
         {showCustomDate && (
           <div className="mt-4 flex items-center gap-3 bg-gray-50 p-3 rounded-lg">
             <div className="flex items-center gap-2">
@@ -605,7 +557,6 @@ const AgeGenderChart = ({ type = 'customer' }) => {
                 value={filters.customStartDate}
                 onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
                 className="border rounded px-2 py-1 text-sm"
-                disabled={loading}
               />
             </div>
             <div className="flex items-center gap-2">
@@ -615,13 +566,12 @@ const AgeGenderChart = ({ type = 'customer' }) => {
                 value={filters.customEndDate}
                 onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
                 className="border rounded px-2 py-1 text-sm"
-                disabled={loading}
               />
             </div>
             <button
               onClick={applyCustomDateFilter}
               className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
-              disabled={!filters.customStartDate || !filters.customEndDate || loading}
+              disabled={!filters.customStartDate || !filters.customEndDate}
             >
               Apply
             </button>
@@ -629,16 +579,8 @@ const AgeGenderChart = ({ type = 'customer' }) => {
         )}
       </div>
 
-      {/* Graph */}
       <div className="h-80">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-              <p className="text-gray-500">Loading {isCustomer ? 'customer' : 'guarantor'} age data...</p>
-            </div>
-          </div>
-        ) : filteredData && filteredData.length > 0 ? (
+        {filteredData && filteredData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={filteredData}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -654,7 +596,7 @@ const AgeGenderChart = ({ type = 'customer' }) => {
         ) : (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <Icon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <Users className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">No {isCustomer ? 'customer' : 'guarantor'} age data available</p>
               <p className="text-gray-400 text-sm mt-1">
                 Try adjusting your filters or date range

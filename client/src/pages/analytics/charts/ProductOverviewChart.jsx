@@ -518,7 +518,7 @@ const ProductBreakdownChart = () => {
           { value: "all", label: "All Branches" },
           ...filteredBranches.map(branch => ({
             value: branch.id,
-            label: `${branch.name} (${branch.code})`
+            label: `${branch.name}`
           }))
         ]
       }

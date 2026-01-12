@@ -484,7 +484,7 @@ const CustomerLoyaltyChart = () => {
         <option value="all">All Branches</option>
         {filteredBranches.map(branch => (
           <option key={branch.id} value={branch.id}>
-            {branch.name} ({branch.code})
+            {branch.name} 
           </option>
         ))}
       </select>

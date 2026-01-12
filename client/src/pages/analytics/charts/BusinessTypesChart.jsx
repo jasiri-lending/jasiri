@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { Briefcase, Calendar, Globe, Building, Download, Filter } from 'lucide-react';
+import { Briefcase, Calendar, Globe, Building, Download } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 
@@ -38,37 +38,35 @@ const CustomTooltip = ({ active, payload }) => {
   );
 };
 
-// Helper function to get date range start
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
   
   switch(dateRange) {
     case 'week':
-      startDate.setDate(now.getDate() - 6); // Last 7 days including today
+      startDate.setDate(now.getDate() - 6);
       break;
     case 'month':
-      startDate.setDate(1); // First day of current month
+      startDate.setDate(1);
       break;
     case 'quarter':
       const quarter = Math.floor(now.getMonth() / 3);
-      startDate.setMonth(quarter * 3, 1); // First day of current quarter
+      startDate.setMonth(quarter * 3, 1);
       break;
     case '6months':
-      startDate.setMonth(now.getMonth() - 5); // Last 6 months including current
+      startDate.setMonth(now.getMonth() - 5);
       break;
     case 'year':
-      startDate.setFullYear(now.getFullYear(), 0, 1); // First day of current year
+      startDate.setFullYear(now.getFullYear(), 0, 1);
       break;
     default:
-      return null; // 'all' doesn't need a start date
+      return null;
   }
   
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
-// Fetch business types data
 const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch, customDateRange, showTopTen) => {
   try {
     let query = supabase
@@ -85,11 +83,9 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
       .eq('status', 'disbursed')
       .not('customers.business_type', 'is', null);
 
-    // Filter by branch if specified
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
     } else if (selectedRegion !== 'all') {
-      // Filter by region if specified
       const { data: regionData } = await supabase
         .from('regions')
         .select('id')
@@ -97,7 +93,6 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
         .single();
       
       if (regionData) {
-        // Get all branches in this region
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
@@ -110,7 +105,6 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
       }
     }
 
-    // Handle date filtering
     if (customDateRange?.startDate && customDateRange?.endDate) {
       query = query
         .gte('created_at', customDateRange.startDate)
@@ -133,10 +127,7 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
       return [];
     }
 
-    // Process business types data
     const businessMap = {};
-    
-    // Track unique customers to avoid duplicates
     const processedCustomers = new Set();
 
     loansData.forEach(loan => {
@@ -160,18 +151,13 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
       }
     });
 
-    // Convert to array
     let result = Object.values(businessMap);
-    
-    // Sort by count (descending)
     result.sort((a, b) => b.count - a.count);
     
-    // Limit to top 10 if showTopTen is true
     if (showTopTen && result.length > 10) {
       result = result.slice(0, 10);
     }
     
-    // Calculate average income per customer
     result = result.map(item => ({
       ...item,
       avgDailyIncome: item.count > 0 ? Math.round(item.totalIncome / item.count) : 0
@@ -189,7 +175,7 @@ const BusinessTypesChart = () => {
   const [data, setData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [filters, setFilters] = useState({
-    dateRange: 'all', // Default to all time
+    dateRange: 'all',
     region: 'all',
     branch: 'all',
     customStartDate: '',
@@ -198,14 +184,11 @@ const BusinessTypesChart = () => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [showTopTen, setShowTopTen] = useState(true); // Default to showing top 10
+  const [showTopTen, setShowTopTen] = useState(true);
 
-  // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
-        // Fetch all regions
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
@@ -216,7 +199,6 @@ const BusinessTypesChart = () => {
           setAvailableRegions(regionsData);
         }
         
-        // Fetch all branches
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
@@ -227,7 +209,6 @@ const BusinessTypesChart = () => {
           setAvailableBranches(branchesData);
         }
         
-        // Fetch initial business types data
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -241,7 +222,6 @@ const BusinessTypesChart = () => {
     fetchInitialData();
   }, []);
 
-  // Filter branches by selected region
   useEffect(() => {
     if (filters.region === 'all') {
       setSelectedRegionId(null);
@@ -255,9 +235,7 @@ const BusinessTypesChart = () => {
     ? availableBranches 
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null, topTen = true) => {
-    setLoading(true);
     try {
       const businessData = await fetchBusinessTypesData(
         filterParams.dateRange,
@@ -270,26 +248,20 @@ const BusinessTypesChart = () => {
     } catch (error) {
       console.error("Error fetching business types data:", error);
       setData([]);
-    } finally {
-      setLoading(false);
     }
   }, []);
 
-  // Initial data fetch
   useEffect(() => {
     fetchDataWithFilters(filters, null, showTopTen);
   }, [fetchDataWithFilters, showTopTen]);
 
-  // Handle filter changes
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
     
-    // Reset branch when region changes
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
       
-      // Update selected region ID
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -310,7 +282,6 @@ const BusinessTypesChart = () => {
     
     setFilters(newFilters);
     
-    // Prepare custom date range if applicable
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -322,14 +293,12 @@ const BusinessTypesChart = () => {
     fetchDataWithFilters(newFilters, customDateRange, showTopTen);
   }, [filters, availableRegions, fetchDataWithFilters, showTopTen]);
 
-  // Toggle top ten filter
   const handleTopTenToggle = useCallback(() => {
     const newShowTopTen = !showTopTen;
     setShowTopTen(newShowTopTen);
     fetchDataWithFilters(filters, null, newShowTopTen);
   }, [showTopTen, filters, fetchDataWithFilters]);
 
-  // Apply custom date filter
   const applyCustomDateFilter = useCallback(async () => {
     if (filters.customStartDate && filters.customEndDate) {
       const customDateRange = {
@@ -340,7 +309,6 @@ const BusinessTypesChart = () => {
     }
   }, [filters, fetchDataWithFilters, showTopTen]);
 
-  // Export function
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
     
@@ -369,7 +337,6 @@ const BusinessTypesChart = () => {
 
   return (
     <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-      {/* Header with title and filters */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <Briefcase className="w-6 h-6" style={{ color: HEADER_COLOR }} />
@@ -377,11 +344,9 @@ const BusinessTypesChart = () => {
         </div>
         
         <div className="flex items-center gap-3">
-         
-          
           <button
             onClick={handleExport}
-            className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
             disabled={!data || data.length === 0}
           >
             <Download className="w-4 h-4" />
@@ -390,137 +355,111 @@ const BusinessTypesChart = () => {
         </div>
       </div>
 
-      {/* Filters */}
-     {/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
-
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.dateRange,
-        onChange: (e) =>
-          handleFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.region,
-        onChange: (e) =>
-          handleFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(region => ({
-            value: region.name,
-            label: region.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.branch,
-        onChange: (e) =>
-          handleFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(branch => ({
-            value: branch.id,
-            label: `${branch.name} (${branch.code})`
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          disabled={loading}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-    ))}
-
-    {/* Top Ten Toggle */}
-    <div className="flex items-center justify-end">
-      <span className="text-sm text-gray-600 mr-2">{showTopTen ? 'Top 10' : 'All'}</span>
-      <button
-        onClick={handleTopTenToggle}
-        disabled={loading}
-        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTopTen ? 'bg-blue-600' : 'bg-gray-300'}`}
-      >
-        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showTopTen ? 'translate-x-6' : 'translate-x-1'}`} />
-      </button>
-    </div>
-
-  </div>
-
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
-
-      <input
-        type="date"
-        value={filters.customStartDate}
-        onChange={(e) =>
-          handleFilterChange('customStartDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={filters.customEndDate}
-        onChange={(e) =>
-          handleFilterChange('customEndDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!filters.customStartDate || !filters.customEndDate || loading}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
-
-
-      {/* Graph */}
-      <div className="h-80">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-              <p className="text-gray-500">Loading business types data...</p>
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 items-center">
+          {[
+            {
+              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.dateRange,
+              onChange: (e) => handleFilterChange('dateRange', e.target.value),
+              options: [
+                { value: "all", label: "All Time" },
+                { value: "week", label: "This Week" },
+                { value: "month", label: "This Month" },
+                { value: "quarter", label: "This Quarter" },
+                { value: "6months", label: "Last 6 Months" },
+                { value: "year", label: "This Year" },
+                { value: "custom", label: "Custom Range" }
+              ]
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.region,
+              onChange: (e) => handleFilterChange('region', e.target.value),
+              options: [
+                { value: "all", label: "All Regions" },
+                ...availableRegions.map(region => ({
+                  value: region.name,
+                  label: region.name
+                }))
+              ]
+            },
+            {
+              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.branch,
+              onChange: (e) => handleFilterChange('branch', e.target.value),
+              options: [
+                { value: "all", label: "All Branches" },
+                ...filteredBranches.map(branch => ({
+                  value: branch.id,
+                  label: `${branch.name} (${branch.code})`
+                }))
+              ]
+            }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </div>
+          ))}
+
+          <div className="flex items-center justify-end">
+            <span className="text-sm text-gray-600 mr-2">{showTopTen ? 'Top 10' : 'All'}</span>
+            <button
+              onClick={handleTopTenToggle}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${showTopTen ? 'bg-blue-600' : 'bg-gray-300'}`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showTopTen ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
           </div>
-        ) : data && data.length > 0 ? (
+        </div>
+
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
+
+            <input
+              type="date"
+              value={filters.customStartDate}
+              onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <span className="text-slate-500 text-sm">to</span>
+
+            <input
+              type="date"
+              value={filters.customEndDate}
+              onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!filters.customStartDate || !filters.customEndDate}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="h-80">
+        {data && data.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
@@ -550,8 +489,6 @@ const BusinessTypesChart = () => {
           </div>
         )}
       </div>
-      
-    
     </div>
   );
 };

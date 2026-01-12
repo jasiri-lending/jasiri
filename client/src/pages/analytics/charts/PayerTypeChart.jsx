@@ -472,14 +472,7 @@ const PayerTypeChart = () => {
 </div>
 
 
-      {loading ? (
-        <div className="flex items-center justify-center h-96">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-            <p className="text-gray-500">Loading payer type data...</p>
-          </div>
-        </div>
-      ) : barData && barData.length > 0 ? (
+      { barData && barData.length > 0 ? (
         <>
           {/* Bar Chart */}
           <div className="h-64 mb-6">

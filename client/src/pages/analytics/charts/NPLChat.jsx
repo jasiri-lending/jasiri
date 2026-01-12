@@ -529,45 +529,43 @@ const NPLChart = () => {
 
 
       {/* Chart */}
-      <div className="h-80 mb-6">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-3"></div>
-              <p className="text-gray-500">Loading NPL data...</p>
-            </div>
-          </div>
-        ) : topNPL && topNPL.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={topNPL}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="loanId" 
-                tick={{ fontSize: 11 }}
-                angle={-45}
-                textAnchor="end"
-                height={80}
-              />
-              <YAxis />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="overdueAmount" name="Overdue Amount" fill="#ef4444" />
-              <Bar dataKey="paidAmount" name="Paid Amount" fill="#10b981" />
-              <Bar dataKey="turnoverPercentage" name="Turnover %" fill="#f97316" />
-            </BarChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No NPL data available</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Loans are classified as NPL when any installment is overdue by 90+ days
-              </p>
-            </div>
-          </div>
-        )}
+    <div className="h-80 mb-6">
+  {topNPL && topNPL.length > 0 ? (
+    <ResponsiveContainer width="100%" height="100%">
+      <BarChart data={topNPL}>
+        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+        <XAxis
+          dataKey="loanId"
+          tick={{ fontSize: 11 }}
+          angle={-45}
+          textAnchor="end"
+          height={80}
+        />
+        <YAxis />
+        <Tooltip content={<CustomTooltip />} />
+        <Legend />
+        <Bar dataKey="overdueAmount" name="Overdue Amount" fill="#ef4444" />
+        <Bar dataKey="paidAmount" name="Paid Amount" fill="#10b981" />
+        <Bar
+          dataKey="turnoverPercentage"
+          name="Turnover %"
+          fill="#f97316"
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  ) : (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <AlertTriangle className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No NPL data available</p>
+        <p className="text-gray-400 text-sm mt-1">
+          Loans are classified as NPL when any installment is overdue by 90+ days
+        </p>
       </div>
+    </div>
+  )}
+</div>
+
 
       {/* NPL Summary Stats */}
       {data && data.length > 0 && (

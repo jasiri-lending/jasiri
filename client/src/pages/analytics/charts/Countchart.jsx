@@ -436,49 +436,47 @@ const CountyChart = () => {
   )}
 </div>
 
-
-      {/* Chart */}
-      <div className="h-80">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-              <p className="text-gray-500">Loading customer distribution...</p>
-            </div>
-          </div>
-        ) : data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(entry) => `${entry.county}: ${entry.percentage}%`}
-                outerRadius={120}
-                fill="#8884d8"
-                dataKey="customers"
-              >
-                {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No customer distribution data available</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Try adjusting your filters or date range
-              </p>
-            </div>
-          </div>
-        )}
+{/* Chart */}
+<div className="h-80">
+  {data && data.length > 0 ? (
+    <ResponsiveContainer width="100%" height="100%">
+      <PieChart>
+        <Pie
+          data={data}
+          cx="50%"
+          cy="50%"
+          labelLine={false}
+          label={(entry) => `${entry.county}: ${entry.percentage}%`}
+          outerRadius={120}
+          fill="#8884d8"
+          dataKey="customers"
+        >
+          {data.map((entry, index) => (
+            <Cell
+              key={`cell-${index}`}
+              fill={COLORS[index % COLORS.length]}
+            />
+          ))}
+        </Pie>
+        <Tooltip content={<CustomTooltip />} />
+        <Legend />
+      </PieChart>
+    </ResponsiveContainer>
+  ) : (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">
+          No customer distribution data available
+        </p>
+        <p className="text-gray-400 text-sm mt-1">
+          Try adjusting your filters or date range
+        </p>
       </div>
+    </div>
+  )}
+</div>
+
 
     </div>
   );

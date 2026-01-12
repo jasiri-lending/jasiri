@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { Heart,  Calendar, Globe, Building } from 'lucide-react';
+import { Heart, Calendar, Globe, Building } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 
@@ -128,7 +128,7 @@ const MaritalStatusChart = () => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
-  const [loading, setLoading] = useState(false);
+  
 
   // Fetch available regions and branches on mount
   useEffect(() => {
@@ -184,7 +184,6 @@ const MaritalStatusChart = () => {
 
   // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    setLoading(true);
     try {
       const maritalData = await fetchMaritalStatusData(
         filterParams.dateRange,
@@ -196,9 +195,7 @@ const MaritalStatusChart = () => {
     } catch (error) {
       console.error("Error fetching marital status data:", error);
       setData([]);
-    } finally {
-      setLoading(false);
-    }
+    } 
   }, []);
 
   // Handle filter changes
@@ -231,6 +228,11 @@ const MaritalStatusChart = () => {
     
     // Don't refetch if only viewType changed
     if (key === 'viewType') {
+      return;
+    }
+    
+    // Don't refetch if we're setting custom dates (wait for apply)
+    if (key === 'customStartDate' || key === 'customEndDate') {
       return;
     }
     
@@ -316,162 +318,160 @@ const MaritalStatusChart = () => {
             Marital Status Distribution
           </h3>
         </div>
-      
       </div>
 
-    {/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.dateRange,
-        onChange: (e) => handleFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.region,
-        onChange: (e) => handleFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(region => ({
-            value: region.name,
-            label: region.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.branch,
-        onChange: (e) => handleFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(branch => ({
-            value: branch.id,
-            label: `${branch.name} (${branch.code})`
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          disabled={loading}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+      {/* Filters */}
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {[
+            {
+              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.dateRange,
+              onChange: (e) => handleFilterChange('dateRange', e.target.value),
+              options: [
+                { value: "all", label: "All Time" },
+                { value: "week", label: "This Week" },
+                { value: "month", label: "This Month" },
+                { value: "quarter", label: "This Quarter" },
+                { value: "6months", label: "Last 6 Months" },
+                { value: "year", label: "This Year" },
+                { value: "custom", label: "Custom Range" }
+              ]
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.region,
+              onChange: (e) => handleFilterChange('region', e.target.value),
+              options: [
+                { value: "all", label: "All Regions" },
+                ...availableRegions.map(region => ({
+                  value: region.name,
+                  label: region.name
+                }))
+              ]
+            },
+            {
+              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.branch,
+              onChange: (e) => handleFilterChange('branch', e.target.value),
+              options: [
+                { value: "all", label: "All Branches" },
+                ...filteredBranches.map(branch => ({
+                  value: branch.id,
+                  label: branch.name
+                }))
+              ]
+            }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           ))}
-        </select>
+        </div>
+
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
+
+            <input
+              type="date"
+              value={filters.customStartDate}
+              onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <span className="text-slate-500 text-sm">to</span>
+
+            <input
+              type="date"
+              value={filters.customEndDate}
+              onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!filters.customStartDate || !filters.customEndDate}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
       </div>
-    ))}
-  </div>
 
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
-
-      <input
-        type="date"
-        value={filters.customStartDate}
-        onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={filters.customEndDate}
-        onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!filters.customStartDate || !filters.customEndDate || loading}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
+      {/* Chart */}
+    <div className="h-80">
+  {data && data.length > 0 ? (
+    <ResponsiveContainer width="100%" height="100%">
+      {filters.viewType === 'pie' ? (
+        <PieChart>
+          <Pie
+            data={data}
+            cx="50%"
+            cy="50%"
+            innerRadius={60}
+            outerRadius={100}
+            paddingAngle={5}
+            dataKey="value"
+            label={({ name, value }) =>
+              `${name}: ${Math.round((value / total) * 100)}%`
+            }
+          >
+            {data.map((entry, index) => (
+              <Cell
+                key={`cell-${index}`}
+                fill={COLORS[index % COLORS.length]}
+              />
+            ))}
+          </Pie>
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+        </PieChart>
+      ) : (
+        <BarChart data={data}>
+          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+          <XAxis dataKey="name" />
+          <YAxis />
+          <Tooltip content={<CustomTooltip />} />
+          <Legend />
+          <Bar
+            dataKey="value"
+            name="Count"
+            fill={HEADER_COLOR}
+            radius={[4, 4, 0, 0]}
+          />
+        </BarChart>
+      )}
+    </ResponsiveContainer>
+  ) : (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <p className="text-gray-500">No marital status data available</p>
+        <p className="text-gray-400 text-sm mt-1">
+          Try adjusting your filters or date range
+        </p>
+      </div>
     </div>
   )}
 </div>
 
-
-      {/* Chart */}
-      <div className="h-80">
-        {loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-3"></div>
-              <p className="text-gray-500">Loading marital status data...</p>
-            </div>
-          </div>
-        ) : data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            {filters.viewType === 'pie' ? (
-              <PieChart>
-                <Pie
-                  data={data}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                  label={({ name, value }) => `${name}: ${Math.round((value / total) * 100)}%`}
-                >
-                  {data.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-              </PieChart>
-            ) : (
-              <BarChart data={data}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="name" />
-                <YAxis />
-                <Tooltip content={<CustomTooltip />} />
-                <Legend />
-                <Bar dataKey="value" name="Count" fill={HEADER_COLOR} radius={[4, 4, 0, 0]} />
-              </BarChart>
-            )}
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">No marital status data available</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Try adjusting your filters or date range
-              </p>
-            </div>
-          </div>
-        )}
-      </div>
 
     </div>
   );
