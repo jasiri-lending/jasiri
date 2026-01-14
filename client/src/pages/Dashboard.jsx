@@ -34,6 +34,12 @@ const getLocalYYYYMMDD = (d = new Date()) => {
   return `${year}-${month}-${day}`;
 };
 
+// Add this with the other date utility functions
+const getYearStartDate = () => {
+  const now = new Date();
+  return getLocalYYYYMMDD(new Date(now.getFullYear(), 0, 1));
+};
+
 const getTodayDate = () => getLocalYYYYMMDD(new Date());
 const getTomorrowDate = () => {
   const t = new Date();
@@ -272,14 +278,16 @@ const StatCard = ({
     }}
   >
     <div className="space-y-1">
-      <div className="text-xl sm:text-2xl font-bold" style={{ color }}>
+        {subtext && (
+        <div className="text-2xl font-semibold " style={{color:COLORS.primary}}>{subtext}</div>
+      )}
+            <div className="text-xs sm:text-sm font-medium text-gray-600">{label}</div>
+      <div className="h-px bg-gray-200 my-2" />
+
+      <div className="text-sm sm:text-sm font-bold" style={{ color }}>
         {value}
       </div>
-      <div className="h-px bg-gray-200 my-2" />
-      <div className="text-xs sm:text-sm font-medium text-gray-600">{label}</div>
-      {subtext && (
-        <div className="text-xs text-gray-500">{subtext}</div>
-      )}
+    
     </div>
   </div>
 );
@@ -497,6 +505,8 @@ const Dashboard = () => {
       todayAmount: 0,
       thisMonth: 0,
       thisMonthAmount: 0,
+        ytd: 0, 
+    ytdAmount: 0, 
     },
     collections: {
       today: { collected: 0, expected: 0, rate: 0 },
@@ -808,32 +818,41 @@ const Dashboard = () => {
     };
   }, [allPayments, allInstallments]);
 
-  const calculateDisbursementMetrics = useCallback((filteredLoans) => {
-    const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
-    const today = getTodayDate();
-    const monthStart = getMonthStartDate();
+ const calculateDisbursementMetrics = useCallback((filteredLoans) => {
+  const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
+  const today = getTodayDate();
+  const monthStart = getMonthStartDate();
+  const yearStart = getYearStartDate();
 
-    const disbursedToday = disbursedLoans.filter(loan => {
-      if (!loan.disbursed_at) return false;
-      const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
-      return disbursedDate === today;
-    });
+  const disbursedToday = disbursedLoans.filter(loan => {
+    if (!loan.disbursed_at) return false;
+    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+    return disbursedDate === today;
+  });
 
-    const disbursedThisMonth = disbursedLoans.filter(loan => {
-      if (!loan.disbursed_at) return false;
-      const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
-      return disbursedDate >= monthStart && disbursedDate <= today;
-    });
+  const disbursedThisMonth = disbursedLoans.filter(loan => {
+    if (!loan.disbursed_at) return false;
+    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+    return disbursedDate >= monthStart && disbursedDate <= today;
+  });
 
-    return {
-      total: disbursedLoans.length,
-      totalAmount: disbursedLoans.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-      today: disbursedToday.length,
-      todayAmount: disbursedToday.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-      thisMonth: disbursedThisMonth.length,
-      thisMonthAmount: disbursedThisMonth.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-    };
-  }, []);
+  const disbursedYTD = disbursedLoans.filter(loan => {
+    if (!loan.disbursed_at) return false;
+    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+    return disbursedDate >= yearStart && disbursedDate <= today;
+  });
+
+  return {
+    total: disbursedLoans.length,
+    totalAmount: disbursedLoans.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+    today: disbursedToday.length,
+    todayAmount: disbursedToday.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+    thisMonth: disbursedThisMonth.length,
+    thisMonthAmount: disbursedThisMonth.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+    ytd: disbursedYTD.length,
+    ytdAmount: disbursedYTD.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+  };
+}, []);
 
   const calculateCollectionMetrics = useCallback((filteredLoans) => {
     const loanIds = filteredLoans
@@ -1388,64 +1407,66 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
         </div>
 
         {/* Section 3: Loan Disbursement */}
-        <div 
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <SectionHeader icon={CreditCard} title="Loan Disbursement" />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatCard
-              icon={Database}
-              label="Total Loans"
-              value={dashboardData.disbursements.total.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
-              color={COLORS.authority}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={Calendar}
-              label="Today"
-              value={dashboardData.disbursements.today.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
-              color={COLORS.success}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={Calendar}
-              label="This Month"
-              value={dashboardData.disbursements.thisMonth.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="MTD Disbursement"
-              value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Avg. Loan Size"
-              value={dashboardData.disbursements.total > 0 
-                ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
-                : "0.00"
-              }
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={CheckCircle}
-              label="Disbursement Rate"
-              value={`${dashboardData.disbursements.total > 0 ? Math.round((dashboardData.disbursements.thisMonth / dashboardData.disbursements.total) * 100) : 0}%`}
-              subtext="This month vs total"
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
-          </div>
-        </div>
+      {/* Section 3: Loan Disbursement */}
+<div 
+  className="rounded-2xl p-6 shadow-md"
+  style={{ backgroundColor: COLORS.surface }}
+>
+  <SectionHeader icon={CreditCard} title="Loan Disbursement" />
+  
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    <StatCard
+      icon={Database}
+      label="Total Loans"
+      value={dashboardData.disbursements.total.toLocaleString()}
+      subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
+      color={COLORS.authority}
+      bgColor={COLORS.background}
+    />
+    <StatCard
+      icon={Calendar}
+      label="Today"
+      value={dashboardData.disbursements.today.toLocaleString()}
+      subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
+      color={COLORS.success}
+      bgColor={COLORS.background}
+    />
+    <StatCard
+      icon={Calendar}
+      label="This Month"
+      value={dashboardData.disbursements.thisMonth.toLocaleString()}
+      subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+      color={COLORS.primary}
+      bgColor={COLORS.background}
+    />
+    <StatCard
+      icon={TrendingUp}
+      label="MTD Disbursement"
+      value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+      subtext={`${dashboardData.disbursements.thisMonth} `}
+      color={COLORS.secondary}
+      bgColor={COLORS.background}
+    />
+    <StatCard
+      icon={TrendingUp}
+      label="Avg. Loan Size"
+      value={dashboardData.disbursements.total > 0 
+        ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
+        : "0.00"
+      }
+      color={COLORS.primary}
+      bgColor={COLORS.background}
+    />
+    <StatCard
+      icon={CalendarCheck} // Changed from CheckCircle
+      label="YTD Disbursement"
+      value={dashboardData.disbursements.ytd.toLocaleString()}
+      subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
+      color={COLORS.secondary}
+      bgColor={COLORS.background}
+    />
+  </div>
+</div>
 
         {/* Sections 4 & 5: Risk Metrics and Customer Analytics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
