@@ -431,16 +431,18 @@ const PendingActionCard = ({
   color = COLORS.primary,
   bgColor = COLORS.background,
   iconBgColor,
+  onClick, // 👈 add this
 }) => (
-  <div 
+  <div
+    onClick={onClick} // 👈 attach here
     className="p-5 rounded-xl cursor-pointer hover:shadow-lg transition-shadow"
     style={{
       backgroundColor: bgColor,
-      border: `1px solid #9ca3af`
+      border: `1px solid #9ca3af`,
     }}
   >
     <div className="flex items-center justify-between mb-3">
-      <div 
+      <div
         className="p-2 rounded-lg"
         style={{ backgroundColor: iconBgColor || `${color}20` }}
       >
@@ -448,12 +450,17 @@ const PendingActionCard = ({
       </div>
       <ChevronRight className="w-5 h-5 text-gray-400" />
     </div>
+
     <div className="text-3xl font-bold mb-1" style={{ color }}>
       {value}
     </div>
+
     <div className="text-sm text-gray-600">{label}</div>
   </div>
 );
+
+
+
 
 // ========== MAIN DASHBOARD COMPONENT ==========
 const Dashboard = () => {
@@ -1071,17 +1078,57 @@ const calculateCustomerMetrics = useCallback((filteredCustomers) => {
       outstandingBalance: portfolioMetrics.outstandingBalance,
     };
   }, []);
+const calculatePendingActions = useCallback(
+  (filteredLoans = [], filteredCustomers = []) => {
+    const now = new Date();
 
-  const calculatePendingActions = useCallback((filteredLoans, filteredCustomers) => {
     return {
-      disbursement: filteredLoans.filter(l => l.status === "approved" && !l.disbursed_at).length,
-      loanBM: filteredLoans.filter(l => l.status === "bm_review").length,
-      loanRM: filteredLoans.filter(l => l.status === "rm_review").length,
-      customerBM: filteredCustomers.filter(c => c.status === "bm_review").length,
-      customerCallbacks: filteredCustomers.filter(c => c.callback_date && new Date(c.callback_date) > new Date()).length,
-      customerHQ: filteredCustomers.filter(c => c.status === "hq_review").length,
+      /* =========================
+         LOAN PENDING ACTIONS
+      ========================== */
+
+      // Loans awaiting BM decision
+      loanBM: filteredLoans.filter(
+        l => l.status === "bm_review"
+      ).length,
+
+      // Loans awaiting RM decision (DB uses rn_review)
+      loanRM: filteredLoans.filter(
+        l => l.status === "rn_review"
+      ).length,
+
+      // Loans approved & waiting for disbursement
+      disbursement: filteredLoans.filter(
+        l =>
+          l.status === "ready_for_disbursement" &&
+          !l.disbursed_at
+      ).length,
+
+      /* =========================
+         CUSTOMER PENDING ACTIONS
+      ========================== */
+
+      // Customers awaiting BM approval
+      customerBM: filteredCustomers.filter(
+        c => c.status === "bm_review"
+      ).length,
+
+      // Customers with scheduled future callbacks
+      customerCallbacks: filteredCustomers.filter(
+        c =>
+          c.callback_date &&
+          new Date(c.callback_date) > now
+      ).length,
+
+      // Customers awaiting HQ review
+      customerHQ: filteredCustomers.filter(
+        c => c.status === "hq_review"
+      ).length,
     };
-  }, []);
+  },
+  []
+);
+
 
   const recalculateDashboardMetrics = useCallback(() => {
     if (!userProfile || allLoans.length === 0 || allCustomers.length === 0) return;
@@ -1261,6 +1308,17 @@ const calculateCustomerMetrics = useCallback((filteredCustomers) => {
       setSelectedRO("all");
     }
   }, [selectedBranch]);
+
+
+const PENDING_COLORS = {
+  disbursement: COLORS.primary,     // money action → primary
+  loanBM: COLORS.warning,           // internal approval → warning
+  loanRM: COLORS.secondary,         // higher-level approval → secondary
+  customerCallbacks: COLORS.success,// customer engagement → success
+  customerBM: COLORS.warning,       // customer approval → warning
+  customerHQ: COLORS.authority,     // HQ / authority → authority
+};
+
 
   // if (loading) {
   //   return (
@@ -1461,7 +1519,6 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
           </div>
         </div>
 
-        {/* Section 3: Loan Disbursement */}
       {/* Section 3: Loan Disbursement */}
 <div 
   className="rounded-2xl p-6 shadow-md"
@@ -1630,50 +1687,77 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
         </div>
 
         {/* Section 6: Pending Actions */}
-        <div 
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <SectionHeader icon={Clock} title="Pending Actions" />
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <PendingActionCard
-              icon={FileCheck}
-              value={dashboardData.pending.disbursement}
-              label="Pending Disbursement"
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <PendingActionCard
-              icon={ThumbsUp}
-              value={dashboardData.pending.loanBM}
-              label="Pending Loan BM"
-              color={COLORS.warning}
-              bgColor={COLORS.background}
-            />
-            <PendingActionCard
-              icon={ThumbsUp}
-              value={dashboardData.pending.loanRM}
-              label="Pending Loan RM"
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
-            <PendingActionCard
-              icon={PhoneCall}
-              value={dashboardData.pending.customerCallbacks}
-              label="Customer Callbacks"
-              color={COLORS.success}
-              bgColor={COLORS.background}
-            />
-            <PendingActionCard
-              icon={Building}
-              value={dashboardData.pending.customerHQ}
-              label="HQ Review"
-              color={COLORS.authority}
-              bgColor={COLORS.background}
-            />
-          </div>
-        </div>
+<div
+  className="rounded-2xl p-6 shadow-md"
+  style={{ backgroundColor: COLORS.surface }}
+>
+  <SectionHeader icon={Clock} title="Pending Actions" />
+
+  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+
+    {/* Pending Disbursement */}
+    <PendingActionCard
+      icon={FileCheck}
+      value={dashboardData.pending.disbursement}
+      label="Pending Disbursement"
+      color={PENDING_COLORS.disbursement}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/loaning/pending-disbursement")}
+    />
+
+    {/* Loan BM Approval */}
+    <PendingActionCard
+      icon={ThumbsUp}
+      value={dashboardData.pending.loanBM}
+      label="Loan Pending BM Approval"
+      color={PENDING_COLORS.loanBM}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/loaning/pending-branch-manager")}
+    />
+
+    {/* Loan RM Approval */}
+    <PendingActionCard
+      icon={ThumbsUp}
+      value={dashboardData.pending.loanRM}
+      label="Loan Pending RM Approval"
+      color={PENDING_COLORS.loanRM}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/loaning/pending-regional-manager")}
+    />
+
+    {/* Customer Callbacks */}
+    <PendingActionCard
+      icon={PhoneCall}
+      value={dashboardData.pending.customerCallbacks}
+      label="Customer Callbacks"
+      color={PENDING_COLORS.customerCallbacks}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/registry/callbacks-pending")}
+    />
+
+    {/* Customer BM Approval */}
+    <PendingActionCard
+      icon={ThumbsUp}
+      value={dashboardData.pending.customerBM}
+      label="Customer Pending BM Approval"
+      color={PENDING_COLORS.customerBM}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/registry/bm-pending")}
+    />
+
+    {/* Customer HQ Review */}
+    <PendingActionCard
+      icon={Building}
+      value={dashboardData.pending.customerHQ}
+      label="Customer HQ Review"
+      color={PENDING_COLORS.customerHQ}
+      bgColor={COLORS.background}
+      onClick={() => navigate("/registry/hq-pending")}
+    />
+  </div>
+</div>
+
+
       </div>
 
       {/* Footer */}
