@@ -544,82 +544,81 @@ const Dashboard = () => {
       customerHQ: 0,
     }
   });
+ // ========== DATA FETCHING & CALCULATION FUNCTIONS ==========
+// Key fix: Added tenant_id to the users query
+const fetchUserProfile = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (!user) return null;
 
-  // ========== DATA FETCHING & CALCULATION FUNCTIONS ==========
-  const fetchUserProfile = async () => {
-    try {
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error) throw error;
-      if (!user) return null;
+    const tenantId = user.app_metadata?.tenant_id;
 
-      const tenantId = user.app_metadata?.tenant_id;
+    // FIXED: Added tenant_id to the select statement
+    let userQuery = supabase
+      .from("users")
+      .select("role, full_name, tenant_id")  
+      .eq("id", user.id);
 
-      let userQuery = supabase
-        .from("users")
-        .select("role, full_name")
-        .eq("id", user.id);
+    if (tenantId) userQuery = userQuery.eq("tenant_id", tenantId);
 
-      if (tenantId) userQuery = userQuery.eq("tenant_id", tenantId);
+    const { data: userData, error: userError } = await userQuery.single();
+    if (userError) throw userError;
 
-      const { data: userData, error: userError } = await userQuery.single();
-      if (userError) throw userError;
+    let profileQuery = supabase
+      .from("profiles")
+      .select(`
+        region_id,
+        branch_id,
+        branches!inner(name, code, region_id),
+        regions!inner(name, code)
+      `)
+      .eq("id", user.id);
 
-      let profileQuery = supabase
-        .from("profiles")
-        .select(`
-          region_id,
-          branch_id,
-          branches!inner(name, code, region_id),
-          regions!inner(name, code)
-        `)
-        .eq("id", user.id);
+    if (tenantId) profileQuery = profileQuery.eq("tenant_id", tenantId);
 
-      if (tenantId) profileQuery = profileQuery.eq("tenant_id", tenantId);
+    const { data: profileData, error: profileError } = await profileQuery.single();
 
-      const { data: profileData, error: profileError } = await profileQuery.single();
-
-      if (profileError) {
-        const profile = {
-          id: user.id,
-          role: userData.role,
-          fullName: userData.full_name,
-          regionId: null,
-          branchId: null,
-          regionName: null,
-          branchName: null,
-          tenantId,
-        };
-        setUserProfile(profile);
-        return profile;
-      }
-
+    if (profileError) {
       const profile = {
         id: user.id,
         role: userData.role,
         fullName: userData.full_name,
-        regionId: profileData.region_id,
-        branchId: profileData.branch_id,
-        regionName: profileData.regions?.name ?? null,
-        branchName: profileData.branches?.name ?? null,
-        tenantId,
+        regionId: null,
+        branchId: null,
+        regionName: null,
+        branchName: null,
+        tenantId: userData.tenant_id || tenantId,  // Use from userData or fallback to app_metadata
       };
-
       setUserProfile(profile);
       return profile;
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      return null;
     }
-  };
 
-  const fetchRegions = async () => {
-    if (!userProfile?.tenantId) return [];
+    const profile = {
+      id: user.id,
+      role: userData.role,
+      fullName: userData.full_name,
+      regionId: profileData.region_id,
+      branchId: profileData.branch_id,
+      regionName: profileData.regions?.name ?? null,
+      branchName: profileData.branches?.name ?? null,
+      tenantId: userData.tenant_id || tenantId,  // Use from userData or fallback to app_metadata
+    };
+
+    setUserProfile(profile);
+    return profile;
+  } catch (error) {
+    console.error("Error fetching user profile:", error);
+    return null;
+  }
+};
+ const fetchRegions = async () => {
     try {
       const { data, error } = await supabase
         .from("regions")
         .select("id, name, code")
-        .eq("tenant_id", userProfile.tenantId)
         .order("name");
+
       if (error) throw error;
       return data || [];
     } catch (error) {
@@ -628,15 +627,17 @@ const Dashboard = () => {
     }
   };
 
-  const fetchBranches = async (regionId = "all") => {
-    if (!userProfile?.tenantId) return [];
+  const fetchBranches = async (regionFilter = "all") => {
     try {
       let query = supabase
         .from("branches")
-        .select("id, name, code, region_id")
-        .eq("tenant_id", userProfile.tenantId)
+        .select("id, name, code, address, region_id")
         .order("name");
-      if (regionId !== "all") query = query.eq("region_id", regionId);
+
+      if (regionFilter !== "all") {
+        query = query.eq("region_id", regionFilter);
+      }
+
       const { data, error } = await query;
       if (error) throw error;
       return data || [];
@@ -646,78 +647,130 @@ const Dashboard = () => {
     }
   };
 
-  const fetchRelationshipOfficers = async (branchId = "all", regionId = "all") => {
-    if (!userProfile?.tenantId) return [];
+  const fetchRelationshipOfficers = async (
+    branchFilter = "all",
+    userRole = null,
+    userBranchId = null,
+    userRegionId = null
+  ) => {
     try {
       let query = supabase
         .from("profiles")
-        .select(`
+        .select(
+          `
           id,
+          region_id,
           branch_id,
-          users!inner(id, full_name, role),
-          branches!inner(id, name, region_id)
-        `)
-        .eq("tenant_id", userProfile.tenantId)
-        .eq("users.role", "relationship_officer");
+          users!inner(
+            id,
+            full_name,
+            role
+          )
+        `
+        )
+        .eq("users.role", "relationship_officer")
+        .order("users(full_name)");
 
-      if (branchId !== "all") {
-        query = query.eq("branch_id", branchId);
-      } else if (regionId !== "all" && regionId !== null) {
-        query = query.eq("branches.region_id", regionId);
+      if (userRole === "branch_manager" && userBranchId) {
+        query = query.eq("branch_id", userBranchId);
+      } else if (userRole === "regional_manager") {
+        if (branchFilter !== "all") {
+          query = query.eq("branch_id", branchFilter);
+        } else {
+          query = query.eq("region_id", userRegionId);
+        }
+      } else if (branchFilter !== "all") {
+        query = query.eq("branch_id", branchFilter);
       }
 
       const { data, error } = await query;
       if (error) throw error;
 
-      return (data ?? []).map(ro => ({
-        id: ro.users.id,
-        full_name: ro.users.full_name,
-        branch_id: ro.branch_id,
-      }));
+      return (
+        data?.map((item) => ({
+          id: item.users.id,
+          full_name: item.users.full_name,
+          branch_id: item.branch_id,
+          region_id: item.region_id,
+        })) || []
+      );
     } catch (error) {
-      console.error("Error fetching ROs:", error);
+      console.error("Error fetching relationship officers:", error);
       return [];
     }
   };
 
-  const initializeFilters = async (profile) => {
-    setSelectedRegion("all");
-    setSelectedBranch("all");
-    setSelectedRO("all");
-    setAvailableRegions([]);
-    setAvailableBranches([]);
-    setAvailableROs([]);
+// ========== UPDATED INITIALIZATION ==========
+const initializeFilters = async (profile) => {
+
+  
+  setSelectedRegion("all");
+  setSelectedBranch("all");
+  setSelectedRO("all");
+  setAvailableRegions([]);
+  setAvailableBranches([]);
+  setAvailableROs([]);
+  
+  // Fetch regions based on user profile
+  const regions = await fetchRegions();
+  setAvailableRegions(regions);
+  
+  if (profile.role === "regional_manager") {
+  
     
-    const regions = await fetchRegions();
-    const branches = await fetchBranches("all");
-    const ros = await fetchRelationshipOfficers("all", "all");
+    setSelectedRegion(profile.regionId);
     
-    setAvailableRegions(regions);
-    setAvailableBranches(branches);
-    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+    const regionBranches = await fetchBranches(profile.regionId);
+    setAvailableBranches(regionBranches);
     
-    if (profile.role === "regional_manager") {
-      setSelectedRegion(profile.regionId);
-      const regionBranches = await fetchBranches(profile.regionId);
-      setAvailableBranches(regionBranches);
-      const regionROs = await fetchRelationshipOfficers("all", profile.regionId);
-      setAvailableROs([{ id: "all", full_name: "All ROs" }, ...regionROs]);
-    } else if (profile.role === "branch_manager") {
-      setSelectedBranch(profile.branchId);
-      const branch = branches.find(b => b.id === profile.branchId);
-      if (branch) setSelectedRegion(branch.region_id);
-      const branchROs = await fetchRelationshipOfficers(profile.branchId, "all");
-      setAvailableROs([{ id: "all", full_name: "All ROs" }, ...branchROs]);
-    } else if (profile.role === "relationship_officer") {
-      const selfRO = ros.find(ro => ro.id === profile.id);
-      if (selfRO) {
-        setAvailableROs([{ id: selfRO.id, full_name: selfRO.full_name }]);
-        setSelectedRO(selfRO.id);
-      }
+    const regionROs = await fetchRelationshipOfficers("all", profile.regionId);
+    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...regionROs]);
+    
+  } else if (profile.role === "branch_manager") {
+   
+    
+    setSelectedRegion(profile.regionId);
+    setSelectedBranch(profile.branchId);
+    
+    const userBranch = await fetchBranches("all");
+    setAvailableBranches(userBranch);
+    
+    const branchROs = await fetchRelationshipOfficers(profile.branchId, "all");
+    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...branchROs]);
+    
+  } else if (profile.role === "relationship_officer") {
+  
+    
+    setSelectedRegion(profile.regionId);
+    setSelectedBranch(profile.branchId);
+    
+    const userBranch = await fetchBranches("all");
+    setAvailableBranches(userBranch);
+    
+    const selfRO = await fetchRelationshipOfficers("all", "all");
+    
+    if (selfRO.length > 0) {
+      setAvailableROs(selfRO.map(ro => ({ id: ro.id, full_name: ro.full_name })));
+      setSelectedRO(selfRO[0].id);
     }
-  };
+    
+  } else {
+   
+    
+    const branches = await fetchBranches("all");
+   
+    setAvailableBranches(branches);
+    
+    const ros = await fetchRelationshipOfficers("all", "all");
+   
+    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+  }
+ 
+};
 
   const applyFilters = useCallback((data, tableName = "loans") => {
+ 
+    
     if (!userProfile || !Array.isArray(data)) return [];
     const { role, regionId: userRegionId, branchId: userBranchId, id: userId } = userProfile;
     
@@ -725,7 +778,8 @@ const Dashboard = () => {
     
     if (role === "relationship_officer") {
       const field = tableName === "loans" ? "booked_by" : "created_by";
-      return result.filter(item => String(item[field]) === String(userId));
+      result = result.filter(item => String(item[field]) === String(userId));
+      return result;
     }
     if (role === "branch_manager") {
       result = result.filter(item => item.branch_id === userBranchId);
@@ -747,6 +801,7 @@ const Dashboard = () => {
 
     return result;
   }, [userProfile, selectedRegion, selectedBranch, selectedRO]);
+
 
   const calculatePortfolioMetrics = useCallback((filteredLoans) => {
     const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
