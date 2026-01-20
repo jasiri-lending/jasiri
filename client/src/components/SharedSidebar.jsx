@@ -481,8 +481,8 @@ const SharedSidebar = () => {
               : "absolute top-4 right-4"
           }`}
           style={{ 
-            backgroundColor: "#586ab1",
-            color: "white"
+            backgroundColor: "#fff",
+            color: "#586ab1"
           }}
         >
           {isCollapsed ? (

@@ -46,13 +46,42 @@ const ApprovalPending = () => {
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
 
-  // Check if user can approve based on role
-  const canApprove = profile?.role === 'branch_manager' || profile?.role === 'credit_analyst_officer';
+  // Check if user can approve a specific customer based on role and status
+  const canApproveCustomer = (customerStatus) => {
+    if (!profile) return false;
+    
+    const userRole = profile.role;
+    const status = customerStatus;
+    
+    // Branch Manager can approve bm_review and bm_review_amend
+    if (userRole === 'branch_manager') {
+      return status === 'bm_review' || status === 'bm_review_amend';
+    }
+    
+    // Credit Analyst Officer can approve ca_review and ca_review_amend
+    if (userRole === 'credit_analyst_officer') {
+      return status === 'ca_review' || status === 'ca_review_amend';
+    }
+    
+    // Customer Service Officer can approve cso_review and cso_review_amend
+    if (userRole === 'customer_service_officer') {
+      return status === 'cso_review' || status === 'cso_review_amend';
+    }
+    
+    return false;
+  };
 
-  // Fetch filter data
+  // Fetch filter data based on user role
   const fetchFilterData = async () => {
     try {
       if (!profile?.tenant_id) return;
+
+      // Reset all filter data
+      setBranches([]);
+      setRegions([]);
+      setRelationshipOfficers([]);
+      setAllBranches([]);
+      setAllRelationshipOfficers([]);
 
       // Determine which regions to fetch based on role
       let regionsQuery = supabase
@@ -81,13 +110,22 @@ const ApprovalPending = () => {
         branchesQuery = branchesQuery.eq('id', profile.branch_id);
       }
 
+      // For relationship_officer, only fetch their branch and region (for display)
+      if (profile?.role === 'relationship_officer') {
+        if (profile.branch_id) {
+          branchesQuery = branchesQuery.eq('id', profile.branch_id);
+        }
+        if (profile.region_id) {
+          regionsQuery = regionsQuery.eq('id', profile.region_id);
+        }
+      }
+
       const [branchesResponse, regionsResponse, roResponse] = await Promise.all([
         branchesQuery.order('name'),
         regionsQuery.order('name'),
         supabase
           .from('users')
           .select('id, full_name, tenant_id, role, branch_id, region_id')
-          .eq('role', 'relationship_officer')
           .eq('tenant_id', profile.tenant_id)
           .order('full_name')
       ]);
@@ -117,6 +155,11 @@ const ApprovalPending = () => {
           );
         }
         
+        if (profile?.role === 'relationship_officer') {
+          // Relationship officers can only see themselves
+          filteredROs = filteredROs.filter(ro => ro.id === profile.id);
+        }
+        
         setRelationshipOfficers(filteredROs);
         setAllRelationshipOfficers(filteredROs);
       }
@@ -125,13 +168,15 @@ const ApprovalPending = () => {
     }
   };
 
-  // Fetch pending customers
+  // Fetch pending customers with role-based restrictions
   const fetchPendingCustomers = async () => {
     setLoading(true);
     try {
       if (!profile) return;
 
-      // Build the query
+      console.log("Fetching pending customers for profile:", profile);
+
+      // Build the base query
       let query = supabase
         .from("customers")
         .select(`
@@ -146,38 +191,66 @@ const ApprovalPending = () => {
           ),
           users:created_by (
             id,
-            full_name
+            full_name,
+            tenant_id
           )
         `)
-        .neq("form_status", "draft")
+        .in("status", [
+          'bm_review', 
+          'ca_review', 
+          'cso_review',
+          'bm_review_amend',
+          'ca_review_amend',
+          'cso_review_amend',
+          'sent_back_by_bm',
+          'sent_back_by_ca',
+          'sent_back_by_cso'
+        ])
         .order("created_at", { ascending: false });
 
-      // Set status filter based on role
-      if (profile.role === 'branch_manager') {
-        query = query.eq("status", "bm_review");
-        // BM can only see customers from their branch
-        if (profile.branch_id) {
-          query = query.eq("branch_id", profile.branch_id);
-        }
-      } else if (profile.role === 'credit_analyst_officer') {
-        query = query.eq("status", "ca_review");
-        // CA can see all customers with ca_review status
+      // Apply role-based restrictions
+      if (profile.role === 'relationship_officer') {
+        // Relationship Officer can only see customers they created
+        query = query.eq("created_by", profile.id);
+      } else if (profile.role === 'branch_manager' && profile.branch_id) {
+        // Branch Manager can only see customers in their branch
+        query = query.eq("branch_id", profile.branch_id);
+      } else if (profile.role === 'regional_manager' && profile.region_id) {
+        // Regional Manager can only see customers in their region
+        query = query.eq("region_id", profile.region_id);
+      } else if (profile.role === 'credit_analyst_officer' || profile.role === 'customer_service_officer') {
+        // CA and CSO can see all customers across regions within their tenant
+        // No branch/region restriction, only tenant filter
       } else {
-        // For other roles, show all customers awaiting any approval
-        query = query.in("status", ["bm_review", "ca_review", "sent_back_by_bm", "sent_back_by_ca"]);
+        // For other roles, show empty
+        setCustomers([]);
+        setFilteredCustomers([]);
+        setLoading(false);
+        return;
       }
 
       const { data, error } = await query;
 
+      console.log("Raw fetched data:", data);
+      console.log("Error:", error);
+
       if (error) {
         console.error("Error fetching pending customers:", error.message);
-      } else {
+      } else if (data) {
         // Filter by tenant_id from the created_by user
-        const filteredByTenant = data?.filter(customer => {
-          return customer.users?.tenant_id === profile?.tenant_id;
-        }) || [];
+        const filteredByTenant = data.filter(customer => {
+          const userTenantId = customer.users?.tenant_id;
+          const profileTenantId = profile?.tenant_id;
+          return userTenantId === profileTenantId;
+        });
 
+        console.log("Filtered by tenant:", filteredByTenant);
+        
         setCustomers(filteredByTenant);
+        setFilteredCustomers(filteredByTenant);
+      } else {
+        setCustomers([]);
+        setFilteredCustomers([]);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -287,8 +360,9 @@ const ApprovalPending = () => {
       const matchesStatus =
         !selectedStatus ||
         customer.status === selectedStatus ||
-        (selectedStatus === 'all_pending' && ["bm_review", "ca_review"].includes(customer.status)) ||
-        (selectedStatus === 'all_sent_back' && ["sent_back_by_bm", "sent_back_by_ca"].includes(customer.status));
+        (selectedStatus === 'all_pending' && ["bm_review", "ca_review", "cso_review"].includes(customer.status)) ||
+        (selectedStatus === 'all_amend' && ["bm_review_amend", "ca_review_amend", "cso_review_amend"].includes(customer.status)) ||
+        (selectedStatus === 'all_sent_back' && ["sent_back_by_bm", "sent_back_by_ca", "sent_back_by_cso"].includes(customer.status));
 
       return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
     });
@@ -365,7 +439,9 @@ const ApprovalPending = () => {
   const shouldShowRegionFilter = () => {
     return (
       profile?.role === 'credit_analyst_officer' || 
-      profile?.role === 'regional_manager'
+      profile?.role === 'regional_manager' ||
+      profile?.role === 'customer_service_officer' ||
+      profile?.role === 'relationship_officer'
     );
   };
 
@@ -373,7 +449,9 @@ const ApprovalPending = () => {
     return (
       profile?.role === 'credit_analyst_officer' || 
       profile?.role === 'regional_manager' ||
-      profile?.role === 'branch_manager'
+      profile?.role === 'branch_manager' ||
+      profile?.role === 'customer_service_officer' ||
+      profile?.role === 'relationship_officer'
     );
   };
 
@@ -381,7 +459,8 @@ const ApprovalPending = () => {
     return (
       profile?.role === 'credit_analyst_officer' || 
       profile?.role === 'regional_manager' ||
-      profile?.role === 'branch_manager'
+      profile?.role === 'branch_manager' ||
+      profile?.role === 'customer_service_officer'
     );
   };
 
@@ -411,8 +490,13 @@ const ApprovalPending = () => {
     const statusMap = {
       'bm_review': 'BM Review',
       'ca_review': 'CA Review',
+      'cso_review': 'CSO Review',
+      'bm_review_amend': 'BM Review (Amend)',
+      'ca_review_amend': 'CA Review (Amend)',
+      'cso_review_amend': 'CSO Review (Amend)',
       'sent_back_by_bm': 'Sent Back by BM',
-      'sent_back_by_ca': 'Sent Back by CA'
+      'sent_back_by_ca': 'Sent Back by CA',
+      'sent_back_by_cso': 'Sent Back by CSO'
     };
     
     return statusMap[customer.status] || customer.status;
@@ -422,8 +506,9 @@ const ApprovalPending = () => {
   const getStatusColor = (status) => {
     const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
     
-    if (statusValue.includes('review')) return '#f59e0b'; // amber
-    if (statusValue.includes('sent back')) return '#8b5cf6'; // purple
+    if (statusValue.includes('review') && statusValue.includes('amend')) return '#8b5cf6'; // purple for amend
+    if (statusValue.includes('review')) return '#f59e0b'; // amber for review
+    if (statusValue.includes('sent back')) return '#ef4444'; // red for sent back
     
     return '#586ab1'; // default blue
   };
@@ -431,12 +516,33 @@ const ApprovalPending = () => {
   // Get unique statuses for filter dropdown
   const uniqueStatuses = [
     { value: 'all_pending', label: 'All Pending' },
+    { value: 'all_amend', label: 'All Amend' },
     { value: 'all_sent_back', label: 'All Sent Back' },
     { value: 'bm_review', label: 'BM Review' },
     { value: 'ca_review', label: 'CA Review' },
+    { value: 'cso_review', label: 'CSO Review' },
+    { value: 'bm_review_amend', label: 'BM Review (Amend)' },
+    { value: 'ca_review_amend', label: 'CA Review (Amend)' },
+    { value: 'cso_review_amend', label: 'CSO Review (Amend)' },
     { value: 'sent_back_by_bm', label: 'Sent Back by BM' },
-    { value: 'sent_back_by_ca', label: 'Sent Back by CA' }
+    { value: 'sent_back_by_ca', label: 'Sent Back by CA' },
+    { value: 'sent_back_by_cso', label: 'Sent Back by CSO' }
   ];
+
+  // Check if user has permission to view this page
+  const hasPermission = () => {
+    if (!profile) return false;
+    
+    const allowedRoles = [
+      'relationship_officer',
+      'branch_manager',
+      'regional_manager',
+      'credit_analyst_officer',
+      'customer_service_officer'
+    ];
+    
+    return allowedRoles.includes(profile.role);
+  };
 
   if (loading) {
     return (
@@ -446,12 +552,29 @@ const ApprovalPending = () => {
     );
   }
 
+  // Check permission
+  if (!hasPermission()) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 flex items-center justify-center">
+            <XMarkIcon className="h-8 w-8 text-red-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Access Denied</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            You don't have permission to view pending approvals. Please contact your administrator.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1  tracking-wide">
+          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
             Registry / Pending Approvals
           </h1>
         </div>
@@ -698,129 +821,133 @@ const ApprovalPending = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Mobile
                 </th>
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Prequalified Amount
                 </th>
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                     RO
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Region
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Actions
                 </th>
               </tr>
             </thead>
 
             <tbody>
-              {currentCustomers.map((customer, index) => {
-                const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.trim();
-                const statusColor = getStatusColor(customer.status);
-                const displayStatus = getStatusDisplay(customer);
-                
-                return (
-                  <tr 
-                    key={customer.id} 
-                    className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
-                  >
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {fullName || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {customer.mobile || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {customer.id_number || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                      {customer.prequalifiedAmount ? 
-                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
-                        "N/A"}
-                    </td>
-                    {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        {customer.users?.full_name || "N/A"}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {customer.branches?.name || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {customer.regions?.name || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
-                        className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                        style={{ 
-                          backgroundColor: statusColor,
-                          color: 'white'
-                        }}
-                      >
-                        {displayStatus || "N/A"}
-                      </span>
-                    </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* View Customer */}
-                        <button
-                          onClick={() => handleView(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                          title="View Customer Details"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-
-                        {/* Approve Button (only for authorized users) */}
-                        {canApprove && (
-                          <button
-                            onClick={() => handleApprove(customer.id)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                            title="Approve Customer"
-                          >
-                            <CheckIcon className="h-4 w-4" />
-                          </button>
-                        )}
+              {filteredCustomers.length === 0 && !loading ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-12 text-center">
+                    <div className="p-10 text-center">
+                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+                        <CheckIcon className="h-8 w-8 text-gray-400" />
                       </div>
-                    </td>
-                  </tr>
-                );
-              })}
+                      <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending approvals</h3>
+                      <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                        {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus 
+                          ? "Try adjusting your search or filters"
+                          : "All approvals have been processed."}
+                      </p>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                currentCustomers.map((customer, index) => {
+                  const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.trim();
+                  const statusColor = getStatusColor(customer.status);
+                  const displayStatus = getStatusDisplay(customer);
+                  const showApproveButton = canApproveCustomer(customer.status);
+                  
+                  return (
+                    <tr 
+                      key={customer.id} 
+                      className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+                    >
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {fullName || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.mobile || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.id_number || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+                        {customer.prequalifiedAmount ? 
+                          `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                          "N/A"}
+                      </td>
+                      {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
+                        <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                          {customer.users?.full_name || "N/A"}
+                        </td>
+                      )}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.branches?.name || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.regions?.name || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <span 
+                          className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
+                          style={{ 
+                            backgroundColor: statusColor,
+                            color: 'white'
+                          }}
+                        >
+                          {displayStatus || "N/A"}
+                        </span>
+                      </td>
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          {/* View Customer */}
+                          <button
+                            onClick={() => handleView(customer)}
+                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                            title="View Customer Details"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </button>
+
+                          {/* Approve Button (only for authorized users and specific status) */}
+                          {showApproveButton && (
+                            <button
+                              onClick={() => handleApprove(customer.id)}
+                              className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
+                              title="Approve Customer"
+                            >
+                              <CheckIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
             </tbody>
           </table>
         </div>
-
-        {/* No Results */}
-        {filteredCustomers.length === 0 && (
-          <div className="p-10 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
-              <CheckIcon className="h-8 w-8 text-gray-400" />
-            </div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending approvals</h3>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus 
-                ? "Try adjusting your search or filters"
-                : "All approvals have been processed."}
-            </p>
-          </div>
-        )}
 
         {/* Pagination */}
         {filteredCustomers.length > 0 && (
