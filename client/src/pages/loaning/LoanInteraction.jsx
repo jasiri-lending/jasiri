@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { useParams, useNavigate } from 'react-router-dom';
+import Spinner from '../../components/Spinner';
 import {
   ChatBubbleLeftRightIcon,
   PhoneIcon,

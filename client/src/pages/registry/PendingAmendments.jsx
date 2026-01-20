@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   MagnifyingGlassIcon,
   CheckCircleIcon,
   EyeIcon,
   DocumentTextIcon,
   PhoneIcon,
-  CalendarIcon,
-  PencilSquareIcon,
-  IdentificationIcon,
   ExclamationTriangleIcon,
   BuildingStorefrontIcon,
   MapPinIcon,
   UserCircleIcon,
   ArrowPathIcon,
+  XMarkIcon,
+  AdjustmentsHorizontalIcon,
+  ChevronDownIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
@@ -66,6 +66,20 @@ const PendingAmendments = () => {
   const [showForm, setShowForm] = useState(false);
   const [customerDetails, setCustomerDetails] = useState({});
   const [refreshing, setRefreshing] = useState(false);
+  
+  // Filter states
+  const [showFilters, setShowFilters] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState("");
+  const [selectedRegion, setSelectedRegion] = useState("");
+  const [selectedRO, setSelectedRO] = useState("");
+  const [selectedStatus, setSelectedStatus] = useState("");
+  const [branches, setBranches] = useState([]);
+  const [regions, setRegions] = useState([]);
+  const [relationshipOfficers, setRelationshipOfficers] = useState([]);
+
+  // Use ref to prevent infinite re-fetching
+  const hasFetchedData = useRef(false);
+  const hasFetchedFilterData = useRef(false);
 
   // Get role from profile
   const userRole = profile?.role;
@@ -75,55 +89,15 @@ const PendingAmendments = () => {
   // Load data from localStorage on component mount
   useEffect(() => {
     const savedSearchTerm = localStorage.getItem(STORAGE_KEYS.SEARCH_TERM);
-    const savedCustomers = localStorage.getItem(STORAGE_KEYS.CUSTOMERS);
-    const lastFetch = localStorage.getItem(STORAGE_KEYS.LAST_FETCH);
-    const savedCustomerDetails = localStorage.getItem(STORAGE_KEYS.TABLE_STATE);
-    
     if (savedSearchTerm) {
       setSearchTerm(savedSearchTerm);
     }
-    
-    if (savedCustomerDetails) {
-      try {
-        setCustomerDetails(JSON.parse(savedCustomerDetails));
-      } catch (error) {
-        console.error("Error parsing cached customer details:", error);
-      }
-    }
-    
-    // Use cached data if it's less than 5 minutes old
-    if (savedCustomers && lastFetch) {
-      const fiveMinutesAgo = Date.now() - (5 * 60 * 1000);
-      if (parseInt(lastFetch) > fiveMinutesAgo) {
-        try {
-          const parsedCustomers = JSON.parse(savedCustomers);
-          setCustomers(parsedCustomers);
-          setFilteredCustomers(parsedCustomers);
-          setLoading(false);
-        } catch (error) {
-          console.error("Error parsing cached customers:", error);
-        }
-      }
-    }
   }, []);
 
-  // Save to localStorage whenever data changes
+  // Save search term to localStorage
   useEffect(() => {
     localStorage.setItem(STORAGE_KEYS.SEARCH_TERM, searchTerm);
   }, [searchTerm]);
-
-  useEffect(() => {
-    if (customers.length > 0) {
-      localStorage.setItem(STORAGE_KEYS.CUSTOMERS, JSON.stringify(customers));
-      localStorage.setItem(STORAGE_KEYS.LAST_FETCH, Date.now().toString());
-    }
-  }, [customers]);
-
-  useEffect(() => {
-    if (Object.keys(customerDetails).length > 0) {
-      localStorage.setItem(STORAGE_KEYS.TABLE_STATE, JSON.stringify(customerDetails));
-    }
-  }, [customerDetails]);
 
   const getStatusDisplay = useCallback((customer) => {
     const sentBackStatuses = ["sent_back_by_bm", "sent_back_by_ca", "sent_back_by_cso"];
@@ -131,66 +105,48 @@ const PendingAmendments = () => {
     
     return {
       text: isROActionNeeded ? "RO Action Needed" : "Manager Approval Needed",
-      color: isROActionNeeded ? "text-amber-600" : "text-blue-600",
-      bgColor: isROActionNeeded ? "bg-amber-50" : "bg-blue-50",
-      borderColor: isROActionNeeded ? "border-amber-200" : "border-blue-200",
+      color: isROActionNeeded ? "#f59e0b" : "#3b82f6", // amber-500 : blue-500
+      bgColor: isROActionNeeded ? "#fffbeb" : "#eff6ff", // amber-50 : blue-50
+      borderColor: isROActionNeeded ? "#fbbf24" : "#93c5fd", // amber-300 : blue-300
       icon: ExclamationTriangleIcon,
       isROActionNeeded,
     };
   }, []);
 
-  // Fetch customer details (branch, region, and RO name)
+  // Fetch customer details (branch, region, and RO name) - Optimized
   const fetchCustomerDetails = useCallback(async (customer) => {
     try {
-      // Fetch branch name
-      let branchName = "N/A";
-      if (customer.branch_id) {
-        const { data: branchData, error: branchError } = await supabase
-          .from("branches")
-          .select("name")
-          .eq("id", customer.branch_id)
-          .single();
-        
-        if (!branchError && branchData) {
-          branchName = branchData.name || "N/A";
-        }
+      // If we already have the details, return them
+      if (customerDetails[customer.id]) {
+        return customerDetails[customer.id];
       }
 
-      // Fetch region name
-      let regionName = "N/A";
-      if (customer.region_id) {
-        const { data: regionData, error: regionError } = await supabase
-          .from("regions")
-          .select("name")
-          .eq("id", customer.region_id)
-          .single();
-        
-        if (!regionError && regionData) {
-          regionName = regionData.name || "N/A";
-        }
-      }
+      // Fetch all data in parallel
+      const [branchPromise, regionPromise, roPromise] = [
+        customer.branch_id 
+          ? supabase.from("branches").select("name").eq("id", customer.branch_id).single()
+          : Promise.resolve({ data: null, error: null }),
+        customer.region_id 
+          ? supabase.from("regions").select("name").eq("id", customer.region_id).single()
+          : Promise.resolve({ data: null, error: null }),
+        customer.created_by 
+          ? supabase.from("users").select("full_name").eq("id", customer.created_by).single()
+          : Promise.resolve({ data: null, error: null })
+      ];
 
-      // Fetch RO name from created_by
-      let roName = "N/A";
-      if (customer.created_by) {
-        const { data: userData, error: userError } = await supabase
-          .from("users")
-          .select("full_name")
-          .eq("id", customer.created_by)
-          .single();
-        
-        if (!userError && userData) {
-          roName = userData.full_name || "N/A";
-        }
-      }
+      const [branchResult, regionResult, roResult] = await Promise.all([
+        branchPromise,
+        regionPromise,
+        roPromise
+      ]);
 
       const customerDetail = {
-        branch: branchName,
-        region: regionName,
-        roName: roName,
+        branch: branchResult.data?.name || "N/A",
+        region: regionResult.data?.name || "N/A",
+        roName: roResult.data?.full_name || "N/A",
       };
 
-      // Update state and localStorage
+      // Update state
       setCustomerDetails(prev => ({
         ...prev,
         [customer.id]: customerDetail
@@ -201,10 +157,85 @@ const PendingAmendments = () => {
       console.error("Error fetching customer details:", error);
       return null;
     }
-  }, []);
+  }, [customerDetails]);
+
+  // Fetch filter data based on user role
+  const fetchFilterData = useCallback(async () => {
+    if (!profile || hasFetchedFilterData.current) return;
+    
+    try {
+      hasFetchedFilterData.current = true;
+      
+      if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
+        // Fetch all branches and regions for these roles
+        const [branchesResult, regionsResult] = await Promise.all([
+          supabase
+            .from("branches")
+            .select("id, name, region_id, tenant_id")
+            .eq("tenant_id", profile.tenant_id)
+            .order("name"),
+          supabase
+            .from("regions")
+            .select("id, name, tenant_id")
+            .eq("tenant_id", profile.tenant_id)
+            .order("name")
+        ]);
+        
+        setBranches(branchesResult.data || []);
+        setRegions(regionsResult.data || []);
+      } else if (profile?.role === 'regional_manager' && profile.region_id) {
+        // Fetch branches in their region
+        const { data: branchesData } = await supabase
+          .from("branches")
+          .select("id, name, region_id, tenant_id")
+          .eq("region_id", profile.region_id)
+          .eq("tenant_id", profile.tenant_id)
+          .order("name");
+        
+        setBranches(branchesData || []);
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        // Just set their branch
+        setBranches([{ id: profile.branch_id, name: "Current Branch" }]);
+      }
+      
+      // Fetch ROs based on role
+      if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
+        const { data: roData } = await supabase
+          .from("users")
+          .select("id, full_name, tenant_id")
+          .eq("role", "relationship_officer")
+          .eq("tenant_id", profile.tenant_id)
+          .order("full_name");
+        
+        setRelationshipOfficers(roData || []);
+      } else if (profile?.role === 'regional_manager' && profile.region_id) {
+        // Fetch ROs in their region
+        const { data: roData } = await supabase
+          .from("users")
+          .select("id, full_name, tenant_id")
+          .eq("role", "relationship_officer")
+          .eq("tenant_id", profile.tenant_id)
+          .order("full_name");
+        
+        setRelationshipOfficers(roData || []);
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        // Fetch ROs in their branch
+        const { data: roData } = await supabase
+          .from("users")
+          .select("id, full_name, tenant_id")
+          .eq("role", "relationship_officer")
+          .eq("tenant_id", profile.tenant_id)
+          .order("full_name");
+        
+        setRelationshipOfficers(roData || []);
+      }
+    } catch (error) {
+      console.error("Error fetching filter data:", error);
+    }
+  }, [profile]);
 
   const fetchAmendmentCustomers = useCallback(async () => {
-    if (authLoading) return;
+    if (authLoading || hasFetchedData.current) return;
 
     // Validate we have necessary data
     if (!profile || !userRole || !config) {
@@ -219,10 +250,11 @@ const PendingAmendments = () => {
       if (!userLocationId) {
         console.error(`Missing ${config.profileField} for user`);
         setRefreshing(false);
+        setLoading(false);
         return;
       }
 
-      // ✅ Include the default status plus sent-back status based on role
+      // Include the default status plus sent-back status based on role
       const statusesToInclude = [config.status];
       if (userRole === "branch_manager") statusesToInclude.push("sent_back_by_bm");
       if (userRole === "credit_analyst_officer") statusesToInclude.push("sent_back_by_ca");
@@ -245,14 +277,16 @@ const PendingAmendments = () => {
         });
 
         setCustomers(amendedCustomers);
-        setFilteredCustomers(amendedCustomers);
+        hasFetchedData.current = true;
 
-        // Fetch details for all customers
-        amendedCustomers.forEach(customer => {
-          if (!customerDetails[customer.id]) {
-            fetchCustomerDetails(customer);
-          }
-        });
+        // Fetch details for all customers in batches
+        const batchSize = 5;
+        for (let i = 0; i < amendedCustomers.length; i += batchSize) {
+          const batch = amendedCustomers.slice(i, i + batchSize);
+          await Promise.all(
+            batch.map(customer => fetchCustomerDetails(customer))
+          );
+        }
       }
     } catch (err) {
       console.error("Error:", err);
@@ -260,61 +294,66 @@ const PendingAmendments = () => {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [profile, authLoading, userRole, config, customerDetails, fetchCustomerDetails]);
+  }, [profile, authLoading, userRole, config, fetchCustomerDetails]);
 
+  // Initial data fetch
   useEffect(() => {
-    fetchAmendmentCustomers();
-  }, [fetchAmendmentCustomers]);
+    if (profile && !authLoading) {
+      fetchFilterData();
+      if (!hasFetchedData.current) {
+        fetchAmendmentCustomers();
+      }
+    }
+  }, [profile, authLoading, fetchFilterData, fetchAmendmentCustomers]);
 
-  useEffect(() => {
-    // Only set up real-time subscription if we have valid config
-    if (!config) return;
-
-    const subscription = supabase
-      .channel("pending-amendments")
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "customers" },
-        (payload) => {
-          console.log("Customer updated:", payload);
-          fetchAmendmentCustomers();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [config, fetchAmendmentCustomers]);
-
-  // Search filter
+  // Search and filter effect
   useEffect(() => {
     if (!customers || customers.length === 0) {
       setFilteredCustomers([]);
       return;
     }
 
-    const filtered = customers.filter(
-      (customer) =>
-        (customer.Firstname?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        ) ||
-        (customer.Surname?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        ) ||
-        (customer.id_number?.toString() || "").includes(
-          searchTerm.toLowerCase()
-        ) ||
+    const filtered = customers.filter((customer) => {
+      const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.toLowerCase();
+      const matchesSearch =
+        fullName.includes(searchTerm.toLowerCase()) ||
+        (customer.id_number?.toString() || "").includes(searchTerm) ||
         (customer.mobile || "").includes(searchTerm) ||
-        (customer.business_type?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        ) ||
-        (customer.business_name?.toLowerCase() || "").includes(
-          searchTerm.toLowerCase()
-        )
-    );
+        (customer.business_type?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+        (customer.business_name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
+
+      const matchesBranch = !selectedBranch || 
+        customer.branch_id?.toString() === selectedBranch;
+
+      const matchesRegion = !selectedRegion || 
+        customer.region_id?.toString() === selectedRegion;
+
+      const matchesRO = !selectedRO || 
+        customer.created_by?.toString() === selectedRO;
+
+      const matchesStatus = !selectedStatus || 
+        getStatusDisplay(customer).text === selectedStatus;
+
+      return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
+    });
+
     setFilteredCustomers(filtered);
-  }, [searchTerm, customers]);
+  }, [searchTerm, customers, selectedBranch, selectedRegion, selectedRO, selectedStatus, getStatusDisplay]);
+
+  // Handle filter changes
+  const handleRegionChange = (regionId) => {
+    setSelectedRegion(regionId);
+    setSelectedBranch(""); // Clear branch selection when region changes
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setSearchTerm("");
+    setSelectedBranch("");
+    setSelectedRegion("");
+    setSelectedRO("");
+    setSelectedStatus("");
+  };
 
   const handleApproveAmendment = useCallback((customer) => {
     if (config.useVerificationComponent) {
@@ -331,11 +370,9 @@ const PendingAmendments = () => {
   // Clear localStorage cache
   const clearCache = useCallback(() => {
     localStorage.removeItem(STORAGE_KEYS.SEARCH_TERM);
-    localStorage.removeItem(STORAGE_KEYS.CUSTOMERS);
-    localStorage.removeItem(STORAGE_KEYS.LAST_FETCH);
-    localStorage.removeItem(STORAGE_KEYS.TABLE_STATE);
     setSearchTerm("");
     setCustomerDetails({});
+    hasFetchedData.current = false;
     fetchAmendmentCustomers();
   }, [fetchAmendmentCustomers]);
 
@@ -346,13 +383,14 @@ const PendingAmendments = () => {
     return `${firstName} ${surname}`.trim() || "N/A";
   }, []);
 
+  // Get unique statuses for filter dropdown
+  const uniqueStatuses = ["RO Action Needed", "Manager Approval Needed"];
+
   // Show loading while auth is initializing
   if (authLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex items-center justify-center">
-       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center font-sans">
         <Spinner text="Loading ..." />
-      </div>
       </div>
     );
   }
@@ -360,8 +398,8 @@ const PendingAmendments = () => {
   // Show error if role is not configured
   if (!config) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md border border-gray-200">
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+        <div className="bg-white shadow-lg rounded-xl p-8 text-center">
           <DocumentTextIcon className="w-16 h-16 text-red-400 mb-4 mx-auto" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center">
             Access Error
@@ -375,220 +413,421 @@ const PendingAmendments = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-gray-100 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-sm  text-slate-900">Pending Amendments   </h1>
-              {/* <p className="text-gray-600 mt-2 text-xs">
-                Recently updated customer records requiring review ({filteredCustomers.length})
-              </p> */}
-            </div>
-            <button
-              onClick={clearCache}
-              disabled={refreshing}
-              className="flex items-center px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ArrowPathIcon className={`w-4 h-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-              {refreshing ? 'Refreshing...' : 'Refresh Data'}
-            </button>
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xs text-slate-600 mb-1 font-medium uppercase tracking-wide">
+            Registry / Pending Amendments
+          </h1>
+        </div>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={clearCache}
+            disabled={refreshing}
+            className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+          >
+            <ArrowPathIcon className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            {refreshing ? 'Refreshing...' : 'Refresh'}
+          </button>
+          <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
+            <span className="font-medium text-white">{filteredCustomers.length}</span> pending amendments
           </div>
         </div>
+      </div>
 
-        {/* Search Bar */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
-          <div className="relative">
-            <MagnifyingGlassIcon className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Search by name, ID number, phone, or business..."
-              className="w-full pl-12 pr-4 py-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all placeholder-gray-400 font-normal"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-full">
-              <thead className="bg-gray-50 border-b border-gray-200">
-                <tr>
-                  {[
-                    { name: "Name", width: "w-48" },
-                    { name: "ID Number", width: "w-32" },
-                    { name: "Contact Info", width: "w-32" },
-                    { name: "Last Updated", width: "w-40" },
-                    { name: "Status", width: "w-48" },
-                    { name: "Branch", width: "w-32" },
-                    { name: "Region", width: "w-32" },
-                    { name: "RO Name", width: "w-40" },
-                    { name: "Actions", width: "w-32" },
-                  ].map((head) => (
-                    <th
-                      key={head.name}
-                      className={`px-4 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider ${head.width}`}
-                    >
-                      {head.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-
-              <tbody className="divide-y divide-gray-200 bg-white">
-                {loading ? (
-                  <tr>
-                    <td colSpan="9" className="px-6 py-12 text-center">
-                      <div className="flex items-center justify-center">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-                        <span className="ml-3 text-gray-500 text-sm font-medium">
-                          Loading amendments...
-                        </span>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredCustomers.length > 0 ? (
-                  filteredCustomers.map((customer) => {
-                    const statusInfo = getStatusDisplay(customer);
-                    const StatusIcon = statusInfo.icon;
-                    const customerDetail = customerDetails[customer.id] || {};
-                    
-                    return (
-                      <tr 
-                        key={customer.id} 
-                        className="hover:bg-gray-50 transition-colors duration-150 group"
-                      >
-                        {/* Name */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center">
-                            {/* <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
-                              <span className="text-xs font-medium text-white">
-                                {getFullName(customer).split(' ').map(n => n[0]).join('').toUpperCase()}
-                              </span>
-                            </div> */}
-                            <div className="ml-4">
-                              <div className="text-sm font-semibold text-gray-900">
-                                {getFullName(customer)}
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* ID Number */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900 font-medium">
-                            <IdentificationIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{customer.id_number || "N/A"}</span>
-                          </div>
-                        </td>
-
-                        {/* Contact Info */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <PhoneIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{customer.mobile || "N/A"}</span>
-                          </div>
-                        </td>
-
-                        {/* Last Updated */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="text-sm text-gray-900">
-                            <div className="font-medium">
-                              {customer.edited_at
-                                ? new Date(customer.edited_at).toLocaleDateString()
-                                : "N/A"}
-                            </div>
-                            <div className="text-xs text-gray-500">
-                              {customer.edited_at
-                                ? new Date(customer.edited_at).toLocaleTimeString([], {
-                                    hour: "2-digit",
-                                    minute: "2-digit",
-                                  })
-                                : ""}
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium ${statusInfo.bgColor} ${statusInfo.color} border ${statusInfo.borderColor}`}>
-                            <StatusIcon className="w-3 h-3 mr-1.5 flex-shrink-0" />
-                            {statusInfo.text}
-                          </div>
-                        </td>
-
-                        {/* Branch */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <BuildingStorefrontIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{customerDetail.branch || "Loading..."}</span>
-                          </div>
-                        </td>
-
-                        {/* Region */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <MapPinIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{customerDetail.region || "Loading..."}</span>
-                          </div>
-                        </td>
-
-                        {/* RO Name */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center text-sm text-gray-900">
-                            <UserCircleIcon className="w-4 h-4 mr-2 text-gray-400 flex-shrink-0" />
-                            <span className="truncate">{customerDetail.roName || "Loading..."}</span>
-                          </div>
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-4 py-4 whitespace-nowrap">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              onClick={() => handleViewChanges(customer)}
-                              className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white rounded-lg hover:opacity-90 transition-all shadow-sm"
-                              style={{ backgroundColor: "#586ab1" }}
-                              title="View Changes"
-                            >
-                              <EyeIcon className="w-3 h-3 mr-1" />
-                              View
-                            </button>
-                            {!statusInfo.isROActionNeeded && (
-                              <button
-                                onClick={() => handleApproveAmendment(customer)}
-                                className="inline-flex items-center px-3 py-1.5 text-xs font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-all shadow-sm"
-                                title="Approve Changes"
-                              >
-                                <CheckCircleIcon className="w-3 h-3 mr-1" />
-                                Approve
-                              </button>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="9" className="px-6 py-16 text-center">
-                      <DocumentTextIcon className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                        No pending amendments
-                      </h3>
-                      <p className="text-gray-500 text-sm max-w-md mx-auto">
-                        {searchTerm
-                          ? "No customers match your search criteria."
-                          : "All customer information changes have been reviewed."}
-                      </p>
-                    </td>
-                  </tr>
+      {/* Main Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        {/* Search and Filters Header */}
+        <div className="p-5 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            {/* Search and Filter Container */}
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, ID number, phone, or business..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
                 )}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Filter Button and Clear Filters */}
+              <div className="flex items-center gap-2">
+                {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                  >
+                    <XMarkIcon className="h-3.5 w-3.5" />
+                    Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                >
+                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                  Filters
+                  {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
+                      {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
+
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {/* Region Filter */}
+                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Region
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedRegion}
+                        onChange={(e) => handleRegionChange(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                      >
+                        <option value="" className="text-gray-400">All Regions</option>
+                        {regions.map((region) => (
+                          <option key={region.id} value={region.id.toString()}>
+                            {region.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <ChevronDownIcon className="h-3 w-3" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Branch Filter */}
+                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Branch
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedBranch}
+                        onChange={(e) => setSelectedBranch(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                      >
+                        <option value="" className="text-gray-400">All Branches</option>
+                        {branches.map((branch) => (
+                          <option key={branch.id} value={branch.id.toString()}>
+                            {branch.name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <ChevronDownIcon className="h-3 w-3" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Relationship Officer Filter */}
+                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">
+                      Relationship Officer
+                    </label>
+                    <div className="relative">
+                      <select
+                        value={selectedRO}
+                        onChange={(e) => setSelectedRO(e.target.value)}
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                      >
+                        <option value="" className="text-gray-400">All ROs</option>
+                        {relationshipOfficers.map((ro) => (
+                          <option key={ro.id} value={ro.id.toString()}>
+                            {ro.full_name}
+                          </option>
+                        ))}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                        <ChevronDownIcon className="h-3 w-3" />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Filter */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">
+                    Status
+                  </label>
+                  <div className="relative">
+                    <select
+                      value={selectedStatus}
+                      onChange={(e) => setSelectedStatus(e.target.value)}
+                      className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                    >
+                      <option value="" className="text-gray-400">All Statuses</option>
+                      {uniqueStatuses.map((status) => (
+                        <option key={status} value={status}>
+                          {status}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                      <ChevronDownIcon className="h-3 w-3" />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Active Filters Display */}
+              {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <span className="text-xs text-gray-500 mr-2">Active filters:</span>
+                    {selectedRegion && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Region: {regions.find((r) => r.id.toString() === selectedRegion)?.name}
+                        <button
+                          onClick={() => setSelectedRegion("")}
+                          className="ml-1 text-gray-500 hover:text-gray-700"
+                        >
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {selectedBranch && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Branch: {branches.find((b) => b.id.toString() === selectedBranch)?.name}
+                        <button
+                          onClick={() => setSelectedBranch("")}
+                          className="ml-1 text-gray-500 hover:text-gray-700"
+                        >
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {selectedRO && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        RO: {relationshipOfficers.find((ro) => ro.id.toString() === selectedRO)?.full_name}
+                        <button
+                          onClick={() => setSelectedRO("")}
+                          className="ml-1 text-gray-500 hover:text-gray-700"
+                        >
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {selectedStatus && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Status: {selectedStatus}
+                        <button
+                          onClick={() => setSelectedStatus("")}
+                          className="ml-1 text-gray-500 hover:text-gray-700"
+                        >
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Results Summary */}
+        <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
+          <div className="text-sm text-gray-600">
+            Showing <span className="font-semibold text-gray-800">{filteredCustomers.length}</span> amendments
+            {searchTerm && (
+              <span className="ml-2">
+                for "<span className="font-medium text-blue-600">{searchTerm}"</span>"
+              </span>
+            )}
+          </div>
+        </div>
+
+        {/* Table Container */}
+        <div className="overflow-x-auto font-sans">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  ID Number
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Contact
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Last Updated
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Branch
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Region
+                </th>
+                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  RO Name
+                </th>
+                <th className="px-4 py-3 text-center text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  Actions
+                </th>
+              </tr>
+            </thead>
+
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="9" className="px-6 py-12 text-center">
+                    <div className="flex items-center justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                      <span className="ml-3 text-gray-500 text-sm font-medium">
+                        Loading amendments...
+                      </span>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredCustomers.length > 0 ? (
+                filteredCustomers.map((customer, index) => {
+                  const statusInfo = getStatusDisplay(customer);
+                  const StatusIcon = statusInfo.icon;
+                  const customerDetail = customerDetails[customer.id] || {};
+                  
+                  return (
+                    <tr 
+                      key={customer.id} 
+                      className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+                    >
+                      {/* Name */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {getFullName(customer) || "N/A"}
+                      </td>
+
+                      {/* ID Number */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.id_number || "N/A"}
+                      </td>
+
+                      {/* Contact Info */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customer.mobile || "N/A"}
+                      </td>
+
+                      {/* Last Updated */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        <div>
+                          <div className="font-normal">
+                            {customer.edited_at
+                              ? new Date(customer.edited_at).toLocaleDateString()
+                              : "N/A"}
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {customer.edited_at
+                              ? new Date(customer.edited_at).toLocaleTimeString([], {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : ""}
+                          </div>
+                        </div>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div 
+                          className="inline-flex items-center px-3 py-1 rounded text-xs border"
+                          style={{ 
+                            backgroundColor: statusInfo.bgColor,
+                            color: statusInfo.color,
+                            borderColor: statusInfo.borderColor
+                          }}
+                        >
+                          <StatusIcon className="w-3 h-3 mr-1.5 flex-shrink-0" />
+                          {statusInfo.text}
+                        </div>
+                      </td>
+
+                      {/* Branch */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customerDetail.branch || "Loading..."}
+                      </td>
+
+                      {/* Region */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customerDetail.region || "Loading..."}
+                      </td>
+
+                      {/* RO Name */}
+                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        {customerDetail.roName || "Loading..."}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        <div className="flex items-center justify-center gap-1.5">
+                          <button
+                            onClick={() => handleViewChanges(customer)}
+                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                            title="View Changes"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </button>
+                          {!statusInfo.isROActionNeeded && (
+                            <button
+                              onClick={() => handleApproveAmendment(customer)}
+                              className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                              title="Approve Changes"
+                            >
+                              <CheckCircleIcon className="h-4 w-4" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              ) : (
+                <tr>
+                  <td colSpan="9" className="px-6 py-16 text-center">
+                    <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+                      <MagnifyingGlassIcon className="h-8 w-8 text-gray-400" />
+                    </div>
+                    <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending amendments found</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                      {searchTerm
+                        ? "Try adjusting your search"
+                        : "All customer information changes have been reviewed."}
+                    </p>
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
         </div>
       </div>
 

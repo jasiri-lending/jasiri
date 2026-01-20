@@ -6,6 +6,7 @@ import {
   TrashIcon,
   EyeIcon,
   FunnelIcon,
+  ChevronDownIcon,
   ArrowDownTrayIcon,
   ChatBubbleLeftRightIcon,
   BanknotesIcon,
@@ -15,6 +16,7 @@ import {
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  AdjustmentsHorizontalIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
@@ -272,9 +274,7 @@ const AllCustomers = () => {
           .in("repayment_state", ["ongoing", "partial", "overdue"])
           .order("created_at", { ascending: false });
 
-        console.log("=== LOANS DEBUG ===");
-        console.log("Found loans:", loans?.length || 0);
-        console.log("Sample loan:", loans?.[0]);
+     
 
         if (!loansError) {
           // Create a map of customer_id to their most recent active loan
@@ -299,10 +299,7 @@ const AllCustomers = () => {
             };
           });
           
-          console.log("=== FINAL CUSTOMERS DATA ===");
-          console.log("Total customers to display:", customersWithLoanStatus.length);
-          console.log("Sample customer status:", customersWithLoanStatus[0]?.displayStatus);
-          console.log("Customers with loans:", customersWithLoanStatus.filter(c => c.hasDisbursedLoan).length);
+     
           
           setCustomers(customersWithLoanStatus);
         } else {
@@ -318,7 +315,6 @@ const AllCustomers = () => {
           setCustomers(customersWithDisplayStatus);
         }
       } else {
-        console.log("No customers found after all filters");
         setCustomers([]);
       }
     } catch (error) {
@@ -500,21 +496,15 @@ const AllCustomers = () => {
     return pageNumbers;
   };
 
-  if (!profile || loading) {
-    return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
-        <Spinner text={!profile ? "Loading profile..." : "Loading customers..."} />
-      </div>
-    );
-  }
+
 
   // Check if user has necessary permissions/data
   if ((profile.role === 'regional_manager' && !profile.region_id) ||
       (profile.role === 'branch_manager' && !profile.branch_id)) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
-        <div className="bg-white shadow rounded-lg p-8 text-center">
-          <p className="text-red-600 text-sm">
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+        <div className="bg-white shadow-lg rounded-xl p-8 text-center">
+          <p className="text-red-600 text-sm font-medium">
             Error: Your profile is missing necessary information. Please contact your administrator.
           </p>
         </div>
@@ -523,267 +513,328 @@ const AllCustomers = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
-        Registry / All Customers
-      </h1>
-
-      {/* Filters and Search */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
-        <div className="p-4 border-b border-gray-200">
-          <div className="flex justify-between items-center gap-4">
-            <div className="relative flex-1 max-w-md">
-              <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by name, mobile, or ID..."
-                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={() => setShowFilters(!showFilters)}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border"
-              style={{ 
-                backgroundColor: showFilters ? "#586ab1" : "white",
-                color: showFilters ? "white" : "#586ab1",
-                borderColor: "#586ab1"
-              }}
-            >
-              <FunnelIcon size={14} /> Filters
-              {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
-                <span className="ml-1 px-1.5 py-0.5 bg-white text-gray-700 rounded-full text-xs font-medium">
-                  {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
-                </span>
-              )}
-            </button>
-          </div>
-
-          {/* Collapsible Filters */}
-          {showFilters && (
-            <div className="mt-4 pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                {/* Region Filter (only for global roles) */}
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Filter by Region
-                    </label>
-                    <select
-                      value={selectedRegion}
-                      onChange={(e) => handleRegionChange(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">All Regions</option>
-                      {regions.map((region) => (
-                        <option key={region.id} value={region.id.toString()}>
-                          {region.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Branch Filter */}
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Filter by Branch
-                    </label>
-                    <select
-                      value={selectedBranch}
-                      onChange={(e) => handleBranchChange(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">All Branches</option>
-                      {branches.map((branch) => (
-                        <option key={branch.id} value={branch.id.toString()}>
-                          {branch.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Relationship Officer Filter */}
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">
-                      Filter by Relationship Officer
-                    </label>
-                    <select
-                      value={selectedRO}
-                      onChange={(e) => setSelectedRO(e.target.value)}
-                      className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    >
-                      <option value="">All ROs</option>
-                      {relationshipOfficers.map((ro) => (
-                        <option key={ro.id} value={ro.id.toString()}>
-                          {ro.full_name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
-
-                {/* Status Filter */}
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Filter by Status
-                  </label>
-                  <select
-                    value={selectedStatus}
-                    onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">All Statuses</option>
-                    {uniqueStatuses.map((status) => (
-                      <option key={status} value={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Clear Filters Button */}
-                <div className="flex items-end">
-                  <button
-                    onClick={clearFilters}
-                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors flex items-center gap-1"
-                  >
-                    <XMarkIcon size={12} />
-                    Clear Filters
-                  </button>
-                </div>
-              </div>
-
-              {/* Active Filters Display */}
-              {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
-                <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
-                  <span className="text-xs text-gray-600">Active filters:</span>
-                  {selectedRegion && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
-                      Region: {regions.find((r) => r.id.toString() === selectedRegion)?.name}
-                      <button
-                        onClick={() => handleRegionChange("")}
-                        className="ml-1"
-                        style={{ color: "#586ab1" }}
-                      >
-                        <XMarkIcon size={12} />
-                      </button>
-                    </span>
-                  )}
-                  {selectedBranch && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
-                      Branch: {branches.find((b) => b.id.toString() === selectedBranch)?.name}
-                      <button
-                        onClick={() => handleBranchChange("")}
-                        className="ml-1"
-                        style={{ color: "#586ab1" }}
-                      >
-                        <XMarkIcon size={12} />
-                      </button>
-                    </span>
-                  )}
-                  {selectedRO && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
-                      RO: {relationshipOfficers.find((ro) => ro.id.toString() === selectedRO)?.full_name}
-                      <button
-                        onClick={() => setSelectedRO("")}
-                        className="ml-1"
-                        style={{ color: "#586ab1" }}
-                      >
-                        <XMarkIcon size={12} />
-                      </button>
-                    </span>
-                  )}
-                  {selectedStatus && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
-                      Status: {selectedStatus}
-                      <button
-                        onClick={() => setSelectedStatus("")}
-                        className="ml-1"
-                        style={{ color: "#586ab1" }}
-                      >
-                        <XMarkIcon size={12} />
-                      </button>
-                    </span>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xs text-slate-600 mb-1 font-medium  tracking-wide">
+            Registry / All Customers
+          </h1>
+        </div>
+        <div className="text-xs text-white  px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+          <span className="font-medium text-white">{customers.length}</span> total customers
         </div>
       </div>
 
-      {/* Customers Table */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="overflow-x-auto">
-          <table className="w-full whitespace-nowrap">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Name</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Mobile</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">ID</th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">Prequalified Amount</th>
-                {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">RO</th>
-                )}
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Branch</th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">Region</th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">Actions</th>
-              </tr>
-            </thead>
+      {/* Main Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        {/* Search and Filters Header */}
+      <div className="p-5 border-b border-gray-200">
+  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+    {/* Search and Filter Container - Now on same side */}
+    <div className="flex flex-col sm:flex-row gap-3 w-full">
+      {/* Search Bar */}
+      <div className="relative flex-1">
+        <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search by name, mobile, or ID number..."
+          className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm("")}
+            className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+          >
+            <XMarkIcon className="h-3 w-3" />
+          </button>
+        )}
+      </div>
 
-            <tbody>
-              {currentCustomers.map((customer) => {
-                const fullName = `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim();
-                const statusColor = getStatusColor(customer.status); // Changed to use customer.status directly
-                
-                return (
-                  <tr 
-                    key={customer.id} 
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={fullName}>
-                      {fullName || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.mobile || "N/A"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.id_number || "N/A"}</td>
-                    <td className="px-4 py-3 text-xs text-gray-700 text-right font-medium whitespace-nowrap">
-                      {customer.prequalifiedAmount ? 
-                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
-                        "N/A"}
-                    </td>
-                    {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.users?.full_name}>
-                        {customer.users?.full_name || "N/A"}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.branches?.name}>
-                      {customer.branches?.name || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap overflow-hidden text-ellipsis" title={customer.regions?.name}>
-                      {customer.regions?.name || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
-                        className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white whitespace-nowrap"
-                        style={{ backgroundColor: statusColor }}
-                      >
-                        {customer.displayStatus || "N/A"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1">
+      {/* Filter Button and Clear Filters */}
+      <div className="flex items-center gap-2">
+        {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+          <button
+            onClick={clearFilters}
+            className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+          >
+            <XMarkIcon className="h-3.5 w-3.5" />
+            Clear
+          </button>
+        )}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+        >
+          <AdjustmentsHorizontalIcon className="h-4 w-4" />
+          Filters
+          {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+            <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
+              {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
+            </span>
+          )}
+        </button>
+      </div>
+    </div>
+  </div>
+
+  {/* Advanced Filters Panel */}
+  {showFilters && (
+    <div className="mt-4 pt-4 border-t border-gray-200">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+        {/* Region Filter (only for global roles) */}
+        {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') && (
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Region
+            </label>
+            <div className="relative">
+              <select
+                value={selectedRegion}
+                onChange={(e) => handleRegionChange(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+              >
+                <option value="" className="text-gray-400">All Regions</option>
+                {regions.map((region) => (
+                  <option key={region.id} value={region.id.toString()}>
+                    {region.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <ChevronDownIcon className="h-3 w-3" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Branch Filter */}
+        {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager') && (
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Branch
+            </label>
+            <div className="relative">
+              <select
+                value={selectedBranch}
+                onChange={(e) => handleBranchChange(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+              >
+                <option value="" className="text-gray-400">All Branches</option>
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id.toString()}>
+                    {branch.name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <ChevronDownIcon className="h-3 w-3" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Relationship Officer Filter */}
+        {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+          <div>
+            <label className="block text-xs text-gray-600 mb-1">
+              Relationship Officer
+            </label>
+            <div className="relative">
+              <select
+                value={selectedRO}
+                onChange={(e) => setSelectedRO(e.target.value)}
+                className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+              >
+                <option value="" className="text-gray-400">All ROs</option>
+                {relationshipOfficers.map((ro) => (
+                  <option key={ro.id} value={ro.id.toString()}>
+                    {ro.full_name}
+                  </option>
+                ))}
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+                <ChevronDownIcon className="h-3 w-3" />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Status Filter */}
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">
+            Status
+          </label>
+          <div className="relative">
+            <select
+              value={selectedStatus}
+              onChange={(e) => setSelectedStatus(e.target.value)}
+              className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+            >
+              <option value="" className="text-gray-400">All Statuses</option>
+              {uniqueStatuses.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700">
+              <ChevronDownIcon className="h-3 w-3" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Active Filters Display */}
+      {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
+        <div className="mt-4 pt-3 border-t border-gray-200">
+          <div className="flex items-center flex-wrap gap-2">
+            <span className="text-xs text-gray-500 mr-2">Active filters:</span>
+            {selectedRegion && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                Region: {regions.find((r) => r.id.toString() === selectedRegion)?.name}
+                <button
+                  onClick={() => handleRegionChange("")}
+                  className="ml-1 text-gray-500 hover:text-gray-700"
+                >
+                  <XMarkIcon className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            )}
+            {selectedBranch && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                Branch: {branches.find((b) => b.id.toString() === selectedBranch)?.name}
+                <button
+                  onClick={() => handleBranchChange("")}
+                  className="ml-1 text-gray-500 hover:text-gray-700"
+                >
+                  <XMarkIcon className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            )}
+            {selectedRO && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                RO: {relationshipOfficers.find((ro) => ro.id.toString() === selectedRO)?.full_name}
+                <button
+                  onClick={() => setSelectedRO("")}
+                  className="ml-1 text-gray-500 hover:text-gray-700"
+                >
+                  <XMarkIcon className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            )}
+            {selectedStatus && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                Status: {selectedStatus}
+                <button
+                  onClick={() => setSelectedStatus("")}
+                  className="ml-1 text-gray-500 hover:text-gray-700"
+                >
+                  <XMarkIcon className="h-2.5 w-2.5" />
+                </button>
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )}
+</div>
+
+    
+
+        {/* Table Container */}
+      <div className="overflow-x-auto font-sans">
+  <table className="w-full">
+    <thead>
+      <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+           Name
+        </th>
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Mobile
+        </th>
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          ID Number
+        </th>
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Prequalified Amount
+        </th>
+        {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+          <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+            RO
+          </th>
+        )}
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Branch
+        </th>
+        <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Region
+        </th>
+        <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Status
+        </th>
+        <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          Actions
+        </th>
+      </tr>
+    </thead>
+
+    <tbody>
+      {currentCustomers.map((customer, index) => {
+        const fullName = `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim();
+        const statusColor = getStatusColor(customer.status);
+        
+        return (
+          <tr 
+            key={customer.id} 
+            className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+          >
+            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+              {fullName || "N/A"}
+            </td>
+            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+              {customer.mobile || "N/A"}
+            </td>
+            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+              {customer.id_number || "N/A"}
+            </td>
+            <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+              {customer.prequalifiedAmount ? 
+                `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                "N/A"}
+            </td>
+            {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
+              <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                {customer.users?.full_name || "N/A"}
+              </td>
+            )}
+            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+              {customer.branches?.name || "N/A"}
+            </td>
+            <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+              {customer.regions?.name || "N/A"}
+            </td>
+            <td className="px-4 py-3 text-center whitespace-nowrap">
+              <span 
+                className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
+                style={{ 
+                  backgroundColor: statusColor,
+                  color: 'white'
+                }}
+              >
+                {customer.displayStatus || "N/A"}
+              </span>
+            </td>
+             <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1.5">
                         {/* View Customer */}
                         <button
                           onClick={() => handleViewCustomer(customer)}
-                          className="p-1.5 rounded-md bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 transition whitespace-nowrap"
-                          title="View Customer"
+                          className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                          title="View Customer Details"
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
@@ -791,7 +842,7 @@ const AllCustomers = () => {
                         {/* Interactions */}
                         <button
                           onClick={() => handleOpenInteractions(customer)}
-                          className="p-1.5 rounded-md bg-blue-50 border border-blue-200 text-blue-600 hover:bg-blue-100 hover:text-blue-700 transition whitespace-nowrap"
+                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
                           title="Customer Interactions"
                         >
                           <ChatBubbleLeftRightIcon className="h-4 w-4" />
@@ -801,7 +852,7 @@ const AllCustomers = () => {
                         {customer.hasDisbursedLoan && (
                           <button
                             onClick={() => handleOpenLoanDetails(customer)}
-                            className="p-1.5 rounded-md bg-yellow-50 border border-yellow-200 text-yellow-600 hover:bg-yellow-100 hover:text-yellow-700 transition whitespace-nowrap"
+                            className="p-2 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 text-yellow-600 hover:from-yellow-100 hover:to-yellow-200 hover:text-yellow-700 hover:border-yellow-300 transition-all duration-200 shadow-sm hover:shadow"
                             title="Loan Details"
                           >
                             <BanknotesIcon className="h-4 w-4" />
@@ -813,7 +864,7 @@ const AllCustomers = () => {
                           ["ongoing", "partial"].includes(customer.loanRepaymentState) && (
                             <button
                               onClick={() => handleOpenPromiseToPay(customer)}
-                              className="p-1.5 rounded-md bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100 hover:text-purple-700 transition whitespace-nowrap"
+                              className="p-2 rounded-lg bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 text-purple-600 hover:from-purple-100 hover:to-purple-200 hover:text-purple-700 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow"
                               title="Promise to Pay"
                             >
                               <HandRaisedIcon className="h-4 w-4" />
@@ -821,119 +872,130 @@ const AllCustomers = () => {
                           )}
                       </div>
                     </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+          </tr>
+        );
+      })}
+    </tbody>
+  </table>
+</div>
 
-        {/* Pagination Controls with Total Count */}
-        {filteredCustomers.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-200 flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="text-xs text-gray-600 whitespace-nowrap">
-              Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredCustomers.length)}</span> of <span className="font-medium">{filteredCustomers.length}</span> customers
-              <span className="ml-2 text-gray-400">(Total in system: {customers.length})</span>
+        {/* No Results */}
+        {filteredCustomers.length === 0 && (
+          <div className="p-10 text-center">
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
+              <MagnifyingGlassIcon className="h-8 w-8 text-gray-400" />
             </div>
-            
-            {totalPages > 1 && (
-              <div className="flex items-center gap-1">
-                {/* First Page */}
-                <button
-                  onClick={() => setCurrentPage(1)}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                  title="First Page"
-                >
-                  <ChevronDoubleLeftIcon size={16} className="text-gray-600" />
-                </button>
-                
-                {/* Previous Page */}
-                <button
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                  title="Previous Page"
-                >
-                  <ChevronLeftIcon size={16} className="text-gray-600" />
-                </button>
-                
-                {/* Page Numbers */}
-                <div className="flex items-center gap-1 mx-1">
-                  {getPageNumbers().map((pageNum, index) => (
-                    pageNum === '...' ? (
-                      <span key={`ellipsis-${index}`} className="px-2 text-xs text-gray-400">
-                        ...
-                      </span>
-                    ) : (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-                          currentPage === pageNum
-                            ? "bg-blue-500 text-white"
-                            : "text-gray-600 hover:bg-gray-100"
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  ))}
-                </div>
-                
-                {/* Next Page */}
-                <button
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                  title="Next Page"
-                >
-                  <ChevronRightIcon size={16} className="text-gray-600" />
-                </button>
-                
-                {/* Last Page */}
-                <button
-                  onClick={() => setCurrentPage(totalPages)}
-                  disabled={currentPage === totalPages}
-                  className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-                  title="Last Page"
-                >
-                  <ChevronDoubleRightIcon size={16} className="text-gray-600" />
-                </button>
-              </div>
-            )}
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">No customers found</h3>
+            <p className="text-xs text-gray-500 max-w-sm mx-auto">
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus 
+                ? "Try adjusting your search or filters"
+                : "No customers available in the system"}
+            </p>
           </div>
         )}
 
-        {filteredCustomers.length === 0 && (
-          <div className="p-8 text-center text-xs text-gray-500 whitespace-nowrap">
-            No customers found. Try adjusting your filters.
+        {/* Pagination */}
+        {filteredCustomers.length > 0 && (
+          <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Results Count */}
+              <div className="text-sm text-gray-600">
+                Showing  <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
+                <span className="font-semibold text-gray-800">{Math.min(endIndex, filteredCustomers.length)}</span> of{" "}
+                <span className="font-semibold text-gray-800">{filteredCustomers.length}</span> results
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1.5">
+                  {/* First Page */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="First Page"
+                  >
+                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
+                  </button>
+                  
+                  {/* Previous Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Previous Page"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1 mx-2">
+                    {getPageNumbers().map((pageNum, index) => (
+                      pageNum === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
+                            currentPage === pageNum
+                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                          }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    ))}
+                  </div>
+                  
+                  {/* Next Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Next Page"
+                  >
+                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+                  </button>
+                  
+                  {/* Last Page */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Last Page"
+                  >
+                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Items Per Page Selector */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-sm text-gray-600">Items per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    // Note: itemsPerPage is currently not stateful
+                    console.log("Items per page changed to:", e.target.value);
+                  }}
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {/* Items Per Page Selector */}
-      {filteredCustomers.length > 0 && (
-        <div className="mt-3 flex justify-end items-center">
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-gray-600 whitespace-nowrap">Items per page:</span>
-            <select
-              value={itemsPerPage}
-              onChange={(e) => {
-                // Note: itemsPerPage is currently not stateful, you might want to make it stateful
-                // For now, this is just a placeholder
-                console.log("Items per page changed to:", e.target.value);
-              }}
-              className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value={10}>10</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

@@ -91,14 +91,13 @@ const SharedSidebar = () => {
     ];
 
     const analyticsNavigation = [
-  {
-    name: "Analytics",
-    href: "/analytics",
-    icon: BarChart3,
-    roles: ["credit_analyst_officer"], // 🔐 ONLY analysts
-  },
-];
-
+      {
+        name: "Analytics",
+        href: "/analytics",
+        icon: BarChart3,
+        roles: ["credit_analyst_officer"], // 🔐 ONLY analysts
+      },
+    ];
 
     const officerNavigation = isOfficer
       ? [
@@ -282,7 +281,7 @@ const SharedSidebar = () => {
 
     return [
       ...baseNavigation,
-        ...analyticsNavigation,
+      ...analyticsNavigation,
       ...officerNavigation,
       ...accountingNavigation,
       ...sharedNavigation,
@@ -322,7 +321,6 @@ const SharedSidebar = () => {
     });
   }, [location.pathname, navigation]);
 
-
   // Mobile View
   if (isMobile) {
     return (
@@ -330,10 +328,10 @@ const SharedSidebar = () => {
         {/* Floating Menu Button - ALWAYS visible on mobile */}
         <button
           onClick={() => setIsMobileOpen(true)}
-          className="fixed top-4 left-4 z-50 p-3 bg-white rounded-lg shadow-lg hover:shadow-xl transition-all border border-gray-200 lg:hidden"
+          className="fixed top-4 left-4 z-50 p-3 bg-white rounded-lg shadow-lg hover:shadow-xl transition-all border border-gray-200 lg:hidden font-sans"
           style={{ display: isMobileOpen ? "none" : "block" }}
         >
-          <Menu className="h-6 w-6" style={{ color: "#586ab1" }} />
+          <Menu className="h-6 w-6 text-slate-600 hover:text-[#586ab1]" />
         </button>
 
         {/* Overlay - only visible when sidebar is open */}
@@ -346,12 +344,12 @@ const SharedSidebar = () => {
 
         {/* Sidebar - Reduced width from w-72 to w-64 */}
         <div
-          className={`fixed inset-y-0 left-0 w-64 bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 shadow-2xl z-50 flex flex-col transform transition-transform duration-300 ${
+          className={`fixed inset-y-0 left-0 w-64 bg-[#d9e2e8] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${
             isMobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
         >
           {/* Header with Logo at the beginning (far left) */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-200 flex-shrink-0 h-20">
+          <div className="flex items-center justify-between p-4 border-b border-gray-300 flex-shrink-0 h-20">
             <div className="flex items-center justify-start">
               <img
                 src="/jasiri.png"
@@ -361,9 +359,9 @@ const SharedSidebar = () => {
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="p-2 rounded-lg hover:bg-white transition-colors"
+              className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
             >
-              <X className="h-5 w-5" style={{ color: "#586ab1" }} />
+              <X className="h-5 w-5 text-slate-600 hover:text-[#586ab1]" />
             </button>
           </div>
 
@@ -375,48 +373,50 @@ const SharedSidebar = () => {
                   <div>
                     <div
                       onClick={() => toggleItem(item.name)}
-                      className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                      className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
                         expandedItems[item.name]
-                          ? "bg-white shadow-sm"
-                          : "hover:bg-white/60"
+                          ? "text-[#586ab1]"
+                          : "text-slate-600"
                       }`}
                     >
                       <div className="flex items-center">
                         <item.icon
-                          className="h-4 w-4 mr-3 flex-shrink-0"
-                          style={{ color: "#586ab1" }}
+                          className="h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
                         />
-                        <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
+                        <span className="text-base  whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                           {item.name}
                         </span>
                       </div>
                       {expandedItems[item.name] ? (
-                        <ChevronUp className="h-4 w-4 text-gray-400" />
+                        <ChevronUp 
+                          className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                        />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-gray-400" />
+                        <ChevronDown 
+                          className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                        />
                       )}
                     </div>
 
                     {expandedItems[item.name] && (
-                      <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-200">
+                      <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-300">
                         {item.children.map((child) => (
                           <NavLink
                             key={child.name}
                             to={child.href}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `flex items-center px-3 py-2 text-xs rounded-lg transition-all duration-200 whitespace-nowrap ${
+                              `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
                                 isActive
-                                  ? "bg-white shadow-sm"
-                                  : "hover:bg-white/60"
+                                  ? "text-[#586ab1]"
+                                  : "text-slate-600"
                               }`
                             }
                           >
                             <child.icon
-                              className="h-3.5 w-3.5 mr-2 flex-shrink-0"
-                              style={{ color: "#586ab1" }}
+                              className="h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
                             />
-                            <span className="font-medium truncate" style={{ color: "#586ab1" }}>
+                            <span className="text-sm  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                               {child.name}
                             </span>
                           </NavLink>
@@ -429,18 +429,17 @@ const SharedSidebar = () => {
                     to={item.href}
                     onClick={handleNavClick}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 whitespace-nowrap ${
+                      `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
                         isActive
-                          ? "bg-white shadow-sm"
-                          : "hover:bg-white/60"
+                          ? "text-[#586ab1]"
+                          : "text-slate-600"
                       }`
                     }
                   >
                     <item.icon
-                      className="h-4 w-4 mr-3 flex-shrink-0"
-                      style={{ color: "#586ab1" }}
+                      className="h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
                     />
-                    <span className="text-sm font-medium truncate" style={{ color: "#586ab1" }}>
+                    <span className="text-base  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                       {item.name}
                     </span>
                   </NavLink>
@@ -456,12 +455,12 @@ const SharedSidebar = () => {
   // Desktop Sidebar - Reduced width from w-72 to w-64
   return (
     <div
-      className={`h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 ${
+      className={`h-full bg-[#d9e2e8] border-r border-gray-300 transition-all duration-300 font-sans ${
         isCollapsed ? "w-16" : "w-64"
       } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
       {/* Header - Logo at the beginning (far left) */}
-      <div className="flex items-center p-4 border-b border-gray-200 flex-shrink-0 h-20 relative">
+      <div className="flex items-center p-4 border-b border-gray-300 flex-shrink-0 h-20 relative">
         {/* Logo - Left aligned when sidebar is expanded */}
         {!isCollapsed && (
           <div className="flex items-start justify-start w-full">
@@ -476,16 +475,20 @@ const SharedSidebar = () => {
         {/* Collapse Button */}
         <button
           onClick={toggleSidebar}
-          className={`p-2 rounded-lg bg-white border border-gray-200 hover:bg-gray-50 transition-all duration-200 ${
+          className={`p-2 rounded-lg border border-gray-300 transition-all duration-200 ${
             isCollapsed 
               ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" 
               : "absolute top-4 right-4"
           }`}
+          style={{ 
+            backgroundColor: "#586ab1",
+            color: "white"
+          }}
         >
           {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" style={{ color: "#586ab1" }} />
+            <ChevronRight className="h-4 w-4" />
           ) : (
-            <ChevronLeft className="h-4 w-4" style={{ color: "#586ab1" }} />
+            <ChevronLeft className="h-4 w-4" />
           )}
         </button>
       </div>
@@ -497,10 +500,10 @@ const SharedSidebar = () => {
             {item.children ? (
               <div
                 onClick={() => !isCollapsed && toggleItem(item.name)}
-                className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 ${
+                className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
                   expandedItems[item.name] && !isCollapsed
-                    ? "bg-white shadow-sm"
-                    : "hover:bg-white/60"
+                    ? "text-[#586ab1]"
+                    : "text-slate-600"
                 } ${isCollapsed ? "justify-center" : ""}`}
               >
                 <div className="flex items-center">
@@ -510,23 +513,26 @@ const SharedSidebar = () => {
                     }`}
                   >
                     <item.icon
-                      className="h-4 w-4"
-                      style={{ color: "#586ab1" }}
+                      className="h-5 w-5 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
                     />
                   </div>
                   {!isCollapsed && (
-                    <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
+                    <span className="text-base  whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                       {item.name}
                     </span>
                   )}
                 </div>
 
                 {!isCollapsed && (
-                  <div className="text-gray-400 transition-colors">
+                  <div className="transition-colors">
                     {expandedItems[item.name] ? (
-                      <ChevronUp className="h-4 w-4" />
+                      <ChevronUp 
+                        className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                      />
                     ) : (
-                      <ChevronDown className="h-4 w-4" />
+                      <ChevronDown 
+                        className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                      />
                     )}
                   </div>
                 )}
@@ -535,10 +541,10 @@ const SharedSidebar = () => {
               <NavLink
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 ${
+                  `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
                     isActive
-                      ? "bg-white shadow-sm"
-                      : "hover:bg-white/60"
+                      ? "text-[#586ab1]"
+                      : "text-slate-600"
                   } ${isCollapsed ? "justify-center" : ""}`
                 }
               >
@@ -547,10 +553,12 @@ const SharedSidebar = () => {
                     isCollapsed ? "mr-0" : "mr-3"
                   }`}
                 >
-                  <item.icon className="h-4 w-4" style={{ color: "#586ab1" }} />
+                  <item.icon 
+                    className="h-5 w-5 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                  />
                 </div>
                 {!isCollapsed && (
-                  <span className="text-sm font-medium whitespace-nowrap truncate" style={{ color: "#586ab1" }}>
+                  <span className="text-base whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                     {item.name}
                   </span>
                 )}
@@ -559,24 +567,23 @@ const SharedSidebar = () => {
 
             {/* Submenu */}
             {item.children && !isCollapsed && expandedItems[item.name] && (
-              <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-200">
+              <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-300">
                 {item.children.map((child) => (
                   <NavLink
                     key={child.name}
                     to={child.href}
                     className={({ isActive }) =>
-                      `flex items-center px-3 py-2 text-xs rounded-lg transition-all duration-200 whitespace-nowrap ${
+                      `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
                         isActive
-                          ? "bg-white shadow-sm"
-                          : "hover:bg-white/60"
+                          ? "text-[#586ab1]"
+                          : "text-slate-600"
                       }`
                     }
                   >
                     <child.icon
-                      className="h-3.5 w-3.5 mr-2 flex-shrink-0"
-                      style={{ color: "#586ab1" }}
+                      className="h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
                     />
-                    <span className="font-medium truncate" style={{ color: "#586ab1" }}>
+                    <span className="text-sm  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
                       {child.name}
                     </span>
                   </NavLink>
@@ -588,7 +595,6 @@ const SharedSidebar = () => {
       </nav>
     </div>
   );
-
 };
 
 export default SharedSidebar;

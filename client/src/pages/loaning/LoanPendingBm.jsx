@@ -250,7 +250,7 @@ const LoanPendingBm = () => {
                 }}
               >
                 <ArrowPathIcon className="h-4 w-4" />
-                Refresh
+                Refresh 
               </button>
             </div>
           </div>

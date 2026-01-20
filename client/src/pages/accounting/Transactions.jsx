@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../../supabaseClient";
 import { Search, Eye, CheckCircle, Archive, Calendar, DollarSign, Phone, User, FileText } from 'lucide-react';
+import Button from '../../theme/button';
+import { Table, TableSearch, TablePagination } from '../../theme/Table';
+import { theme, typography } from '../../theme/theme';
 
 // Transaction Details Modal
 const TransactionDetailsModal = ({ transaction, onClose }) => {
@@ -14,95 +17,111 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
   const billRef = payload.BillRefNumber || transaction.reference || 'N/A';
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold" style={{ color: "#586ab1" }}>Transaction Details</h2>
+    <div style={{
+      position: 'fixed',
+      inset: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 50,
+      padding: theme.spacing.md
+    }}>
+      <div style={{
+        backgroundColor: 'white',
+        borderRadius: theme.borderRadius.xl,
+        maxWidth: '640px',
+        width: '100%',
+        maxHeight: '90vh',
+        overflowY: 'auto',
+        boxShadow: theme.shadows.xl,
+        border: `1px solid ${theme.colors.neutral[200]}`
+      }}>
+        <div style={{ padding: theme.spacing.xl }}>
+          <div style={{ 
+            display: 'flex', 
+            justifyContent: 'space-between', 
+            alignItems: 'center', 
+            marginBottom: theme.spacing.lg 
+          }}>
+            <h2 style={{
+              fontSize: typography.sectionTitle.fontSize,
+              fontWeight: typography.sectionTitle.fontWeight,
+              color: theme.colors.authority,
+              margin: 0
+            }}>
+              Transaction Details
+            </h2>
             <button
               onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 text-2xl transition-colors"
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '24px',
+                color: theme.colors.neutral[500],
+                cursor: 'pointer',
+                padding: theme.spacing.xs,
+                borderRadius: theme.borderRadius.sm,
+                '&:hover': {
+                  backgroundColor: theme.colors.neutral[100]
+                }
+              }}
             >
               ×
             </button>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">Payer Name</p>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: theme.spacing.md }}>
+            {[
+              { icon: User, label: 'Payer Name', value: fullName || 'N/A' },
+              { icon: Phone, label: 'Phone Number', value: payload.MSISDN || transaction.phone_number || 'N/A' },
+              { icon: DollarSign, label: 'Amount', value: `KSh ${parseFloat(transaction.amount).toLocaleString()}` },
+              { icon: FileText, label: 'M-Pesa Code', value: transaction.transaction_id },
+              { icon: FileText, label: 'Bill Reference', value: billRef },
+              { icon: Calendar, label: 'Transaction Time', 
+                value: new Date(transaction.transaction_time || transaction.created_at).toLocaleString() 
+              }
+            ].map((item, index) => (
+              <div key={index} style={{
+                backgroundColor: theme.colors.background,
+                padding: theme.spacing.md,
+                borderRadius: theme.borderRadius.lg,
+                border: `1px solid ${theme.colors.neutral[200]}`
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: theme.spacing.sm, marginBottom: theme.spacing.sm }}>
+                  <item.icon size={16} color={theme.colors.primary} />
+                  <span style={{ ...typography.label, color: theme.colors.neutral[600] }}>
+                    {item.label}
+                  </span>
                 </div>
-                <p className="font-semibold text-gray-800">{fullName || 'N/A'}</p>
+                <span style={{ ...typography.body, color: theme.colors.neutral[900], fontWeight: 500 }}>
+                  {item.value}
+                </span>
               </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Phone className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">Phone Number</p>
-                </div>
-                <p className="font-semibold text-gray-800">{payload.MSISDN || transaction.phone_number || 'N/A'}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">Amount</p>
-                </div>
-                <p className="font-semibold text-gray-800">KSh {parseFloat(transaction.amount).toLocaleString()}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">M-Pesa Code</p>
-                </div>
-                <p className="font-semibold text-gray-800">{transaction.transaction_id}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">Bill Reference</p>
-                </div>
-                <p className="font-semibold text-gray-800">{billRef}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4" style={{ color: "#586ab1" }} />
-                  <p className="text-sm text-gray-600">Transaction Time</p>
-                </div>
-                <p className="font-semibold text-gray-800">
-                  {new Date(transaction.transaction_time || transaction.created_at).toLocaleString()}
-                </p>
-              </div>
-            </div>
-
-            {transaction.description && (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <p className="text-sm text-gray-600 mb-2">Description</p>
-                <p className="text-gray-800">{transaction.description}</p>
-              </div>
-            )}
-
-            {transaction.payment_type && (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <p className="text-sm text-gray-600 mb-2">Payment Type</p>
-                <p className="text-gray-800 capitalize">{transaction.payment_type}</p>
-              </div>
-            )}
+            ))}
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-6 py-2 rounded-xl text-white font-semibold transition-all duration-300 hover:shadow-lg"
-              style={{ backgroundColor: "#586ab1" }}
-            >
+          {transaction.description && (
+            <div style={{
+              backgroundColor: theme.colors.background,
+              padding: theme.spacing.md,
+              borderRadius: theme.borderRadius.lg,
+              border: `1px solid ${theme.colors.neutral[200]}`,
+              marginTop: theme.spacing.md
+            }}>
+              <p style={{ ...typography.label, color: theme.colors.neutral[600], marginBottom: theme.spacing.xs }}>
+                Description
+              </p>
+              <p style={{ ...typography.body, color: theme.colors.neutral[900], margin: 0 }}>
+                {transaction.description}
+              </p>
+            </div>
+          )}
+
+          <div style={{ marginTop: theme.spacing.xl, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button variant="primary" onClick={onClose}>
               Close
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -115,6 +134,8 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     fetchSuccessfulTransactions();
@@ -138,7 +159,6 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
     }
   };
 
-  // Helper function to extract data from raw_payload
   const getPayloadData = (transaction) => {
     const payload = transaction.raw_payload || {};
     return {
@@ -157,87 +177,126 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
     );
   });
 
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const columns = [
+    { 
+      title: 'First Name', 
+      dataIndex: 'firstName',
+      width: '15%'
+    },
+    { 
+      title: 'Bill Reference', 
+      dataIndex: 'billRef',
+      width: '20%'
+    },
+    { 
+      title: 'Amount', 
+      dataIndex: 'amount',
+      dataType: 'currency',
+      align: 'right',
+      width: '15%'
+    },
+    { 
+      title: 'M-Pesa Code', 
+      dataIndex: 'transaction_id',
+      width: '20%'
+    },
+    { 
+      title: 'Status', 
+      dataIndex: 'status',
+      dataType: 'status',
+      width: '10%'
+    },
+    { 
+      title: 'Created Date', 
+      dataIndex: 'created_at',
+      render: (value) => new Date(value).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      width: '15%'
+    },
+    { 
+      title: 'Action', 
+      dataIndex: 'actions',
+      render: (_, record) => (
+        <Button
+          variant="primary"
+          size="small"
+          startIcon={<Eye size={16} />}
+          onClick={() => onViewDetails(record)}
+        >
+          View
+        </Button>
+      ),
+      width: '10%'
+    }
+  ];
+
+  const tableData = paginatedTransactions.map(t => {
+    const payloadData = getPayloadData(t);
+    return {
+      ...t,
+      id: t.id,
+      firstName: payloadData.firstName,
+      billRef: payloadData.billRef,
+      amount: parseFloat(t.amount),
+      status: 'applied'
+    };
+  });
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Successful Transactions</h2>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
-          <input
-            type="text"
-            placeholder="Search transactions..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
-          />
-        </div>
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: theme.borderRadius.xl,
+      boxShadow: theme.shadows.lg,
+      border: `1px solid ${theme.colors.neutral[100]}`,
+      padding: theme.spacing.xl
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: theme.spacing.lg 
+      }}>
+        <h2 style={{
+          fontSize: typography.sectionTitle.fontSize,
+          fontWeight: typography.sectionTitle.fontWeight,
+          color: theme.colors.authority,
+          margin: 0
+        }}>
+          Successful Transactions
+        </h2>
+        <TableSearch 
+          placeholder="Search transactions..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+        />
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: "#586ab1" }}></div>
-          <p className="mt-4 text-gray-600">Loading transactions...</p>
-        </div>
-      ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">First Name</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Bill Reference</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">M-Pesa Code</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Created Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((transaction) => {
-                const payloadData = getPayloadData(transaction);
-                return (
-                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-800">{payloadData.firstName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{payloadData.billRef}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-800">
-                      KSh {parseFloat(transaction.amount).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{transaction.transaction_id}</td>
-                    <td className="px-4 py-3">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                        Successful
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(transaction.created_at).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        onClick={() => onViewDetails(transaction)}
-                        className="flex items-center gap-2 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                        style={{ backgroundColor: "#586ab1" }}
-                      >
-                        <Eye className="w-4 h-4" />
-                        View
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filteredTransactions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No successful transactions found
-            </div>
-          )}
-        </div>
+      <Table
+        data={tableData}
+        columns={columns}
+        loading={loading}
+        emptyMessage="No successful transactions found"
+        onRowClick={(row) => onViewDetails(row)}
+      />
+
+      {!loading && filteredTransactions.length > 0 && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(filteredTransactions.length / pageSize)}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          totalItems={filteredTransactions.length}
+        />
       )}
     </div>
   );
@@ -247,6 +306,8 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
 const SuspenseTransactions = ({ onReconcile, onArchive }) => {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const pageSize = 10;
 
   useEffect(() => {
     fetchSuspenseTransactions();
@@ -270,106 +331,135 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
     }
   };
 
+  const paginatedTransactions = transactions.slice(
+    (currentPage - 1) * pageSize,
+    currentPage * pageSize
+  );
+
+  const columns = [
+    { 
+      title: 'First Name', 
+      dataIndex: 'payer_name',
+      width: '15%'
+    },
+    { 
+      title: 'Phone Number', 
+      dataIndex: 'phone_number',
+      width: '15%'
+    },
+    { 
+      title: 'Amount', 
+      dataIndex: 'amount',
+      dataType: 'currency',
+      align: 'right',
+      width: '12%'
+    },
+    { 
+      title: 'M-Pesa Code', 
+      dataIndex: 'transaction_id',
+      width: '18%'
+    },
+    { 
+      title: 'Status', 
+      dataIndex: 'status',
+      dataType: 'status',
+      width: '10%'
+    },
+    { 
+      title: 'Created Date', 
+      dataIndex: 'created_at',
+      render: (value) => new Date(value).toLocaleString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }),
+      width: '15%'
+    },
+    { 
+      title: 'Actions', 
+      dataIndex: 'actions',
+      render: (_, record) => (
+        <div style={{ display: 'flex', gap: theme.spacing.sm }}>
+          <Button
+            variant="success"
+            size="small"
+            startIcon={<CheckCircle size={16} />}
+            onClick={() => onReconcile(record)}
+          >
+            Reconcile
+          </Button>
+          <Button
+            variant="destructive"
+            size="small"
+            startIcon={<Archive size={16} />}
+            onClick={() => onArchive(record)}
+          >
+            Archive
+          </Button>
+        </div>
+      ),
+      width: '15%'
+    }
+  ];
+
+  const tableData = paginatedTransactions.map(t => ({
+    ...t,
+    amount: parseFloat(t.amount),
+    status: 'suspense'
+  }));
+
   return (
-    <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
-      <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Suspense Transactions</h2>
-        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full">
+    <div style={{
+      backgroundColor: 'white',
+      borderRadius: theme.borderRadius.xl,
+      boxShadow: theme.shadows.lg,
+      border: `1px solid ${theme.colors.neutral[100]}`,
+      padding: theme.spacing.xl,
+      marginTop: theme.spacing.lg
+    }}>
+      <div style={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        marginBottom: theme.spacing.lg 
+      }}>
+        <h2 style={{
+          fontSize: typography.sectionTitle.fontSize,
+          fontWeight: typography.sectionTitle.fontWeight,
+          color: theme.colors.authority,
+          margin: 0
+        }}>
+          Suspense Transactions
+        </h2>
+        <span style={{
+          padding: `${theme.spacing.xs} ${theme.spacing.sm}`,
+          backgroundColor: theme.colors.warning[100],
+          color: theme.colors.warning[700],
+          borderRadius: theme.borderRadius.full,
+          fontSize: typography.label.fontSize,
+          fontWeight: typography.button.fontWeight
+        }}>
           {transactions.length} Pending
         </span>
       </div>
 
-      {loading ? (
-        <div className="text-center py-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto" style={{ borderColor: "#586ab1" }}></div>
-          <p className="mt-4 text-gray-600">Loading suspense transactions...</p>
-        </div>
-      ) : (
-       <div className="overflow-x-auto">
-  <table className="min-w-full border-collapse">
-    <thead>
-      <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-        {[
-          "First Name",
-          "Phone Number",
-          "Amount",
-          "M-Pesa Code",
-          "Status",
-          "Created Date",
-          "Actions",
-        ].map((heading) => (
-          <th
-            key={heading}
-            className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap"
-          >
-            {heading}
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {transactions.map((transaction) => (
-        <tr
-          key={transaction.id}
-          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-        >
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.payer_name || "N/A"}
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.phone_number}
-          </td>
-          <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
-            KSh {parseFloat(transaction.amount).toLocaleString()}
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.transaction_id}
-          </td>
-          <td className="px-4 py-3 whitespace-nowrap">
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-              Suspense
-            </span>
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-            {new Date(transaction.created_at).toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </td>
-          <td className="px-4 py-3 whitespace-nowrap">
-            <div className="flex gap-2">
-              <button
-                onClick={() => onReconcile(transaction)}
-                className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}
-              >
-                <CheckCircle className="w-4 h-4" />
-                Reconcile
-              </button>
-              <button
-                onClick={() => onArchive(transaction)}
-                className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-xl transition-all duration-300 hover:bg-gray-700"
-              >
-                <Archive className="w-4 h-4" />
-                Archive
-              </button>
-            </div>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+      <Table
+        data={tableData}
+        columns={columns}
+        loading={loading}
+        emptyMessage="No suspense transactions found"
+      />
 
-  {transactions.length === 0 && (
-    <div className="text-center py-12 text-gray-500">
-      No suspense transactions found
-    </div>
-  )}
-</div>
-
+      {!loading && transactions.length > 0 && (
+        <TablePagination
+          currentPage={currentPage}
+          totalPages={Math.ceil(transactions.length / pageSize)}
+          onPageChange={setCurrentPage}
+          pageSize={pageSize}
+          totalItems={transactions.length}
+        />
       )}
     </div>
   );
@@ -387,7 +477,6 @@ function Transactions() {
   const handleReconcile = async (transaction) => {
     if (confirm(`Reconcile transaction ${transaction.transaction_id}?`)) {
       try {
-        // Update the transaction status
         const { error } = await supabase
           .from('suspense_transactions')
           .update({ status: 'reconciled' })
@@ -424,36 +513,40 @@ function Transactions() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-lg font-medium mb-2" style={{ color: "#586ab1" }}>M-Pesa Transactions</h1>
-          <p className="text-gray-600 text-sm">Manage and monitor all M-Pesa transactions</p>
+    <div style={{
+      minHeight: '100vh',
+      backgroundColor: theme.colors.background,
+      padding: theme.spacing.xl
+    }}>
+      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ marginBottom: theme.spacing.xl }}>
+          <h1 style={{
+            fontSize: typography.pageTitle.fontSize,
+            fontWeight: typography.pageTitle.fontWeight,
+            color: theme.colors.authority,
+            marginBottom: theme.spacing.xs,
+            margin: 0
+          }}>
+            M-Pesa Transactions
+          </h1>
+          <p style={{ ...typography.body, color: theme.colors.neutral[600], margin: 0 }}>
+            Manage and monitor all M-Pesa transactions
+          </p>
         </div>
 
-        <div className="flex gap-4 mb-6">
-          <button
+        <div style={{ display: 'flex', gap: theme.spacing.sm, marginBottom: theme.spacing.xl }}>
+          <Button
+            variant={activeTab === 'successful' ? 'primary' : 'outline'}
             onClick={() => setActiveTab('successful')}
-            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${
-              activeTab === 'successful'
-                ? 'text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
-            style={activeTab === 'successful' ? { backgroundColor: "#586ab1" } : {}}
           >
             Successful
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={activeTab === 'suspense' ? 'primary' : 'outline'}
             onClick={() => setActiveTab('suspense')}
-            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${
-              activeTab === 'suspense'
-                ? 'text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
-            style={activeTab === 'suspense' ? { backgroundColor: "#586ab1" } : {}}
           >
             Suspense
-          </button>
+          </Button>
         </div>
 
         {activeTab === 'successful' && (

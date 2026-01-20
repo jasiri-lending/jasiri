@@ -87,7 +87,7 @@ const SharedHeader = () => {
 
   return (
     <header 
-      className="border-b border-gray-200 sticky top-0 z-30 bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50"
+      className="border-b border-gray-300 sticky top-0 z-30 bg-[#d9e2e8]"
     >
       <div className="flex items-center justify-end px-4 lg:px-6 py-3">
         {/* Right Section - Company Name and User Profile */}
@@ -106,9 +106,9 @@ const SharedHeader = () => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center space-x-2 lg:space-x-3 p-2 rounded-xl hover:bg-white/80 focus:outline-none focus:ring-2 focus:ring-gray-300 focus:ring-offset-2 transition-all duration-200 group border border-gray-200"
+              className="flex items-center space-x-2 lg:space-x-3 p-2 rounded-xl hover:bg-[#c8d4dd] focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:ring-offset-2 transition-all duration-200 group border border-gray-300"
               style={{
-                backgroundColor: isDropdownOpen ? 'rgba(255, 255, 255, 0.9)' : 'transparent'
+                backgroundColor: isDropdownOpen ? '#c8d4dd' : 'transparent'
               }}
               aria-label="User menu"
               aria-expanded={isDropdownOpen}
@@ -116,7 +116,7 @@ const SharedHeader = () => {
             >
               <div className="flex items-center space-x-2 lg:space-x-3">
                 <div className="relative">
-                  <div className="avatar-fallback h-8 w-8 lg:h-9 lg:w-9 rounded-full flex items-center justify-center shadow-sm bg-gradient-to-br from-blue-50 to-cyan-50 border border-[#586ab1]/20">
+                  <div className="avatar-fallback h-8 w-8 lg:h-9 lg:w-9 rounded-full flex items-center justify-center shadow-sm bg-white border border-[#586ab1]/20">
                     <UserCircleIcon className="h-5 w-5 lg:h-6 lg:w-6 text-[#586ab1]" />
                   </div>
                   <div className="absolute -bottom-1 -right-1">
@@ -155,7 +155,7 @@ const SharedHeader = () => {
                 />
                 
                 <div 
-                  className="absolute right-0 mt-2 w-72 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in-80 slide-in-from-top-2"
+                  className="absolute right-0 mt-2 w-72 bg-[#E7F0FA] rounded-xl shadow-lg border border-gray-300 py-2 z-50 animate-in fade-in-80 slide-in-from-top-2"
                   style={{
                     boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)'
                   }}
@@ -178,7 +178,7 @@ const SharedHeader = () => {
                   <div className="px-4 py-3 border-b border-gray-100">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="dropdown-avatar-fallback h-10 w-10 rounded-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-cyan-50 border border-[#586ab1]/20">
+                        <div className="dropdown-avatar-fallback h-10 w-10 rounded-full flex items-center justify-center bg-white border border-[#586ab1]/20">
                           <UserCircleIcon className="h-8 w-8 text-[#586ab1]" />
                         </div>
                       </div>
@@ -237,7 +237,7 @@ const SharedHeader = () => {
                   <div className="py-2">
                     <button 
                       onClick={handleProfileClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#586ab1]/5 transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
                       <UserCircleIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
@@ -245,7 +245,7 @@ const SharedHeader = () => {
                     </button>
                     <button 
                       onClick={handleSettingsClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#586ab1]/5 transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
                       <Cog6ToothIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
@@ -253,7 +253,7 @@ const SharedHeader = () => {
                     </button>
                     <button 
                       onClick={handleHelpClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#586ab1]/5 transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
                       <QuestionMarkCircleIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
