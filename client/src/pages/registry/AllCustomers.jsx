@@ -861,7 +861,7 @@ const AllCustomers = () => {
 
                         {/* Promise to Pay (only if disbursed AND repayment_state is ongoing or partial) */}
                         {customer.hasDisbursedLoan &&
-                          ["ongoing", "partial"].includes(customer.loanRepaymentState) && (
+                          ["ongoing","overdue", "partial"].includes(customer.loanRepaymentState) && (
                             <button
                               onClick={() => handleOpenPromiseToPay(customer)}
                               className="p-2 rounded-lg bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 text-purple-600 hover:from-purple-100 hover:to-purple-200 hover:text-purple-700 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow"

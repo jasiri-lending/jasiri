@@ -417,7 +417,7 @@ const PendingAmendments = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1 font-medium uppercase tracking-wide">
+          <h1 className="text-xs text-slate-600 mb-1  tracking-wide">
             Registry / Pending Amendments
           </h1>
         </div>
@@ -670,31 +670,31 @@ const PendingAmendments = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Contact
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Last Updated
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Region
                 </th>
-                <th className="px-4 py-3 text-left text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   RO Name
                 </th>
-                <th className="px-4 py-3 text-center text-xs uppercase tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Actions
                 </th>
               </tr>
