@@ -140,7 +140,7 @@ function LoanApplication() {
 
   if (!customers.length) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <div className="h-full bg-brand-surface p-6 min-h-screen">
         <h1 className="text-xs text-slate-500 mb-4 font-medium">
           Loan Applications
         </h1>
@@ -154,9 +154,9 @@ function LoanApplication() {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+    <div className="h-full bg-brand-surface p-6 min-h-screen">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
-        Loan Applications
+        Loan Applications 
       </h1>
 
       {/* Search and Actions Bar */}
@@ -171,7 +171,7 @@ function LoanApplication() {
                 placeholder="Search by ID, phone or name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
               />
             </div>
             

@@ -31,7 +31,7 @@ export default function ChartOfAccounts() {
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-brand-surface min-h-screen">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Accounting / Chart of Accounts
       </h1>

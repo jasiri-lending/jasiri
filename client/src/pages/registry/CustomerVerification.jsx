@@ -2951,7 +2951,7 @@ if (userRole === "credit_analyst_officer") {
   };
 
   return (
-    <div className="bg-blue-50 py-4">
+    <div className="bg-brand-surface py-4">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         {/* <div className="p-4 mb-0">
@@ -2978,9 +2978,9 @@ if (userRole === "credit_analyst_officer") {
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     step === num
-                      ? "border-blue-500 bg-blue-500 text-white shadow-lg shadow-indigo-200 scale-110"
+                      ? "border-brand-primary bg-brand-primary text-white shadow-lg shadow-indigo-200 scale-110"
                       : step > num
-                      ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
+                      ? "border-accent bg-accent text-white shadow-md"
                       : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
                   }`}
                 >
@@ -3077,14 +3077,14 @@ if (userRole === "credit_analyst_officer") {
             onClick={() => setSelectedImage(null)}
           >
             <div className="relative max-w-4xl max-h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-white">
+              <div className="bg-brand-surface px-6 py-4 text-slate-600">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">
                     {selectedImage.title}
                   </h3>
                   <button
                     onClick={() => setSelectedImage(null)}
-                    className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
+                    className="text-slate-600 hover:text-gray-500 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
                   >
                     <XCircleIcon className="h-8 w-8" />
                   </button>

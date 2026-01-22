@@ -424,7 +424,7 @@ function Transactions() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+    <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6">
           <h1 className="text-lg font-medium mb-2" style={{ color: "#586ab1" }}>M-Pesa Transactions</h1>

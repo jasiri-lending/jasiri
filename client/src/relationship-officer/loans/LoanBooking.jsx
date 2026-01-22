@@ -359,7 +359,7 @@ const handleBookLoan = async () => {
   const availableProductTypes = getAvailableProductTypes();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
+    <div className="min-h-screen bg-brand-surface">
     
       
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">

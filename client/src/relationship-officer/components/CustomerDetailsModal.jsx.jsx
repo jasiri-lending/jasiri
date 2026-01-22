@@ -212,7 +212,7 @@ const CustomerDetailsPage = () => {
             onClick={() => navigate(-1)}
             className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
           >
-            Go Back
+            Go Back 
           </button>
         </div>
       </div>
@@ -238,7 +238,7 @@ const CustomerDetailsPage = () => {
       className="flex items-center text-gray-600 hover:text-gray-900 gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition"
     >
       <ArrowLeftIcon className="h-5 w-5" />
-      <span className="text-sm">Back to Customers</span>
+      <span className="text-sm">Back to Customers </span>
     </button>
   </div>
 

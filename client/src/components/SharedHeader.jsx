@@ -1,6 +1,6 @@
 // src/components/SharedHeader.jsx
-import { 
-  UserCircleIcon, 
+import {
+  UserCircleIcon,
   ChevronDownIcon,
   Cog6ToothIcon,
   QuestionMarkCircleIcon,
@@ -34,7 +34,7 @@ const SharedHeader = () => {
 
     document.addEventListener("mousedown", handleClickOutside);
     document.addEventListener("keydown", handleEscapeKey);
-    
+
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
       document.removeEventListener("keydown", handleEscapeKey);
@@ -86,8 +86,8 @@ const SharedHeader = () => {
   };
 
   return (
-    <header 
-      className="border-b border-gray-300 sticky top-0 z-30 bg-[#d9e2e8]"
+    <header
+      className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-brand-surface"
     >
       <div className="flex items-center justify-end px-4 lg:px-6 py-3">
         {/* Right Section - Company Name and User Profile */}
@@ -95,7 +95,7 @@ const SharedHeader = () => {
           {/* Company Name */}
           <div className="hidden md:block">
             <h1
-              className="text-sm lg:text-sm font-medium text-[#586ab1] truncate"
+              className="text-sm lg:text-sm font-medium text-brand-primary truncate"
               title={tenant?.company_name || 'Jasiri Finance'}
             >
               {tenant?.company_name || 'Jasiri Finance'}
@@ -106,41 +106,37 @@ const SharedHeader = () => {
           <div className="relative" ref={dropdownRef}>
             <button
               onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-              className="flex items-center space-x-2 lg:space-x-3 p-2 rounded-xl hover:bg-[#c8d4dd] focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:ring-offset-2 transition-all duration-200 group border border-gray-300"
-              style={{
-                backgroundColor: isDropdownOpen ? '#c8d4dd' : 'transparent'
-              }}
+              className={`flex items-center space-x-2 lg:space-x-3 p-2 rounded-xl hover:bg-brand-secondary/10 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 transition-all duration-200 group border border-brand-secondary/20 ${isDropdownOpen ? 'bg-brand-secondary/10' : 'bg-transparent'
+                }`}
               aria-label="User menu"
               aria-expanded={isDropdownOpen}
               aria-haspopup="true"
             >
               <div className="flex items-center space-x-2 lg:space-x-3">
                 <div className="relative">
-                  <div className="avatar-fallback h-8 w-8 lg:h-9 lg:w-9 rounded-full flex items-center justify-center shadow-sm bg-white border border-[#586ab1]/20">
-                    <UserCircleIcon className="h-5 w-5 lg:h-6 lg:w-6 text-[#586ab1]" />
+                  <div className="avatar-fallback h-8 w-8 lg:h-9 lg:w-9 rounded-full flex items-center justify-center shadow-sm bg-white border border-brand-primary/20">
+                    <UserCircleIcon className="h-5 w-5 lg:h-6 lg:w-6 text-brand-primary" />
                   </div>
                   <div className="absolute -bottom-1 -right-1">
-                    <div className={`w-3 h-3 rounded-full border-2 border-white ${
-                      profile?.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
-                    }`} />
+                    <div className={`w-3 h-3 rounded-full border-2 border-white ${profile?.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
                   </div>
                 </div>
-                
+
                 {/* User Info - Desktop */}
                 <div className="hidden md:flex flex-col items-start text-left max-w-[120px] lg:max-w-[160px]">
-                  <span className="font-semibold text-[#586ab1] text-sm leading-tight truncate w-full">
+                  <span className="font-semibold text-brand-primary text-sm leading-tight truncate w-full">
                     {profile?.full_name || 'User'}
                   </span>
-                  <span className="text-xs text-[#586ab1]/70 leading-tight truncate w-full">
+                  <span className="text-xs text-brand-primary/70 leading-tight truncate w-full">
                     {getRoleDisplayName(profile?.role)}
                   </span>
                 </div>
               </div>
-              
-              <ChevronDownIcon 
-                className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 text-[#586ab1] ${
-                  isDropdownOpen ? 'rotate-180' : ''
-                }`} 
+
+              <ChevronDownIcon
+                className={`h-4 w-4 flex-shrink-0 transition-transform duration-200 text-brand-primary ${isDropdownOpen ? 'rotate-180' : ''
+                  }`}
               />
             </button>
 
@@ -148,14 +144,14 @@ const SharedHeader = () => {
             {isDropdownOpen && (
               <>
                 {/* Backdrop for mobile */}
-                <div 
-                  className="fixed inset-0 z-40 lg:hidden" 
+                <div
+                  className="fixed inset-0 z-40 lg:hidden"
                   onClick={() => setIsDropdownOpen(false)}
                   aria-hidden="true"
                 />
-                
-                <div 
-                  className="absolute right-0 mt-2 w-72 bg-[#E7F0FA] rounded-xl shadow-lg border border-gray-300 py-2 z-50 animate-in fade-in-80 slide-in-from-top-2"
+
+                <div
+                  className="absolute right-0 mt-2 w-72 bg-brand-surface rounded-xl shadow-lg border border-brand-secondary/20 py-2 z-50 animate-in fade-in-80 slide-in-from-top-2"
                   style={{
                     boxShadow: '0 10px 40px rgba(0, 0, 0, 0.1)'
                   }}
@@ -163,10 +159,10 @@ const SharedHeader = () => {
                 >
                   {/* Tenant Info */}
                   {tenant && (
-                    <div className="px-4 py-3 border-b border-gray-100">
+                    <div className="px-4 py-3 border-b border-brand-secondary/10">
                       <div className="flex items-center justify-center">
                         <div className="min-w-0">
-                          <p className="text-[#586ab1] text-sm font-medium truncate text-center">
+                          <p className="text-brand-primary text-sm font-medium truncate text-center">
                             {tenant.company_name}
                           </p>
                         </div>
@@ -175,23 +171,23 @@ const SharedHeader = () => {
                   )}
 
                   {/* User Profile Info */}
-                  <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="px-4 py-3 border-b border-brand-secondary/10">
                     <div className="flex items-center space-x-3">
                       <div className="flex-shrink-0">
-                        <div className="dropdown-avatar-fallback h-10 w-10 rounded-full flex items-center justify-center bg-white border border-[#586ab1]/20">
-                          <UserCircleIcon className="h-8 w-8 text-[#586ab1]" />
+                        <div className="dropdown-avatar-fallback h-10 w-10 rounded-full flex items-center justify-center bg-white border border-brand-primary/20">
+                          <UserCircleIcon className="h-8 w-8 text-brand-primary" />
                         </div>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-[#586ab1] truncate text-sm">
+                        <p className="font-semibold text-brand-primary truncate text-sm">
                           {profile?.full_name || 'User'}
                         </p>
-                        <p className="text-sm text-[#586ab1]/70 truncate" title={profile?.email}>
+                        <p className="text-sm text-brand-primary/70 truncate" title={profile?.email}>
                           {profile?.email}
                         </p>
                       </div>
                     </div>
-                    
+
                     <div className="mt-2 flex items-center justify-between">
                       <span className={`inline-flex items-center px-2.5 py-0.5 text-lg font-medium ${getRoleBadgeColor(profile?.role)}`}>
                         {getRoleDisplayName(profile?.role)}
@@ -200,34 +196,34 @@ const SharedHeader = () => {
                   </div>
 
                   {/* Role-specific Details */}
-                  <div className="px-4 py-3 border-b border-gray-100">
+                  <div className="px-4 py-3 border-b border-brand-secondary/10">
                     {profile?.role === "regional_manager" ? (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#586ab1]/70">Region:</span>
-                          <span className="font-medium text-[#586ab1]">{profile?.region || 'All Regions'}</span>
+                          <span className="text-brand-primary/70">Region:</span>
+                          <span className="font-medium text-brand-primary">{profile?.region || 'All Regions'}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#586ab1]/70">Branches:</span>
-                          <span className="font-medium text-[#586ab1]">All</span>
+                          <span className="text-brand-primary/70">Branches:</span>
+                          <span className="font-medium text-brand-primary">All</span>
                         </div>
                       </div>
                     ) : profile?.role === "branch_manager" ? (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#586ab1]/70">Branch:</span>
-                          <span className="font-medium text-[#586ab1]">{profile?.branch || 'Main Branch'}</span>
+                          <span className="text-brand-primary/70">Branch:</span>
+                          <span className="font-medium text-brand-primary">{profile?.branch || 'Main Branch'}</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#586ab1]/70">Region:</span>
-                          <span className="font-medium text-[#586ab1]">{profile?.region || 'N/A'}</span>
+                          <span className="text-brand-primary/70">Region:</span>
+                          <span className="font-medium text-brand-primary">{profile?.region || 'N/A'}</span>
                         </div>
                       </div>
                     ) : (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
-                          <span className="text-[#586ab1]/70">Branch:</span>
-                          <span className="font-medium text-[#586ab1]">{profile?.branch || 'N/A'}</span>
+                          <span className="text-brand-primary/70">Branch:</span>
+                          <span className="font-medium text-brand-primary">{profile?.branch || 'N/A'}</span>
                         </div>
                       </div>
                     )}
@@ -235,35 +231,35 @@ const SharedHeader = () => {
 
                   {/* Action Menu */}
                   <div className="py-2">
-                    <button 
+                    <button
                       onClick={handleProfileClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-brand-primary hover:bg-brand-secondary/10 transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
-                      <UserCircleIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
+                      <UserCircleIcon className="h-4 w-4 mr-2 text-brand-primary/60 group-hover:text-brand-primary" />
                       <span>My Profile</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleSettingsClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-brand-primary hover:bg-brand-secondary/10 transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
-                      <Cog6ToothIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
+                      <Cog6ToothIcon className="h-4 w-4 mr-2 text-brand-primary/60 group-hover:text-brand-primary" />
                       <span>Settings</span>
                     </button>
-                    <button 
+                    <button
                       onClick={handleHelpClick}
-                      className="w-full text-left px-4 py-2.5 text-sm text-[#586ab1] hover:bg-[#d9e2e8] transition-colors duration-150 flex items-center group"
+                      className="w-full text-left px-4 py-2.5 text-sm text-brand-primary hover:bg-brand-secondary/10 transition-colors duration-150 flex items-center group"
                       role="menuitem"
                     >
-                      <QuestionMarkCircleIcon className="h-4 w-4 mr-2 text-[#586ab1]/60 group-hover:text-[#586ab1]" />
+                      <QuestionMarkCircleIcon className="h-4 w-4 mr-2 text-brand-primary/60 group-hover:text-brand-primary" />
                       <span>Help & Support</span>
                     </button>
                   </div>
 
                   {/* Logout */}
                   <div className="border-t border-gray-100 pt-2">
-                    <button 
+                    <button
                       onClick={handleLogout}
                       className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium flex items-center group"
                       role="menuitem"

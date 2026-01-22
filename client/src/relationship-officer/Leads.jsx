@@ -289,7 +289,7 @@ const Leads = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+    <div className="h-full bg-brand-surface p-6 min-h-screen">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Leads Management
       </h1>

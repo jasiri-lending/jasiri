@@ -1,4 +1,4 @@
-import  { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import {
@@ -12,13 +12,16 @@ import {
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  CheckCircleIcon,
 } from "@heroicons/react/24/outline";
 import ApproveLoan from "./ApproveLoan";
 import Spinner from "../../components/Spinner";
+import { useNavigate } from "react-router-dom";
 
 const LoanPendingBm = () => {
   const { profile, loading: authLoading } = useAuth();
   const hasFetchedData = useRef(false);
+   const navigate = useNavigate(); 
 
   const [pendingLoans, setPendingLoans] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -329,6 +332,11 @@ const LoanPendingBm = () => {
     return ro?.full_name || "N/A";
   };
 
+  // Handle view loan details
+ const handleViewLoan = (loanId) => {
+  navigate(`/loans/${loanId}`);
+};
+
   if (selectedLoan) {
     return <ApproveLoan loan={selectedLoan} onComplete={handleComplete} />;
   }
@@ -342,7 +350,7 @@ const LoanPendingBm = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-brand-surface text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -586,36 +594,35 @@ const LoanPendingBm = () => {
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
-                        {isBranchManager ? (
+                        {/* View Button - Available for all roles */}
+                        <button
+                          onClick={() => handleViewLoan(loan.id)}
+                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          title="View Loan Details"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+
+                        {/* Verify/Approve Button - Only for branch managers */}
+                        {isBranchManager && (
                           <button
                             onClick={() => setSelectedLoan(loan)}
                             className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Review Loan"
+                            title="Review and Approve Loan"
                           >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed"
-                            title="View Only"
-                          >
-                            <LockClosedIcon className="h-4 w-4" />
+                            <CheckCircleIcon className="h-4 w-4" />
                           </button>
                         )}
                       </div>
                     </td>
                   </tr>
-                       );
+                );
               })}
             </tbody>
           </table>
         </div>
 
-
-
-
-         {/* No Results */}
+        {/* No Results */}
         {filteredLoans.length === 0 && (
           <div className="p-10 text-center">
             <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">

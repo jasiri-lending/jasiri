@@ -19,6 +19,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
 import { useAuth } from "../../hooks/userAuth"; 
+import Spinner from '../../components/Spinner';
+
 
 const ApproveLoan = ({ loan, onComplete }) => {
   const { profile } = useAuth();
@@ -301,7 +303,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
   const feeMessage = getFeePaymentMessage();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50">
+    <div className="min-h-screen bg-brand-surface text-gray-800 p-6">
       <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border border-gray-200">

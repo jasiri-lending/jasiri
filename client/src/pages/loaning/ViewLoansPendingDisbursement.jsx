@@ -337,14 +337,14 @@ const DisbursementNotesModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
+      <div className="bg-brand-surface rounded-lg max-w-md w-full p-6">
         <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center gap-2">
           <NotesIcon className="h-5 w-5 text-blue-600" />
           Loan Disbursement Notes
         </h3>
         
         <div className="mb-4">
-          <div className="bg-gray-50 rounded-lg p-3 mb-3">
+          <div className="bg-amber-50 rounded-lg p-3 mb-3">
             <div className="text-sm text-gray-700">
               <div className="font-semibold">{customer?.Firstname} {customer?.Surname}</div>
               <div>Loan ID: #{loanDetails?.id}</div>
@@ -353,7 +353,7 @@ const DisbursementNotesModal = ({
             </div>
           </div>
 
-          <label className="block text-sm font-medium text-gray-700 mb-2">
+          <label className="block text-sm font-medium text-gray-600 mb-2">
             Disbursement Notes <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -396,7 +396,7 @@ const DisbursementNotesModal = ({
           <button
             onClick={handleConfirm}
             disabled={isLoading || !notes.trim()}
-            className="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium text-white bg-brand-btn rounded-md hover:bg-brand-secondary disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {isLoading ? (
               <>
@@ -442,7 +442,7 @@ const TransactionHistoryModal = ({
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
+      <div className="bg-brand-surface rounded-lg max-w-4xl w-full max-h-[90vh] overflow-auto">
         <div className="sticky top-0 bg-white p-6 border-b border-gray-200 flex justify-between items-center">
           <h2 className="text-xl font-semibold text-gray-900">Disbursement Transaction History</h2>
           <button
@@ -862,10 +862,7 @@ const ViewLoansPendingDisbursement = () => {
   if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading loan details...</p>
-        </div>
+      
       </div>
     );
   }
@@ -891,7 +888,7 @@ const ViewLoansPendingDisbursement = () => {
   const feesPaid = areFeesFullyPaid();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
@@ -1257,7 +1254,7 @@ const ViewLoansPendingDisbursement = () => {
             <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-4">
               {isCreditAnalyst && feesPaid ? (
                 <>
-                  <CheckCircleIcon className="h-7 w-7 text-green-600 mr-3" />
+                  <CheckCircleIcon className="h-7 w-7 text-accent mr-3" />
                   Ready for Disbursement
                 </>
               ) : isCreditAnalyst && !feesPaid ? (
@@ -1280,24 +1277,24 @@ const ViewLoansPendingDisbursement = () => {
                 : "You can view loan details but only Credit Analyst Officers can process disbursements."}
             </p>
             
-            {isCreditAnalyst && (
-              <div className="flex gap-4 flex-wrap">
+          {isCreditAnalyst && (
+              <div className="flex gap-3 flex-wrap">
                 {feesPaid && (
                   <>
                     <button
                       onClick={() => setShowNotesModal(true)}
                       disabled={processingDisbursement}
-                      className="flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-xl hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-accent text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <CurrencyDollarIcon className="h-6 w-6" />
+                      <CurrencyDollarIcon className="h-4 w-4" />
                       Process Disbursement
                     </button>
                     
                     <button
                       onClick={viewTransactionHistory}
-                      className="flex items-center gap-3 px-6 py-4 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-all font-semibold text-lg"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-brand-primary transition-all font-medium text-sm"
                     >
-                      <DocumentTextIcon className="h-5 w-5" />
+                      <DocumentTextIcon className="h-4 w-4" />
                       View History
                     </button>
                   </>
@@ -1306,15 +1303,15 @@ const ViewLoansPendingDisbursement = () => {
                 <button
                   onClick={sendTestSMS}
                   disabled={!customer?.mobile}
-                  className="flex items-center gap-3 px-6 py-4 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all font-semibold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-brand-btn text-white rounded-lg transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <EnvelopeIcon className="h-5 w-5" />
+                  <EnvelopeIcon className="h-4 w-4" />
                   Send Test SMS
                 </button>
                 
                 <button
                   onClick={() => navigate('/pending-disbursements')}
-                  className="flex items-center gap-3 px-6 py-4 bg-white text-gray-700 border-2 border-gray-300 rounded-xl hover:bg-gray-50 transition-all font-semibold text-lg"
+                  className="flex items-center gap-2 px-3 py-1.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all font-medium text-sm"
                 >
                   Cancel
                 </button>

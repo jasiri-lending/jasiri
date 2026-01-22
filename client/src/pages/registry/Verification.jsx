@@ -959,7 +959,7 @@ const Verification = () => {
                 <div
                   className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
                     step === num
-                      ? "border-blue-300 bg-blue-300 text-white shadow-lg shadow-indigo-200 scale-110"
+                      ? "border-primary bg-brand-primary text-white shadow-lg shadow-indigo-200 scale-110"
                       : step > num
                       ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
                       : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
@@ -991,7 +991,7 @@ const Verification = () => {
               <div className="border-b border-gray-200 pb-6 mb-8">
                 <h2 className="text-lg font-semibold text-slate-600 flex items-center">
                   <UserCircleIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                  Customer Verification
+                  Customer Verification 
                 </h2>
                 <p className="text-gray-600 mt-2 text-sm">
                   Verify customer identity and contact information
@@ -1796,7 +1796,7 @@ const Verification = () => {
                               Type:
                             </span>
                             <span className="text-sm font-semibold text-gray-900">
-                              {item.type || "N/A"}
+                              {item.item || "N/A"}
                             </span>
                           </div>
                           {item.description && (
@@ -2794,7 +2794,7 @@ const Verification = () => {
             onClick={() => setSelectedImage(null)}
           >
             <div className="relative max-w-4xl max-h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-white">
+              <div className="bg-brand-secondary px-6 py-4 text-white">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">
                     {selectedImage.title}
@@ -2818,7 +2818,7 @@ const Verification = () => {
               <div className="px-6 py-4 bg-gray-50 border-t">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-600">
-                    Click outside the image or the X button to close
+                    Click outside the image or the X button to close 
                   </p>
                   <button
                     onClick={() => setSelectedImage(null)}

@@ -278,10 +278,10 @@ const PTPReports = () => {
   const totalPages = Math.ceil(sortedPtps.length / itemsPerPage);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 bg-brand-surface p-6 min-h-screen">
       {/* Header */}
       <div className="flex justify-between items-center">
-        <h1 className="text-sm  text-gray-600">Promise to Pay Reports</h1>
+        <h1 className="text-sm  text-gray-600">Promise to Pay Reports </h1>
         <div className="flex space-x-3">
           <button
             onClick={generateReport}

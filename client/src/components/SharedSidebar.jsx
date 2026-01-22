@@ -101,41 +101,41 @@ const SharedSidebar = () => {
 
     const officerNavigation = isOfficer
       ? [
-          { name: "Leads", href: "/officer/leads", icon: UserPlus },
-          {
-            name: "Loan Applications",
-            href: "/officer/loans/applications",
-            icon: FileText,
-          },
-        ]
+        { name: "Leads", href: "/officer/leads", icon: UserPlus },
+        {
+          name: "Loan Applications",
+          href: "/officer/loans/applications",
+          icon: FileText,
+        },
+      ]
       : [];
 
     const accountingNavigation = !isOfficer
       ? [
-          {
-            name: "Accounting",
-            href: "/accounting",
-            icon: Calculator,
-            children: [
-              {
-                name: "Chart of Accounts",
-                href: "/accounting/chart-of-accounts",
-                icon: BookOpen,
-              },
-              { name: "Journals", href: "/accounting/journals", icon: Book },
-              {
-                name: "Transactions",
-                href: "/accounting/transactions",
-                icon: CreditCard,
-              },
-              {
-                name: "Bank Reconciliations",
-                href: "/accounting/bank-reconciliations",
-                icon: Landmark,
-              },
-            ],
-          },
-        ]
+        {
+          name: "Accounting",
+          href: "/accounting",
+          icon: Calculator,
+          children: [
+            {
+              name: "Chart of Accounts",
+              href: "/accounting/chart-of-accounts",
+              icon: BookOpen,
+            },
+            { name: "Journals", href: "/accounting/journals", icon: Book },
+            {
+              name: "Transactions",
+              href: "/accounting/transactions",
+              icon: CreditCard,
+            },
+            {
+              name: "Bank Reconciliations",
+              href: "/accounting/bank-reconciliations",
+              icon: Landmark,
+            },
+          ],
+        },
+      ]
       : [];
 
     const registryChildren = [{ name: "Customers", href: "/registry/customers", icon: Users }];
@@ -194,15 +194,15 @@ const SharedSidebar = () => {
     const draftsChildren = [
       isOfficer
         ? {
-            name: "Customer Drafts",
-            href: "/officer/customers/drafts",
-            icon: FileText,
-          }
+          name: "Customer Drafts",
+          href: "/officer/customers/drafts",
+          icon: FileText,
+        }
         : {
-            name: "Customer Verification Drafts",
-            href: "/drafts/customers",
-            icon: UserCheck,
-          },
+          name: "Customer Verification Drafts",
+          href: "/drafts/customers",
+          icon: UserCheck,
+        },
     ];
 
     const sharedNavigation = [
@@ -297,9 +297,9 @@ const SharedSidebar = () => {
       .map((item) =>
         item.children
           ? {
-              ...item,
-              children: item.children.filter(hasAccess),
-            }
+            ...item,
+            children: item.children.filter(hasAccess),
+          }
           : item
       );
   }, [profile?.role]);
@@ -331,7 +331,7 @@ const SharedSidebar = () => {
           className="fixed top-4 left-4 z-50 p-3 bg-white rounded-lg shadow-lg hover:shadow-xl transition-all border border-gray-200 lg:hidden font-sans"
           style={{ display: isMobileOpen ? "none" : "block" }}
         >
-          <Menu className="h-6 w-6 text-slate-600 hover:text-[#586ab1]" />
+          <Menu className="h-6 w-6 text-slate-700 hover:text-brand-primary" />
         </button>
 
         {/* Overlay - only visible when sidebar is open */}
@@ -344,12 +344,11 @@ const SharedSidebar = () => {
 
         {/* Sidebar - Reduced width from w-72 to w-64 */}
         <div
-          className={`fixed inset-y-0 left-0 w-64 bg-[#d9e2e8] shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${
-            isMobileOpen ? "translate-x-0" : "-translate-x-full"
-          }`}
+          className={`fixed inset-y-0 left-0 w-64 bg-brand-surface shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
+            }`}
         >
           {/* Header with Logo at the beginning (far left) */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-300 flex-shrink-0 h-20">
+          <div className="flex items-center justify-between p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20">
             <div className="flex items-center justify-start">
               <img
                 src="/jasiri.png"
@@ -359,9 +358,9 @@ const SharedSidebar = () => {
             </div>
             <button
               onClick={() => setIsMobileOpen(false)}
-              className="p-2 rounded-lg hover:bg-gray-200 transition-colors"
+              className="p-2 rounded-lg hover:bg-brand-secondary/10 transition-colors"
             >
-              <X className="h-5 w-5 text-slate-600 hover:text-[#586ab1]" />
+              <X className="h-5 w-5 text-slate-700 hover:text-brand-primary" />
             </button>
           </div>
 
@@ -373,52 +372,52 @@ const SharedSidebar = () => {
                   <div>
                     <div
                       onClick={() => toggleItem(item.name)}
-                      className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
-                        expandedItems[item.name]
-                          ? "text-[#586ab1]"
-                          : "text-slate-600"
-                      }`}
+                      className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name]
+                        ? "bg-brand-secondary/10 text-brand-primary"
+                        : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                        }`}
                     >
                       <div className="flex items-center">
                         <item.icon
-                          className="h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
+                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${expandedItems[item.name] ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                            }`}
                         />
-                        <span className="text-base  whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
+                        <span className="text-base whitespace-nowrap truncate font-medium">
                           {item.name}
                         </span>
                       </div>
                       {expandedItems[item.name] ? (
-                        <ChevronUp 
-                          className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
-                        />
+                        <ChevronUp className="h-4 w-4 text-brand-primary" />
                       ) : (
-                        <ChevronDown 
-                          className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
-                        />
+                        <ChevronDown className="h-4 w-4 text-slate-700 group-hover:text-brand-primary" />
                       )}
                     </div>
 
                     {expandedItems[item.name] && (
-                      <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-300">
+                      <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-brand-secondary/20">
                         {item.children.map((child) => (
                           <NavLink
                             key={child.name}
                             to={child.href}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
-                                isActive
-                                  ? "text-[#586ab1]"
-                                  : "text-slate-600"
+                              `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
+                                ? "text-brand-primary bg-brand-secondary/5"
+                                : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
                               }`
                             }
                           >
-                            <child.icon
-                              className="h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
-                            />
-                            <span className="text-sm  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
-                              {child.name}
-                            </span>
+                            {({ isActive }) => (
+                              <>
+                                <child.icon
+                                  className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                                    }`}
+                                />
+                                <span className="text-sm truncate">
+                                  {child.name}
+                                </span>
+                              </>
+                            )}
                           </NavLink>
                         ))}
                       </div>
@@ -429,19 +428,23 @@ const SharedSidebar = () => {
                     to={item.href}
                     onClick={handleNavClick}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
-                        isActive
-                          ? "text-[#586ab1]"
-                          : "text-slate-600"
+                      `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
+                        ? "text-brand-primary bg-brand-secondary/5"
+                        : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
                       }`
                     }
                   >
-                    <item.icon
-                      className="h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
-                    />
-                    <span className="text-base  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
-                      {item.name}
-                    </span>
+                    {({ isActive }) => (
+                      <>
+                        <item.icon
+                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                            }`}
+                        />
+                        <span className="text-base truncate">
+                          {item.name}
+                        </span>
+                      </>
+                    )}
                   </NavLink>
                 )}
               </div>
@@ -455,12 +458,11 @@ const SharedSidebar = () => {
   // Desktop Sidebar - Reduced width from w-72 to w-64
   return (
     <div
-      className={`h-full bg-[#d9e2e8] border-r border-gray-300 transition-all duration-300 font-sans ${
-        isCollapsed ? "w-16" : "w-64"
-      } flex-shrink-0 relative flex flex-col overflow-hidden`}
+      className={`h-full bg-brand-surface border-r border-brand-secondary/20 transition-all duration-300 font-sans ${isCollapsed ? "w-20" : "w-64"
+        } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
       {/* Header - Logo at the beginning (far left) */}
-      <div className="flex items-center p-4 border-b border-gray-300 flex-shrink-0 h-20 relative">
+      <div className="flex items-center p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20 relative">
         {/* Logo - Left aligned when sidebar is expanded */}
         {!isCollapsed && (
           <div className="flex items-start justify-start w-full">
@@ -471,18 +473,17 @@ const SharedSidebar = () => {
             />
           </div>
         )}
-        
+
         {/* Collapse Button */}
         <button
           onClick={toggleSidebar}
-          className={`p-2 rounded-lg border border-gray-300 transition-all duration-200 ${
-            isCollapsed 
-              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2" 
+          className={`p-2 rounded-lg border border-brand-secondary/20 transition-all duration-200 ${isCollapsed
+              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
               : "absolute top-4 right-4"
-          }`}
-          style={{ 
+            }`}
+          style={{
             backgroundColor: "#fff",
-            color: "#586ab1"
+            color: "#2E5E99"
           }}
         >
           {isCollapsed ? (
@@ -500,24 +501,23 @@ const SharedSidebar = () => {
             {item.children ? (
               <div
                 onClick={() => !isCollapsed && toggleItem(item.name)}
-                className={`group flex items-center justify-between px-3 py-3 rounded-lg cursor-pointer transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
-                  expandedItems[item.name] && !isCollapsed
-                    ? "text-[#586ab1]"
-                    : "text-slate-600"
-                } ${isCollapsed ? "justify-center" : ""}`}
+                className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name] && !isCollapsed
+                    ? "bg-brand-secondary/10 text-brand-primary"
+                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                  } ${isCollapsed ? "justify-center" : ""}`}
               >
                 <div className="flex items-center">
                   <div
-                    className={`flex items-center justify-center ${
-                      isCollapsed ? "mr-0" : "mr-3"
-                    }`}
+                    className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
+                      }`}
                   >
                     <item.icon
-                      className="h-5 w-5 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
+                      className={`h-5 w-5 transition-colors duration-200 ${expandedItems[item.name] && !isCollapsed ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                        }`}
                     />
                   </div>
                   {!isCollapsed && (
-                    <span className="text-base  whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
+                    <span className="text-base whitespace-nowrap truncate font-medium">
                       {item.name}
                     </span>
                   )}
@@ -526,12 +526,12 @@ const SharedSidebar = () => {
                 {!isCollapsed && (
                   <div className="transition-colors">
                     {expandedItems[item.name] ? (
-                      <ChevronUp 
-                        className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                      <ChevronUp
+                        className="h-4 w-4 text-brand-primary"
                       />
                     ) : (
-                      <ChevronDown 
-                        className="h-4 w-4 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
+                      <ChevronDown
+                        className="h-4 w-4 text-slate-700 group-hover:text-brand-primary"
                       />
                     )}
                   </div>
@@ -541,51 +541,58 @@ const SharedSidebar = () => {
               <NavLink
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-3 rounded-lg transition-all duration-200 hover:text-[#586ab1] text-slate-600 ${
-                    isActive
-                      ? "text-[#586ab1]"
-                      : "text-slate-600"
+                  `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
+                    ? "text-brand-primary bg-brand-secondary/5"
+                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
                   } ${isCollapsed ? "justify-center" : ""}`
                 }
               >
-                <div
-                  className={`flex items-center justify-center ${
-                    isCollapsed ? "mr-0" : "mr-3"
-                  }`}
-                >
-                  <item.icon 
-                    className="h-5 w-5 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]" 
-                  />
-                </div>
-                {!isCollapsed && (
-                  <span className="text-base whitespace-nowrap truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
-                    {item.name}
-                  </span>
+                {({ isActive }) => (
+                  <>
+                    <div
+                      className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
+                        }`}
+                    >
+                      <item.icon
+                        className={`h-5 w-5 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                          }`}
+                      />
+                    </div>
+                    {!isCollapsed && (
+                      <span className="text-base whitespace-nowrap truncate">
+                        {item.name}
+                      </span>
+                    )}
+                  </>
                 )}
               </NavLink>
             )}
 
             {/* Submenu */}
             {item.children && !isCollapsed && expandedItems[item.name] && (
-              <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-gray-300">
+              <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-brand-secondary/20">
                 {item.children.map((child) => (
                   <NavLink
                     key={child.name}
                     to={child.href}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap hover:text-[#586ab1] text-slate-600 ${
-                        isActive
-                          ? "text-[#586ab1]"
-                          : "text-slate-600"
+                      `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
+                        ? "text-brand-primary bg-brand-secondary/5"
+                        : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
                       }`
                     }
                   >
-                    <child.icon
-                      className="h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]"
-                    />
-                    <span className="text-sm  truncate transition-colors duration-200 text-slate-600 group-hover:text-[#586ab1]">
-                      {child.name}
-                    </span>
+                    {({ isActive }) => (
+                      <>
+                        <child.icon
+                          className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
+                            }`}
+                        />
+                        <span className="text-sm truncate">
+                          {child.name}
+                        </span>
+                      </>
+                    )}
                   </NavLink>
                 ))}
               </div>

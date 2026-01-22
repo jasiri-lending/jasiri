@@ -118,66 +118,85 @@ const CallbackPending = () => {
   };
 
   const fetchPendingCustomers = async () => {
-    setLoading(true);
-    try {
-      // Build the query
-      let query = supabase
-        .from("customers")
-        .select(`
-          *,
-          branches (
-            id,
-            name
-          ),
-          regions (
-            id,
-            name
-          ),
-          users:created_by (
-            id,
-            full_name
-          ),
-          customer_verifications(*)
-        `)
-        .eq("status", "cso_review")
-        .eq("form_status", "submitted")
-        .order("created_at", { ascending: false });
+  setLoading(true);
+  try {
+    // Build the query - REMOVED: tenant_id filter (column doesn't exist)
+    let query = supabase
+      .from("customers")
+      .select(`
+        *,
+        branches (
+          id,
+          name
+        ),
+        regions (
+          id,
+          name
+        ),
+        users:created_by (
+          id,
+          full_name,
+          tenant_id
+        ),
+        customer_verifications(*)
+      `)
+      .eq("status", "cso_review")
+      .eq("form_status", "submitted")
+      .order("created_at", { ascending: false });
 
-      // Apply role-based filtering for initial fetch
-      if (profile?.role === 'regional_manager' && profile.region_id) {
-        query = query.eq("region_id", profile.region_id);
-      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
-        query = query.eq("branch_id", profile.branch_id);
-      } else if (profile?.role === 'relationship_officer') {
-        query = query.eq("created_by", profile.id);
-      }
+    console.log("🔧 Base query filters:", {
+      status: "cso_review",
+      form_status: "submitted"
+    });
 
-      const { data, error } = await query;
-
-      if (error) {
-        console.error("Error fetching pending customers:", error.message);
-      } else {
-        // Filter by tenant_id from the created_by user
-        const filteredByTenant = data?.filter(customer => {
-          return customer.users?.tenant_id === profile?.tenant_id;
-        }) || [];
-
-        const enriched = (filteredByTenant || []).map((c) => {
-          const bmVerification =
-            c.customer_verifications?.find((v) => v.role === "bm") || null;
-          return {
-            ...c,
-            bm_verification: bmVerification,
-          };
-        });
-        setCustomers(enriched);
-      }
-    } catch (err) {
-      console.error("Error:", err);
-    } finally {
-      setLoading(false);
+    // Apply role-based filtering for initial fetch
+    if (profile?.role === 'regional_manager' && profile.region_id) {
+      query = query.eq("region_id", profile.region_id);
+    } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+      query = query.eq("branch_id", profile.branch_id);
+    } else if (profile?.role === 'relationship_officer') {
+      query = query.eq("created_by", profile.id);
     }
-  };
+
+    const { data, error } = await query;
+    
+    if (error) {
+      console.error("❌ Query error:", error);
+      throw error;
+    }
+
+    if (data && data.length > 0) {
+      console.log("✅ Data fetched:", data.length, "records");
+
+      // Filter by tenant_id using the related user's tenant_id
+      const tenantFiltered = data.filter(c => 
+        c.users?.tenant_id === profile.tenant_id
+      );
+
+      console.log("✅ After tenant filter:", tenantFiltered.length, "records");
+
+      // Enrich with verification data
+      const enriched = tenantFiltered.map((c) => {
+        const bmVerification =
+          c.customer_verifications?.find((v) => v.role === "bm") || null;
+        return {
+          ...c,
+          bm_verification: bmVerification,
+        };
+      });
+
+      setCustomers(enriched);
+    } else {
+      console.log("ℹ️ No data returned from query");
+      setCustomers([]);
+    }
+  } catch (err) {
+    console.error("❌ Unexpected error:", err);
+    setCustomers([]);
+  } finally {
+    setLoading(false);
+  }
+};
 
   // Initial data fetch - only runs once when profile is available
   useEffect(() => {

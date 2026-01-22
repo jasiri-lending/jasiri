@@ -9,6 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
+    PhoneIcon,
   ChevronDoubleRightIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
@@ -371,13 +372,20 @@ const ApprovalPending = () => {
     setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, selectedStatus, customers]);
 
-  const handleApprove = (customerId) => {
+
+const handleApprove = (customerId) => {
+  if (profile?.role === "customer_service_officer") {
+    navigate(`/customer/${customerId}/verify-customer_service_officer`);
+  } else {
     navigate(`/customer/${customerId}/verify`);
-  };
+  }
+};
 
   const handleView = (customer) => {
     navigate(`/customer/${customer.id}/details`);
   };
+
+
 
   // Pagination calculations
   const totalPages = Math.ceil(filteredCustomers.length / itemsPerPage);
@@ -918,29 +926,35 @@ const ApprovalPending = () => {
                           {displayStatus || "N/A"}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* View Customer */}
-                          <button
-                            onClick={() => handleView(customer)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="View Customer Details"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
+                 <td className="px-5 py-3.5 text-center whitespace-nowrap">
+ <td className="px-5 py-3.5 text-center whitespace-nowrap">
+  <div className="flex items-center justify-center gap-1.5">
+    {/* View Customer */}
+    <button
+      onClick={() => handleView(customer)}
+      className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+      title="View Customer Details"
+    >
+      <EyeIcon className="h-4 w-4" />
+    </button>
 
-                          {/* Approve Button (only for authorized users and specific status) */}
-                          {showApproveButton && (
-                            <button
-                              onClick={() => handleApprove(customer.id)}
-                              className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                              title="Approve Customer"
-                            >
-                              <CheckIcon className="h-4 w-4" />
-                            </button>
-                          )}
-                        </div>
-                      </td>
+    {/* Conditional Action Button based on role and status */}
+    {showApproveButton && (
+      <button
+        onClick={() => handleApprove(customer.id)}
+        className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
+        title={profile?.role === "customer_service_officer" ? "Spoof Call" : "Approve Customer"}
+      >
+        {profile?.role === "customer_service_officer" ? (
+          <PhoneIcon className="h-4 w-4" />
+        ) : (
+          <CheckIcon className="h-4 w-4" />
+        )}
+      </button>
+    )}
+  </div>
+</td>
+</td>
                     </tr>
                   );
                 })

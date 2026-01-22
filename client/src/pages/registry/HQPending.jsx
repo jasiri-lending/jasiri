@@ -135,7 +135,8 @@ const HQPending = () => {
           ),
           users:created_by (
             id,
-            full_name
+            full_name,
+            tenant_id
           )
         `)
         .eq("status", "ca_review")
@@ -399,10 +400,41 @@ const HQPending = () => {
     return '#586ab1'; // default blue
   };
 
+  // Check if user has permission to view this page
+  const hasPermission = () => {
+    if (!profile) return false;
+    
+    const allowedRoles = [
+      'credit_analyst_officer',
+      'regional_manager',
+      'branch_manager',
+      'relationship_officer'
+    ];
+    
+    return allowedRoles.includes(profile.role);
+  };
+
   if (loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
         <Spinner text="Loading pending HQ reviews..." />
+      </div>
+    );
+  }
+
+  // Check permission to view the page
+  if (!hasPermission()) {
+    return (
+      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 flex items-center justify-center">
+            <XMarkIcon className="h-8 w-8 text-red-600" />
+          </div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">Access Denied</h3>
+          <p className="text-xs text-gray-500 max-w-sm mx-auto">
+            You don't have permission to view HQ pending reviews. Please contact your administrator.
+          </p>
+        </div>
       </div>
     );
   }
@@ -726,8 +758,8 @@ const HQPending = () => {
                           <EyeIcon className="h-4 w-4" />
                         </button>
 
-                        {/* Verify Button - Only for credit_analyst_officer and branch_manager */}
-                        {(profile?.role === "credit_analyst_officer" || profile?.role === "branch_manager") && (
+                        {/* Verify Button - Only for credit_analyst_officer */}
+                        {profile?.role === "credit_analyst_officer" && (
                           <button
                             onClick={() => handleVerify(customer.id)}
                             className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"

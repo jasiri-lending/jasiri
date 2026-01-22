@@ -348,12 +348,12 @@ const LoanPendingDisbursement = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-brand-surface text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
-            Loans Pending Disbursement
+            Loans Pending Disbursement 
           </h1>
         </div>
         <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
@@ -588,22 +588,18 @@ const LoanPendingDisbursement = () => {
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
                       <div className="flex flex-col">
                         <span>{loan.product_name || loan.product || "N/A"}</span>
-                        {loan.is_new_loan && (
+                        {/* {loan.is_new_loan && (
                           <span className="mt-1 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
                             New Customer
                           </span>
-                        )}
+                        )} */}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
                       <div className="font-medium text-emerald-600">
                         {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
                       </div>
-                      {loan.weekly_payment && (
-                        <div className="text-xs text-gray-500">
-                          Weekly: Ksh {Number(loan.weekly_payment).toLocaleString()}
-                        </div>
-                      )}
+                     
                     </td>
                     <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">

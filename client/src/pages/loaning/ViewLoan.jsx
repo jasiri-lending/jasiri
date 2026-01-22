@@ -26,6 +26,7 @@ import {
   ArrowTrendingDownIcon,
 } from "@heroicons/react/24/outline";
 
+
 const ViewLoan = () => {
   const { loanId } = useParams();
   const navigate = useNavigate();
@@ -40,6 +41,7 @@ const ViewLoan = () => {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('loanInformation');
   const [payments, setPayments] = useState([]);
+  
 
   useEffect(() => {
     if (loanId) {
@@ -899,10 +901,7 @@ const ViewLoan = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-blue-200 border-t-blue-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading loan details...</p>
-        </div>
+      
       </div>
     );
   }
@@ -926,7 +925,7 @@ const ViewLoan = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50">
+    <div className="min-h-screen bg-brand-surface">
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 border border-blue-200">

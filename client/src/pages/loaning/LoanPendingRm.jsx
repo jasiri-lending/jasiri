@@ -16,10 +16,14 @@ import {
 } from "@heroicons/react/24/outline";
 import ApproveLoan from "./ApproveLoan";
 import Spinner from "../../components/Spinner";
+import { useNavigate } from "react-router-dom";
+
 
 const LoanPendingRm = () => {
   const { profile, loading: authLoading } = useAuth();
   const hasFetchedData = useRef(false);
+     const navigate = useNavigate(); 
+  
 
   const [pendingLoans, setPendingLoans] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -66,7 +70,7 @@ const LoanPendingRm = () => {
             )
           )
         `)
-        .eq('status', 'rm_review')
+        .eq('status', 'rn_review')
         .order('approved_by_bm_at', { ascending: false });
 
       // Filter by region for regional managers
@@ -336,6 +340,11 @@ const LoanPendingRm = () => {
     const date = new Date(dateString);
     return date.toLocaleDateString("en-GB");
   };
+
+  // Handle view loan details
+ const handleViewLoan = (loanId) => {
+  navigate(`/loans/${loanId}`);
+};
 
   if (selectedLoan) {
     return <ApproveLoan loan={selectedLoan} onComplete={handleComplete} />;
@@ -608,21 +617,23 @@ const LoanPendingRm = () => {
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
-                        {isRegionalManager ? (
+                        {/* View Button - Available for all roles */}
+                        <button
+                          onClick={() => handleViewLoan(loan.id)}
+                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          title="View Loan Details"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+
+                        {/* Verify/Approve Button - Only for regional managers */}
+                        {isRegionalManager && (
                           <button
                             onClick={() => setSelectedLoan(loan)}
                             className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Review Loan"
+                            title="Review and Approve Loan"
                           >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button
-                            disabled
-                            className="p-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-400 cursor-not-allowed"
-                            title="View Only"
-                          >
-                            <LockClosedIcon className="h-4 w-4" />
+                            <CheckCircleIcon className="h-4 w-4" />
                           </button>
                         )}
                       </div>

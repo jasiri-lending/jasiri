@@ -18,7 +18,12 @@ export default {
         text: "#111827",        // Default text color
         background: "#FFFFFF",  // Clean white background
         muted: "#6B7280",       // Subtle gray for secondary text
-      },
+        brand: {
+          surface: "#E7F0FA",   // Backgrounds / surfaces
+          secondary: "#7BA4D0", // Secondary elements
+          primary: "#2E5E99",   // Primary actions
+          btn: "#586ab1",       // Buttons
+        },      },
     },
   },
   plugins: [],

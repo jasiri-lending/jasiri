@@ -209,7 +209,7 @@ useEffect(() => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 p-6">
+    <div className="min-h-screen bg-brand-surface text-gray-800 border-r border-gray-200 p-6">
       <div className="max-w-7xl mx-auto">
        {/* Header Section */}
 <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-2">
@@ -233,7 +233,7 @@ useEffect(() => {
         value={searchTerm}
         onChange={handleSearchChange}
         className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg bg-white shadow-sm 
-                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                   focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-500 text-sm"
       />
     </div>
   </div>
