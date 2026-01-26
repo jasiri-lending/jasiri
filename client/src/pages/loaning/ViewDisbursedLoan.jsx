@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import { usePermissions } from "../../hooks/usePermissions";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -23,8 +24,9 @@ import PromiseToPayForm from "../ptp/PromiseToPayForm";
 const ViewDisbursedLoan = () => {
   const { loanId } = useParams();
   const { profile } = useAuth();
+  const { hasPermission, loading: permsLoading } = usePermissions();
   const navigate = useNavigate();
-  
+
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [repaymentSchedule, setRepaymentSchedule] = useState([]);
@@ -97,10 +99,10 @@ const ViewDisbursedLoan = () => {
 
       setLoanDetails(loanData);
       setCustomer(loanData.customers);
-      
+
       // Build approval trail
       const trail = [];
-      
+
       if (loanData.booked_by && usersData[loanData.booked_by]) {
         trail.push({
           role: 'Relationship Officer',
@@ -178,8 +180,8 @@ const ViewDisbursedLoan = () => {
     for (let week = 1; week <= duration; week++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(startDate.getDate() + (week * 7));
-      
-      const paymentRecord = repayments.find(repayment => 
+
+      const paymentRecord = repayments.find(repayment =>
         new Date(repayment.due_date).toDateString() === dueDate.toDateString()
       );
 
@@ -196,7 +198,7 @@ const ViewDisbursedLoan = () => {
         paid_date: paymentRecord ? paymentRecord.payment_date : null
       });
     }
-    
+
     setRepaymentSchedule(schedule);
   };
 
@@ -229,12 +231,31 @@ const ViewDisbursedLoan = () => {
     return { paid, pending, overdue, total: repaymentSchedule.length };
   };
 
-  if (loading) {
+  if (loading || permsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mb-4 mx-auto"></div>
           <p className="text-gray-600 font-medium">Loading loan details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasPermission('loan.view')) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
+        <div className="text-center">
+          <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-xl font-semibold text-gray-900 mb-2">Access Denied</h3>
+          <p className="text-gray-600 mb-4">You do not have permission to view loan details.</p>
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 text-white rounded-xl bg-gray-600 hover:bg-gray-700 mx-auto"
+          >
+            <ArrowLeftIcon className="h-4 w-4" />
+            Go Back
+          </button>
         </div>
       </div>
     );
@@ -280,7 +301,7 @@ const ViewDisbursedLoan = () => {
                 <h1 className="text-sm text-center font-semibold text-slate-600">
                   Loan #{loanDetails.id} - {customer?.Firstname} {customer?.Surname}
                 </h1>
-              
+
               </div>
             </div>
             <div className="flex items-center gap-2 px-4 py-2 rounded-lg bg-emerald-50 border border-emerald-100">
@@ -442,11 +463,10 @@ const ViewDisbursedLoan = () => {
             <div className="space-y-4">
               {approvalTrail.map((step, index) => (
                 <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                  <div className={`w-3 h-3 rounded-full mt-2 ${
-                    step.decision === 'approved' ? 'bg-green-500' : 
-                    step.decision === 'rejected' ? 'bg-red-500' : 
-                    step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
-                  }`}></div>
+                  <div className={`w-3 h-3 rounded-full mt-2 ${step.decision === 'approved' ? 'bg-green-500' :
+                      step.decision === 'rejected' ? 'bg-red-500' :
+                        step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
+                    }`}></div>
                   <div className="flex-1">
                     <div className="flex justify-between items-center">
                       <span className="text-sm font-semibold text-gray-900">{step.role}</span>
@@ -457,9 +477,8 @@ const ViewDisbursedLoan = () => {
                     <p className="text-sm text-gray-700 mt-1">{step.name}</p>
                     {step.branch && <p className="text-xs text-gray-600">Branch: {step.branch}</p>}
                     {step.decision && (
-                      <p className={`text-xs font-medium mt-1 ${
-                        step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
-                      }`}>
+                      <p className={`text-xs font-medium mt-1 ${step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
+                        }`}>
                         {step.decision.toUpperCase()}
                       </p>
                     )}
@@ -476,9 +495,9 @@ const ViewDisbursedLoan = () => {
 
       {/* Promise to Pay Form Modal */}
       {showPTPForm && (
-        <PromiseToPayForm 
-          loan={loanDetails} 
-          customer={customer} 
+        <PromiseToPayForm
+          loan={loanDetails}
+          customer={customer}
           createdBy={profile?.id}
           onClose={() => setShowPTPForm(false)}
         />

@@ -23,25 +23,26 @@ import {
 } from 'lucide-react';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import { useNavigate } from 'react-router-dom';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 
 // Stat Card Component with Gradient Design
-const StatCard = ({ 
-  name, 
-  value, 
-  change, 
-  icon: Icon, 
-  gradient, 
-  changeType, 
-  description, 
+const StatCard = ({
+  name,
+  value,
+  change,
+  icon: Icon,
+  gradient,
+  changeType,
+  description,
   loading,
-  secondaryValue 
+  secondaryValue
 }) => {
   return (
     <div className={`relative rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 overflow-hidden group ${gradient} border border-white/20`}>
       {/* Animated background effect */}
       <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-      
+
       <div className="relative z-10">
         <div className="flex items-start justify-between">
           <div className="flex-1">
@@ -57,11 +58,10 @@ const StatCard = ({
                 )}
               </p>
               {change && (
-                <span className={`text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-full backdrop-blur-sm ${
-                  changeType === 'positive' 
-                    ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20' 
-                    : 'bg-rose-500/10 text-rose-700 border border-rose-500/20'
-                }`}>
+                <span className={`text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-full backdrop-blur-sm ${changeType === 'positive'
+                  ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
+                  : 'bg-rose-500/10 text-rose-700 border border-rose-500/20'
+                  }`}>
                   {changeType === 'positive' ? (
                     <TrendingUp className="h-3 w-3" />
                   ) : (
@@ -107,11 +107,10 @@ const TimePeriodSelector = ({ value, onChange }) => {
         <button
           key={period.id}
           onClick={() => onChange(period.id)}
-          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${
-            value === period.id
-              ? 'text-white shadow-sm'
-              : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-          }`}
+          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${value === period.id
+            ? 'text-white shadow-sm'
+            : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+            }`}
           style={value === period.id ? { backgroundColor: "#586ab1" } : {}}
         >
           {period.label}
@@ -123,6 +122,7 @@ const TimePeriodSelector = ({ value, onChange }) => {
 
 const AdminDashboard = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [stats, setStats] = useState([]);
   const [tenants, setTenants] = useState([]);
   const [filteredTenants, setFilteredTenants] = useState([]);
@@ -256,10 +256,10 @@ const AdminDashboard = () => {
         statsArray.push({
           name: 'Total Tenants',
           value: totalTenants.toLocaleString(),
-       
+
           icon: Building,
           gradient: 'bg-gradient-to-br from-violet-100/60 to-purple-200/60',
-        
+
           description: 'Active SaaS tenants',
         });
       }
@@ -269,7 +269,7 @@ const AdminDashboard = () => {
         {
           name: 'Total Users',
           value: totalUsers.toLocaleString(),
-       
+
           icon: Users,
           gradient: 'bg-gradient-to-br from-blue-100/60 to-cyan-200/60',
           description: 'System users',
@@ -277,7 +277,7 @@ const AdminDashboard = () => {
         {
           name: 'Total Customers',
           value: totalCustomers.toLocaleString(),
-     
+
           icon: Shield,
           gradient: 'bg-gradient-to-br from-emerald-100/60 to-green-200/60',
           description: 'Registered customers',
@@ -285,10 +285,10 @@ const AdminDashboard = () => {
         {
           name: 'Total Loans',
           value: totalLoans.toLocaleString(),
-         
+
           icon: FileText,
           gradient: 'bg-gradient-to-br from-purple-100/60 to-pink-200/60',
-       
+
           description: 'All loan applications',
         }
       );
@@ -299,7 +299,7 @@ const AdminDashboard = () => {
           name: 'Disbursed Amount',
           value: `KES ${formatLargeNumber(disbursedStats.amount)}`,
           secondaryValue: `${disbursedStats.count.toLocaleString()} loans`,
-       
+
           icon: DollarSign,
           gradient: 'bg-gradient-to-br from-amber-100/60 to-orange-200/60',
           changeType: 'positive',
@@ -308,28 +308,28 @@ const AdminDashboard = () => {
         {
           name: 'Outstanding Balance',
           value: `KES ${formatLargeNumber(outstandingStats.amount)}`,
-       
+
           icon: AlertTriangle,
           gradient: 'bg-gradient-to-br from-rose-100/60 to-red-200/60',
-      
+
           description: 'Pending collection',
         },
         {
           name: 'Total Revenue',
           value: `KES ${formatLargeNumber(revenueStats.amount)}`,
-       
+
           icon: Coins,
           gradient: 'bg-gradient-to-br from-yellow-100/60 to-amber-200/60',
-       
+
           description: 'Fees & interest earned',
         },
         {
           name: 'Collections',
           value: `KES ${formatLargeNumber(collectionsAmount)}`,
-       
+
           icon: Banknote,
           gradient: 'bg-gradient-to-br from-teal-100/60 to-emerald-200/60',
-      
+
           description: 'Amount collected this period',
         },
       ];
@@ -383,7 +383,7 @@ const AdminDashboard = () => {
 
   const fetchDisbursedStats = useCallback(async (userIds, dateRange) => {
     if (userIds.length === 0) return { count: 0, amount: 0 };
-    
+
     const { data } = await supabase
       .from('loans')
       .select('scored_amount')
@@ -391,7 +391,7 @@ const AdminDashboard = () => {
       .in('booked_by', userIds)
       .gte('disbursed_at', dateRange.start.toISOString())
       .lte('disbursed_at', dateRange.end.toISOString());
-    
+
     return {
       count: data?.length || 0,
       amount: data?.reduce((sum, loan) => sum + (loan.scored_amount || 0), 0) || 0,
@@ -437,7 +437,7 @@ const AdminDashboard = () => {
       .in('booked_by', userIds)
       .gte('created_at', dateRange.start.toISOString())
       .lte('created_at', dateRange.end.toISOString());
-    
+
     const total = data?.reduce((sum, loan) => {
       const fees = (loan.processing_fee || 0) + (loan.registration_fee || 0);
       const interest = loan.total_interest || 0;
@@ -472,7 +472,7 @@ const AdminDashboard = () => {
       .in('loan_id', loanIds)
       .gte('paid_at', dateRange.start.toISOString())
       .lte('paid_at', dateRange.end.toISOString());
-    
+
     return data?.reduce((sum, payment) => sum + (payment.paid_amount || 0), 0) || 0;
   }, []);
 
@@ -484,7 +484,7 @@ const AdminDashboard = () => {
         .from('tenants')
         .select('*')
         .order('created_at', { ascending: false });
-      
+
       if (error) throw error;
       setTenants(data || []);
       setFilteredTenants(data?.slice(0, 5) || []);
@@ -497,12 +497,12 @@ const AdminDashboard = () => {
 
   // Event handlers
   const handleViewTenant = useCallback((tenant) => {
-    window.location.href = `/tenants/${tenant.id}`;
-  }, []);
+    navigate(`/tenants/${tenant.id}`);
+  }, [navigate]);
 
   const handleAddTenant = useCallback(() => {
-    window.location.href = '/users/create-tenant/admin';
-  }, []);
+    navigate('/users/create-tenant/admin');
+  }, [navigate]);
 
   const handleRefresh = useCallback(() => {
     setHasFetched(false);
@@ -533,7 +533,7 @@ const AdminDashboard = () => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        
+
         {/* Header Section */}
         <div className="mb-8">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -543,14 +543,14 @@ const AdminDashboard = () => {
                   <Shield className="h-6 w-6" style={{ color: "#586ab1" }} />
                 </div>
                 <div>
-                
+
                   <p className="text-sm mt-1" style={{ color: "#586ab1", opacity: 0.7 }}>
                     Welcome back, <span className="font-semibold">{profile?.full_name || 'Admin'}</span>
                   </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <TimePeriodSelector value={timePeriod} onChange={handleTimePeriodChange} />
               <button
@@ -567,8 +567,8 @@ const AdminDashboard = () => {
 
         {/* Error Alert */}
         {fetchError && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-rose-50 to-red-50 border border-red-200 rounded-xl" 
-               style={{ borderLeftColor: "#586ab1", borderLeftWidth: '4px' }}>
+          <div className="mb-6 p-4 bg-gradient-to-r from-rose-50 to-red-50 border border-red-200 rounded-xl"
+            style={{ borderLeftColor: "#586ab1", borderLeftWidth: '4px' }}>
             <p className="text-sm font-medium flex items-center gap-2" style={{ color: "#586ab1" }}>
               <AlertTriangle className="h-4 w-4" />
               {fetchError}
@@ -595,7 +595,7 @@ const AdminDashboard = () => {
                   </div>
                 </div>
                 <button
-                  onClick={handleAddTenant}
+                  onClick={() => navigate('/users/create-tenant/admin?openForm=true')}
                   className="px-5 py-3 text-white rounded-xl hover:opacity-90 transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-2 shadow-lg"
                   style={{ backgroundColor: "#586ab1" }}
                 >
@@ -672,9 +672,9 @@ const AdminDashboard = () => {
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {tenant.logo_url ? (
-                                <img 
-                                  src={tenant.logo_url} 
-                                  alt={tenant.name} 
+                                <img
+                                  src={tenant.logo_url}
+                                  alt={tenant.name}
                                   className="h-10 w-10 rounded-xl object-cover border border-gray-200"
                                 />
                               ) : (
@@ -743,13 +743,13 @@ const AdminDashboard = () => {
                 <div className="px-6 py-4 border-t border-gray-200 bg-gradient-to-r from-slate-50/80 to-blue-50/80">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <p className="text-sm" style={{ color: "#586ab1", opacity: 0.7 }}>
-                      {searchQuery 
-                        ? `Found ${filteredTenants.length} matching tenants` 
+                      {searchQuery
+                        ? `Found ${filteredTenants.length} matching tenants`
                         : `Showing ${Math.min(5, filteredTenants.length)} of ${tenants.length} tenants`
                       }
                     </p>
                     <button
-                      onClick={() => window.location.href = '/tenants'}
+                      onClick={() => navigate('/users/create-tenant/admin')}
                       className="text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white transition-colors"
                       style={{ color: "#586ab1" }}
                     >

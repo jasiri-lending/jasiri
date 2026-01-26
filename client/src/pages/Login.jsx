@@ -10,7 +10,7 @@ export default function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState(null);
 
-  const { loading, setLoading } = useGlobalLoading(); 
+  const { loading, setLoading } = useGlobalLoading();
 
   const navigate = useNavigate();
   const { setUser, setProfile } = useAuth();
@@ -36,7 +36,7 @@ export default function Login() {
       // Fetch user details
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id, full_name, email, role")
+        .select("id, full_name, email, role, must_change_password")
         .eq("id", userId)
         .maybeSingle();
       if (userError) throw userError;
@@ -80,6 +80,7 @@ export default function Login() {
         region_id: basicProfile?.region_id || null,
         branch: branchName,
         region: regionName,
+        must_change_password: userData.must_change_password
       };
 
       // Set user and profile
@@ -92,6 +93,11 @@ export default function Login() {
       // Redirect based on role AFTER setting everything
       // Use setTimeout to ensure state updates complete before navigation
       setTimeout(() => {
+        if (userData.must_change_password) {
+          navigate("/change-password", { replace: true });
+          return;
+        }
+
         switch (userData.role) {
           case "superadmin":
           case "admin":

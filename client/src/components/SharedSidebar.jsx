@@ -140,13 +140,7 @@ const SharedSidebar = () => {
 
     const registryChildren = [{ name: "Customers", href: "/registry/customers", icon: Users }];
 
-    if (isOfficer) {
-      registryChildren.push({
-        name: "Add Customer",
-        href: "/officer/customers/add",
-        icon: UserPlus,
-      });
-    }
+
 
     registryChildren.push(
       {
@@ -478,8 +472,8 @@ const SharedSidebar = () => {
         <button
           onClick={toggleSidebar}
           className={`p-2 rounded-lg border border-brand-secondary/20 transition-all duration-200 ${isCollapsed
-              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-              : "absolute top-4 right-4"
+            ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+            : "absolute top-4 right-4"
             }`}
           style={{
             backgroundColor: "#fff",
@@ -502,8 +496,8 @@ const SharedSidebar = () => {
               <div
                 onClick={() => !isCollapsed && toggleItem(item.name)}
                 className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name] && !isCollapsed
-                    ? "bg-brand-secondary/10 text-brand-primary"
-                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                  ? "bg-brand-secondary/10 text-brand-primary"
+                  : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
                   } ${isCollapsed ? "justify-center" : ""}`}
               >
                 <div className="flex items-center">

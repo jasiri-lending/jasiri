@@ -15,10 +15,12 @@ export default function AddUsers() {
 
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
+  const [availableRoles, setAvailableRoles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState("");
+  const [tenantDomain, setTenantDomain] = useState("");
 
   const [formData, setFormData] = useState({
     full_name: "",
@@ -30,20 +32,10 @@ export default function AddUsers() {
     region_id: "",
   });
 
-  const roles = [
-    { value: "admin", label: "Admin" },
-    { value: "operation_officer", label: "Operation Officer" },
-    { value: "regional_manager", label: "Regional Manager" },
-    { value: "relationship_officer", label: "Relationship Officer" },
-    { value: "customer_service_officer", label: "Customer Service Officer" },
-    { value: "credit_analyst_officer", label: "Credit Analyst Officer" },
-    { value: "branch_manager", label: "Branch Manager" },
-  ];
-
   const filteredRoles =
     profile?.role === "superadmin"
-      ? roles
-      : roles.filter((r) => r.value !== "admin"); // Admins cannot create other admins
+      ? availableRoles
+      : availableRoles.filter((r) => r.value !== "admin"); // Admins cannot create other admins
 
   const roleRequiresBranchRegion = (role) => {
     return role && role !== "admin" && role !== "operation_officer";
@@ -69,8 +61,37 @@ export default function AddUsers() {
         regionQuery,
       ]);
 
+      // Fetch dynamic roles
+      let rolesQuery = supabase.from("roles").select("name").order("name");
+      if (profile?.tenant_id) {
+        rolesQuery = rolesQuery.eq("tenant_id", profile.tenant_id);
+      }
+      const { data: rolesData, error: rolesError } = await rolesQuery;
+
+      if (rolesError) console.error("Error fetching roles:", rolesError);
+
+      if (rolesData) {
+        const formattedRoles = rolesData.map(r => ({
+          value: r.name,
+          label: r.name.split('_').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ')
+        }));
+        setAvailableRoles(formattedRoles);
+      }
+
       if (branchesRes.data) setBranches(branchesRes.data);
       if (regionsRes.data) setRegions(regionsRes.data);
+
+      // Fetch tenant email domain
+      if (profile?.tenant_id) {
+        const { data: tenantData } = await supabase
+          .from("tenants")
+          .select("email_domain")
+          .eq("id", profile.tenant_id)
+          .single();
+        if (tenantData?.email_domain) {
+          setTenantDomain(tenantData.email_domain);
+        }
+      }
     } catch (err) {
       console.error(err);
       setError("Failed to load branches or regions.");
@@ -79,67 +100,71 @@ export default function AddUsers() {
     }
   };
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  if (submitting) return;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
 
-  setSubmitting(true);
-  setError("");
+    setSubmitting(true);
+    setError("");
 
-  try {
-    if (!formData.email || !formData.password || !formData.full_name || !formData.role) {
-      throw new Error("All required fields must be filled");
+    try {
+      if (!formData.email || !formData.password || !formData.full_name || !formData.role) {
+        throw new Error("All required fields must be filled");
+      }
+
+      if (formData.password.length < 6) {
+        throw new Error("Password must be at least 6 characters");
+      }
+
+      if (tenantDomain && !formData.email.endsWith(`@${tenantDomain}`)) {
+        throw new Error(`Email must belong to the company domain: @${tenantDomain}`);
+      }
+
+      const logged_in_tenant_id = profile?.tenant_id;
+      if (!logged_in_tenant_id) {
+        throw new Error("Tenant ID not found. Please login again.");
+      }
+
+      const response = await fetch(`${API_BASE_URL}/create-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          full_name: formData.full_name.trim(),
+          email: formData.email.trim(),
+          password: formData.password.trim(),
+          role: formData.role,
+          phone: formData.phone || null,
+          branch_id: formData.branch_id || null,
+          region_id: formData.region_id || null,
+          logged_in_tenant_id,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok || !data.success) {
+        throw new Error(data.error || "User creation failed");
+      }
+
+      setShowSuccess(true);
+      setFormData({
+        full_name: "",
+        email: "",
+        password: "",
+        role: "",
+        phone: "",
+        branch_id: "",
+        region_id: "",
+      });
+
+      setTimeout(() => setShowSuccess(false), 5000);
+
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setSubmitting(false);
     }
-
-    if (formData.password.length < 6) {
-      throw new Error("Password must be at least 6 characters");
-    }
-
-    const logged_in_tenant_id = profile?.tenant_id;
-    if (!logged_in_tenant_id) {
-      throw new Error("Tenant ID not found. Please login again.");
-    }
-
-    const response = await fetch(`${API_BASE_URL}/create-user`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        full_name: formData.full_name.trim(),
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        role: formData.role,
-        phone: formData.phone || null,
-        branch_id: formData.branch_id || null,
-        region_id: formData.region_id || null,
-        logged_in_tenant_id,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || !data.success) {
-      throw new Error(data.error || "User creation failed");
-    }
-
-    setShowSuccess(true);
-    setFormData({
-      full_name: "",
-      email: "",
-      password: "",
-      role: "",
-      phone: "",
-      branch_id: "",
-      region_id: "",
-    });
-
-    setTimeout(() => setShowSuccess(false), 5000);
-
-  } catch (err) {
-    setError(err.message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+  };
 
 
   if (loading) {
@@ -228,8 +253,13 @@ const handleSubmit = async (e) => {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="john@example.com"
+                    placeholder={tenantDomain ? `user@${tenantDomain}` : "john@example.com"}
                   />
+                  {tenantDomain && (
+                    <p className="text-[10px] text-gray-500 mt-1">
+                      Must use company domain: <strong>@{tenantDomain}</strong>
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -250,6 +280,9 @@ const handleSubmit = async (e) => {
                     placeholder="Min 6 characters"
                     minLength={6}
                   />
+                  <p className="text-[10px] text-gray-400 mt-1 italic">
+                    User will be forced to change this on first login.
+                  </p>
                 </div>
 
                 <div>

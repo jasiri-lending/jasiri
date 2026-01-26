@@ -9,6 +9,7 @@ export default function TenantMpesaForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     tenant_id: "",
+    payment_type: "paybill", // 'paybill' or 'till'
     paybill_number: "",
     till_number: "",
     consumer_key: "",
@@ -44,43 +45,51 @@ export default function TenantMpesaForm() {
   };
 
   // Submit MPESA config
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setIsLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setIsLoading(true);
 
-  try {
-    await axios.post(
-      `${API_BASE_URL}/api/tenant-mpesa-config`,
-      formData,
-      {
-        headers: {
-          "Content-Type": "application/json",
-        },
-      }
-    );
+    try {
+      const payload = {
+        ...formData,
+        paybill_number: formData.payment_type === "paybill" ? formData.paybill_number : null,
+        till_number: formData.payment_type === "till" ? formData.till_number : null,
+        admin_id: (await supabase.auth.getUser()).data.user?.id
+      };
 
-    alert("MPESA configuration saved successfully!");
+      await axios.post(
+        `${API_BASE_URL}/api/tenant-mpesa-config`,
+        payload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+        }
+      );
 
-    // Reset form
-    setFormData({
-      tenant_id: "",
-      paybill_number: "",
-      till_number: "",
-      consumer_key: "",
-      consumer_secret: "",
-      passkey: "",
-      shortcode: "",
-      confirmation_url: "",
-      validation_url: "",
-      callback_url: "",
-    });
-  } catch (err) {
-    console.error(err);
-    alert("Error saving configuration. Please try again.");
-  } finally {
-    setIsLoading(false);
-  }
-};
+      alert("MPESA configuration saved successfully!");
+
+      // Reset form
+      setFormData({
+        tenant_id: "",
+        payment_type: "paybill",
+        paybill_number: "",
+        till_number: "",
+        consumer_key: "",
+        consumer_secret: "",
+        passkey: "",
+        shortcode: "",
+        confirmation_url: "",
+        validation_url: "",
+        callback_url: "",
+      });
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.error || "Error saving configuration. Please try again.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
   return (
@@ -126,33 +135,31 @@ export default function TenantMpesaForm() {
               </select>
             </div>
 
+            {/* XOR Selection for Paybill/Till */}
+            <div className="mb-8 grid grid-cols-2 gap-4">
+              <label className={`flex flex-col items-center justify-center p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'paybill' ? 'border-[#586ab1] bg-indigo-50/30' : 'border-gray-100'}`}>
+                <input type="radio" name="payment_type" value="paybill" checked={formData.payment_type === 'paybill'} onChange={handleChange} className="hidden" />
+                <span className={`text-xs font-bold uppercase tracking-widest ${formData.payment_type === 'paybill' ? 'text-[#586ab1]' : 'text-gray-500'}`}>Paybill</span>
+              </label>
+
+              <label className={`flex flex-col items-center justify-center p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'till' ? 'border-[#586ab1] bg-indigo-50/30' : 'border-gray-100'}`}>
+                <input type="radio" name="payment_type" value="till" checked={formData.payment_type === 'till'} onChange={handleChange} className="hidden" />
+                <span className={`text-xs font-bold uppercase tracking-widest ${formData.payment_type === 'till' ? 'text-[#586ab1]' : 'text-gray-500'}`}>Buy Goods Till</span>
+              </label>
+            </div>
+
             {/* Grid Layout for Inputs - Two per row */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               {/* Row 1 */}
-              <div>
+              <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Paybill Number *
+                  {formData.payment_type === 'paybill' ? 'Paybill Number' : 'Till Number'} *
                 </label>
                 <input
                   type="text"
-                  name="paybill_number"
-                  placeholder="e.g., 123456"
-                  value={formData.paybill_number}
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Till Number *
-                </label>
-                <input
-                  type="text"
-                  name="till_number"
-                  placeholder="e.g., 1234567"
-                  value={formData.till_number}
+                  name={formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number'}
+                  placeholder={formData.payment_type === 'paybill' ? "e.g., 123456" : "e.g., 521234"}
+                  value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number}
                   onChange={handleChange}
                   className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
                   required

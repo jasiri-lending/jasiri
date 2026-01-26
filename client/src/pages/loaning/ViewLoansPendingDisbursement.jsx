@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import { usePermissions } from "../../hooks/usePermissions";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -34,11 +35,11 @@ const SMSService = {
       console.warn('Empty phone number provided');
       return '';
     }
-    
+
     let cleaned = String(phone).replace(/\D/g, '');
-    
+
     console.log('Formatting phone:', phone, '-> cleaned:', cleaned);
-    
+
     if (cleaned.startsWith('254')) {
       if (cleaned.length === 12) {
         return cleaned;
@@ -58,7 +59,7 @@ const SMSService = {
         return '254' + cleaned.substring(1);
       }
     }
-    
+
     console.error('Invalid phone number format:', phone, 'cleaned:', cleaned);
     return '';
   },
@@ -66,7 +67,7 @@ const SMSService = {
   async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
     try {
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
-      
+
       if (!formattedPhone) {
         const errorMsg = `Invalid phone number format: ${phoneNumber}`;
         console.error('❌ SMS Error:', errorMsg);
@@ -90,7 +91,7 @@ const SMSService = {
       console.log('✅ SMS request sent successfully to:', formattedPhone);
 
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
+
       await this.logSMS(
         formattedPhone,
         message,
@@ -108,10 +109,10 @@ const SMSService = {
         cost: 0,
         recipient: formattedPhone
       };
-      
+
     } catch (error) {
       console.error(' SMS sending error:', error);
-      
+
       const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       if (formattedPhone) {
         await this.logSMS(
@@ -122,16 +123,16 @@ const SMSService = {
           error.message
         );
       }
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: error.message,
         originalNumber: phoneNumber
       };
     }
   },
 
-  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost,customerId) {
+  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId) {
     try {
       const { error } = await supabase
         .from('sms_logs')
@@ -142,7 +143,7 @@ const SMSService = {
           error_message: errorMessage,
           message_id: messageId,
           sender_id: senderId,
-            customer_id: customerId ,
+          customer_id: customerId,
           cost: cost
         });
 
@@ -156,13 +157,13 @@ const SMSService = {
 
   async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId) {
     const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing Mular Credit!`;
-    
+
     return await this.sendSMS(phoneNumber, message);
   },
 
   async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId) {
     const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly. - Mular Credit`;
-    
+
     return await this.sendSMS(phoneNumber, message);
   }
 };
@@ -172,7 +173,7 @@ const MpesaService = {
   async processLoanDisbursement(phoneNumber, amount, customerName, loanId, notes = '', processedBy = null) {
     try {
       const formattedPhone = SMSService.formatPhoneNumberForSMS(phoneNumber);
-      
+
       if (!formattedPhone) {
         throw new Error(`Invalid phone number format: ${phoneNumber}`);
       }
@@ -184,10 +185,10 @@ const MpesaService = {
         loanId,
         notes
       });
-      
+
       // PRODUCTION ENDPOINT ONLY
       const MPESA_API_BASE = 'https://mpesa-22p0.onrender.com/api';
-      
+
       // EXACT PAYLOAD MATCHING YOUR BACKEND
       const payload = {
         phoneNumber: formattedPhone,
@@ -213,9 +214,9 @@ const MpesaService = {
       }
 
       const result = await response.json();
-      
+
       console.log(' M-Pesa loan disbursement processed:', result);
-      
+
       // Log the successful transaction
       await this.logMpesaTransaction({
         loanId,
@@ -228,17 +229,17 @@ const MpesaService = {
         notes: notes,
         processedBy: processedBy
       });
-      
+
       return {
         success: true,
         message: result.message || 'Disbursement processed successfully',
         transactionId: result.transactionId || `B2C_${Date.now()}`,
         rawResponse: result
       };
-      
+
     } catch (error) {
       console.error('❌ M-Pesa loan disbursement error:', error);
-      
+
       // Log failed transaction - NO MOCK FALLBACK
       await this.logMpesaTransaction({
         loanId,
@@ -250,7 +251,7 @@ const MpesaService = {
         notes: notes,
         processedBy: processedBy
       });
-      
+
       throw new Error(`M-Pesa disbursement failed: ${error.message}`);
     }
   },
@@ -307,13 +308,13 @@ const MpesaService = {
 };
 
 // Disbursement Notes Modal Component
-const DisbursementNotesModal = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  loanDetails, 
+const DisbursementNotesModal = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  loanDetails,
   customer,
-  isLoading = false 
+  isLoading = false
 }) => {
   const [notes, setNotes] = useState('');
   const [includeSMS, setIncludeSMS] = useState(true);
@@ -342,7 +343,7 @@ const DisbursementNotesModal = ({
           <NotesIcon className="h-5 w-5 text-blue-600" />
           Loan Disbursement Notes
         </h3>
-        
+
         <div className="mb-4">
           <div className="bg-amber-50 rounded-lg p-3 mb-3">
             <div className="text-sm text-gray-700">
@@ -384,7 +385,7 @@ const DisbursementNotesModal = ({
             Customer will receive an SMS confirmation with transaction details.
           </p>
         </div>
-        
+
         <div className="flex justify-end gap-3">
           <button
             onClick={onClose}
@@ -417,11 +418,11 @@ const DisbursementNotesModal = ({
 };
 
 // Transaction History Modal Component
-const TransactionHistoryModal = ({ 
-  isOpen, 
-  onClose, 
+const TransactionHistoryModal = ({
+  isOpen,
+  onClose,
   transactions,
-  isLoading = false 
+  isLoading = false
 }) => {
   if (!isOpen) return null;
 
@@ -432,7 +433,7 @@ const TransactionHistoryModal = ({
       processing: { bg: 'bg-blue-100', text: 'text-blue-800', label: 'Processing' }
     };
     const statusConfig = config[status] || config.failed;
-    
+
     return (
       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusConfig.bg} ${statusConfig.text}`}>
         {statusConfig.label}
@@ -532,7 +533,19 @@ const ViewLoansPendingDisbursement = () => {
   const [transactions, setTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
 
-  const isCreditAnalyst = profile?.role === "credit_analyst_officer";
+  const { hasPermission, loading: permsLoading, permissions } = usePermissions();
+  const canDisburse = hasPermission('loan.disburse');
+
+  useEffect(() => {
+    if (!authLoading && !permsLoading) {
+      console.log("Debug: Permissions Check", {
+        role: profile?.role,
+        tenant_id: profile?.tenant_id,
+        permissions: permissions,
+        canDisburse: canDisburse
+      });
+    }
+  }, [profile, permissions, authLoading, permsLoading, canDisburse]);
 
   useEffect(() => {
     if (id && profile) {
@@ -544,7 +557,7 @@ const ViewLoansPendingDisbursement = () => {
     try {
       const { data: walletTxns, error } = await supabase
         .from("customer_wallets")
-        .select("credit, debit")                    
+        .select("credit, debit")
         .eq("customer_id", loanData.customer_id);
 
       if (error) throw error;
@@ -567,18 +580,18 @@ const ViewLoansPendingDisbursement = () => {
 
   const areFeesFullyPaid = () => {
     if (!loanDetails) return false;
-    
+
     if (loanDetails.is_new_loan) {
       return walletInfo.registration_fee_paid && walletInfo.processing_fee_paid;
     }
-    
+
     return walletInfo.processing_fee_paid;
   };
 
   const fetchLoanFullDetails = async (loanId) => {
     try {
       setLoading(true);
-      
+
       const { data: loanData, error: loanError } = await supabase
         .from("loans")
         .select(`
@@ -622,9 +635,9 @@ const ViewLoansPendingDisbursement = () => {
 
       setLoanDetails(loanData);
       setCustomer(loanData.customers);
-      
+
       const trail = [];
-      
+
       if (loanData.booked_by && usersData[loanData.booked_by]) {
         trail.push({
           role: 'Relationship Officer',
@@ -693,7 +706,7 @@ const ViewLoansPendingDisbursement = () => {
     for (let week = 1; week <= duration; week++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(startDate.getDate() + (week * 7));
-      
+
       schedule.push({
         week,
         due_date: dueDate.toISOString().split('T')[0],
@@ -704,7 +717,7 @@ const ViewLoansPendingDisbursement = () => {
         total: weeklyPayment
       });
     }
-    
+
     setRepaymentSchedule(schedule);
   };
 
@@ -786,11 +799,11 @@ const ViewLoansPendingDisbursement = () => {
         }
 
         toast.success("✅ Loan disbursed successfully! Money has been transferred to customer.");
-        
+
         setTimeout(() => {
           navigate('/pending-disbursements');
         }, 3000);
-        
+
       } else {
         setMpesaStatus('failed');
         throw new Error(mpesaResult.message || 'M-Pesa disbursement failed');
@@ -799,7 +812,7 @@ const ViewLoansPendingDisbursement = () => {
     } catch (error) {
       console.error("❌ Error during loan disbursement:", error);
       setMpesaStatus('failed');
-      
+
       // Specific error messages for production
       if (error.message.includes('Failed to fetch')) {
         toast.error("🌐 Network error: Cannot connect to M-Pesa service. Please check your internet connection.");
@@ -847,7 +860,7 @@ const ViewLoansPendingDisbursement = () => {
   const viewTransactionHistory = async () => {
     setLoadingTransactions(true);
     setShowTransactionHistory(true);
-    
+
     try {
       const transactionData = await MpesaService.getLoanTransactions(id);
       setTransactions(transactionData);
@@ -859,10 +872,10 @@ const ViewLoansPendingDisbursement = () => {
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || loading || permsLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-      
+
       </div>
     );
   }
@@ -891,14 +904,7 @@ const ViewLoansPendingDisbursement = () => {
     <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-sm font-semibold text-center text-slate-600">
-            Loan Details - #{loanDetails.id}
-          </h1>
-          <p className="text-gray-600 text-center mt-1">
-            Complete loan information and disbursement processing
-          </p>
-        </div>
+      
 
         <div className="space-y-6">
           {/* Loan Summary */}
@@ -935,7 +941,7 @@ const ViewLoansPendingDisbursement = () => {
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Product:</span>
@@ -951,9 +957,8 @@ const ViewLoansPendingDisbursement = () => {
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Loan Type:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${
-                    loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
                     {loanDetails.is_new_loan ? 'New Loan' : 'Repeat '}
                   </span>
                 </div>
@@ -1003,11 +1008,10 @@ const ViewLoansPendingDisbursement = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {/* M-Pesa Status */}
-                <div className={`p-4 rounded-lg border-2 ${
-                  mpesaStatus === 'success' ? 'bg-green-50 border-green-200' :
+                <div className={`p-4 rounded-lg border-2 ${mpesaStatus === 'success' ? 'bg-green-50 border-green-200' :
                   mpesaStatus === 'failed' ? 'bg-red-50 border-red-200' :
-                  'bg-blue-50 border-blue-200'
-                }`}>
+                    'bg-blue-50 border-blue-200'
+                  }`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-gray-700">M-Pesa Disbursement</span>
                     {mpesaStatus === 'processing' && (
@@ -1028,12 +1032,11 @@ const ViewLoansPendingDisbursement = () => {
                 </div>
 
                 {/* SMS Status */}
-                <div className={`p-4 rounded-lg border-2 ${
-                  smsStatus === 'success' ? 'bg-green-50 border-green-200' :
+                <div className={`p-4 rounded-lg border-2 ${smsStatus === 'success' ? 'bg-green-50 border-green-200' :
                   smsStatus === 'failed' ? 'bg-red-50 border-red-200' :
-                  smsStatus === 'processing' ? 'bg-blue-50 border-blue-200' :
-                  'bg-gray-50 border-gray-200'
-                }`}>
+                    smsStatus === 'processing' ? 'bg-blue-50 border-blue-200' :
+                      'bg-gray-50 border-gray-200'
+                  }`}>
                   <div className="flex items-center justify-between mb-2">
                     <span className="font-semibold text-gray-700">SMS Notification</span>
                     {smsStatus === 'processing' && (
@@ -1061,11 +1064,10 @@ const ViewLoansPendingDisbursement = () => {
           )}
 
           {/* Wallet & Fee Status */}
-          <div className={`rounded-2xl shadow-lg p-6 border ${
-            feesPaid 
-              ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200' 
-              : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
-          }`}>
+          <div className={`rounded-2xl shadow-lg p-6 border ${feesPaid
+            ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
+            : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
+            }`}>
             <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
               <BanknotesIcon className="h-6 w-6 text-emerald-600 mr-3" />
               Wallet & Fee Payment Status
@@ -1077,7 +1079,7 @@ const ViewLoansPendingDisbursement = () => {
                   KES {walletInfo.balance.toLocaleString()}
                 </div>
               </div>
-              
+
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="text-sm text-gray-600 mb-3">Processing Fee</div>
                 <div className="flex items-center justify-between">
@@ -1140,10 +1142,9 @@ const ViewLoansPendingDisbursement = () => {
             <div className="space-y-4">
               {approvalTrail.map((step, index) => (
                 <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
-                  <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${
-                    step.decision === 'approved' ? 'bg-green-500' : 
+                  <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${step.decision === 'approved' ? 'bg-green-500' :
                     step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
-                  }`}></div>
+                    }`}></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <div>
@@ -1157,11 +1158,10 @@ const ViewLoansPendingDisbursement = () => {
                     </div>
                     {step.decision && (
                       <div className="mb-2">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${
-                          step.decision === 'approved' 
-                            ? 'bg-green-100 text-green-800' 
-                            : 'bg-red-100 text-red-800'
-                        }`}>
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${step.decision === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : 'bg-red-100 text-red-800'
+                          }`}>
                           {step.decision === 'approved' ? (
                             <CheckCircleIcon className="h-4 w-4 mr-1" />
                           ) : (
@@ -1207,11 +1207,11 @@ const ViewLoansPendingDisbursement = () => {
                         Week {payment.week}
                       </td>
                       <td className="px-6 py-4 text-sm text-gray-900">
-                        {new Date(payment.due_date).toLocaleDateString('en-GB', { 
-                          weekday: 'short', 
-                          year: 'numeric', 
-                          month: 'short', 
-                          day: 'numeric' 
+                        {new Date(payment.due_date).toLocaleDateString('en-GB', {
+                          weekday: 'short',
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric'
                         })}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
@@ -1244,20 +1244,19 @@ const ViewLoansPendingDisbursement = () => {
           </div>
 
           {/* Disbursement Action */}
-          <div className={`rounded-2xl p-8 border-2 ${
-            isCreditAnalyst && feesPaid
-              ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300' 
-              : isCreditAnalyst && !feesPaid
+          <div className={`rounded-2xl p-8 border-2 ${canDisburse && feesPaid
+            ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-300'
+            : canDisburse && !feesPaid
               ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
               : 'bg-gradient-to-r from-gray-50 to-blue-50 border-gray-300'
-          }`}>
+            }`}>
             <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-4">
-              {isCreditAnalyst && feesPaid ? (
+              {canDisburse && feesPaid ? (
                 <>
                   <CheckCircleIcon className="h-7 w-7 text-accent mr-3" />
                   Ready for Disbursement
                 </>
-              ) : isCreditAnalyst && !feesPaid ? (
+              ) : canDisburse && !feesPaid ? (
                 <>
                   <ExclamationTriangleIcon className="h-7 w-7 text-amber-600 mr-3" />
                   Fees Payment Required
@@ -1265,19 +1264,19 @@ const ViewLoansPendingDisbursement = () => {
               ) : (
                 <>
                   <LockClosedIcon className="h-7 w-7 text-gray-600 mr-3" />
-                  View Only Mode
+                  No Permission to Disburse
                 </>
               )}
             </h3>
             <p className="text-gray-700 mb-6 text-xs">
-              {isCreditAnalyst && feesPaid
+              {canDisburse && feesPaid
                 ? "This loan has been fully approved and all required fees have been paid. You can now proceed with disbursement."
-                : isCreditAnalyst && !feesPaid
-                ? "This loan has been approved but required fees have not been fully paid. Disbursement will be available once all fees are settled."
-                : "You can view loan details but only Credit Analyst Officers can process disbursements."}
+                : canDisburse && !feesPaid
+                  ? "This loan has been approved but required fees have not been fully paid. Disbursement will be available once all fees are settled."
+                  : "You do not have the required permissions to disburse this loan."}
             </p>
-            
-          {isCreditAnalyst && (
+
+            {canDisburse && (
               <div className="flex gap-3 flex-wrap">
                 {feesPaid && (
                   <>
@@ -1289,7 +1288,7 @@ const ViewLoansPendingDisbursement = () => {
                       <CurrencyDollarIcon className="h-4 w-4" />
                       Process Disbursement
                     </button>
-                    
+
                     <button
                       onClick={viewTransactionHistory}
                       className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-brand-primary transition-all font-medium text-sm"
@@ -1299,7 +1298,7 @@ const ViewLoansPendingDisbursement = () => {
                     </button>
                   </>
                 )}
-                
+
                 <button
                   onClick={sendTestSMS}
                   disabled={!customer?.mobile}
@@ -1308,7 +1307,7 @@ const ViewLoansPendingDisbursement = () => {
                   <EnvelopeIcon className="h-4 w-4" />
                   Send Test SMS
                 </button>
-                
+
                 <button
                   onClick={() => navigate('/pending-disbursements')}
                   className="flex items-center gap-2 px-3 py-1.5 bg-white text-gray-700 border-2 border-gray-300 rounded-lg hover:bg-gray-50 transition-all font-medium text-sm"

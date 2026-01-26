@@ -8,6 +8,7 @@ import stkpush from "./routes/stkpush.js";
 import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import tenantRouter from "./routes/tenantRoutes.js";
+import mpesaConfigRouter from "./routes/mpesa_configure.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -36,8 +37,8 @@ app.use(express.json());
 
 // ✅ Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ 
-    status: "ok", 
+  res.json({
+    status: "ok",
     message: "Server is running",
     timestamp: new Date().toISOString(),
     port: process.env.PORT || 5000
@@ -51,6 +52,7 @@ app.use("/mpesa/c2b", stkpush);
 app.use("/api/report-users/create", createReportUser);
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/tenant", tenantRouter);
+app.use("/api", mpesaConfigRouter);
 
 // Create user endpoint
 app.post("/create-user", async (req, res) => {
@@ -87,6 +89,38 @@ app.post("/create-user", async (req, res) => {
       });
     }
 
+    // 1.5️⃣ Domain Enforcement
+    // Fetch tenant's allowed domain
+    const { data: tenant, error: tenantErr } = await supabase
+      .from("tenants")
+      .select("email_domain")
+      .eq("id", logged_in_tenant_id)
+      .single();
+
+    if (tenantErr || !tenant) {
+      return res.status(400).json({ success: false, error: "Invalid tenant or tenant domain not configured" });
+    }
+
+    const userDomain = email.split('@')[1]?.toLowerCase();
+    const allowedDomain = tenant.email_domain?.toLowerCase();
+
+    // Check for common personal email providers (block list)
+    const personalProviders = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"];
+
+    if (personalProviders.includes(userDomain)) {
+      return res.status(400).json({
+        success: false,
+        error: `Personal email addresses (${userDomain}) are not allowed. Please use your company email domain.`,
+      });
+    }
+
+    if (allowedDomain && userDomain !== allowedDomain) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid email domain. Users for this tenant must use @${allowedDomain}`,
+      });
+    }
+
     if (password.length < 6) {
       return res.status(400).json({
         success: false,
@@ -120,31 +154,32 @@ app.post("/create-user", async (req, res) => {
 
     const userId = authData.user.id;
 
-  // 3️⃣ Upsert into users table
-const { error: usersError } = await supabase
-  .from("users")
-  .upsert(
-    {
-      id: userId,
-      auth_id: userId,
-      full_name,
-      email,
-      role,
-      phone: phone || null,
-      tenant_id: logged_in_tenant_id,
-    },
-    { onConflict: "id" }
-  );
+    // 3️⃣ Upsert into users table
+    const { error: usersError } = await supabase
+      .from("users")
+      .upsert(
+        {
+          id: userId,
+          auth_id: userId,
+          full_name,
+          email,
+          role,
+          phone: phone || null,
+          tenant_id: logged_in_tenant_id,
+          must_change_password: true // Force password change on first login
+        },
+        { onConflict: "id" }
+      );
 
-if (usersError) {
-  console.error("Users table error:", usersError);
-  await supabase.auth.admin.deleteUser(userId);
+    if (usersError) {
+      console.error("Users table error:", usersError);
+      await supabase.auth.admin.deleteUser(userId);
 
-  return res.status(400).json({
-    success: false,
-    error: usersError.message,
-  });
-}
+      return res.status(400).json({
+        success: false,
+        error: usersError.message,
+      });
+    }
 
 
 
@@ -159,15 +194,15 @@ if (usersError) {
     }
 
 
-// // Insert into profiles
-// const { error: profilesError } = await supabaseAdmin
-//   .from("profiles")
-//   .insert({
-//     id: userId,
-//     branch_id: branch_id || null,
-//     region_id: region_id || null,
-//     tenant_id: logged_in_tenant_id,
-//   });
+    // // Insert into profiles
+    // const { error: profilesError } = await supabaseAdmin
+    //   .from("profiles")
+    //   .insert({
+    //     id: userId,
+    //     branch_id: branch_id || null,
+    //     region_id: region_id || null,
+    //     tenant_id: logged_in_tenant_id,
+    //   });
 
 
     // if (profilesError) {
@@ -214,11 +249,11 @@ app.use((req, res) => {
 // ✅ Error handling middleware (must be last)
 app.use((err, req, res, next) => {
   console.error("Express error handler:", err);
-  
+
   if (!res.headersSent) {
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      error: "Internal server error" 
+      error: "Internal server error"
     });
   }
 });

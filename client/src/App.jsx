@@ -108,9 +108,9 @@ import CustomerVerification from "./pages/registry/CustomerVerification.jsx";
 import Verification from "./pages/registry/Verification.jsx";
 import ViewLoan from "./pages/loaning/ViewLoan.jsx";
 import LoanInteraction from "./pages/loaning/LoanInteraction.jsx";
+import ChangePassword from "./pages/ChangePassword.jsx";
 
-import { ToastContainer } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { ToastProvider } from "./components/Toast";
 import ViewDisbursedLoan from "./pages/loaning/ViewDisbursedLoan.jsx";
 import ViewLoansPendingDisbursement from "./pages/loaning/ViewLoansPendingDisbursement.jsx";
 import NewJournalEntry from "./pages/accounting/NewJournalEntry.jsx";
@@ -132,13 +132,22 @@ import AnalyticsDashBoard from "./pages/analytics/AnalyticsDashboard.jsx";
 import PenaltySettings from "./pages/registry/Penalties.jsx";
 import ReportsLayout from "./context/ReportsLayout.jsx";
 
+// New Admin Pages
+import Branches from "./pages/admin/Branches.jsx";
+import Regions from "./pages/admin/Regions.jsx";
+import UserGroups from "./pages/admin/UserGroups.jsx";
+import Partners from "./pages/admin/Partners.jsx";
+import WorkflowSettings from "./pages/admin/WorkflowSettings.jsx";
+import WorkflowStatuses from "./pages/admin/WorkflowStatuses.jsx";
+import RolePermissionManager from "./pages/admin/RolePermissionManager.jsx";
+
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
-const { user, profile, initializing } = useAuth(); // ADD initializing
+  const { user, profile, initializing } = useAuth(); // ADD initializing
 
 
- 
+
 
 
 
@@ -149,67 +158,67 @@ const { user, profile, initializing } = useAuth(); // ADD initializing
   const sharedRoles = ['branch_manager', 'regional_manager', 'credit_analyst_officer', 'customer_service_officer', 'relationship_officer'];
   const isSharedRole = sharedRoles.includes(role);
 
-const renderSidebar = () => {
-  if (role === "admin" || role === "superadmin") {  // ADD superadmin here
-    return (
-      <SidebarAdmin
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      />
-    );
-  }
-  
-  if (isSharedRole) {
-    return (
-      <SharedSidebar
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        userRole={role}
-      />
-    );
-  }
-  
-  return null;
-};
+  const renderSidebar = () => {
+    if (role === "admin" || role === "superadmin") {  // ADD superadmin here
+      return (
+        <SidebarAdmin
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
+      );
+    }
 
- const renderHeader = () => {
-  if (role === "admin" || role === "superadmin") {  // ADD superadmin here
-    return (
-      <HeaderAdmin
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-      />
-    );
-  }
-  
-  if (isSharedRole) {
-    return (
-      <SharedHeader
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        userRole={role}
-      />
-    );
-  }
-  
-  return null;
-};
+    if (isSharedRole) {
+      return (
+        <SharedSidebar
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          userRole={role}
+        />
+      );
+    }
 
-const getDefaultRoute = () => {
-  switch (role) {
-    case "relationship_officer":
-    case "branch_manager":
-    case "regional_manager":
-    case "credit_analyst_officer":
-    case "customer_service_officer":
-      return "/dashboard";
-    case "admin":
-    case "superadmin":  // ADD THIS
-      return "/dashboard/admin";
-    default:
-      return "/dashboard";
-  }
-};
+    return null;
+  };
+
+  const renderHeader = () => {
+    if (role === "admin" || role === "superadmin") {  // ADD superadmin here
+      return (
+        <HeaderAdmin
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+        />
+      );
+    }
+
+    if (isSharedRole) {
+      return (
+        <SharedHeader
+          sidebarOpen={sidebarOpen}
+          setSidebarOpen={setSidebarOpen}
+          userRole={role}
+        />
+      );
+    }
+
+    return null;
+  };
+
+  const getDefaultRoute = () => {
+    switch (role) {
+      case "relationship_officer":
+      case "branch_manager":
+      case "regional_manager":
+      case "credit_analyst_officer":
+      case "customer_service_officer":
+        return "/dashboard";
+      case "admin":
+      case "superadmin":  // ADD THIS
+        return "/dashboard/admin";
+      default:
+        return "/dashboard";
+    }
+  };
 
   const ReportWrapper = memo(function ReportWrapper({ component: Component, userRole }) {
     return (
@@ -221,879 +230,895 @@ const getDefaultRoute = () => {
 
   return (
     <Router>
-      <ToastContainer
-        position="top-right"
-        autoClose={3000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-        theme="colored"
-      />
-      <div className="flex h-screen bg-gray-100 overflow-hidden">
-         {!initializing && profile && <>{renderSidebar()}</>}
+      <ToastProvider>
+        <div className="flex h-screen bg-gray-100 overflow-hidden">
+          {!initializing && profile && <>{renderSidebar()}</>}
 
-        <div className="flex flex-col flex-1 min-w-0">
-     {!initializing && profile && renderHeader()}
+          <div className="flex flex-col flex-1 min-w-0">
+            {!initializing && profile && renderHeader()}
 
-          <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6">
 
-            <Routes>
-              {/* Public route */}
+              <Routes>
+                {/* Public route */}
 
-  <Route
-    path="/"
-    element={
-      initializing ? (
-       
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      ) : user && profile ? (
-        <Navigate to={getDefaultRoute()} replace />
-      ) : (
-        <Navigate to="/login" replace />
-      )
-    }
-  />
+                <Route
+                  path="/"
+                  element={
+                    initializing ? (
+
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">Loading...</p>
+                        </div>
+                      </div>
+                    ) : user && profile ? (
+                      <Navigate to={getDefaultRoute()} replace />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
+                  }
+                />
 
 
-  <Route
-    path="/login"
-    element={
-      initializing ? (
-        <div className="min-h-screen flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-            <p className="mt-4 text-gray-600">Loading...</p>
-          </div>
-        </div>
-      ) : user && profile ? (
-        <Navigate to={getDefaultRoute()} replace />
-      ) : (
-        <Login />
-      )
-    }
-  />
-   
+                <Route
+                  path="/login"
+                  element={
+                    initializing ? (
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">Loading...</p>
+                        </div>
+                      </div>
+                    ) : user && profile ? (
+                      <Navigate to={getDefaultRoute()} replace />
+                    ) : (
+                      <Login />
+                    )
+                  }
+                />
 
-              {/* Shared Routes for RM, BM, CA, CSO, and Relationship Officer */}
-              {isSharedRole && (
-                <>
-                  {/* Dashboard - role-specific data filtering */}
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                <Route
+                  path="/change-password"
+                  element={
+                    initializing ? (
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">Loading...</p>
+                        </div>
+                      </div>
+                    ) : user ? (
+                      <ChangePassword />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
+                  }
+                />
 
-                  {/* Accounting */}
-                  <Route
-                    path="/accounting"
-                    element={
-                      <ProtectedRoute>
-                        <Accounting userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/accounting/transactions"
-                    element={
-                      <ProtectedRoute>
-                        <Transactions userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/accounting/chart-of-accounts"
-                    element={
-                      <ProtectedRoute>
-                        <ChartOfAccounts userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/accounting/bank-reconciliations"
-                    element={
-                      <ProtectedRoute>
-                        <BankReconciliations userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/accounting/journals"
-                    element={
-                      <ProtectedRoute>
-                        <Journals userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                {/* Shared Routes for RM, BM, CA, CSO, and Relationship Officer */}
+                {isSharedRole && (
+                  <>
+                    {/* Dashboard - role-specific data filtering */}
+                    <Route
+                      path="/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <Dashboard userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-
-                    <Route path="/journals/new" element={  <ProtectedRoute>
-                        <NewJournalEntry userRole={role} />
-                      </ProtectedRoute>} />
-      <Route path="/journals/:id" element={  <ProtectedRoute>
-                        <ViewJournal userRole={role} />
-                      </ProtectedRoute>} />
-
-                  {/* Registry */}
-                  <Route
-                    path="/registry"
-                    element={
-                      <ProtectedRoute>
-                        <Registry userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route
-                    path="/registry/customers"
-                    element={
-                      <ProtectedRoute>
-                        <AllCustomers userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route
-                    path="/registry/pending-amendments"
-                    element={
-                      <ProtectedRoute>
-                        <PendingAmendments userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                         <Route
-                    path="/registry/hq-pending"
-                    element={
-                      <ProtectedRoute>
-                        <HQPending userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-        <Route
-                    path="/transfer"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerTransferForm userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  <Route
-                    path="/registry/approvals-pending"
-                    element={
-                      <ProtectedRoute>
-                        <ApprovalPending userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-   <Route
-                    path="/registry/bm-pending"
-                    element={
-                      <ProtectedRoute>
-                        <PendingBM userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Accounting */}
+                    <Route
+                      path="/accounting"
+                      element={
+                        <ProtectedRoute>
+                          <Accounting userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/accounting/transactions"
+                      element={
+                        <ProtectedRoute>
+                          <Transactions userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/accounting/chart-of-accounts"
+                      element={
+                        <ProtectedRoute>
+                          <ChartOfAccounts userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/accounting/bank-reconciliations"
+                      element={
+                        <ProtectedRoute>
+                          <BankReconciliations userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/accounting/journals"
+                      element={
+                        <ProtectedRoute>
+                          <Journals userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
 
-                  <Route
-                    path="/registry/customer-transfer"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerTransfer userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/registry/customer-categories"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerCategories userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-             <Route
-  path="/registry/customer-edits"
-  element={
-    <ProtectedRoute>
-      <ParentCustomerEditComponent userRole={role} />
-    </ProtectedRoute>
-  }
-/>
+                    <Route path="/journals/new" element={<ProtectedRoute>
+                      <NewJournalEntry userRole={role} />
+                    </ProtectedRoute>} />
+                    <Route path="/journals/:id" element={<ProtectedRoute>
+                      <ViewJournal userRole={role} />
+                    </ProtectedRoute>} />
 
-                  <Route
-                    path="/registry/callbacks-pending"
-                    element={
-                      <ProtectedRoute>
-                        <CallbacksPending userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Registry */}
+                    <Route
+                      path="/registry"
+                      element={
+                        <ProtectedRoute>
+                          <Registry userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/registry/customers"
+                      element={
+                        <ProtectedRoute>
+                          <AllCustomers userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/registry/pending-amendments"
+                      element={
+                        <ProtectedRoute>
+                          <PendingAmendments userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/registry/hq-pending"
+                      element={
+                        <ProtectedRoute>
+                          <HQPending userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/transfer"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerTransferForm userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/registry/approvals-pending"
+                      element={
+                        <ProtectedRoute>
+                          <ApprovalPending userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/registry/bm-pending"
+                      element={
+                        <ProtectedRoute>
+                          <PendingBM userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
 
-                     <Route
-          path="/chart-of-accounts/new"
-          element={  <ProtectedRoute>
+                    <Route
+                      path="/registry/customer-transfer"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerTransfer userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/registry/customer-categories"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerCategories userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/registry/customer-edits"
+                      element={
+                        <ProtectedRoute>
+                          <ParentCustomerEditComponent userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/registry/callbacks-pending"
+                      element={
+                        <ProtectedRoute>
+                          <CallbacksPending userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+
+                    <Route
+                      path="/chart-of-accounts/new"
+                      element={<ProtectedRoute>
                         <NewAccount userRole={role} />
                       </ProtectedRoute>}
-        />
+                    />
 
 
-                       <Route
-          path="/loaning/penalty-settings"
-          element={  <ProtectedRoute>
+                    <Route
+                      path="/loaning/penalty-settings"
+                      element={<ProtectedRoute>
                         <PenaltySettings userRole={role} />
                       </ProtectedRoute>}
-        />
+                    />
 
 
 
-                       <Route
-          path="/chart-of-accounts/new"
-          element={  <ProtectedRoute>
+                    <Route
+                      path="/chart-of-accounts/new"
+                      element={<ProtectedRoute>
                         <NewAccount userRole={role} />
                       </ProtectedRoute>}
-        />
+                    />
 
 
-        
-                     <Route
-          path="/analytics"
-          element={  <ProtectedRoute>
+
+                    <Route
+                      path="/analytics"
+                      element={<ProtectedRoute>
                         <AnalyticsDashBoard userRole={role} />
                       </ProtectedRoute>}
-        />
+                    />
 
-        {/* Edit Existing Account */}
-        <Route
-          path="/chart-of-accounts/edit/:id"
-          element={  <ProtectedRoute>
+                    {/* Edit Existing Account */}
+                    <Route
+                      path="/chart-of-accounts/edit/:id"
+                      element={<ProtectedRoute>
                         <EditAccount userRole={role} />
                       </ProtectedRoute>}
-        />
+                    />
 
-                  {/* Relationship Officer Specific Routes */}
-                  {role === 'relationship_officer' && (
-                    <>
-                      <Route
-                        path="/officer/leads"
-                        element={
-                          <ProtectedRoute>
-                            <Leads />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customers"
-                        element={
-                          <ProtectedRoute>
-                            <Customers />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customers/add"
-                        element={
-                          <ProtectedRoute>
-                            <AddCustomer />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/loans"
-                        element={
-                          <ProtectedRoute>
-                            <Loans />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/loan-booking/:customerId"
-                        element={
-                          <ProtectedRoute>
-                            <LoanBookingForm />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customer-form"
-                        element={
-                          <ProtectedRoute>
-                            <CustomerForm />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/loans/applications"
-                        element={
-                          <ProtectedRoute>
-                            <LoanApplication />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/loans/approval"
-                        element={
-                          <ProtectedRoute>
-                            <ApprovalQueue />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customers/approval"
-                        element={
-                          <ProtectedRoute>
-                            <Approval />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customers/amendments"
-                        element={
-                          <ProtectedRoute>
-                            <Amendments />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/customers/drafts"
-                        element={
-                          <ProtectedRoute>
-                            <OfficerDrafts />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/loans/drafts"
-                        element={
-                          <ProtectedRoute>
-                            <LoanDrafts />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/:customerId/details"
-                        element={
-                          <ProtectedRoute>
-                            <CustomerDetailsModal />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/drafts/view/:draftId"
-                        element={
-                          <ProtectedRoute>
-                            <CustomerDraft />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
-                        path="/officer/conversions"
-                        element={
-                          <ProtectedRoute>
-                            <ConversionChart />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route path="/officer/editamendments/:customerId" element={<EditAmendment />} />
-                      <Route path="/officer/viewamendments/:amendmentId" element={<AmendmentDetailsPage />} />
-                    </>
-                  )}
+                    {/* Relationship Officer Specific Routes */}
+                    {role === 'relationship_officer' && (
+                      <>
+                        <Route
+                          path="/officer/leads"
+                          element={
+                            <ProtectedRoute>
+                              <Leads />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customers"
+                          element={
+                            <ProtectedRoute>
+                              <Customers />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customers/add"
+                          element={
+                            <ProtectedRoute>
+                              <AddCustomer />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/loans"
+                          element={
+                            <ProtectedRoute>
+                              <Loans />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/loan-booking/:customerId"
+                          element={
+                            <ProtectedRoute>
+                              <LoanBookingForm />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customer-form"
+                          element={
+                            <ProtectedRoute>
+                              <CustomerForm />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/loans/applications"
+                          element={
+                            <ProtectedRoute>
+                              <LoanApplication />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/loans/approval"
+                          element={
+                            <ProtectedRoute>
+                              <ApprovalQueue />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customers/approval"
+                          element={
+                            <ProtectedRoute>
+                              <Approval />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customers/amendments"
+                          element={
+                            <ProtectedRoute>
+                              <Amendments />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/customers/drafts"
+                          element={
+                            <ProtectedRoute>
+                              <OfficerDrafts />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/loans/drafts"
+                          element={
+                            <ProtectedRoute>
+                              <LoanDrafts />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/:customerId/details"
+                          element={
+                            <ProtectedRoute>
+                              <CustomerDetailsModal />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/drafts/view/:draftId"
+                          element={
+                            <ProtectedRoute>
+                              <CustomerDraft />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/officer/conversions"
+                          element={
+                            <ProtectedRoute>
+                              <ConversionChart />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route path="/officer/editamendments/:customerId" element={<EditAmendment />} />
+                        <Route path="/officer/viewamendments/:amendmentId" element={<AmendmentDetailsPage />} />
+                      </>
+                    )}
 
-                  {/* Customer 360 View Routes */}
-                  <Route
-                    path="/customer/:customerId/360"
-                    element={
+                    {/* Customer 360 View Routes */}
+                    <Route
+                      path="/customer/:customerId/360"
+                      element={
+                        <ProtectedRoute>
+                          <Customer360View userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/customer/:customerId/details"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerDetailsModal />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="/customer/:customerId/verify" element={
                       <ProtectedRoute>
-                        <Customer360View userRole={role} />
+                        <CustomerVerification />
                       </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/customer/:customerId/details"
-                    element={
+                    } />
+                    <Route path="/customer/:customerId/verify-amendment" element={
                       <ProtectedRoute>
-                        <CustomerDetailsModal />
+                        <CustomerVerification />
                       </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/customer/:customerId/verify" element={
-                    <ProtectedRoute>
-                      <CustomerVerification />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/customer/:customerId/verify-amendment" element={
-                    <ProtectedRoute>
-                      <CustomerVerification />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/customer/:customerId/verify-customer_service_officer" element={
-                    <ProtectedRoute>
-                      <Verification />
-                    </ProtectedRoute>
-                  } />
-                  <Route
-                    path="/customer/:customerId/interactions"
-                    element={
+                    } />
+                    <Route path="/customer/:customerId/verify-customer_service_officer" element={
                       <ProtectedRoute>
-                        <CustomerInteractions />
+                        <Verification />
                       </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/customer/:customerId/loan-details"
-                    element={
-                      <ProtectedRoute>
-                        <LoanDetails />
-                      </ProtectedRoute>
-                    }
-                  />
-  <Route
-                    path="/registry/guarantors"
-                    element={
-                      <ProtectedRoute>
-                        <Guarantors />
-                      </ProtectedRoute>
-                    }
-                  />
+                    } />
+                    <Route
+                      path="/customer/:customerId/interactions"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerInteractions />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/customer/:customerId/loan-details"
+                      element={
+                        <ProtectedRoute>
+                          <LoanDetails />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/registry/guarantors"
+                      element={
+                        <ProtectedRoute>
+                          <Guarantors />
+                        </ProtectedRoute>
+                      }
+                    />
 
 
-                  <Route
-                    path="/customer/:customerId/promise-to-pay"
-                    element={
-                      <ProtectedRoute>
-                        <PromiseToPay />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/customer/:customerId/promise-to-pay"
+                      element={
+                        <ProtectedRoute>
+                          <PromiseToPay />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* Reports */}
-                  <Route
-                    path="/reports"
-                    element={
-                      <ProtectedRoute>
-                        <ReportsLayout>
-                                                  <Reports userRole={role} />
+                    {/* Reports */}
+                    <Route
+                      path="/reports"
+                      element={
+                        <ProtectedRoute>
+                          <ReportsLayout>
+                            <Reports userRole={role} />
 
-                        </ReportsLayout>
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/hq-reports"
-                    element={
-                      <ProtectedRoute>
-                        <HQReports userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                <Route
-  path="/reports/accountlist/:customerId"
-  element={
-    <ProtectedRoute>
-      <CustomerStatementModal userRole={role} />
-    </ProtectedRoute>
-  }
-/>
+                          </ReportsLayout>
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/hq-reports"
+                      element={
+                        <ProtectedRoute>
+                          <HQReports userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/accountlist/:customerId"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerStatementModal userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  <Route
-                    path="/reports/outstandEOM"
-                    element={
-                      <ProtectedRoute>
-                        <OutstandingLoanBalanceReportEOM userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/financial"
-                    element={
-                      <ProtectedRoute>
-                        <FinancialReports userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/reports/outstandEOM"
+                      element={
+                        <ProtectedRoute>
+                          <OutstandingLoanBalanceReportEOM userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/financial"
+                      element={
+                        <ProtectedRoute>
+                          <FinancialReports userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-     <Route
-                    path="/reports/installments-report"
-                    element={
-                      <ProtectedRoute>
-                        <LoanInstallmentReport userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/reports/installments-report"
+                      element={
+                        <ProtectedRoute>
+                          <LoanInstallmentReport userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  <Route
-                    path="/reports/all"
-                    element={
-                      <ProtectedRoute>
-                        <Reports userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/officers"
-                    element={
-                      <ProtectedRoute>
-                        <OfficerReports userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/ptp"
-                    element={
-                      <ProtectedRoute>
-                        <PTPReports userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/drafts/customers"
-                    element={
-                      <ProtectedRoute>
-                        <CustomerDrafts userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/drafts/loans"
-                    element={
-                      <ProtectedRoute>
-                        <LoanDrafts userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/drafts/others"
-                    element={
-                      <ProtectedRoute>
-                        <OtherDrafts userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/reports/all"
+                      element={
+                        <ProtectedRoute>
+                          <Reports userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/officers"
+                      element={
+                        <ProtectedRoute>
+                          <OfficerReports userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/ptp"
+                      element={
+                        <ProtectedRoute>
+                          <PTPReports userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/drafts/customers"
+                      element={
+                        <ProtectedRoute>
+                          <CustomerDrafts userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/drafts/loans"
+                      element={
+                        <ProtectedRoute>
+                          <LoanDrafts userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/drafts/others"
+                      element={
+                        <ProtectedRoute>
+                          <OtherDrafts userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  {/* Loaning */}
-                  <Route
-                    path="/loaning/all"
-                    element={
-                      <ProtectedRoute>
-                        <AllLoans userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/loaning/pending-regional-manager"
-                    element={
-                      <ProtectedRoute>
-                        <LoanPendingRm userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/loaning/pending-branch-manager"
-                    element={
-                      <ProtectedRoute>
-                        <LoanPendingBm userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/loaning/pending-disbursement"
-                    element={
-                      <ProtectedRoute>
-                        <LoanPendingDisbursement userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/loaning/disbursement-loans"
-                    element={
-                      <ProtectedRoute>
-                        <DisbursedLoans userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    {/* Loaning */}
+                    <Route
+                      path="/loaning/all"
+                      element={
+                        <ProtectedRoute>
+                          <AllLoans userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/pending-regional-manager"
+                      element={
+                        <ProtectedRoute>
+                          <LoanPendingRm userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/pending-branch-manager"
+                      element={
+                        <ProtectedRoute>
+                          <LoanPendingBm userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/pending-disbursement"
+                      element={
+                        <ProtectedRoute>
+                          <LoanPendingDisbursement userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/disbursement-loans"
+                      element={
+                        <ProtectedRoute>
+                          <DisbursedLoans userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-                  <Route path="/viewdisbursedloans/:loanId" element={
-                    
-                  <ProtectedRoute>
+                    <Route path="/viewdisbursedloans/:loanId" element={
+
+                      <ProtectedRoute>
                         <ViewDisbursedLoan userRole={role} />
                       </ProtectedRoute>
-                    
-                    
+
+
                     } />
 
 
 
-                       <Route
-                    path="/view-disbursed-loans/:id"
-                    element={
-                      <ProtectedRoute>
-                        <ViewLoansPendingDisbursement userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
+                    <Route
+                      path="/view-disbursed-loans/:id"
+                      element={
+                        <ProtectedRoute>
+                          <ViewLoansPendingDisbursement userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
-
-                  <Route
-                    path="/loaning/loan-approval"
-                    element={
-                      <ProtectedRoute>
-                        <ApproveLoanbm userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="/loans/:loanId" element={
-                    <ProtectedRoute>
-                      <ViewLoan userRole={role} />
-                    </ProtectedRoute>
-                  } />
-                  <Route path="/loans/:loanId/interactions" element={
-                    <ProtectedRoute>
-                      <LoanInteraction userRole={role} />
-                    </ProtectedRoute>
-                  } />
-                  <Route
-                    path="/promise-to-pay"
-                    element={
-                      <ProtectedRoute>
-                        <PromiseToPayList userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/loaning/rejected-loans"
-                    element={
-                      <ProtectedRoute>
-                        <RejectedLoans userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-                  {/* Report Routes with Wrapper */}
-                  <Route
-                    path="/reports/disbursement-loans"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={DisbursementLoansReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/customer-account-statement"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={CustomerAccountModal} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/loan-due"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={LoanDueReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/customer-listing"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={CustomerListing} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/mpesa-repayment"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={MpesaRepaymentReports} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/loan-officer-performance"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={LoanOfficerPerformanceReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/non-performing-loans"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={NonPerformingLoansReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/outstanding-balance"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={OutstandingLoanBalanceReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/pending-disbursement"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={PendingDisbursementReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/loan-listing"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={LoanListing} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/trace-mpesa"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={TraceMpesaTransaction} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/inactive-customers"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={InactiveCustomers} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/loan-arrears"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={LoanArrearsReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/reports/suspense-payments"
-                    element={
-                      <ProtectedRoute>
-                        <ReportWrapper component={SuspensePaymentsReport} userRole={role} />
-                      </ProtectedRoute>
-                    }
-                  />
-
-<Route
-  path="/reports/customer-statement/:customerId"
-  element={
-    <ProtectedRoute>
-                        <ReportWrapper component={CustomerStatementModal} userRole={role} />
-                      </ProtectedRoute>
-  }
-/>
-
-
-                </>
-              )}
-
-              {/* Operations */}
-              <Route path="/operations" element={<OperationsManagement />} />
-
-              {/* Admin Routes */}
-             {(role === "admin" || role === "superadmin") && (
-                <>
-                  <Route path="/dashboard/admin" element={<AdminDashboard />} />
-                  <Route path="/users/all/admin" element={<AllUsers />} />
-                  <Route path="/users/add/admin" element={<AddUsers />} />
-                  <Route
-                    path="/users/suspended/admin"
-                    element={<SuspendedUsers />}
-                  />
-                  <Route path="/loans/all/admin" element={<AllLoansAdmin />} />
-                  <Route
-                    path="/loans/pending/admin"
-                    element={<PendingLoans />}
-                  />
-
-  <Route
-                    path="/penalty-settings/admin"
-                    element={<PenaltySettingsManager />}
-                  />
 
                     <Route
-                    path="/loans/pending/admin"
-                    element={<PendingLoans />}
-                  />
-                  <Route
-                    path="/users/report-access/admin"
-                    element={<AdminCreateReportUser/>}
-                  />
-                   <Route
-                    path="/users/create-tenant/admin"
-                    element={<AdminCreateTenant/>}
-                  />
-                  <Route
-                    path="/loans/product/admin"
-                    element={<LoanProduct />}
-                  />
-                  <Route
-                    path="/loans/restructure/admin"
-                    element={<RestructureLoans />}
-                  />
+                      path="/loaning/loan-approval"
+                      element={
+                        <ProtectedRoute>
+                          <ApproveLoanbm userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route path="/loans/:loanId" element={
+                      <ProtectedRoute>
+                        <ViewLoan userRole={role} />
+                      </ProtectedRoute>
+                    } />
+                    <Route path="/loans/:loanId/interactions" element={
+                      <ProtectedRoute>
+                        <LoanInteraction userRole={role} />
+                      </ProtectedRoute>
+                    } />
+                    <Route
+                      path="/promise-to-pay"
+                      element={
+                        <ProtectedRoute>
+                          <PromiseToPayList userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/rejected-loans"
+                      element={
+                        <ProtectedRoute>
+                          <RejectedLoans userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    {/* Report Routes with Wrapper */}
+                    <Route
+                      path="/reports/disbursement-loans"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={DisbursementLoansReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/customer-account-statement"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={CustomerAccountModal} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/loan-due"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={LoanDueReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/customer-listing"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={CustomerListing} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/mpesa-repayment"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={MpesaRepaymentReports} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/loan-officer-performance"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={LoanOfficerPerformanceReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/non-performing-loans"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={NonPerformingLoansReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/outstanding-balance"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={OutstandingLoanBalanceReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/pending-disbursement"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={PendingDisbursementReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/loan-listing"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={LoanListing} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/trace-mpesa"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={TraceMpesaTransaction} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/inactive-customers"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={InactiveCustomers} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/loan-arrears"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={LoanArrearsReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/reports/suspense-payments"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={SuspensePaymentsReport} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+                    <Route
+                      path="/reports/customer-statement/:customerId"
+                      element={
+                        <ProtectedRoute>
+                          <ReportWrapper component={CustomerStatementModal} userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
 
 
- <Route
-  path="/tenants_details/:tenantId"
-  element={<TenantViewPage />}
-/>
+                  </>
+                )}
+
+                {/* Operations */}
+                <Route path="/operations" element={<OperationsManagement />} />
+
+                {/* Admin Routes */}
+                {(role === "admin" || role === "superadmin") && (
+                  <>
+                    <Route path="/dashboard/admin" element={<AdminDashboard />} />
+                    <Route path="/users/all/admin" element={<AllUsers />} />
+                    <Route path="/users/add/admin" element={<AddUsers />} />
+                    <Route
+                      path="/users/suspended/admin"
+                      element={<SuspendedUsers />}
+                    />
+                    <Route path="/loans/all/admin" element={<AllLoansAdmin />} />
+                    <Route
+                      path="/loans/pending/admin"
+                      element={<PendingLoans />}
+                    />
+
+                    <Route
+                      path="/penalty-settings/admin"
+                      element={<PenaltySettingsManager />}
+                    />
+
+                    <Route
+                      path="/loans/pending/admin"
+                      element={<PendingLoans />}
+                    />
+                    <Route
+                      path="/users/report-access/admin"
+                      element={<AdminCreateReportUser />}
+                    />
+                    <Route
+                      path="/users/create-tenant/admin"
+                      element={<AdminCreateTenant />}
+                    />
+                    <Route
+                      path="/loans/product/admin"
+                      element={<LoanProduct />}
+                    />
+                    <Route
+                      path="/loans/restructure/admin"
+                      element={<RestructureLoans />}
+                    />
+
+
+                    <Route
+                      path="/tenants_details/:tenantId"
+                      element={<TenantViewPage />}
+                    />
 
 
 
 
-                     <Route
-                    path="/tenants/mpesa-config/admin"
-                    element={<TenantMpesaForm />}
-                  />
-                  <Route
-                    path="/loans/rejected/admin"
-                    element={<RejectedLoans />}
-                  />
-                  <Route
-                    path="/loans/disbursed/admin"
-                    element={<DisbursedLoansAdmin />}
-                  />
-                  <Route
-                    path="/loans/writeoffs/admin"
-                    element={<LoanWriteOff />}
-                  />
-                </>
-              )}
-            
-  <Route 
-    path="*" 
-    element={
-      <Navigate to={user && profile ? getDefaultRoute() : "/login"} replace />
-    } 
-  />   
-  
-  
-          </Routes>
+                    <Route
+                      path="/tenants/mpesa-config/admin"
+                      element={<TenantMpesaForm />}
+                    />
+                    <Route
+                      path="/loans/rejected/admin"
+                      element={<RejectedLoans />}
+                    />
+                    <Route
+                      path="/loans/disbursed/admin"
+                      element={<DisbursedLoansAdmin />}
+                    />
+                    <Route
+                      path="/loans/writeoffs/admin"
+                      element={<LoanWriteOff />}
+                    />
+
+                    {/* New Admin Routes */}
+                    <Route path="/branches/admin" element={<Branches />} />
+                    <Route path="/regions/admin" element={<Regions />} />
+                    <Route path="/user-groups/admin" element={<UserGroups />} />
+                    <Route path="/partners/admin" element={<Partners />} />
+                    <Route path="/workflow-setting/admin" element={<WorkflowSettings />} />
+                    <Route path="/workflow-statuses/admin" element={<WorkflowStatuses />} />
+                    <Route path="/roles/admin" element={<RolePermissionManager />} />
+                  </>
+                )}
+
+                <Route
+                  path="*"
+                  element={
+                    <Navigate to={user && profile ? getDefaultRoute() : "/login"} replace />
+                  }
+                />
+
+
+              </Routes>
+            </div>
           </div>
         </div>
-      </div>
+      </ToastProvider>
     </Router>
   );
 }
