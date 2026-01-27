@@ -334,9 +334,7 @@ export default function Branches() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Branch Name
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Code
-                                    </th>
+                                 
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Region
                                     </th>
@@ -345,9 +343,7 @@ export default function Branches() {
                                             Tenant
                                         </th>
                                     )}
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Address
-                                    </th>
+                                 
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Actions
                                     </th>
@@ -359,9 +355,7 @@ export default function Branches() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {branch.name}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {branch.code || '-'}
-                                        </td>
+                                      
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {branch.region_name}
                                         </td>
@@ -370,9 +364,7 @@ export default function Branches() {
                                                 {branch.tenant_name}
                                             </td>
                                         )}
-                                        <td className="px-6 py-4 text-sm text-gray-500">
-                                            {branch.address || '-'}
-                                        </td>
+                                      
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div className="flex space-x-2">
                                                 <button
@@ -439,17 +431,6 @@ export default function Branches() {
                                 />
                             </div>
 
-                            <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Code
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.code || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary"
-                                />
-                            </div>
 
                             <div className="mb-4">
                                 <label className="block text-sm font-medium text-gray-700 mb-2">

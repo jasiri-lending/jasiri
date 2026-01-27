@@ -279,9 +279,7 @@ export default function Regions() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Region Name
                                     </th>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Code
-                                    </th>
+                                 
                                     {isSuperAdmin && (
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Tenant
@@ -298,9 +296,7 @@ export default function Regions() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {region.name}
                                         </td>
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {region.code || '-'}
-                                        </td>
+                                     
                                         {isSuperAdmin && (
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {region.tenant_name}

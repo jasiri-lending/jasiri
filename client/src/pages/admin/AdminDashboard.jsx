@@ -41,7 +41,7 @@ const StatCard = ({
   return (
     <div className={`relative rounded-2xl shadow-lg p-6 hover:shadow-xl transition-all duration-300 overflow-hidden group ${gradient} border border-white/20`}>
       {/* Animated background effect */}
-      <div className="absolute inset-0 bg-gradient-to-br from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+      <div className="absolute inset-0 bg-brand-surface opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
       <div className="relative z-10">
         <div className="flex items-start justify-between">

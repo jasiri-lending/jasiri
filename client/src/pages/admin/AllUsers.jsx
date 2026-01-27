@@ -456,10 +456,7 @@ export default function AllUsers() {
     setFilteredBranches([]);
   };
 
-  const handleManualRefresh = () => {
-    setCurrentPage(1);
-    setRefreshKey(prev => prev + 1);
-  };
+
 
   const handlePageChange = (page) => {
     setCurrentPage(page);
@@ -695,28 +692,10 @@ export default function AllUsers() {
         <div className="bg-white rounded-lg shadow mb-6 p-6">
           <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
             <div>
-              <h1 className="text-2xl font-bold text-slate-800">User Management</h1>
-              <p className="text-slate-600 mt-1">Manage all users and their permissions</p>
+              <h1 className="text-sm font-medium text-slate-600">User Management</h1>
             </div>
-            
-            <div className="flex items-center gap-3">
-              <button
-                onClick={handleManualRefresh}
-                className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors text-slate-700"
-                title="Refresh"
-              >
-                <ArrowPathIcon className="h-5 w-5" />
-                <span className="font-medium">Refresh</span>
-              </button>
 
-              <button
-                onClick={() => openModal('user')}
-                className="flex items-center gap-2 px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-800 transition-colors shadow-sm"
-              >
-                <UserPlusIcon className="h-5 w-5" />
-                <span className="font-medium">Add User</span>
-              </button>
-            </div>
+
           </div>
 
           {/* Search and Filters */}
@@ -733,21 +712,31 @@ export default function AllUsers() {
                 />
               </div>
 
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${showFilters || filterRole || filterRegion || filterBranch
-                  ? 'bg-accent/10 border-accent text-accent'
-                  : 'border-gray-300 hover:bg-gray-50 text-slate-700'
-                  }`}
-              >
-                <FunnelIcon className="h-5 w-5" />
-                <span className="font-medium">Filters</span>
-                {(filterRole || filterRegion || filterBranch) && (
-                  <span className="bg-accent text-white text-xs px-2 py-1 rounded-full">
-                    {[filterRole, filterRegion, filterBranch].filter(Boolean).length}
-                  </span>
-                )}
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => openModal('user')}
+                  className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
+                >
+                  <UserPlusIcon className="h-5 w-5" />
+                  <span className="font-medium whitespace-nowrap">Add User</span>
+                </button>
+
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${showFilters || filterRole || filterRegion || filterBranch
+                    ? 'bg-accent/10 border-accent text-accent'
+                    : 'border-gray-300 hover:bg-gray-50 text-slate-700'
+                    }`}
+                >
+                  <FunnelIcon className="h-5 w-5" />
+                  <span className="font-medium">Filters</span>
+                  {(filterRole || filterRegion || filterBranch) && (
+                    <span className="bg-accent text-white text-xs px-2 py-1 rounded-full">
+                      {[filterRole, filterRegion, filterBranch].filter(Boolean).length}
+                    </span>
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Filters Panel */}
@@ -1004,8 +993,8 @@ export default function AllUsers() {
                       key={number}
                       onClick={() => handlePageChange(number)}
                       className={`relative inline-flex items-center px-4 py-2 text-sm font-semibold ${currentPage === number
-                          ? 'z-10 bg-primary text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
-                          : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
+                        ? 'z-10 bg-primary text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'
+                        : 'text-gray-900 ring-1 ring-inset ring-gray-300 hover:bg-gray-50'
                         }`}
                     >
                       {number}

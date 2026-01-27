@@ -10,10 +10,9 @@ const Partners = () => {
     const [searchTerm, setSearchTerm] = useState('');
 
     return (
-        <div className="p-6">
+        <div className="p-6 bg-brand-surface min-h-screen">
             <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">Partners</h1>
-                <p className="text-gray-600 mt-1">Manage business partners and integrations</p>
+                <h1 className="text-sm  text-gray-600">Partners</h1>
             </div>
 
             {/* Actions Bar */}
