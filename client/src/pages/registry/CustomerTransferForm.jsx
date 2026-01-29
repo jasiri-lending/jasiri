@@ -442,10 +442,10 @@ const CustomerTransferForm = () => {
         <div className="p-8">
           {/* Workflow Indicator */}
           <div className="mb-8">
-            <h2 className="text-sm  text-gray-900 mb-4">Transfer Workflow</h2>
+            <h2 className="text-sm  text-gray-600 mb-4">Transfer Workflow</h2>
             <div className="flex items-center justify-between">
               <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isStep1Active ? 'bg-blue-600 text-white' : 'bg-gray-200'}`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isStep1Active ? 'bg-primary text-white' : 'bg-gray-200'}`}>
                   <span className="font-bold">1</span>
                 </div>
                 <span className="text-sm font-semibold mt-2">Initiate</span>
@@ -755,7 +755,7 @@ const CustomerTransferForm = () => {
             type="button"
             onClick={handleInitiateTransfer}
             disabled={loading || selectedCustomers.length === 0}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 text-sm"
+            className="px-6 py-2 bg-brand-btn text-white rounded-lg font-semibold hover:bg-brand-btn-hover disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 text-sm"
           >
             {loading ? (
               <>
@@ -780,11 +780,10 @@ const CustomerTransferForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 p-6">
+    <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-sm text-slate-600 mb-2">Customer Transfer</h1>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-sm  text-gray-600">
             {userRole === 'branch_manager' && 'Initiate Transfer Request'}
             {userRole === 'regional_manager' && 'Approve Transfers'}
             {userRole === 'credit_analyst_officer' && ''}

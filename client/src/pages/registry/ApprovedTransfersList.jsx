@@ -262,7 +262,7 @@ const ApprovedTransfersList = ({  onExecute }) => {
               <button
                 onClick={() => handleExecute(transfer.id)}
                 disabled={executingTransfer === transfer.id}
-                className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-blue-400 disabled:cursor-not-allowed transition-colors font-semibold flex items-center gap-3"
+                className="px-6 py-3 bg-brand-btn text-white rounded-lg hover:bg-brand-btn-hover disabled:bg-brand-btn-disabled disabled:cursor-not-allowed transition-colors font-semibold flex items-center gap-3"
               >
                 {executingTransfer === transfer.id ? (
                   <>
