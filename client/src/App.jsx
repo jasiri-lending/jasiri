@@ -12,8 +12,6 @@ import { useAuth } from "./hooks/userAuth";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 // Layout Components
-import SidebarAdmin from "./pages/admin/components/SidebarAdmin";
-import HeaderAdmin from "./pages/admin/components/HeaderAdmin";
 import SharedSidebar from "./components/SharedSidebar";
 import SharedHeader from "./components/SharedHeader";
 
@@ -140,34 +138,19 @@ import Partners from "./pages/admin/Partners.jsx";
 import WorkflowSettings from "./pages/admin/WorkflowSettings.jsx";
 import WorkflowStatuses from "./pages/admin/WorkflowStatuses.jsx";
 import RolePermissionManager from "./pages/admin/RolePermissionManager.jsx";
+import OperationsDashboard from "./pages/operationdashbaord/OperationsDashboard.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-
-  const { user, profile, initializing } = useAuth(); // ADD initializing
-
-
-
-
-
-
-
+  const { user, profile, initializing } = useAuth();
+  
   const role = profile?.role;
 
-  // Roles that share the same layout and components (now includes relationship_officer)
-  const sharedRoles = ['branch_manager', 'regional_manager', 'credit_analyst_officer', 'customer_service_officer', 'relationship_officer'];
+  // Updated: Include admin and superadmin in sharedRoles
+  const sharedRoles = ['admin', 'superadmin', 'branch_manager', 'regional_manager', 'credit_analyst_officer', 'customer_service_officer', 'relationship_officer'];
   const isSharedRole = sharedRoles.includes(role);
 
   const renderSidebar = () => {
-    if (role === "admin" || role === "superadmin") {  // ADD superadmin here
-      return (
-        <SidebarAdmin
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
-      );
-    }
-
     if (isSharedRole) {
       return (
         <SharedSidebar
@@ -177,20 +160,10 @@ function App() {
         />
       );
     }
-
     return null;
   };
 
   const renderHeader = () => {
-    if (role === "admin" || role === "superadmin") {  // ADD superadmin here
-      return (
-        <HeaderAdmin
-          sidebarOpen={sidebarOpen}
-          setSidebarOpen={setSidebarOpen}
-        />
-      );
-    }
-
     if (isSharedRole) {
       return (
         <SharedHeader
@@ -200,7 +173,6 @@ function App() {
         />
       );
     }
-
     return null;
   };
 
@@ -213,7 +185,7 @@ function App() {
       case "customer_service_officer":
         return "/dashboard";
       case "admin":
-      case "superadmin":  // ADD THIS
+      case "superadmin":
         return "/dashboard/admin";
       default:
         return "/dashboard";
@@ -238,15 +210,12 @@ function App() {
             {!initializing && profile && renderHeader()}
 
             <div className="flex-1 overflow-y-auto p-6">
-
               <Routes>
                 {/* Public route */}
-
                 <Route
                   path="/"
                   element={
                     initializing ? (
-
                       <div className="min-h-screen flex items-center justify-center">
                         <div className="text-center">
                           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
@@ -260,7 +229,6 @@ function App() {
                     )
                   }
                 />
-
 
                 <Route
                   path="/login"
@@ -298,7 +266,7 @@ function App() {
                   }
                 />
 
-                {/* Shared Routes for RM, BM, CA, CSO, and Relationship Officer */}
+                {/* Shared Routes for all roles including Admin */}
                 {isSharedRole && (
                   <>
                     {/* Dashboard - role-specific data filtering */}
@@ -353,13 +321,22 @@ function App() {
                       }
                     />
 
-
-                    <Route path="/journals/new" element={<ProtectedRoute>
-                      <NewJournalEntry userRole={role} />
-                    </ProtectedRoute>} />
-                    <Route path="/journals/:id" element={<ProtectedRoute>
-                      <ViewJournal userRole={role} />
-                    </ProtectedRoute>} />
+                    <Route 
+                      path="/journals/new" 
+                      element={
+                        <ProtectedRoute>
+                          <NewJournalEntry userRole={role} />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/journals/:id" 
+                      element={
+                        <ProtectedRoute>
+                          <ViewJournal userRole={role} />
+                        </ProtectedRoute>
+                      } 
+                    />
 
                     {/* Registry */}
                     <Route
@@ -423,7 +400,6 @@ function App() {
                       }
                     />
 
-
                     <Route
                       path="/registry/customer-transfer"
                       element={
@@ -458,46 +434,41 @@ function App() {
                       }
                     />
 
-
                     <Route
                       path="/chart-of-accounts/new"
-                      element={<ProtectedRoute>
-                        <NewAccount userRole={role} />
-                      </ProtectedRoute>}
+                      element={
+                        <ProtectedRoute>
+                          <NewAccount userRole={role} />
+                        </ProtectedRoute>
+                      }
                     />
-
 
                     <Route
                       path="/loaning/penalty-settings"
-                      element={<ProtectedRoute>
-                        <PenaltySettings userRole={role} />
-                      </ProtectedRoute>}
+                      element={
+                        <ProtectedRoute>
+                          <PenaltySettings userRole={role} />
+                        </ProtectedRoute>
+                      }
                     />
-
-
-
-                    <Route
-                      path="/chart-of-accounts/new"
-                      element={<ProtectedRoute>
-                        <NewAccount userRole={role} />
-                      </ProtectedRoute>}
-                    />
-
-
 
                     <Route
                       path="/analytics"
-                      element={<ProtectedRoute>
-                        <AnalyticsDashBoard userRole={role} />
-                      </ProtectedRoute>}
+                      element={
+                        <ProtectedRoute>
+                          <AnalyticsDashBoard userRole={role} />
+                        </ProtectedRoute>
+                      }
                     />
 
                     {/* Edit Existing Account */}
                     <Route
                       path="/chart-of-accounts/edit/:id"
-                      element={<ProtectedRoute>
-                        <EditAccount userRole={role} />
-                      </ProtectedRoute>}
+                      element={
+                        <ProtectedRoute>
+                          <EditAccount userRole={role} />
+                        </ProtectedRoute>
+                      }
                     />
 
                     {/* Relationship Officer Specific Routes */}
@@ -645,21 +616,30 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/customer/:customerId/verify" element={
-                      <ProtectedRoute>
-                        <CustomerVerification />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/customer/:customerId/verify-amendment" element={
-                      <ProtectedRoute>
-                        <CustomerVerification />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/customer/:customerId/verify-customer_service_officer" element={
-                      <ProtectedRoute>
-                        <Verification />
-                      </ProtectedRoute>
-                    } />
+                    <Route 
+                      path="/customer/:customerId/verify" 
+                      element={
+                        <ProtectedRoute>
+                          <CustomerVerification />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/customer/:customerId/verify-amendment" 
+                      element={
+                        <ProtectedRoute>
+                          <CustomerVerification />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/customer/:customerId/verify-customer_service_officer" 
+                      element={
+                        <ProtectedRoute>
+                          <Verification />
+                        </ProtectedRoute>
+                      } 
+                    />
                     <Route
                       path="/customer/:customerId/interactions"
                       element={
@@ -685,7 +665,6 @@ function App() {
                       }
                     />
 
-
                     <Route
                       path="/customer/:customerId/promise-to-pay"
                       element={
@@ -702,7 +681,6 @@ function App() {
                         <ProtectedRoute>
                           <ReportsLayout>
                             <Reports userRole={role} />
-
                           </ReportsLayout>
                         </ProtectedRoute>
                       }
@@ -841,16 +819,14 @@ function App() {
                       }
                     />
 
-                    <Route path="/viewdisbursedloans/:loanId" element={
-
-                      <ProtectedRoute>
-                        <ViewDisbursedLoan userRole={role} />
-                      </ProtectedRoute>
-
-
-                    } />
-
-
+                    <Route 
+                      path="/viewdisbursedloans/:loanId" 
+                      element={
+                        <ProtectedRoute>
+                          <ViewDisbursedLoan userRole={role} />
+                        </ProtectedRoute>
+                      } 
+                    />
 
                     <Route
                       path="/view-disbursed-loans/:id"
@@ -861,7 +837,6 @@ function App() {
                       }
                     />
 
-
                     <Route
                       path="/loaning/loan-approval"
                       element={
@@ -870,16 +845,22 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
-                    <Route path="/loans/:loanId" element={
-                      <ProtectedRoute>
-                        <ViewLoan userRole={role} />
-                      </ProtectedRoute>
-                    } />
-                    <Route path="/loans/:loanId/interactions" element={
-                      <ProtectedRoute>
-                        <LoanInteraction userRole={role} />
-                      </ProtectedRoute>
-                    } />
+                    <Route 
+                      path="/loans/:loanId" 
+                      element={
+                        <ProtectedRoute>
+                          <ViewLoan userRole={role} />
+                        </ProtectedRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/loans/:loanId/interactions" 
+                      element={
+                        <ProtectedRoute>
+                          <LoanInteraction userRole={role} />
+                        </ProtectedRoute>
+                      } 
+                    />
                     <Route
                       path="/promise-to-pay"
                       element={
@@ -896,6 +877,23 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
+
+
+
+
+   <Route
+                      path="/operations/dashboard"
+                      element={
+                        <ProtectedRoute>
+                          <OperationsDashboard userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+
+
+
+
 
                     {/* Report Routes with Wrapper */}
                     <Route
@@ -1019,8 +1017,6 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
-
-
                   </>
                 )}
 
@@ -1049,10 +1045,6 @@ function App() {
                     />
 
                     <Route
-                      path="/loans/pending/admin"
-                      element={<PendingLoans />}
-                    />
-                    <Route
                       path="/users/report-access/admin"
                       element={<AdminCreateReportUser />}
                     />
@@ -1069,14 +1061,10 @@ function App() {
                       element={<RestructureLoans />}
                     />
 
-
                     <Route
                       path="/tenants_details/:tenantId"
                       element={<TenantViewPage />}
                     />
-
-
-
 
                     <Route
                       path="/tenants/mpesa-config/admin"
@@ -1112,8 +1100,6 @@ function App() {
                     <Navigate to={user && profile ? getDefaultRoute() : "/login"} replace />
                   }
                 />
-
-
               </Routes>
             </div>
           </div>

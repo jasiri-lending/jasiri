@@ -26,6 +26,27 @@ import {
   Menu,
   Settings,
   Sliders,
+  TrendingUp,
+  PieChart,
+  DollarSign,
+  Activity,
+  GitBranch,
+  Map,
+  Share2,
+  FileKey,
+  Workflow,
+  ListTodo,
+  ShieldAlert,
+  Building,
+  Gauge,
+  Shield,
+  FileBarChart,
+  Database,
+  Network,
+  History,
+  LogOut,
+  Bell,
+  Eye,
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 
@@ -81,66 +102,196 @@ const SharedSidebar = () => {
   };
 
   /* -----------------------------------------------------
-   Navigation builder
+   Navigation builder - REORGANIZED FOR SUPERADMIN
   ----------------------------------------------------- */
   const getNavigation = () => {
     const isOfficer = profile?.role === "relationship_officer";
+    const isSuperAdmin = profile?.role === "superadmin";
+    const isAdmin = profile?.role === "admin";
+    const isCreditAnalyst = profile?.role === "credit_analyst_officer";
 
-    const baseNavigation = [
-      { name: "Dashboard", href: "/dashboard", icon: Home },
-    ];
+    // ==================== DASHBOARD MODULE ====================
+    const dashboardChildren = [];
+    
+    if (isSuperAdmin) {
+      dashboardChildren.push(
+        { name: "SuperAdmin Dashboard", href: "/dashboard/superadmin", icon: Home },
+        { name: "Analytics Dashboard", href: "/dashboard/analytics", icon: BarChart3 },
+        { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
+        { name: "General Analysis", href: "/dashboard/general-analysis", icon: PieChart },
+        { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign },
+        { name: "System Health", href: "/dashboard/system-health", icon: Activity }
+      );
+    } else if (isAdmin) {
+      dashboardChildren.push(
+        { name: "Admin Dashboard", href: "/dashboard/admin", icon: Home },
+        { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
+        { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
+        { name: "General Analysis", href: "/dashboard/general-analysis", icon: PieChart },
+        { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign }
+      );
+    } else {
+      dashboardChildren.push(
+        { name: "Main Dashboard", href: "/dashboard", icon: Home },
+        { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
+        { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
 
-    const analyticsNavigation = [
+        { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign }
+
+
+      );
+      
+      // Add analytics for credit analyst officer (linked to /analytics)
+      if (isCreditAnalyst) {
+        dashboardChildren.push(
+          { name: "Analytics", href: "/analytics", icon: BarChart3 }
+        );
+      }
+    }
+
+    const dashboardNavigation = [
       {
-        name: "Analytics",
-        href: "/analytics",
-        icon: BarChart3,
-        roles: ["credit_analyst_officer"], // 🔐 ONLY analysts
+        name: "Dashboard",
+        href: "/dashboard",
+        icon: Gauge,
+        children: dashboardChildren.filter(hasAccess),
       },
     ];
 
+    // ==================== OFFICER-SPECIFIC ====================
     const officerNavigation = isOfficer
       ? [
-        { name: "Leads", href: "/officer/leads", icon: UserPlus },
-        {
-          name: "Loan Applications",
-          href: "/officer/loans/applications",
-          icon: FileText,
-        },
-      ]
+          { name: "Leads", href: "/officer/leads", icon: UserPlus },
+          {
+            name: "Loan Applications",
+            href: "/officer/loans/applications",
+            icon: FileText,
+          },
+        ]
       : [];
 
-    const accountingNavigation = !isOfficer
+    // ==================== ACCOUNTS & FINANCE MODULE ====================
+    // Now accessible to: admin, superadmin, and credit_analyst_officer
+    const accountsFinanceNavigation = (isAdmin || isCreditAnalyst)
       ? [
-        {
-          name: "Accounting",
-          href: "/accounting",
-          icon: Calculator,
-          children: [
-            {
-              name: "Chart of Accounts",
-              href: "/accounting/chart-of-accounts",
-              icon: BookOpen,
-            },
-            { name: "Journals", href: "/accounting/journals", icon: Book },
-            {
-              name: "Transactions",
-              href: "/accounting/transactions",
-              icon: CreditCard,
-            },
-            {
-              name: "Bank Reconciliations",
-              href: "/accounting/bank-reconciliations",
-              icon: Landmark,
-            },
-          ],
-        },
-      ]
+          {
+            name: "Accounts & Finance",
+            href: "/accounts-finance",
+            icon: Calculator,
+            children: [
+              {
+                name: "Chart of Accounts",
+                href: "/accounting/chart-of-accounts",
+                icon: BookOpen,
+              },
+              { name: "Journals", href: "/accounting/journals", icon: Book },
+              {
+                name: "Transactions",
+                href: "/accounting/transactions",
+                icon: CreditCard,
+              },
+              {
+                name: "Bank Reconciliations",
+                href: "/accounting/bank-reconciliations",
+                icon: Landmark,
+              },
+             
+              {
+                name: "Penalty Settings",
+                href: "/loaning/penalty-settings",
+                icon: Settings,
+              },
+            ],
+          },
+        ]
       : [];
 
-    const registryChildren = [{ name: "Customers", href: "/registry/customers", icon: Users }];
+    // ==================== TENANT MANAGEMENT MODULE (SuperAdmin only) ====================
+    const tenantManagementNavigation = isSuperAdmin
+      ? [
+          {
+            name: "Tenant Management",
+            href: "/tenant-management",
+            icon: Building,
+            roles: ["superadmin"],
+            children: [
+              { name: "All Tenants", href: "/users/create-tenant/admin", icon: Building },
+              { name: "Tenant Billing", href: "/tenant-management/billing", icon: CreditCard },
+              { name: "Tenant Usage", href: "/tenant-management/usage", icon: Activity },
+              { name: "MPESA Config", href: "/tenants/mpesa-config/admin", icon: CreditCard },
+            ],
+          },
+        ]
+      : [];
 
+    // ==================== SYSTEM SETTINGS MODULE (SuperAdmin only) ====================
+    const systemSettingsNavigation = isSuperAdmin
+      ? [
+          {
+            name: "System Settings",
+            href: "/system-settings",
+            icon: Settings,
+            roles: ["superadmin"],
+            children: [
+              { name: "General Settings", href: "/system-settings/general", icon: Settings },
+              { name: "Email Settings", href: "/system-settings/email", icon: Bell },
+              { name: "SMS Settings", href: "/system-settings/sms", icon: PhoneCall },
+              { name: "API Configuration", href: "/system-settings/api-config", icon: Network },
+              { name: "Database Settings", href: "/system-settings/database", icon: Database },
+              { name: "Backup & Restore", href: "/system-settings/backup", icon: Shield },
+              { name: "System Updates", href: "/system-settings/updates", icon: History },
+            ],
+          },
+        ]
+      : [];
 
+    // ==================== AUDIT & LOGS MODULE (SuperAdmin only) ====================
+    const auditLogsNavigation = isSuperAdmin
+      ? [
+          {
+            name: "Audit & Logs",
+            href: "/audit-logs",
+            icon: Eye,
+            roles: ["superadmin"],
+            children: [
+              { name: "System Logs", href: "/audit-logs/system", icon: Activity },
+              { name: "User Activity Logs", href: "/audit-logs/user-activity", icon: Users },
+              { name: "Login History", href: "/audit-logs/login-history", icon: LogOut },
+              { name: "API Access Logs", href: "/audit-logs/api", icon: Network },
+              { name: "Security Events", href: "/audit-logs/security", icon: ShieldAlert },
+              { name: "Data Changes", href: "/audit-logs/data-changes", icon: Database },
+            ],
+          },
+        ]
+      : [];
+
+    // ==================== ADMINISTRATION MODULE (for admin & superadmin) ====================
+    const administrationNavigation = (isAdmin || isSuperAdmin)
+      ? [
+          {
+            name: "Administration",
+            href: "/administration",
+            icon: Settings,
+            roles: ["admin", "superadmin"],
+            children: [
+              { name: "Branches", href: "/administration/branches", icon: GitBranch },
+              { name: "Regions", href: "/administration/regions", icon: Map },
+              { name: "Users", href: "/administration/users", icon: Users },
+              { name: "User Groups", href: "/administration/user-groups", icon: Share2 },
+              { name: "Partners", href: "/administration/partners", icon: Handshake },
+              { name: "Report Access", href: "/administration/report-access", icon: FileKey },
+              { name: "Workflow Settings", href: "/administration/workflow-settings", icon: Workflow },
+              { name: "Workflow Statuses", href: "/administration/workflow-statuses", icon: ListTodo },
+              { name: "Roles & Permissions", href: "/administration/roles-permissions", icon: ShieldAlert },
+            ],
+          },
+        ]
+      : [];
+
+    // ==================== REGISTRY MODULE ====================
+    const registryChildren = [
+      { name: "Customers", href: "/registry/customers", icon: Users }
+    ];
 
     registryChildren.push(
       {
@@ -185,27 +336,8 @@ const SharedSidebar = () => {
       { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
     );
 
-    const draftsChildren = [
-      isOfficer
-        ? {
-          name: "Customer Drafts",
-          href: "/officer/customers/drafts",
-          icon: FileText,
-        }
-        : {
-          name: "Customer Verification Drafts",
-          href: "/drafts/customers",
-          icon: UserCheck,
-        },
-    ];
-
-    const sharedNavigation = [
-      {
-        name: "Registry",
-        href: "/registry",
-        icon: Users,
-        children: registryChildren,
-      },
+    // ==================== LOANING MODULE ====================
+    const loaningNavigation = [
       {
         name: "Loaning",
         href: "/loaning",
@@ -234,7 +366,7 @@ const SharedSidebar = () => {
           },
           {
             name: "Disbursed Loans",
-            href: "/loaning/disbursement-loans",
+            href: "/loaning/disbursed-loans",
             icon: FileText,
           },
           {
@@ -243,43 +375,100 @@ const SharedSidebar = () => {
             icon: FileText,
           },
           {
-            name: "Penalty Settings",
-            href: "/loaning/penalty-settings",
-            icon: Settings,
-            roles: ["credit_analyst_officer"],
-          },
-          {
             name: "Limit Adjustment",
             href: "/loaning/limit-adjustment",
             icon: Sliders,
-            roles: ["credit_analyst_officer"],
+            roles: ["credit_analyst_officer", "admin", "superadmin"],
           },
         ],
       },
-      {
-        name: "Drafts",
-        href: "/drafts",
-        icon: FileText,
-        children: draftsChildren,
-      },
+    ];
+
+    // ==================== DRAFTS MODULE ====================
+    const draftsChildren = [
+      isOfficer
+        ? {
+            name: "Customer Drafts",
+            href: "/officer/customers/drafts",
+            icon: FileText,
+          }
+        : {
+            name: "Customer Verification Drafts",
+            href: "/drafts/customers",
+            icon: UserCheck,
+          },
+    ];
+
+    // ==================== REPORTS MODULE ====================
+    const reportsNavigation = [
       {
         name: "Reports",
         href: "/reports",
         icon: BarChart3,
         children: [
           { name: "All Reports", href: "/reports/all", icon: FileText },
+          { name: "Financial Reports", href: "/reports/financial", icon: DollarSign },
+          { name: "Performance Reports", href: "/reports/performance", icon: TrendingUp },
+          { name: "Audit Reports", href: "/reports/audit", icon: Eye },
           { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
         ],
       },
     ];
 
-    return [
-      ...baseNavigation,
-      ...analyticsNavigation,
-      ...officerNavigation,
-      ...accountingNavigation,
-      ...sharedNavigation,
+    // ==================== COMBINE ALL MODULES ====================
+    const sharedNavigation = [
+      {
+        name: "Registry",
+        href: "/registry",
+        icon: Users,
+        children: registryChildren,
+      },
+      ...loaningNavigation,
+      {
+        name: "Drafts",
+        href: "/drafts",
+        icon: FileText,
+        children: draftsChildren,
+      },
+      ...reportsNavigation,
     ];
+
+    // Return navigation based on role
+    if (isSuperAdmin) {
+      return [
+        ...dashboardNavigation,
+        ...tenantManagementNavigation,
+        ...accountsFinanceNavigation,
+        ...systemSettingsNavigation,
+        ...auditLogsNavigation,
+        ...administrationNavigation,
+        ...sharedNavigation,
+      ];
+    } else if (isAdmin) {
+      return [
+        ...dashboardNavigation,
+        ...accountsFinanceNavigation,
+        ...administrationNavigation,
+        ...sharedNavigation,
+      ];
+    } else if (isOfficer) {
+      return [
+        ...dashboardNavigation,
+        ...officerNavigation,
+        ...sharedNavigation,
+      ];
+    } else if (isCreditAnalyst) {
+      return [
+        ...dashboardNavigation,
+        ...accountsFinanceNavigation,
+        ...sharedNavigation,
+      ];
+    } else {
+      return [
+        ...dashboardNavigation,
+        ...sharedNavigation,
+      ];
+    }
   };
 
   /* -----------------------------------------------------
@@ -291,9 +480,9 @@ const SharedSidebar = () => {
       .map((item) =>
         item.children
           ? {
-            ...item,
-            children: item.children.filter(hasAccess),
-          }
+              ...item,
+              children: item.children.filter(hasAccess),
+            }
           : item
       );
   }, [profile?.role]);
@@ -338,8 +527,9 @@ const SharedSidebar = () => {
 
         {/* Sidebar - Reduced width from w-72 to w-64 */}
         <div
-          className={`fixed inset-y-0 left-0 w-64 bg-brand-surface shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
+          className={`fixed inset-y-0 left-0 w-64 bg-brand-surface shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${
+            isMobileOpen ? "translate-x-0" : "-translate-x-full"
+          }`}
         >
           {/* Header with Logo at the beginning (far left) */}
           <div className="flex items-center justify-between p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20">
@@ -366,15 +556,19 @@ const SharedSidebar = () => {
                   <div>
                     <div
                       onClick={() => toggleItem(item.name)}
-                      className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name]
-                        ? "bg-brand-secondary/10 text-brand-primary"
-                        : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                        }`}
+                      className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                        expandedItems[item.name]
+                          ? "bg-brand-secondary/10 text-brand-primary"
+                          : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                      }`}
                     >
                       <div className="flex items-center">
                         <item.icon
-                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${expandedItems[item.name] ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
+                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${
+                            expandedItems[item.name]
+                              ? "text-brand-primary"
+                              : "text-slate-700 group-hover:text-brand-primary"
+                          }`}
                         />
                         <span className="text-base whitespace-nowrap truncate font-medium">
                           {item.name}
@@ -395,17 +589,21 @@ const SharedSidebar = () => {
                             to={child.href}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                                ? "text-brand-primary bg-brand-secondary/5"
-                                : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
+                              `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${
+                                isActive
+                                  ? "text-brand-primary bg-brand-secondary/5"
+                                  : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
                               }`
                             }
                           >
                             {({ isActive }) => (
                               <>
                                 <child.icon
-                                  className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                                    }`}
+                                  className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${
+                                    isActive
+                                      ? "text-brand-primary"
+                                      : "text-slate-700 group-hover:text-brand-primary"
+                                  }`}
                                 />
                                 <span className="text-sm truncate">
                                   {child.name}
@@ -422,21 +620,23 @@ const SharedSidebar = () => {
                     to={item.href}
                     onClick={handleNavClick}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                        ? "text-brand-primary bg-brand-secondary/5"
-                        : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                      `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${
+                        isActive
+                          ? "text-brand-primary bg-brand-secondary/5"
+                          : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
                       }`
                     }
                   >
                     {({ isActive }) => (
                       <>
                         <item.icon
-                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
+                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${
+                            isActive
+                              ? "text-brand-primary"
+                              : "text-slate-700 group-hover:text-brand-primary"
+                          }`}
                         />
-                        <span className="text-base truncate">
-                          {item.name}
-                        </span>
+                        <span className="text-base truncate">{item.name}</span>
                       </>
                     )}
                   </NavLink>
@@ -452,8 +652,9 @@ const SharedSidebar = () => {
   // Desktop Sidebar - Reduced width from w-72 to w-64
   return (
     <div
-      className={`h-full bg-brand-surface border-r border-brand-secondary/20 transition-all duration-300 font-sans ${isCollapsed ? "w-20" : "w-64"
-        } flex-shrink-0 relative flex flex-col overflow-hidden`}
+      className={`h-full bg-brand-surface border-r border-brand-secondary/20 transition-all duration-300 font-sans ${
+        isCollapsed ? "w-20" : "w-64"
+      } flex-shrink-0 relative flex flex-col overflow-hidden`}
     >
       {/* Header - Logo at the beginning (far left) */}
       <div className="flex items-center p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20 relative">
@@ -471,13 +672,14 @@ const SharedSidebar = () => {
         {/* Collapse Button */}
         <button
           onClick={toggleSidebar}
-          className={`p-2 rounded-lg border border-brand-secondary/20 transition-all duration-200 ${isCollapsed
-            ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-            : "absolute top-4 right-4"
-            }`}
+          className={`p-2 rounded-lg border border-brand-secondary/20 transition-all duration-200 ${
+            isCollapsed
+              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
+              : "absolute top-4 right-4"
+          }`}
           style={{
             backgroundColor: "#fff",
-            color: "#2E5E99"
+            color: "#2E5E99",
           }}
         >
           {isCollapsed ? (
@@ -495,19 +697,24 @@ const SharedSidebar = () => {
             {item.children ? (
               <div
                 onClick={() => !isCollapsed && toggleItem(item.name)}
-                className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name] && !isCollapsed
-                  ? "bg-brand-secondary/10 text-brand-primary"
-                  : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                  } ${isCollapsed ? "justify-center" : ""}`}
+                className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${
+                  expandedItems[item.name] && !isCollapsed
+                    ? "bg-brand-secondary/10 text-brand-primary"
+                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                } ${isCollapsed ? "justify-center" : ""}`}
               >
                 <div className="flex items-center">
                   <div
-                    className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
-                      }`}
+                    className={`flex items-center justify-center ${
+                      isCollapsed ? "mr-0" : "mr-3"
+                    }`}
                   >
                     <item.icon
-                      className={`h-5 w-5 transition-colors duration-200 ${expandedItems[item.name] && !isCollapsed ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                        }`}
+                      className={`h-5 w-5 transition-colors duration-200 ${
+                        expandedItems[item.name] && !isCollapsed
+                          ? "text-brand-primary"
+                          : "text-slate-700 group-hover:text-brand-primary"
+                      }`}
                     />
                   </div>
                   {!isCollapsed && (
@@ -520,13 +727,9 @@ const SharedSidebar = () => {
                 {!isCollapsed && (
                   <div className="transition-colors">
                     {expandedItems[item.name] ? (
-                      <ChevronUp
-                        className="h-4 w-4 text-brand-primary"
-                      />
+                      <ChevronUp className="h-4 w-4 text-brand-primary" />
                     ) : (
-                      <ChevronDown
-                        className="h-4 w-4 text-slate-700 group-hover:text-brand-primary"
-                      />
+                      <ChevronDown className="h-4 w-4 text-slate-700 group-hover:text-brand-primary" />
                     )}
                   </div>
                 )}
@@ -535,21 +738,26 @@ const SharedSidebar = () => {
               <NavLink
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
-                    ? "text-brand-primary bg-brand-secondary/5"
-                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
+                  `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 font-medium ${
+                    isActive
+                      ? "text-brand-primary bg-brand-secondary/5"
+                      : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
                   } ${isCollapsed ? "justify-center" : ""}`
                 }
               >
                 {({ isActive }) => (
                   <>
                     <div
-                      className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
-                        }`}
+                      className={`flex items-center justify-center ${
+                        isCollapsed ? "mr-0" : "mr-3"
+                      }`}
                     >
                       <item.icon
-                        className={`h-5 w-5 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                          }`}
+                        className={`h-5 w-5 transition-colors duration-200 ${
+                          isActive
+                            ? "text-brand-primary"
+                            : "text-slate-700 group-hover:text-brand-primary"
+                        }`}
                       />
                     </div>
                     {!isCollapsed && (
@@ -570,21 +778,23 @@ const SharedSidebar = () => {
                     key={child.name}
                     to={child.href}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                        ? "text-brand-primary bg-brand-secondary/5"
-                        : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
+                      `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${
+                        isActive
+                          ? "text-brand-primary bg-brand-secondary/5"
+                          : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
                       }`
                     }
                   >
                     {({ isActive }) => (
                       <>
                         <child.icon
-                          className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive ? "text-brand-primary" : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
+                          className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${
+                            isActive
+                              ? "text-brand-primary"
+                              : "text-slate-700 group-hover:text-brand-primary"
+                          }`}
                         />
-                        <span className="text-sm truncate">
-                          {child.name}
-                        </span>
+                        <span className="text-sm truncate">{child.name}</span>
                       </>
                     )}
                   </NavLink>
