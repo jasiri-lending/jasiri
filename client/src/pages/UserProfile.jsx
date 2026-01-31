@@ -1,4 +1,4 @@
-// src/pages/UserProfile.jsx
+// src/pages/UserProfile.jsx - WORKING WITH PUBLIC BUCKET
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -71,6 +71,11 @@ export default function UserProfile() {
         return;
       }
       
+      if (!profile?.id) {
+        toast.error('Profile not loaded. Please refresh the page.');
+        return;
+      }
+      
       setUploading(true);
       
       // Create preview
@@ -80,12 +85,44 @@ export default function UserProfile() {
       };
       reader.readAsDataURL(file);
       
-      // Upload to Supabase Storage
       const fileExt = file.name.split('.').pop();
-      const fileName = `${profile.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const timestamp = Date.now();
+      const fileName = `${timestamp}.${fileExt}`;
+      // Use profile.id as folder to organize files by user
+      const filePath = `${profile.id}/${fileName}`;
       
-      const { error: uploadError } = await supabase.storage
+      console.log("📤 Uploading avatar:");
+      console.log("  - Profile ID:", profile.id);
+      console.log("  - File path:", filePath);
+      console.log("  - File size:", (file.size / 1024).toFixed(2), "KB");
+      
+      // Delete old avatar if exists
+      if (profile.avatar) {
+        try {
+          const urlParts = profile.avatar.split('/avatars/');
+          if (urlParts.length > 1) {
+            const oldPath = urlParts[1];
+            // Remove query parameters if any
+            const cleanPath = oldPath.split('?')[0];
+            console.log("🗑️ Removing old avatar:", cleanPath);
+            
+            const { error: deleteError } = await supabase.storage
+              .from('avatars')
+              .remove([cleanPath]);
+            
+            if (deleteError) {
+              console.warn('Could not delete old avatar:', deleteError);
+            } else {
+              console.log("✅ Old avatar deleted");
+            }
+          }
+        } catch (deleteError) {
+          console.warn('Error during old avatar deletion:', deleteError);
+        }
+      }
+      
+      // Upload new avatar to public bucket
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
@@ -93,13 +130,18 @@ export default function UserProfile() {
         });
       
       if (uploadError) {
-        throw uploadError;
+        console.error("❌ Upload error:", uploadError);
+        throw new Error(uploadError.message || 'Failed to upload file');
       }
+      
+      console.log("✅ Upload successful:", uploadData);
       
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+      
+      console.log("🔗 Public URL:", publicUrl);
       
       // Update profile in database
       const { error: updateError } = await supabase
@@ -108,8 +150,11 @@ export default function UserProfile() {
         .eq('id', profile.id);
       
       if (updateError) {
-        throw updateError;
+        console.error("❌ Profile update error:", updateError);
+        throw new Error(updateError.message || 'Failed to update profile');
       }
+      
+      console.log("✅ Profile updated in database");
       
       // Also update users table for backward compatibility
       const { error: userUpdateError } = await supabase
@@ -118,7 +163,9 @@ export default function UserProfile() {
         .eq('id', profile.id);
       
       if (userUpdateError) {
-        console.warn('Could not update users table avatar:', userUpdateError);
+        console.warn('⚠️ Could not update users table avatar:', userUpdateError);
+      } else {
+        console.log("✅ Users table updated");
       }
       
       // Refresh profile data
@@ -127,7 +174,7 @@ export default function UserProfile() {
       toast.success('Profile photo updated successfully!');
       
     } catch (error) {
-      console.error('Error uploading avatar:', error);
+      console.error('❌ Error uploading avatar:', error);
       toast.error(error.message || 'Failed to upload profile photo');
       setPreviewUrl(profile?.avatar || null);
     } finally {
@@ -210,6 +257,33 @@ export default function UserProfile() {
     setLoading(true);
     
     try {
+      if (!profile?.id) {
+        throw new Error('Profile not loaded. Please refresh the page.');
+      }
+      
+      // Delete avatar file from storage if exists
+      if (profile.avatar) {
+        try {
+          const urlParts = profile.avatar.split('/avatars/');
+          if (urlParts.length > 1) {
+            const oldPath = urlParts[1].split('?')[0]; // Remove query params
+            console.log("🗑️ Deleting avatar:", oldPath);
+            
+            const { error: deleteError } = await supabase.storage
+              .from('avatars')
+              .remove([oldPath]);
+            
+            if (deleteError) {
+              console.warn('Could not delete avatar file:', deleteError);
+            } else {
+              console.log("✅ Avatar file deleted");
+            }
+          }
+        } catch (deleteError) {
+          console.warn('Error deleting avatar file:', deleteError);
+        }
+      }
+      
       // Remove avatar from profiles table
       const { error: updateError } = await supabase
         .from('profiles')
@@ -220,11 +294,19 @@ export default function UserProfile() {
         throw updateError;
       }
       
+      console.log("✅ Profile avatar_url cleared");
+      
       // Also update users table for backward compatibility
-      await supabase
+      const { error: userUpdateError } = await supabase
         .from('users')
         .update({ avatar: null })
         .eq('id', profile.id);
+      
+      if (userUpdateError) {
+        console.warn('⚠️ Could not update users table:', userUpdateError);
+      } else {
+        console.log("✅ Users table avatar cleared");
+      }
       
       // Refresh profile data
       await refreshProfile();

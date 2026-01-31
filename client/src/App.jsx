@@ -140,6 +140,7 @@ import WorkflowStatuses from "./pages/admin/WorkflowStatuses.jsx";
 import RolePermissionManager from "./pages/admin/RolePermissionManager.jsx";
 import OperationsDashboard from "./pages/operationdashbaord/OperationsDashboard.jsx";
 import FinancialDashboard from "./pages/FinancialDashboard.jsx";
+import UserProfile from "./pages/UserProfile.jsx";
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -887,6 +888,16 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <OperationsDashboard userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+
+
+                      <Route
+                      path="/profile"
+                      element={
+                        <ProtectedRoute>
+                          <UserProfile userRole={role} />
                         </ProtectedRoute>
                       }
                     />
