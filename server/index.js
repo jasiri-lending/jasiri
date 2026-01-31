@@ -9,6 +9,7 @@ import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import tenantRouter from "./routes/tenantRoutes.js";
 import mpesaConfigRouter from "./routes/mpesa_configure.js";
+import Authrouter from "./routes/auth.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -53,6 +54,8 @@ app.use("/api/report-users/create", createReportUser);
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/tenant", tenantRouter);
 app.use("/api", mpesaConfigRouter);
+
+app.use("/api", Authrouter);
 
 // Create user endpoint
 app.post("/create-user", async (req, res) => {

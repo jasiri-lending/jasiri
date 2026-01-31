@@ -136,7 +136,7 @@ const SharedSidebar = () => {
         { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
         { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
 
-        { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign }
+        { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
 
 
       );

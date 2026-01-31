@@ -11,24 +11,6 @@ import {
   CreditCard, PhoneCall
 } from 'lucide-react';
 
-// Use colors from your Tailwind config
-const COLORS = {
-  brand: {
-    surface: '#E7F0FA',
-    secondary: '#7BA4D0',
-    primary: '#586ab1',
-    authority: '#0D2440',
-  },
-  success: '#10B981',
-  warning: '#FACC15',
-  danger: '#EF4444',
-  text: '#111827',
-  background: '#FFFFFF',
-  muted: '#6B7280',
-  highlight: '#FACC15',
-  neutral: '#F3F4F6'
-};
-
 // Skeleton Loader Components
 const SkeletonCard = () => (
   <div className="animate-pulse bg-white rounded-xl p-6 shadow-lg border border-gray-200">
@@ -65,51 +47,59 @@ const StatCard = ({
 }) => {
   if (loading) return <StatCardSkeleton />;
   
-  const getColorClass = () => {
-    if (color === 'primary') return COLORS.brand.primary;
-    if (color === 'success') return COLORS.success;
-    if (color === 'warning') return COLORS.warning;
-    if (color === 'danger') return COLORS.danger;
-    return COLORS.brand.primary;
+  const getColorClasses = () => {
+    const colorMap = {
+      primary: {
+        bg: 'bg-brand-primary',
+        text: 'text-brand-primary',
+        border: 'border-brand-primary',
+        iconBg: 'bg-brand-primary/10'
+      },
+      success: {
+        bg: 'bg-accent',
+        text: 'text-accent',
+        border: 'border-accent',
+        iconBg: 'bg-accent/10'
+      },
+      warning: {
+        bg: 'bg-highlight',
+        text: 'text-highlight',
+        border: 'border-highlight',
+        iconBg: 'bg-highlight/10'
+      },
+      danger: {
+        bg: 'bg-red-500',
+        text: 'text-red-500',
+        border: 'border-red-500',
+        iconBg: 'bg-red-500/10'
+      }
+    };
+    return colorMap[color] || colorMap.primary;
   };
   
-  const colorValue = getColorClass();
+  const colors = getColorClasses();
   
   return (
     <div 
       onClick={onClick}
-      className={`bg-white rounded-xl p-5 shadow-lg border border-gray-200 hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-${color}-200 transform hover:-translate-y-1`}
-      style={{ 
-        backgroundColor: COLORS.background,
-        borderLeft: `4px solid ${colorValue}`
-      }}
+      className={`${colors.bg} rounded-xl p-5 shadow-lg border-2 border-transparent hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-opacity-30 hover:${colors.border} transform hover:-translate-y-1`}
     >
       <div className="flex items-center justify-between mb-3">
-        <div 
-          className="p-3 rounded-xl"
-          style={{ 
-            backgroundColor: `${colorValue}15`,
-            color: colorValue
-          }}
-        >
-          <Icon className="w-5 h-5" />
+        <div className={`p-3 rounded-xl bg-white/20`}>
+          <Icon className="w-5 h-5 text-white" />
         </div>
         {change !== undefined && (
-          <div className={`text-xs px-3 py-1 rounded-full font-medium ${
-            change > 0 ? 'bg-green-50 text-green-700 border border-green-200' : 
-            change < 0 ? 'bg-red-50 text-red-700 border border-red-200' : 
-            'bg-gray-50 text-gray-700 border border-gray-200'
-          }`}>
+          <div className={`text-xs px-3 py-1 rounded-full font-medium bg-white/20 text-white border border-white/30`}>
             {change > 0 ? '↑' : change < 0 ? '↓' : '→'} {Math.abs(change)}%
           </div>
         )}
       </div>
       
       <div className="space-y-1">
-        <div className="text-2xl font-bold" style={{ color: COLORS.text }}>
+        <div className="text-2xl font-bold text-white">
           {value}
         </div>
-        <div className="text-sm" style={{ color: COLORS.muted }}>
+        <div className="text-sm text-white/90">
           {label}
         </div>
       </div>
@@ -121,18 +111,15 @@ const ChartCard = ({ title, subtitle, children, loading = false, className = '' 
   if (loading) return <SkeletonCard />;
   
   return (
-    <div 
-      className={`bg-white rounded-xl p-6 shadow-lg border border-gray-200 ${className}`}
-      style={{ backgroundColor: COLORS.background }}
-    >
+    <div className={`bg-white rounded-xl p-6 shadow-lg border border-gray-200 ${className}`}>
       <div className="mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-lg font-semibold" style={{ color: COLORS.text }}>
+            <h3 className="text-lg font-semibold text-text">
               {title}
             </h3>
             {subtitle && (
-              <p className="text-sm mt-1" style={{ color: COLORS.muted }}>
+              <p className="text-sm mt-1 text-muted">
                 {subtitle}
               </p>
             )}
@@ -173,9 +160,9 @@ const AlertCard = ({
       bg: 'bg-blue-50',
       border: 'border-blue-200',
       icon: FileWarning,
-      iconColor: COLORS.brand.primary,
+      iconColor: 'text-brand-primary',
       text: 'text-blue-800',
-      countBg: `${COLORS.brand.surface}`
+      countBg: 'bg-brand-surface'
     }
   }[type];
 
@@ -203,8 +190,7 @@ const AlertCard = ({
         {onAction && (
           <button
             onClick={onAction}
-            className="text-sm font-medium hover:underline flex items-center gap-1"
-            style={{ color: COLORS.brand.primary }}
+            className="text-sm font-medium hover:underline flex items-center gap-1 text-brand-primary"
           >
             {actionLabel}
             <ChevronRight className="w-4 h-4" />
@@ -215,39 +201,28 @@ const AlertCard = ({
   );
 };
 
-const PipelineStage = ({ stage, count, total, color }) => {
+const PipelineStage = ({ stage, count, total, colorClass }) => {
   const percentage = total > 0 ? (count / total) * 100 : 0;
   
   return (
     <div className="flex flex-col items-center group">
       <div className="relative">
         <div 
-          className="w-24 h-24 rounded-xl flex flex-col items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg"
-          style={{ 
-            backgroundColor: `${color}15`,
-            border: `2px solid ${color}`,
-            boxShadow: `0 4px 20px ${color}25`
-          }}
+          className={`w-24 h-24 rounded-xl flex flex-col items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg ${colorClass} border-2`}
         >
-          <span className="text-2xl font-bold" style={{ color }}>{count}</span>
-          <span className="text-xs" style={{ color: COLORS.muted }}>loans</span>
+          <span className="text-2xl font-bold text-white">{count}</span>
+          <span className="text-xs text-white/80">loans</span>
         </div>
         <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div 
-            className="px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm"
-            style={{ 
-              backgroundColor: COLORS.background,
-              border: `1px solid ${color}40`
-            }}
-          >
+          <div className="px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm bg-white border border-gray-200">
             {percentage.toFixed(1)}%
           </div>
         </div>
       </div>
-      <div className="text-sm font-semibold mt-4" style={{ color: COLORS.text }}>
+      <div className="text-sm font-semibold mt-4 text-text">
         {stage.name}
       </div>
-      <div className="text-xs text-center mt-1" style={{ color: COLORS.muted }}>
+      <div className="text-xs text-center mt-1 text-muted">
         {stage.description}
       </div>
     </div>
@@ -265,26 +240,9 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
   ];
   
   return (
-    <div 
-      className="sticky top-0 z-10 backdrop-blur-lg border-b px-6 py-4"
-      style={{ 
-        backgroundColor: `${COLORS.brand.surface}CC`,
-        borderColor: `${COLORS.brand.secondary}30`
-      }}
-    >
+    <div className="backdrop-blur-lg border-b px-6 py-4 bg-brand-surface/80 border-brand-secondary/30">
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div 
-            className="p-2 rounded-lg"
-            style={{ 
-              backgroundColor: COLORS.brand.primary,
-              color: COLORS.background
-            }}
-          >
-            <BarChart2 className="w-5 h-5" />
-          </div>
         
-        </div>
         
         <div className="flex flex-col sm:flex-row gap-3">
           {/* Region Filter */}
@@ -292,12 +250,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
             <select
               value={filters.region}
               onChange={(e) => onFilterChange('region', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none appearance-none transition-all"
-              style={{
-                backgroundColor: COLORS.background,
-                border: `1px solid ${COLORS.brand.secondary}50`,
-                color: COLORS.text
-              }}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
             >
               <option value="all">All Regions</option>
               {regions.map(region => (
@@ -306,9 +259,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
                 </option>
               ))}
             </select>
-            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" 
-              style={{ color: COLORS.brand.primary }} 
-            />
+            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
           </div>
           
           {/* Branch Filter */}
@@ -316,12 +267,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
             <select
               value={filters.branch}
               onChange={(e) => onFilterChange('branch', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none appearance-none transition-all"
-              style={{
-                backgroundColor: COLORS.background,
-                border: `1px solid ${COLORS.brand.secondary}50`,
-                color: COLORS.text
-              }}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
             >
               <option value="all">All Branches</option>
               {branches.map(branch => (
@@ -330,9 +276,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
                 </option>
               ))}
             </select>
-            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" 
-              style={{ color: COLORS.brand.primary }} 
-            />
+            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
           </div>
           
           {/* Officer Filter */}
@@ -340,12 +284,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
             <select
               value={filters.officer}
               onChange={(e) => onFilterChange('officer', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none appearance-none transition-all"
-              style={{
-                backgroundColor: COLORS.background,
-                border: `1px solid ${COLORS.brand.secondary}50`,
-                color: COLORS.text
-              }}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
             >
               <option value="all">All Officers</option>
               {officers.map(officer => (
@@ -354,9 +293,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
                 </option>
               ))}
             </select>
-            <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" 
-              style={{ color: COLORS.brand.primary }} 
-            />
+            <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
           </div>
           
           {/* Date Range */}
@@ -364,12 +301,7 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
             <select
               value={dateRange}
               onChange={(e) => setDateRange(e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-opacity-50 outline-none appearance-none transition-all"
-              style={{
-                backgroundColor: COLORS.background,
-                border: `1px solid ${COLORS.brand.secondary}50`,
-                color: COLORS.text
-              }}
+              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
             >
               {dateOptions.map(option => (
                 <option key={option.value} value={option.value}>
@@ -377,18 +309,12 @@ const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], offic
                 </option>
               ))}
             </select>
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4" 
-              style={{ color: COLORS.brand.primary }} 
-            />
+            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
           </div>
           
           <button
             onClick={() => onFilterChange('refresh', true)}
-            className="px-4 py-2.5 text-sm font-medium rounded-lg transition-all hover:shadow-md flex items-center gap-2"
-            style={{
-              backgroundColor: COLORS.brand.primary,
-              color: COLORS.background
-            }}
+            className="px-4 py-2.5 text-sm font-medium rounded-lg transition-all hover:shadow-md flex items-center gap-2 bg-brand-primary text-white"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
@@ -722,18 +648,20 @@ const OperationsDashboard = () => {
   }, [dashboardData.pipeline]);
 
   const pipelineStages = [
-    { name: 'Submitted', description: 'New applications', color: COLORS.brand.primary },
-    { name: 'Under Review', description: 'In assessment', color: COLORS.warning },
-    { name: 'Approved', description: 'Approval granted', color: COLORS.success },
-    { name: 'Disbursed', description: 'Funds released', color: COLORS.brand.secondary },
-    { name: 'Rejected', description: 'Applications declined', color: COLORS.danger }
+    { name: 'Submitted', description: 'New applications', colorClass: 'bg-brand-primary border-brand-primary' },
+    { name: 'Under Review', description: 'In assessment', colorClass: 'bg-highlight border-highlight' },
+    { name: 'Approved', description: 'Approval granted', colorClass: 'bg-accent border-accent' },
+    { name: 'Disbursed', description: 'Funds released', colorClass: 'bg-brand-secondary border-brand-secondary' },
+    { name: 'Rejected', description: 'Applications declined', colorClass: 'bg-red-500 border-red-500' }
   ];
 
   return (
-    <div 
-      className="min-h-screen"
-      style={{ backgroundColor: COLORS.brand.surface }}
-    >
+    <div className="min-h-screen bg-brand-surface">
+      {/* Page Header */}
+      <div className=" text-white px-6 py-2">
+        <h1 className="text-sm font-semibold  text-slate-600 font-bold">Operations Dashboard</h1>
+      </div>
+
       {/* Global Filter Bar */}
       <FilterBar 
         filters={filters} 
@@ -745,25 +673,17 @@ const OperationsDashboard = () => {
       
       <div className="p-6 space-y-6">
         {/* Section 1: Daily Loan Activity */}
-        <div>
+        <div >
           <div className="mb-6">
             <div className="flex items-center gap-3 mb-2">
-              <div 
-                className="p-2 rounded-lg"
-                style={{ 
-                  backgroundColor: COLORS.brand.primary,
-                  color: COLORS.background
-                }}
-              >
-                <Briefcase className="w-5 h-5" />
+              <div className="p-2 rounded-lg bg-brand-primary text-white">
+                <Briefcase className="w-3 h-3" />
               </div>
               <div>
-                <h2 className="text-xl font-bold" style={{ color: COLORS.brand.authority }}>
+                <h2 className="text-sm font-semibold  text-primary">
                   Daily Loan Activity
                 </h2>
-                <p className="text-sm" style={{ color: COLORS.muted }}>
-                  Today's key operational metrics
-                </p>
+               
               </div>
             </div>
           </div>
@@ -829,35 +749,32 @@ const OperationsDashboard = () => {
                   stage={stage}
                   count={Object.values(dashboardData.pipeline)[index]}
                   total={totalPipeline}
-                  color={stage.color}
+                  colorClass={stage.colorClass}
                 />
                 
                 {index < pipelineStages.length - 1 && (
                   <div className="absolute top-12 right-[-2rem] lg:block hidden">
-                    <ChevronRight className="w-8 h-8" style={{ color: `${COLORS.muted}40` }} />
+                    <ChevronRight className="w-8 h-8 text-muted/40" />
                   </div>
                 )}
               </div>
             ))}
           </div>
           
-          <div className="mt-8 pt-6 border-t" style={{ borderColor: `${COLORS.brand.secondary}30` }}>
+          <div className="mt-8 pt-6 border-t border-brand-secondary/30">
             <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               {pipelineStages.map((stage, index) => (
-                <div key={stage.name} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors">
-                  <div 
-                    className="w-3 h-3 rounded-full flex-shrink-0"
-                    style={{ backgroundColor: stage.color }}
-                  />
+                <div key={stage.name} className="flex items-center gap-3 p-3 rounded-lg hover:bg-neutral transition-colors">
+                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${stage.colorClass.split(' ')[0]}`} />
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate" style={{ color: COLORS.text }}>
+                    <div className="text-sm font-medium truncate text-text">
                       {stage.name}
                     </div>
-                    <div className="text-xs truncate" style={{ color: COLORS.muted }}>
+                    <div className="text-xs truncate text-muted">
                       {stage.description}
                     </div>
                   </div>
-                  <div className="text-sm font-bold" style={{ color: stage.color }}>
+                  <div className={`text-sm font-bold ${stage.colorClass.split(' ')[0].replace('bg-', 'text-')}`}>
                     {Object.values(dashboardData.pipeline)[index]}
                   </div>
                 </div>
@@ -878,26 +795,20 @@ const OperationsDashboard = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="p-2 rounded-lg"
-                      style={{ 
-                        backgroundColor: `${COLORS.brand.primary}15`,
-                        color: COLORS.brand.primary
-                      }}
-                    >
+                    <div className="p-2 rounded-lg bg-brand-primary/10 text-brand-primary">
                       <Clock className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold" style={{ color: COLORS.text }}>
+                      <div className="font-semibold text-text">
                         Application → Approval
                       </div>
-                      <div className="text-xs" style={{ color: COLORS.muted }}>
+                      <div className="text-xs text-muted">
                         Target: 48h
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold" style={{ color: COLORS.text }}>
+                    <span className="text-2xl font-bold text-text">
                       {dashboardData.processSpeed.approvalTime}h
                     </span>
                     {dashboardData.processSpeed.approvalTrend < 0 ? (
@@ -919,11 +830,8 @@ const OperationsDashboard = () => {
                 </div>
                 <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                   <div 
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{ 
-                      width: `${Math.min(100, dashboardData.processSpeed.approvalTime / 48 * 100)}%`,
-                      background: `linear-gradient(90deg, ${COLORS.brand.primary}, ${COLORS.brand.secondary})`
-                    }}
+                    className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-brand-primary to-brand-secondary"
+                    style={{ width: `${Math.min(100, dashboardData.processSpeed.approvalTime / 48 * 100)}%` }}
                   />
                 </div>
               </div>
@@ -931,26 +839,20 @@ const OperationsDashboard = () => {
               <div>
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-3">
-                    <div 
-                      className="p-2 rounded-lg"
-                      style={{ 
-                        backgroundColor: `${COLORS.success}15`,
-                        color: COLORS.success
-                      }}
-                    >
+                    <div className="p-2 rounded-lg bg-accent/10 text-accent">
                       <DollarSign className="w-4 h-4" />
                     </div>
                     <div>
-                      <div className="font-semibold" style={{ color: COLORS.text }}>
+                      <div className="font-semibold text-text">
                         Approval → Disbursement
                       </div>
-                      <div className="text-xs" style={{ color: COLORS.muted }}>
+                      <div className="text-xs text-muted">
                         Target: 24h
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold" style={{ color: COLORS.text }}>
+                    <span className="text-2xl font-bold text-text">
                       {dashboardData.processSpeed.disbursementTime}h
                     </span>
                     {dashboardData.processSpeed.disbursementTrend < 0 ? (
@@ -972,11 +874,8 @@ const OperationsDashboard = () => {
                 </div>
                 <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
                   <div 
-                    className="h-full rounded-full transition-all duration-1000"
-                    style={{ 
-                      width: `${Math.min(100, dashboardData.processSpeed.disbursementTime / 24 * 100)}%`,
-                      background: `linear-gradient(90deg, ${COLORS.success}, #22c55e)`
-                    }}
+                    className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-accent to-green-500"
+                    style={{ width: `${Math.min(100, dashboardData.processSpeed.disbursementTime / 24 * 100)}%` }}
                   />
                 </div>
               </div>
@@ -991,30 +890,24 @@ const OperationsDashboard = () => {
           >
             <div className="space-y-6">
               {dashboardData.workload.map((officer, index) => (
-                <div key={index} className="group p-3 rounded-lg hover:bg-gray-50 transition-all">
+                <div key={index} className="group p-3 rounded-lg hover:bg-neutral transition-all">
                   <div className="flex items-center justify-between mb-3">
                     <div className="flex items-center gap-3">
-                      <div 
-                        className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold"
-                        style={{ 
-                          backgroundColor: `${COLORS.brand.primary}15`,
-                          color: COLORS.brand.primary
-                        }}
-                      >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold bg-brand-primary/10 text-brand-primary">
                         {officer.name.charAt(0)}
                       </div>
                       <div>
-                        <div className="font-medium" style={{ color: COLORS.text }}>
+                        <div className="font-medium text-text">
                           {officer.name}
                         </div>
-                        <div className="text-xs" style={{ color: COLORS.muted }}>
+                        <div className="text-xs text-muted">
                           Relationship Officer
                         </div>
                       </div>
                     </div>
-                    <div className="text-lg font-bold" style={{ color: COLORS.text }}>
+                    <div className="text-lg font-bold text-text">
                       {officer.count}
-                      <span className="text-sm font-normal ml-1" style={{ color: COLORS.muted }}>
+                      <span className="text-sm font-normal ml-1 text-muted">
                         loans
                       </span>
                     </div>
@@ -1032,7 +925,7 @@ const OperationsDashboard = () => {
                     />
                   </div>
                   <div className="flex justify-between text-xs mt-2">
-                    <span style={{ color: COLORS.muted }}>0</span>
+                    <span className="text-muted">0</span>
                     <span className={`font-medium ${
                       officer.threshold === 'high' ? 'text-red-600' :
                       officer.threshold === 'medium' ? 'text-amber-600' : 'text-green-600'
@@ -1040,7 +933,7 @@ const OperationsDashboard = () => {
                       {officer.threshold === 'high' ? 'High Load' :
                        officer.threshold === 'medium' ? 'Moderate' : 'Optimal'}
                     </span>
-                    <span style={{ color: COLORS.muted }}>30</span>
+                    <span className="text-muted">30</span>
                   </div>
                 </div>
               ))}
@@ -1049,80 +942,66 @@ const OperationsDashboard = () => {
         </div>
         
         {/* Sections 5 & 6 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 ">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Section 5: Disbursement Monitor */}
           <ChartCard
             title="Disbursement Monitor"
             subtitle="Today's disbursement status"
             loading={loading}
           >
-            <div className="space-y-4 bg-brand-secondary">
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] "
-                style={{ 
-                  borderColor: `${COLORS.success}30`
-                }}
-              >
+            <div className="space-y-4">
+              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-accent/5 border-accent/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5" style={{ color: COLORS.success }} />
+                    <CheckCircle className="w-5 h-5 text-accent" />
                     <div>
-                      <div className="font-semibold" style={{ color: COLORS.text }}>
+                      <div className="font-semibold text-text">
                         Disbursed Today
                       </div>
-                      <div className="text-sm" style={{ color: COLORS.muted }}>
+                      <div className="text-sm text-muted">
                         Successfully processed
                       </div>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold" style={{ color: COLORS.text }}>
+                  <div className="text-2xl font-bold text-text">
                     {dashboardData.disbursement.today}
                   </div>
                 </div>
               </div>
               
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02]"
-                style={{ 
-                  backgroundColor: `${COLORS.warning}08`,
-                  borderColor: `${COLORS.warning}30`
-                }}
-              >
+              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-highlight/5 border-highlight/30">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5" style={{ color: COLORS.warning }} />
+                    <Clock className="w-5 h-5 text-highlight" />
                     <div>
-                      <div className="font-semibold" style={{ color: COLORS.text }}>
+                      <div className="font-semibold text-text">
                         Pending Disbursement
                       </div>
-                      <div className="text-sm" style={{ color: COLORS.muted }}>
+                      <div className="text-sm text-muted">
                         Awaiting processing
                       </div>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold" style={{ color: COLORS.text }}>
+                  <div className="text-2xl font-bold text-text">
                     {dashboardData.disbursement.pending}
                   </div>
                 </div>
               </div>
               
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02]"
-                style={{ 
-                  backgroundColor: `${COLORS.danger}08`,
-                  borderColor: `${COLORS.danger}30`
-                }}
-              >
+              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-red-50 border-red-200">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <XCircle className="w-5 h-5" style={{ color: COLORS.danger }} />
+                    <XCircle className="w-5 h-5 text-red-500" />
                     <div>
-                      <div className="font-semibold" style={{ color: COLORS.text }}>
+                      <div className="font-semibold text-text">
                         Failed Disbursements
                       </div>
-                      <div className="text-sm" style={{ color: COLORS.muted }}>
+                      <div className="text-sm text-muted">
                         Requires attention
                       </div>
                     </div>
                   </div>
-                  <div className="text-2xl font-bold" style={{ color: COLORS.text }}>
+                  <div className="text-2xl font-bold text-text">
                     {dashboardData.disbursement.failed}
                   </div>
                 </div>
@@ -1131,69 +1010,48 @@ const OperationsDashboard = () => {
           </ChartCard>
           
           {/* Section 6: Client & KYC Status */}
-          <div className="lg:col-span-2 space-y-6 ">
+          <div className="lg:col-span-2 space-y-6">
             <ChartCard
               title="Client & KYC Status"
               subtitle="Customer onboarding metrics"
               loading={loading}
             >
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all"
-                  style={{ 
-                    backgroundColor: `${COLORS.brand.primary}05`,
-                    borderColor: `${COLORS.brand.primary}20`
-                  }}
-                >
-                  <UserPlus className="w-10 h-10 mx-auto mb-3" 
-                    style={{ color: COLORS.brand.primary }} 
-                  />
-                  <div className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>
+                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-brand-primary/5 border-brand-primary/20">
+                  <UserPlus className="w-10 h-10 mx-auto mb-3 text-brand-primary" />
+                  <div className="text-3xl font-bold mb-2 text-text">
                     {dashboardData.clientKyc.newBorrowers}
                   </div>
-                  <div className="text-sm font-semibold mb-1" style={{ color: COLORS.brand.primary }}>
+                  <div className="text-sm font-semibold mb-1 text-brand-primary">
                     New Borrowers
                   </div>
-                  <div className="text-xs" style={{ color: COLORS.muted }}>
+                  <div className="text-xs text-muted">
                     Registered today
                   </div>
                 </div>
                 
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all"
-                  style={{ 
-                    backgroundColor: `${COLORS.warning}05`,
-                    borderColor: `${COLORS.warning}20`
-                  }}
-                >
-                  <FileWarning className="w-10 h-10 mx-auto mb-3" 
-                    style={{ color: COLORS.warning }} 
-                  />
-                  <div className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>
+                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-highlight/5 border-highlight/20">
+                  <FileWarning className="w-10 h-10 mx-auto mb-3 text-highlight" />
+                  <div className="text-3xl font-bold mb-2 text-text">
                     {dashboardData.clientKyc.missingDocuments}
                   </div>
-                  <div className="text-sm font-semibold mb-1" style={{ color: COLORS.warning }}>
+                  <div className="text-sm font-semibold mb-1 text-highlight">
                     Missing Documents
                   </div>
-                  <div className="text-xs" style={{ color: COLORS.muted }}>
+                  <div className="text-xs text-muted">
                     Requires follow-up
                   </div>
                 </div>
                 
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all"
-                  style={{ 
-                    backgroundColor: `${COLORS.danger}05`,
-                    borderColor: `${COLORS.danger}20`
-                  }}
-                >
-                  <Shield className="w-10 h-10 mx-auto mb-3" 
-                    style={{ color: COLORS.danger }} 
-                  />
-                  <div className="text-3xl font-bold mb-2" style={{ color: COLORS.text }}>
+                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-red-50 border-red-200">
+                  <Shield className="w-10 h-10 mx-auto mb-3 text-red-500" />
+                  <div className="text-3xl font-bold mb-2 text-text">
                     {dashboardData.clientKyc.unverifiedKyc}
                   </div>
-                  <div className="text-sm font-semibold mb-1" style={{ color: COLORS.danger }}>
+                  <div className="text-sm font-semibold mb-1 text-red-500">
                     Unverified KYC
                   </div>
-                  <div className="text-xs" style={{ color: COLORS.muted }}>
+                  <div className="text-xs text-muted">
                     Pending verification
                   </div>
                 </div>
@@ -1220,11 +1078,11 @@ const OperationsDashboard = () => {
                   ))
                 ) : (
                   <div className="text-center py-8">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-3" style={{ color: COLORS.success }} />
-                    <div className="text-lg font-semibold mb-2" style={{ color: COLORS.text }}>
+                    <CheckCircle className="w-12 h-12 mx-auto mb-3 text-accent" />
+                    <div className="text-lg font-semibold mb-2 text-text">
                       All Systems Operational
                     </div>
-                    <p className="text-sm" style={{ color: COLORS.muted }}>
+                    <p className="text-sm text-muted">
                       No pending alerts requiring immediate attention
                     </p>
                   </div>
@@ -1233,7 +1091,6 @@ const OperationsDashboard = () => {
             </ChartCard>
           </div>
         </div>
- 
       </div>
     </div>
   );
