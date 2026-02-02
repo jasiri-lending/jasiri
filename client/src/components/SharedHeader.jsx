@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
-import { 
+import {
   UserCircle, Settings, HelpCircle, LogOut,
-  Shield, Menu 
+  Shield, Menu
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 import { useTenant } from "../hooks/useTenant";
@@ -138,7 +138,7 @@ const SharedHeader = ({ onMenuClick }) => {
             >
               <div className="flex items-center space-x-2 lg:space-x-3">
                 <div className="relative">
-                  {profile?.avatar ? (
+                  {profile?.avatar_url ? (
                     <img
                       src={profile.avatar_url}
                       alt={profile?.full_name}
@@ -150,9 +150,8 @@ const SharedHeader = ({ onMenuClick }) => {
                     </div>
                   )}
                   <div className="absolute -bottom-1 -right-1">
-                    <div className={`w-3 h-3 rounded-full border-2 border-white ${
-                      profile?.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
-                    }`} />
+                    <div className={`w-3 h-3 rounded-full border-2 border-white ${profile?.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
+                      }`} />
                   </div>
                 </div>
 

@@ -18,7 +18,7 @@ const supabase = createClient(
 async function sendTenantEmail(adminEmail, adminPassword, tenantSlug, companyName) {
   const loginUrl = `https://jasirilending.software/login?tenant=${tenantSlug}`;
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || '"Jasiri" <no-reply@jasiri.com>',
+    from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
     to: adminEmail,
     subject: `Your Tenant Platform is Ready`,
     html: baseEmailTemplate("Welcome to Jasiri", `

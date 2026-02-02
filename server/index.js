@@ -220,7 +220,7 @@ app.post("/create-user", async (req, res) => {
     // 4️⃣ Send welcome email with credentials
     try {
       await transporter.sendMail({
-        from: '"Jasiri" <no-reply@jasiri.com>',
+        from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
         to: email,
         subject: "Welcome to Jasiri - Your Account Credentials",
         html: baseEmailTemplate("Welcome to Jasiri!", `

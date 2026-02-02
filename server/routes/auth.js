@@ -93,7 +93,7 @@ Authrouter.post("/login", async (req, res) => {
 
     // Send code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Your Login Verification Code",
       text: `Your login code is ${verificationCode}. It expires in 10 minutes.`,
@@ -143,7 +143,7 @@ Authrouter.post("/resend-code", async (req, res) => {
 
     // Send new code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: user.email,
       subject: "Your New Verification Code",
       text: `Your new verification code is ${verificationCode}. It expires in 10 minutes.`,
@@ -275,7 +275,7 @@ Authrouter.post("/forgot-password", async (req, res) => {
 
     // Send reset code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Password Reset Code",
       text: `Your password reset code is ${resetCode}. It expires in 15 minutes.`,
@@ -329,7 +329,7 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
 
     // Send new reset code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Your New Password Reset Code",
       text: `Your new password reset code is ${resetCode}. It expires in 15 minutes.`,
@@ -421,7 +421,7 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     // Send confirmation email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Password Reset Successful",
       text: "Your password has been successfully reset. You can now login with your new password.",
@@ -665,7 +665,7 @@ Authrouter.post("/request-password-change-code", verifySession, async (req, res)
 
     // Send code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Password Change Verification Code",
       html: baseEmailTemplate("Password Change Verification", `
@@ -705,7 +705,7 @@ Authrouter.post("/resend-password-change-code", verifySession, async (req, res) 
 
     // Send new code via email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "New Password Change Code",
       html: baseEmailTemplate("New Verification Code", `
@@ -826,7 +826,7 @@ Authrouter.post("/verify-password-change-code", verifySession, async (req, res) 
 
     // Send confirmation email
     await transporter.sendMail({
-      from: '"Jasiri" <no-reply@jasiri.com>',
+      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
       to: email,
       subject: "Password Changed Successfully",
       html: baseEmailTemplate("Security Alert: Password Changed", `

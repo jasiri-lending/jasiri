@@ -6,10 +6,12 @@ import "dotenv/config";
  * Uses variables from .env to ensure consistency across the application.
  */
 const transporter = nodemailer.createTransport({
-    service: process.env.EMAIL_SERVICE || "Gmail",
+    host: "smtp-relay.brevo.com",
+    port: 587,
+    secure: false, // TLS
     auth: {
-        user: process.env.EMAIL_USERNAME,
-        pass: process.env.EMAIL_PASSWORD,
+        user: "a14ef2001@smtp-brevo.com",
+        pass: process.env.BREVO_SMTP_KEY,
     },
 });
 
