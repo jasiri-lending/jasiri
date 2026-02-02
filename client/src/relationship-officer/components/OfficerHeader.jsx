@@ -22,11 +22,11 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
 
   const getRoleBadgeColor = (role) => {
     const colors = {
-      relationship_officer: "bg-gradient-to-r from-blue-500 to-cyan-500",
-      regional_manager: "bg-gradient-to-r from-purple-500 to-pink-500",
-      admin: "bg-gradient-to-r from-red-500 to-orange-500",
-      manager: "bg-gradient-to-r from-green-500 to-emerald-500",
-      default: "bg-gradient-to-r from-gray-500 to-gray-700"
+      relationship_officer: "bg-brand-primary shadow-md shadow-brand-primary/20",
+      regional_manager: "bg-accent shadow-md shadow-accent/20",
+      admin: "bg-orange-600 shadow-md shadow-orange-500/20",
+      manager: "bg-emerald-600 shadow-md shadow-emerald-500/20",
+      default: "bg-gray-600 shadow-md"
     };
     return colors[role] || colors.default;
   };
@@ -58,11 +58,11 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setSidebarOpen(!sidebarOpen)}
-              className="p-2 rounded-xl text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 group md:hidden"
+              className="p-2 rounded-xl text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:ring-offset-2 transition-all duration-200 group md:hidden"
             >
               <Menu className="h-5 w-5 group-hover:scale-110 transition-transform" />
             </button>
-           
+
           </div>
           <div className="animate-pulse">
             <div className="h-8 w-32 bg-gray-200 rounded-lg"></div>
@@ -78,24 +78,23 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
         {/* Left Section */}
         <div className="flex items-center space-x-4">
           <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="p-2 rounded-xl text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 group md:hidden"
+            className="p-2 rounded-xl text-gray-600 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:ring-offset-2 transition-all duration-200 group md:hidden"
           >
             <Menu className="h-5 w-5 group-hover:scale-110 transition-transform" />
           </button>
-          
-       
+
+
         </div>
 
         {/* Right Section - Profile */}
         <div className="relative" ref={dropdownRef}>
           <button
             onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-            className="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 group"
+            className="flex items-center space-x-3 p-2 rounded-xl hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:ring-offset-2 transition-all duration-200 group"
           >
             <div className="flex items-center space-x-3">
               <div className="relative">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 bg-brand-primary rounded-full flex items-center justify-center shadow-lg">
                   <span className="text-white font-semibold text-sm">
                     {getInitials(profile.name)}
                   </span>
@@ -104,7 +103,7 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
                   <div className="w-3 h-3 bg-green-500 rounded-full border-2 border-white"></div>
                 </div>
               </div>
-              
+
               <div className="hidden md:flex flex-col items-start text-left">
                 <span className="font-semibold text-gray-900 text-sm leading-tight">
                   {profile.name}
@@ -114,11 +113,10 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
                 </span>
               </div>
             </div>
-            
-            <ChevronDown 
-              className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
-                isDropdownOpen ? 'rotate-180' : ''
-              }`} 
+
+            <ChevronDown
+              className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${isDropdownOpen ? 'rotate-180' : ''
+                }`}
             />
           </button>
 
@@ -128,7 +126,7 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
               {/* Profile Info */}
               <div className="px-4 py-3 border-b border-gray-100">
                 <div className="flex items-center space-x-3">
-                  <div className="w-11 h-11 bg-gradient-to-br from-blue-400 to-cyan-500 rounded-full flex items-center justify-center">
+                  <div className="w-11 h-11 bg-brand-primary rounded-full flex items-center justify-center">
                     <span className="text-white font-semibold text-base">
                       {getInitials(profile.name)}
                     </span>
@@ -138,31 +136,31 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
                     <p className="text-sm text-gray-500 truncate">{profile.email}</p>
                   </div>
                 </div>
-                
+
                 <div className="mt-2 flex items-center justify-between">
                   <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium text-white ${getRoleBadgeColor(profile.role)}`}>
                     {getRoleDisplayName(profile.role)}
                   </span>
-               
+
                 </div>
               </div>
 
               {/* Role-specific Information */}
               <div className="px-4 py-3 border-b border-gray-100">
                 <div className="space-y-2">
-                 
-                    <>
-                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Region:</span>
-                        <span className="font-medium text-gray-900">{profile.region || 'All Regions'}</span>
-                      </div>
-                      <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Branch:</span>
-                        <span className="font-medium text-gray-900">{profile.branch || 'Main Branch'}</span>
-                      </div>
-                      
-                    </>
-                 
+
+                  <>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Region:</span>
+                      <span className="font-medium text-gray-900">{profile.region || 'All Regions'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-500">Branch:</span>
+                      <span className="font-medium text-gray-900">{profile.branch || 'Main Branch'}</span>
+                    </div>
+
+                  </>
+
                 </div>
               </div>
 
@@ -181,7 +179,7 @@ const OfficerHeader = ({ sidebarOpen, setSidebarOpen }) => {
 
               {/* Logout */}
               <div className="border-t border-gray-100 pt-2">
-                <button 
+                <button
                   onClick={logout}
                   className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-50 transition-colors duration-150 font-medium"
                 >

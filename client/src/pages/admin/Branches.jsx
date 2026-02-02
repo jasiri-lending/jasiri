@@ -192,7 +192,7 @@ export default function Branches() {
         }
     };
 
-    const openModal = (item = null) => {
+    const openModal = async (item = null) => {
         setEditingItem(item);
 
         if (item) {
@@ -203,6 +203,9 @@ export default function Branches() {
             };
             setFormData(initialData);
         }
+
+        // Refresh regions to get latest data (including newly created regions)
+        await fetchRegions(currentUserTenantId, profile?.role);
 
         setShowModal(true);
     };
@@ -334,7 +337,7 @@ export default function Branches() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Branch Name
                                     </th>
-                                 
+
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Region
                                     </th>
@@ -343,7 +346,7 @@ export default function Branches() {
                                             Tenant
                                         </th>
                                     )}
-                                 
+
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Actions
                                     </th>
@@ -355,7 +358,7 @@ export default function Branches() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {branch.name}
                                         </td>
-                                      
+
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {branch.region_name}
                                         </td>
@@ -364,7 +367,7 @@ export default function Branches() {
                                                 {branch.tenant_name}
                                             </td>
                                         )}
-                                      
+
                                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             <div className="flex space-x-2">
                                                 <button

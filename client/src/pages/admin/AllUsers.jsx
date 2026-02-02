@@ -501,10 +501,6 @@ export default function AllUsers() {
   };
 
   const handleCreateUser = async () => {
-    if (formData.password && formData.password.length < 6) {
-      throw new Error("Password must be at least 6 characters");
-    }
-
     const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
 
     const response = await fetch(`${API_BASE_URL}/create-user`, {
@@ -513,7 +509,6 @@ export default function AllUsers() {
       body: JSON.stringify({
         full_name: formData.full_name?.trim(),
         email: formData.email?.trim(),
-        password: formData.password?.trim(),
         role: formData.role,
         phone: formData.phone?.trim() || null,
         branch_id: requiresBranchRegion ? (formData.branch_id || null) : null,
@@ -621,9 +616,18 @@ export default function AllUsers() {
 
     try {
       if (type === "user") {
-        await supabase.from("profiles").delete().eq("id", id);
-        const { error } = await supabase.from("users").delete().eq("id", id);
-        if (error) throw error;
+        // Use the new permanent delete endpoint
+        const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+        });
+
+        const data = await response.json();
+
+        if (!data.success) {
+          throw new Error(data.error || "Failed to delete user");
+        }
+
         setUsers(prev => prev.filter(user => user.id !== id));
       } else {
         const table = type === "branch" ? "branches" : "regions";
@@ -1064,18 +1068,16 @@ export default function AllUsers() {
                   </div>
 
                   {isAddingUser && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Password *</label>
-                      <input
-                        type="password"
-                        value={formData.password || ''}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        required={isAddingUser}
-                        minLength={6}
-                        placeholder="••••••••"
-                      />
-                      <p className="text-xs text-gray-500 mt-2">Password must be at least 6 characters long</p>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-start">
+                        <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                        <div className="ml-3">
+                          <h3 className="text-sm font-medium text-blue-800">Automatic Password Generation</h3>
+                          <p className="text-sm text-blue-700 mt-1">A secure password will be automatically generated and sent to the user's email address.</p>
+                        </div>
+                      </div>
                     </div>
                   )}
 

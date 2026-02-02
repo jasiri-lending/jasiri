@@ -12,25 +12,25 @@ import {
 } from "@heroicons/react/24/outline";
 
 
-function CustomersTable({ customers, loading}) {
+function CustomersTable({ customers, loading }) {
   const [searchTerm, setSearchTerm] = useState("");
 
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  
+
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState("");
-   const navigate = useNavigate();
+  const navigate = useNavigate();
 
   //  Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const customersPerPage = 10;
 
   const handleView = (customer) => {
-  navigate(`/officer/${customer.id}/details`);
-};
+    navigate(`/officer/${customer.id}/details`);
+  };
 
 
-    const handleAddCustomer = () => {
+  const handleAddCustomer = () => {
     navigate('/officer/customers/add');
   };
 
@@ -79,10 +79,10 @@ function CustomersTable({ customers, loading}) {
 
   if (loading)
     return (
-      <div className="p-4">
-        <div className="bg-white shadow rounded-lg p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading customers...</p>
+      <div className="p-8 bg-brand-surface min-h-screen font-body">
+        <div className="bg-white shadow-sm rounded-2xl p-12 text-center border border-brand-surface">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-brand-surface border-t-brand-primary mx-auto"></div>
+          <p className="mt-4 text-muted font-medium">Loading customers...</p>
         </div>
       </div>
     );
@@ -104,7 +104,7 @@ function CustomersTable({ customers, loading}) {
                 <input
                   type="text"
                   placeholder="Search by name, mobile, ID, business, or location..."
-                  className="pl-10 pr-4 py-2 border border-gray-300 rounded-md w-full focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -114,16 +114,15 @@ function CustomersTable({ customers, loading}) {
             <div className="flex items-end space-x-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`flex items-center px-4 py-2 border rounded-md transition-colors ${
-                  showFilters
-                    ? "border-indigo-300 bg-indigo-50 text-indigo-700"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
-                }`}
+                className={`flex items-center px-4 py-2 border rounded-xl transition-all shadow-sm ${showFilters
+                    ? "border-brand-primary bg-brand-surface text-brand-primary"
+                    : "border-gray-300 text-text hover:bg-brand-surface bg-white"
+                  }`}
               >
                 <FunnelIcon className="h-5 w-5 mr-2" />
                 Filters
                 {selectedStatus && (
-                  <span className="ml-2 px-2 py-1 text-xs bg-indigo-100 text-indigo-800 rounded-full">
+                  <span className="ml-2 px-2 py-0.5 text-xs bg-brand-primary text-white rounded-full">
                     1
                   </span>
                 )}
@@ -133,11 +132,10 @@ function CustomersTable({ customers, loading}) {
                 Export
               </button> */}
               <button
-                 onClick={handleAddCustomer}
-                className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}
+                onClick={handleAddCustomer}
+                className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium shadow-md flex items-center gap-2"
               >
-                <PlusIcon className="h-5 w-5 mr-2" />
+                <PlusIcon className="h-5 w-5" />
                 Add Customer
               </button>
             </div>
@@ -209,9 +207,9 @@ function CustomersTable({ customers, loading}) {
                     <td className="px-3 py-2 text-sm">
                       <button
                         onClick={() => handleView(customer)}
- className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}                      >
-                        <EyeIcon className="h-3 w-3 mr-1" />
+                        className="px-4 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm"
+                      >
+                        <EyeIcon className="h-3 w-3" />
                         View
                       </button>
                     </td>
@@ -244,11 +242,10 @@ function CustomersTable({ customers, loading}) {
               <button
                 key={i + 1}
                 onClick={() => setCurrentPage(i + 1)}
-                className={`px-3 py-1 border rounded-md text-sm ${
-                  currentPage === i + 1
-                    ? "bg-indigo-600 text-white"
-                    : "bg-white hover:bg-gray-100"
-                }`}
+                className={`px-3 py-1 border rounded-md text-sm transition-all ${currentPage === i + 1
+                    ? "bg-brand-primary text-white border-brand-primary"
+                    : "bg-white text-text hover:bg-brand-surface border-gray-300"
+                  }`}
               >
                 {i + 1}
               </button>

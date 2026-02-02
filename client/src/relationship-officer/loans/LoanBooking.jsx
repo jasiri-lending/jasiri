@@ -14,16 +14,16 @@ import {
   PencilIcon, ArrowLeftIcon,
 } from "@heroicons/react/24/outline";
 
-import { useNavigate,useLocation  } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const LoanBookingForm = ({ customerData }) => {
   const [duration, setDuration] = useState(4);
- const location = useLocation();
+  const location = useLocation();
   const navigate = useNavigate();
   const customer = customerData || location.state?.customerData;
-  
+
   // Get customerData from navigation state
-  
+
   const [principalAmount, setPrincipalAmount] = useState("");
   const [calculated, setCalculated] = useState({});
   const [repaymentSchedule, setRepaymentSchedule] = useState([]);
@@ -56,15 +56,15 @@ const LoanBookingForm = ({ customerData }) => {
       { weeks: 4, name: "Inuka 4 Weeks" },
       { weeks: 5, name: "Inuka 5 Weeks" },
       { weeks: 6, name: "Inuka 6 Weeks" },
-        { weeks: 7, name: "Inuka 7 Weeks" },
-          { weeks: 8, name: "Inuka 8 Weeks" },
+      { weeks: 7, name: "Inuka 7 Weeks" },
+      { weeks: 8, name: "Inuka 8 Weeks" },
     ],
     Kuza: [
       { weeks: 4, name: "Kuza 4 Weeks" },
       { weeks: 5, name: "Kuza 5 Weeks" },
       { weeks: 6, name: "Kuza 6 Weeks" },
       { weeks: 7, name: "Kuza 7 Weeks" },
-            { weeks: 8, name: "Kuza 8 Weeks" },
+      { weeks: 8, name: "Kuza 8 Weeks" },
 
     ],
     Fadhili: [
@@ -127,30 +127,30 @@ const LoanBookingForm = ({ customerData }) => {
   //  loan products by amount
   const getProductInfo = (amount) => {
     if (amount >= 1000 && amount <= 5000) {
-      return { 
-        product: "Inuka", 
-        productName: "Inuka (1K-5K)", 
+      return {
+        product: "Inuka",
+        productName: "Inuka (1K-5K)",
         range: "KES 1,000 - 5,000",
         baseName: "Inuka"
       };
     } else if (amount >= 6000 && amount <= 10000) {
-      return { 
-        product: "Kuza", 
-        productName: "Kuza (6K-10K)", 
+      return {
+        product: "Kuza",
+        productName: "Kuza (6K-10K)",
         range: "KES 6,000 - 10,000",
         baseName: "Kuza"
       };
     } else if (amount > 10000) {
-      return { 
-        product: "Fadhili", 
-        productName: "Fadhili (10K+)", 
+      return {
+        product: "Fadhili",
+        productName: "Fadhili (10K+)",
         range: "KES 10,000 and above",
         baseName: "Fadhili"
       };
     } else {
-      return { 
-        product: "", 
-        productName: "Invalid Amount", 
+      return {
+        product: "",
+        productName: "Invalid Amount",
         range: "Amount must be KES 1,000 or more",
         baseName: ""
       };
@@ -167,7 +167,7 @@ const LoanBookingForm = ({ customerData }) => {
   const autoSelectProductType = () => {
     const productInfo = getProductInfo(principalAmount);
     const availableTypes = productTypes[productInfo.baseName];
-    
+
     if (availableTypes && availableTypes.length > 0) {
       // Find the type that matches current duration or default to first option
       const matchingType = availableTypes.find(type => type.weeks === duration) || availableTypes[0];
@@ -226,43 +226,43 @@ const LoanBookingForm = ({ customerData }) => {
     }
     setRepaymentSchedule(schedule);
   };
-const handlePrincipalChange = (e) => {
-  const value = e.target.value;
+  const handlePrincipalChange = (e) => {
+    const value = e.target.value;
 
-  // Allow empty input
-  if (value === "") {
-    setPrincipalAmount("");
-    setCalculated({});
-    setRepaymentSchedule([]);
-    setSelectedProductType("");
+    // Allow empty input
+    if (value === "") {
+      setPrincipalAmount("");
+      setCalculated({});
+      setRepaymentSchedule([]);
+      setSelectedProductType("");
+      setErrorMessage("");
+      return;
+    }
+
+    const num = Number(value);
+
+    // Ignore invalid numbers
+    if (isNaN(num)) return;
+
+    // EXCEEDS LIMIT → RESET TO ZERO AND SHOW ERROR
+    if (num > approved_amount) {
+      setPrincipalAmount(0);
+      setCalculated({});
+      setRepaymentSchedule([]);
+      setSelectedProductType("");
+      setErrorMessage(`Amount exceeds approved limit of KES ${approved_amount?.toLocaleString()}. Please enter a valid amount.`);
+
+      // Clear error after 4 seconds
+      setTimeout(() => setErrorMessage(""), 4000);
+      return;
+    }
+
+    // Clear error for valid input
     setErrorMessage("");
-    return;
-  }
 
-  const num = Number(value);
-
-  // Ignore invalid numbers
-  if (isNaN(num)) return;
-
-  // EXCEEDS LIMIT → RESET TO ZERO AND SHOW ERROR
-  if (num > approved_amount) {
-    setPrincipalAmount(0);
-    setCalculated({});
-    setRepaymentSchedule([]);
-    setSelectedProductType("");
-    setErrorMessage(`Amount exceeds approved limit of KES ${approved_amount?.toLocaleString()}. Please enter a valid amount.`);
-    
-    // Clear error after 4 seconds
-    setTimeout(() => setErrorMessage(""), 4000);
-    return;
-  }
-
-  // Clear error for valid input
-  setErrorMessage("");
-  
-  // Valid input
-  setPrincipalAmount(num);
-};
+    // Valid input
+    setPrincipalAmount(num);
+  };
 
 
 
@@ -282,76 +282,76 @@ const handlePrincipalChange = (e) => {
   };
 
   // Book loan
-const handleBookLoan = async () => {
-  if (!isValidAmount()) {
-    alert(
-      `Please enter a valid loan amount (KES 1,000 - ${
-        approved_amount?.toLocaleString() || 0
-      }) and select a product type`
-    );
-    return;
-  }
+  const handleBookLoan = async () => {
+    if (!isValidAmount()) {
+      alert(
+        `Please enter a valid loan amount (KES 1,000 - ${approved_amount?.toLocaleString() || 0
+        }) and select a product type`
+      );
+      return;
+    }
 
-  setLoading(true);
-  try {
-    // Check if customer has ever had a successfully disbursed loan
-    const { data: previousLoans, error: prevError } = await supabase
-      .from("loans")
-      .select("id, status")
-      .eq("customer_id", id)
-      .eq("status", "disbursed");
+    setLoading(true);
+    try {
+      // Check if customer has ever had a successfully disbursed loan
+      const { data: previousLoans, error: prevError } = await supabase
+        .from("loans")
+        .select("id, status")
+        .eq("customer_id", id)
+        .eq("status", "disbursed");
 
-    if (prevError) throw prevError;
+      if (prevError) throw prevError;
 
-    const isFirstLoan = !previousLoans || previousLoans.length === 0;
+      const isFirstLoan = !previousLoans || previousLoans.length === 0;
 
-   
-    const initialStatus = "bm_review";
 
-    const { error } = await supabase.from("loans").insert([
-      {
-        customer_id: id,
-        product: calculated.product,
-        product_name: calculated.productName,
-        product_type: selectedProductType,
-        prequalified_amount: approved_amount,
-        scored_amount: calculated.principal,
-        duration_weeks: duration,
-        processing_fee: calculated.processingFee,
-        registration_fee: calculated.registrationFee,
-        interest_rate: calculated.interestRate,
-        total_interest: calculated.totalInterest,
-        total_payable: calculated.totalPayable,
-        weekly_payment: calculated.weeklyPayment,
-        status: initialStatus,
-        booked_at: new Date().toISOString(),
-        is_new_loan: isFirstLoan,
-        booked_by: profile?.id || null,
-        branch_id:profile?.branch_id,
-        region_id:profile?.region_id,
-      },
-    ]);
+      const initialStatus = "bm_review";
 
-    if (error) throw error;
+      const { error } = await supabase.from("loans").insert([
+        {
+          customer_id: id,
+          product: calculated.product,
+          product_name: calculated.productName,
+          product_type: selectedProductType,
+          prequalified_amount: approved_amount,
+          scored_amount: calculated.principal,
+          duration_weeks: duration,
+          processing_fee: calculated.processingFee,
+          registration_fee: calculated.registrationFee,
+          interest_rate: calculated.interestRate,
+          total_interest: calculated.totalInterest,
+          total_payable: calculated.totalPayable,
+          weekly_payment: calculated.weeklyPayment,
+          status: initialStatus,
+          booked_at: new Date().toISOString(),
+          is_new_loan: isFirstLoan,
+          booked_by: profile?.id || null,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          tenant_id: profile?.tenant_id,
+        },
+      ]);
 
-    alert("Loan successfully booked!");
-      navigate(-1); 
-   
-  } catch (error) {
-    console.error(" Error booking loan:", error.message);
-    alert("Error booking loan. Please try again.");
-  } finally {
-    setLoading(false);
-  }
-};
+      if (error) throw error;
+
+      alert("Loan successfully booked!");
+      navigate(-1);
+
+    } catch (error) {
+      console.error(" Error booking loan:", error.message);
+      alert("Error booking loan. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
-               <Spinner text="Loading ..." />
-             </div>
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="h-full bg-brand-surface p-6 min-h-screen flex items-center justify-center ">
+          <Spinner text="Loading ..." />
+        </div>
       </div>
     );
   }
@@ -360,54 +360,53 @@ const handleBookLoan = async () => {
 
   return (
     <div className="min-h-screen bg-brand-surface">
-    
-      
+
+
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className=" p-4 mb-4 flex items-center justify-between">
-      {/* Back Button */}
-      <button
-        onClick={() => navigate(-1)}
-        className="flex items-center gap-1 text-slate-600 hover:text-slate-800"
-      >
-        <ArrowLeftIcon className="w-5 h-5" />
-        <span className="text-sm font-medium">Back</span>
-      </button>
+          {/* Back Button */}
+          <button
+            onClick={() => navigate(-1)}
+            className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 text-text rounded-xl hover:bg-brand-surface transition-all font-medium shadow-sm"
+          >
+            <ArrowLeftIcon className="w-5 h-5" />
+            <span className="text-sm">Back</span>
+          </button>
 
-      {/* Title & Subtitle */}
-      <div className=" text-center">
-        <h1 className=" font-semibold bg-slate-600 bg-clip-text text-transparent">
-          Loan Booking Confirmation
-        </h1>
-        <p className="text-gray-600 text-sm mt-1">
-          Review and confirm loan disbursement details
-        </p>
-      </div>
+          {/* Title & Subtitle */}
+          <div className=" text-center">
+            <h1 className="text-2xl font-bold text-text">
+              Loan Booking Confirmation
+            </h1>
+            <p className="text-gray-600 text-sm mt-1">
+              Review and confirm loan disbursement details
+            </p>
+          </div>
 
-      {/* Status Badge */}
-      <div
-        className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-sm ${
-          isValidAmount()
-            ? 'bg-gradient-to-r from-emerald-100 to-green-100 border-emerald-200 text-emerald-700'
-            : 'bg-gradient-to-r from-amber-100 to-yellow-100 border-amber-200 text-amber-700'
-        }`}
-      >
-        <CheckCircleIcon
-          className={`h-5 w-5 ${isValidAmount() ? 'text-emerald-600' : 'text-amber-600'}`}
-        />
-        <span>{isValidAmount() ? 'Ready to Book' : 'Check Amount & Product'}</span>
-      </div>
-    </div>
+          {/* Status Badge */}
+          <div
+            className={`flex items-center gap-2 px-3 py-1 rounded-lg border text-sm ${isValidAmount()
+              ? 'bg-gradient-to-r from-emerald-100 to-green-100 border-emerald-200 text-emerald-700'
+              : 'bg-gradient-to-r from-amber-100 to-yellow-100 border-amber-200 text-amber-700'
+              }`}
+          >
+            <CheckCircleIcon
+              className={`h-5 w-5 ${isValidAmount() ? 'text-emerald-600' : 'text-amber-600'}`}
+            />
+            <span>{isValidAmount() ? 'Ready to Book' : 'Check Amount & Product'}</span>
+          </div>
+        </div>
 
         {/* Main Content */}
-        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-xl border border-brand-surface overflow-hidden">
           {/* Customer and Loan Overview */}
-          <div className="p-8 bg-gradient-to-br from-indigo-50 to-blue-50 border-b border-indigo-100">
+          <div className="p-8 bg-brand-surface border-b border-brand-surface">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               {/* Customer Details */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-indigo-100">
-                <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-4">
-                  <UserIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                <h3 className="text-lg font-bold text-text flex items-center mb-4">
+                  <UserIcon className="h-6 w-6 text-brand-primary mr-3" />
                   Customer Information
                 </h3>
                 <div className="space-y-3">
@@ -419,7 +418,7 @@ const handleBookLoan = async () => {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600 font-medium">Customer ID:</span>
-                    <span className="text-indigo-600 font-mono font-semibold">
+                    <span className="text-brand-primary font-mono font-bold">
                       {id_number || 'N/A'}
                     </span>
                   </div>
@@ -446,16 +445,15 @@ const handleBookLoan = async () => {
 
               {/* Loan Summary */}
               <div className="bg-white rounded-xl p-6 shadow-sm border border-indigo-100">
-                <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-4">
-                  <CurrencyDollarIcon className="h-6 w-6 text-emerald-600 mr-3" />
+                <h3 className="text-lg font-bold text-text flex items-center mb-4">
+                  <CurrencyDollarIcon className="h-6 w-6 text-accent mr-3" />
                   Loan Summary
                 </h3>
                 <div className="space-y-4">
                   <div className="flex justify-between">
                     <span className="text-gray-600 font-medium">Product:</span>
-                    <span className={`font-semibold ${
-                      calculated.product ? 'text-indigo-600' : 'text-red-600'
-                    }`}>
+                    <span className={`font-semibold ${calculated.product ? 'text-indigo-600' : 'text-red-600'
+                      }`}>
                       {calculated.productName || 'Select Valid Amount'}
                     </span>
                   </div>
@@ -467,7 +465,7 @@ const handleBookLoan = async () => {
                       <select
                         value={selectedProductType}
                         onChange={handleProductTypeChange}
-                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white"
+                        className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all bg-white text-sm"
                       >
                         <option value="">Select product type</option>
                         {availableProductTypes.map((type) => (
@@ -483,55 +481,54 @@ const handleBookLoan = async () => {
                       )}
                     </div>
                   )}
-                  
+
                   {/* Editable Principal Amount */}
-             <div className="space-y-2">
-  <label className="text-gray-600 font-medium">Principal Amount:</label>
-  <div className="flex items-center gap-2">
-    <div className="flex-1 relative">
-      <input
-        type="number"
-        value={principalAmount}
-        onChange={handlePrincipalChange}
-        min="1000"
-        max={approved_amount}
-        step="100"
-        className={`w-full p-3 pr-12 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors font-bold text-lg ${
-          isValidAmount() 
-            ? 'border-green-300 bg-green-50 text-emerald-600' 
-            : 'border-red-300 bg-red-50 text-red-600'
-        }`}
-        placeholder="Enter amount"
-      />
-      <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-    </div>
-  </div>
-  
-  {/* Error message for exceeding limit - SHOWS IMMEDIATELY BELOW INPUT */}
-  {errorMessage && (
-    <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg animate-pulse">
-      <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-      </svg>
-      <p className="text-sm text-red-700 font-medium">{errorMessage}</p>
-    </div>
-  )}
-  
-  <p className="text-xs text-gray-500">
-    Maximum allowed: KES {approved_amount?.toLocaleString()} (Approved amount)
-  </p>
-  
-  {/* Validation messages - only show if no errorMessage */}
-  {!isValidAmount() && principalAmount > 0 && !errorMessage && (
-    <p className="text-xs text-red-600">
-      {principalAmount < 1000 
-        ? "Minimum amount is KES 1,000" 
-        : principalAmount > approved_amount 
-        ? "Amount exceeds approved limit" 
-        : "Please select product type"}
-    </p>
-  )}
-</div>
+                  <div className="space-y-2">
+                    <label className="text-gray-600 font-medium">Principal Amount:</label>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 relative">
+                        <input
+                          type="number"
+                          value={principalAmount}
+                          onChange={handlePrincipalChange}
+                          min="1000"
+                          max={approved_amount}
+                          step="100"
+                          className={`w-full p-3 pr-12 border rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all font-bold text-lg ${isValidAmount()
+                            ? 'border-accent/30 bg-accent/5 text-accent'
+                            : 'border-red-300 bg-red-50 text-red-600'
+                            }`}
+                          placeholder="Enter amount"
+                        />
+                        <PencilIcon className="absolute right-3 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                      </div>
+                    </div>
+
+                    {/* Error message for exceeding limit - SHOWS IMMEDIATELY BELOW INPUT */}
+                    {errorMessage && (
+                      <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-lg animate-pulse">
+                        <svg className="w-5 h-5 text-red-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                        </svg>
+                        <p className="text-sm text-red-700 font-medium">{errorMessage}</p>
+                      </div>
+                    )}
+
+                    <p className="text-xs text-gray-500">
+                      Maximum allowed: KES {approved_amount?.toLocaleString()} (Approved amount)
+                    </p>
+
+                    {/* Validation messages - only show if no errorMessage */}
+                    {!isValidAmount() && principalAmount > 0 && !errorMessage && (
+                      <p className="text-xs text-red-600">
+                        {principalAmount < 1000
+                          ? "Minimum amount is KES 1,000"
+                          : principalAmount > approved_amount
+                            ? "Amount exceeds approved limit"
+                            : "Please select product type"}
+                      </p>
+                    )}
+                  </div>
 
                   <div className="flex justify-between">
                     <span className="text-gray-600 font-medium">Duration:</span>
@@ -553,7 +550,7 @@ const handleBookLoan = async () => {
                   )}
                   <div className="flex justify-between pt-2 border-t border-gray-200">
                     <span className="text-gray-600 font-medium">Total Repayment:</span>
-                    <span className="text-lg font-bold text-indigo-600">
+                    <span className="text-xl font-bold text-brand-primary">
                       KES {(repaymentSchedule.reduce((sum, payment) => sum + payment.total, 0)).toLocaleString()}
                     </span>
                   </div>
@@ -564,9 +561,9 @@ const handleBookLoan = async () => {
 
           {/* Repayment Terms Configuration */}
           <div className="p-8">
-            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 mb-8">
+            <div className="bg-brand-surface rounded-2xl p-8 border border-brand-surface mb-8">
               <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
-                <ClockIcon className="h-6 w-6 text-blue-600 mr-3" />
+                <ClockIcon className="h-6 w-6 text-brand-primary mr-3" />
                 Repayment Configuration
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -591,9 +588,8 @@ const handleBookLoan = async () => {
                     Selected Product Type
                   </label>
                   <div className="p-3 bg-white border border-gray-300 rounded-lg">
-                    <span className={`font-semibold ${
-                      selectedProductType ? 'text-indigo-600' : 'text-gray-400'
-                    }`}>
+                    <span className={`font-semibold ${selectedProductType ? 'text-indigo-600' : 'text-gray-400'
+                      }`}>
                       {selectedProductType || 'No product type selected'}
                     </span>
                   </div>
@@ -608,12 +604,12 @@ const handleBookLoan = async () => {
                   <DocumentTextIcon className="h-6 w-6 text-purple-600 mr-3" />
                   Repayment Schedule - {selectedProductType}
                 </h3>
-                
-                <div className="bg-gradient-to-br from-blue-50 to-slate-50 rounded-xl border border-gray-200 overflow-hidden">
+
+                <div className="bg-white rounded-2xl border border-brand-surface overflow-hidden shadow-sm">
                   <div className="overflow-x-auto">
                     <table className="min-w-full">
                       <thead>
-                     <tr className="text-white text-sm" style={{ backgroundColor: "#586ab1" }}>
+                        <tr className="text-white text-sm bg-brand-primary">
 
                           <th className="px-6 py-4 text-left font-semibold">Week</th>
                           <th className="px-6 py-4 text-left font-semibold">Due Date</th>
@@ -626,14 +622,13 @@ const handleBookLoan = async () => {
                         {repaymentSchedule.map((payment, index) => (
                           <tr
                             key={index}
-                            className={`${
-                              index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                            } hover:bg-indigo-50 transition-colors`}
+                            className={`${index % 2 === 0 ? 'bg-white' : 'bg-brand-surface/50'
+                              } hover:bg-brand-surface transition-colors`}
                           >
                             <td className="px-6 py-4">
                               <div className="flex items-center">
                                 <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                                  <span className="text-indigo-600 font-semibold text-sm">
+                                  <span className="text-brand-primary font-bold text-sm">
                                     {payment.week}
                                   </span>
                                 </div>
@@ -651,14 +646,14 @@ const handleBookLoan = async () => {
                             <td className="px-6 py-4 text-right font-semibold text-amber-600">
                               KES {(payment.processing_fee + payment.registration_fee).toLocaleString()}
                             </td>
-                            <td className="px-6 py-4 text-right font-semibold text-indigo-600">
+                            <td className="px-6 py-4 text-right font-bold text-brand-primary">
                               KES {payment.total.toLocaleString()}
                             </td>
                           </tr>
                         ))}
 
                         {/* Totals Row */}
-                        <tr className="bg-gradient-to-r from-indigo-100 to-blue-100 border-t-2 border-indigo-200 text-sm">
+                        <tr className="bg-brand-surface border-t-2 border-brand-secondary text-sm">
                           <td className="px-6 py-4 font-semibold text-slate-600" colSpan="2">
                             TOTAL
                           </td>
@@ -673,7 +668,7 @@ const handleBookLoan = async () => {
                               )
                             ).toLocaleString()}
                           </td>
-                          <td className="px-6 py-4 text-right font-bold text-indigo-600 text-lg">
+                          <td className="px-6 py-4 text-right font-bold text-brand-primary text-xl">
                             KES {(
                               repaymentSchedule.reduce((sum, payment) => sum + payment.total, 0)
                             ).toLocaleString()}
@@ -693,29 +688,26 @@ const handleBookLoan = async () => {
                 Loan Product Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`bg-white p-4 rounded-lg border ${
-                  calculated.product === 'Inuka' ? 'border-purple-300 ring-2 ring-purple-200' : 'border-purple-100'
-                }`}>
+                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Inuka' ? 'border-purple-300 ring-2 ring-purple-200' : 'border-purple-100'
+                  }`}>
                   <h4 className="font-semibold text-purple-700 mb-2">Inuka</h4>
                   <p className="text-sm text-gray-600">KES 1,000 - 5,000</p>
                   <p className="text-xs text-gray-500 mt-2">4-6 weeks duration</p>
-                 
+
                 </div>
-                <div className={`bg-white p-4 rounded-lg border ${
-                  calculated.product === 'Kuza' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-blue-100'
-                }`}>
+                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Kuza' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-blue-100'
+                  }`}>
                   <h4 className="font-semibold text-blue-700 mb-2">Kuza</h4>
                   <p className="text-sm text-gray-600">KES 6,000 - 10,000</p>
                   <p className="text-xs text-gray-500 mt-2">4-7 weeks duration</p>
-                 
+
                 </div>
-                <div className={`bg-white p-4 rounded-lg border ${
-                  calculated.product === 'Fadhili' ? 'border-green-300 ring-2 ring-green-200' : 'border-green-100'
-                }`}>
+                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Fadhili' ? 'border-green-300 ring-2 ring-green-200' : 'border-green-100'
+                  }`}>
                   <h4 className="font-semibold text-green-700 mb-2">Fadhili</h4>
                   <p className="text-sm text-gray-600">KES 10,000 and above</p>
                   <p className="text-xs text-gray-500 mt-2">4-8 weeks duration</p>
-                  
+
                 </div>
               </div>
               <div className="mt-4 text-sm text-gray-600">
@@ -726,28 +718,28 @@ const handleBookLoan = async () => {
             </div>
 
             {/* Action Button */}
-           <div className="flex justify-end pt-8 border-t border-gray-200">
-  <button
-    onClick={handleBookLoan}
-    disabled={loading || !isValidAmount()}
-    className={`flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
-    style={{
-      backgroundColor: isValidAmount() ? "#586ab1" : "#9aa1c9",
-    }}
-  >
-    {loading ? (
-      <>
-        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-        Processing...
-      </>
-    ) : (
-      <>
-        <CheckCircleIcon className="h-6 w-6" />
-        {isValidAmount() ? `Book ${selectedProductType}` : "Enter Valid Amount"}
-      </>
-    )}
-  </button>
-</div>
+            <div className="flex justify-end pt-8 border-t border-gray-200">
+              <button
+                onClick={handleBookLoan}
+                disabled={loading || !isValidAmount()}
+                className={`flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed`}
+                style={{
+                  backgroundColor: isValidAmount() ? "#586ab1" : "#cbd5e1",
+                }}
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircleIcon className="h-6 w-6" />
+                    {isValidAmount() ? `Book ${selectedProductType}` : "Enter Valid Amount"}
+                  </>
+                )}
+              </button>
+            </div>
 
           </div>
         </div>

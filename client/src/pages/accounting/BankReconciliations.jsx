@@ -11,8 +11,10 @@ import {
   UserX,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 
 function BankReconciliations() {
+  const { profile } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [fileName, setFileName] = useState("");
@@ -328,8 +330,9 @@ function BankReconciliations() {
           // 1️⃣ Match customer
           const { data: customer, error: customerError } = await supabase
             .from("customers")
-            .select("id, Firstname, Surname, mobile")
+            .select("id, Firstname, Surname, mobile, tenant_id")
             .eq("mobile", t.mobile)
+            .eq("tenant_id", profile?.tenant_id)
             .single();
 
           if (customerError || !customer) {
@@ -338,11 +341,12 @@ function BankReconciliations() {
 
           // 2️⃣ Fetch active loans with detailed debugging
           console.log(`Fetching loans for customer ${customer.id} (${customer.Firstname} ${customer.Surname})`);
-          
+
           const { data: allLoans } = await supabase
             .from("loans")
-            .select("id, status, repayment_state, total_payable, scored_amount")
-            .eq("customer_id", customer.id);
+            .select("id, status, repayment_state, total_payable, scored_amount, tenant_id")
+            .eq("customer_id", customer.id)
+            .eq("tenant_id", profile?.tenant_id);
 
           console.log("All customer loans:", allLoans);
 
@@ -387,6 +391,7 @@ function BankReconciliations() {
               .from("loan_installments")
               .select("*")
               .eq("loan_id", loan.id)
+              .eq("tenant_id", profile?.tenant_id)
               .neq("status", "paid")
               .order("due_date", { ascending: true });
 
@@ -400,14 +405,15 @@ function BankReconciliations() {
 
             if (!installments || installments.length === 0) {
               console.log(`No unpaid installments for loan ${loan.id}. Checking all installments...`);
-              
+
               // Check all installments for this loan
               const { data: allInst } = await supabase
                 .from("loan_installments")
-                .select("id, installment_number, status, due_amount, paid_amount")
+                .select("id, installment_number, status, due_amount, paid_amount, tenant_id")
                 .eq("loan_id", loan.id)
+                .eq("tenant_id", profile?.tenant_id)
                 .order("due_date", { ascending: true });
-              
+
               console.log(`Loan ${loan.id} has ${allInst?.length || 0} total installments:`, allInst);
               continue;
             }
@@ -420,7 +426,7 @@ function BankReconciliations() {
 
               const outstanding = Number(inst.due_amount) - Number(inst.paid_amount);
               const amountToApply = Math.min(remainingAmount, outstanding);
-              
+
               if (amountToApply <= 0) continue;
 
               const newPaid = Number(inst.paid_amount) + amountToApply;
@@ -429,8 +435,8 @@ function BankReconciliations() {
               // Update installment
               const { error: updInstErr } = await supabase
                 .from("loan_installments")
-                .update({ 
-                  paid_amount: newPaid, 
+                .update({
+                  paid_amount: newPaid,
                   status: newStatus,
                   paid_date: newStatus === "paid" ? new Date().toISOString().split('T')[0] : null
                 })
@@ -507,6 +513,7 @@ function BankReconciliations() {
                 payment_date: t.date || new Date().toISOString().split('T')[0],
                 date: t.date || new Date().toISOString().split('T')[0],
                 status: "reconciled",
+                tenant_id: profile?.tenant_id,
               });
 
             if (recErr) {
@@ -534,9 +541,8 @@ function BankReconciliations() {
           results.details.push({
             transaction: t.mpesa_ref,
             status: "Success",
-            message: `Reconciled KSh ${t.amount.toLocaleString()} for ${
-              customer.Firstname
-            }`,
+            message: `Reconciled KSh ${t.amount.toLocaleString()} for ${customer.Firstname
+              }`,
           });
         } catch (err) {
           console.error(`Reconciliation failed for ${t.mpesa_ref}:`, err);
@@ -570,6 +576,7 @@ function BankReconciliations() {
             payment_date: t.date || new Date().toISOString().split('T')[0],
             date: t.date || new Date().toISOString().split('T')[0],
             status: "mismatch",
+            tenant_id: profile?.tenant_id,
           });
         }
       }
@@ -631,7 +638,7 @@ function BankReconciliations() {
               <h2 className="text-sm sm:text-sm font-semibold text-slate-600">
                 Import Payment Data
               </h2>
-             
+
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">
@@ -714,7 +721,7 @@ function BankReconciliations() {
             </div>
           )}
 
-         
+
         </div>
 
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">

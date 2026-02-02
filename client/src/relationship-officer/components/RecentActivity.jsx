@@ -1,9 +1,9 @@
 // src/pages/relationship-officer/components/RecentActivity.jsx
 import React from 'react'
-import { 
-  PhoneIcon, 
+import {
+  PhoneIcon,
   EnvelopeIcon,
-  UserPlusIcon 
+  UserPlusIcon
 } from '@heroicons/react/24/outline'
 
 const RecentActivity = ({ activities }) => {
@@ -36,9 +36,9 @@ const RecentActivity = ({ activities }) => {
   return (
     <div className="space-y-4">
       {activities.map((activity) => (
-        <div key={activity.id} className="flex items-center space-x-3 p-3 border border-gray-200 rounded-lg">
+        <div key={activity.id} className="flex items-center space-x-3 p-4 bg-white border border-brand-surface rounded-xl hover:shadow-md transition-all">
           <div className="flex-shrink-0">
-            <div className={`p-2 rounded-full bg-blue-100 text-blue-600`}>
+            <div className={`p-2 rounded-full bg-brand-surface text-brand-primary border border-brand-primary/20`}>
               <UserPlusIcon className="h-4 w-4" />
             </div>
           </div>

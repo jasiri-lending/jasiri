@@ -1,8 +1,10 @@
 import { useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { toast } from "react-toastify";
+import { useAuth } from "../../hooks/userAuth";
 
 const PromiseToPayForm = ({ loan, customer, createdBy, onClose }) => {
+  const { profile } = useAuth();
   const [promisedAmount, setPromisedAmount] = useState("");
   const [promisedDate, setPromisedDate] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -27,6 +29,7 @@ const PromiseToPayForm = ({ loan, customer, createdBy, onClose }) => {
           promised_date: promisedDate,
           created_by: createdBy,
           remarks,
+          tenant_id: profile?.tenant_id,
         },
       ]);
 
@@ -49,7 +52,7 @@ const PromiseToPayForm = ({ loan, customer, createdBy, onClose }) => {
           New Promise To Pay
         </h2>
         <form onSubmit={handleSubmit} className="space-y-4">
-          
+
           {/* Autofilled Info */}
           <div className="bg-gray-50 p-3 rounded-lg border">
             <p className="text-sm text-gray-600">

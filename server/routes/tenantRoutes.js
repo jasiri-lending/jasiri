@@ -1,7 +1,8 @@
 import express from "express";
 import { createClient } from "@supabase/supabase-js";
-import nodemailer from "nodemailer";
 import { nanoid } from "nanoid";
+import { baseEmailTemplate, styledHighlightBox, infoBox } from "../utils/emailTemplates.js";
+import transporter from "../utils/mailer.js";
 
 const tenantRouter = express.Router();
 
@@ -11,29 +12,31 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
 
-// Email transporter using .env variables
-const transporter = nodemailer.createTransport({
-  service: process.env.EMAIL_SERVICE,
-  auth: {
-    user: process.env.EMAIL_USERNAME,
-    pass: process.env.EMAIL_PASSWORD,
-  },
-});
+// Email transporter is now handled in ../utils/mailer.js
 
 // Send tenant credentials email
 async function sendTenantEmail(adminEmail, adminPassword, tenantSlug, companyName) {
   const loginUrl = `https://jasirilending.software/login?tenant=${tenantSlug}`;
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM,
+    from: process.env.EMAIL_FROM || '"Jasiri" <no-reply@jasiri.com>',
     to: adminEmail,
     subject: `Your Tenant Platform is Ready`,
-    html: `
-      <h2>Welcome to ${companyName} Dashboard!</h2>
-      <p><strong>Login URL:</strong> ${loginUrl}</p>
-      <p><strong>Email:</strong> ${adminEmail}</p>
-      <p><strong>Password:</strong> ${adminPassword}</p>
-      <p>Please change your password after first login.</p>
-    `,
+    html: baseEmailTemplate("Welcome to Jasiri", `
+      <p>Congratulations! Your platform for <strong>${companyName}</strong> has been successfully provisioned.</p>
+      <p>Below are your initial admin credentials. Please use these to access your customized dashboard.</p>
+      
+      <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+        <p style="margin: 5px 0;"><strong>Dashboard URL:</strong> <a href="${loginUrl}" style="color: #2E5E99; font-weight: bold;">Visit Dashboard</a></p>
+        <p style="margin: 5px 0;"><strong>Admin Email:</strong> ${adminEmail}</p>
+      </div>
+
+      <p style="margin-bottom: 5px;"><strong>Temporary Password:</strong></p>
+      ${styledHighlightBox(adminPassword)}
+      
+      <p>Please use these credentials to log in and begin your journey with Jasiri.</p>
+      
+      <p>If you have any questions during setup, feel free to reach out to our support team.</p>
+    `)
   });
 }
 
@@ -57,7 +60,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
     const tenant_slug = name.toLowerCase().replace(/\s+/g, "");
 
     // 0️⃣ Pre-flight checks
-    const { data: existingTenant } = await supabase
+    const { data: existingTenant } = await supabaseAdmin
       .from("tenants")
       .select("id")
       .eq("tenant_slug", tenant_slug)
@@ -85,7 +88,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
       .toUpperCase();
 
     // 1️⃣ Insert tenant
-    const { data: tenant, error: tenantErr } = await supabase
+    const { data: tenant, error: tenantErr } = await supabaseAdmin
       .from("tenants")
       .insert([{
         name,
@@ -126,7 +129,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
 
     if (authErr) {
       console.error("❌ Auth User Creation Error:", authErr);
-      await supabase.from("tenants").delete().eq("id", tenant.id);
+      await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
       throw authErr;
     }
 
@@ -134,25 +137,25 @@ tenantRouter.post("/create-tenant", async (req, res) => {
     // Wait a moment for trigger to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const { error: userUpdateErr } = await supabase
+    const { error: userUpdateErr } = await supabaseAdmin
       .from("users")
       .update({
         full_name: admin_full_name,
         role: "admin",
         tenant_id: tenant.id,
-        must_change_password: true
+        must_change_password: false
       })
       .eq("id", authUser.user.id);
 
     if (userUpdateErr) {
       console.error("❌ User Update Error:", userUpdateErr);
-      await supabase.auth.admin.deleteUser(authUser.user.id);
-      await supabase.from("tenants").delete().eq("id", tenant.id);
+      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
+      await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
       throw userUpdateErr;
     }
 
     // 5️⃣ Update profiles (if trigger created it)
-    const { error: profileUpdateErr } = await supabase
+    const { error: profileUpdateErr } = await supabaseAdmin
       .from("profiles")
       .update({
         tenant_id: tenant.id,

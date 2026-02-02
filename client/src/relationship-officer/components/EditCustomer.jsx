@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
@@ -12,6 +13,7 @@ const parseNumber = (val) => {
 };
 
 const EditCustomerForm = ({ customerId, onClose }) => {
+  const { profile } = useAuth();
   const [securityItems, setSecurityItems] = useState([]);
   const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([
     { item: "", description: "", identification: "", value: "" },
@@ -142,13 +144,13 @@ const EditCustomerForm = ({ customerId, onClose }) => {
           setGuarantorSecurityItems(
             gSecurity && gSecurity.length
               ? gSecurity.map((item) => ({
-                  item: item.item || "",
-                  description: item.description || "",
-                  identification: item.identification || "",
-                  value: item.estimated_market_value
-                    ? item.estimated_market_value.toString()
-                    : "",
-                }))
+                item: item.item || "",
+                description: item.description || "",
+                identification: item.identification || "",
+                value: item.estimated_market_value
+                  ? item.estimated_market_value.toString()
+                  : "",
+              }))
               : [{ item: "", description: "", identification: "", value: "" }]
           );
         }
@@ -184,11 +186,11 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         setSecurityItems(
           security && security.length
             ? security.map((s) => ({
-                item: s.item || "",
-                description: s.description || "",
-                identification: s.identification || "",
-                value: s.value ? s.value.toString() : "",
-              }))
+              item: s.item || "",
+              description: s.description || "",
+              identification: s.identification || "",
+              value: s.value ? s.value.toString() : "",
+            }))
             : [{ item: "", description: "", identification: "", value: "" }]
         );
       } catch (err) {
@@ -253,6 +255,8 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         landmark: formData.landmark || null,
         has_local_authority_license:
           formData.hasLocalAuthorityLicense === "Yes",
+        tenant_id: profile?.tenant_id,
+        updated_at: new Date().toISOString(),
       };
       await supabase.from("customers").update(customerUpdate).eq("id", customerId);
 
@@ -272,6 +276,8 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         code: parseNumber(formData.guarantor.code),
         occupation: formData.guarantor.occupation || null,
         relationship: formData.guarantor.relationship || null,
+        tenant_id: profile?.tenant_id,
+        updated_at: new Date().toISOString(),
       };
 
       const { data: guarantorData, error: guarError } = await supabase
@@ -291,6 +297,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
             description: i.description,
             identification: i.identification,
             estimated_market_value: parseNumber(i.value),
+            tenant_id: profile?.tenant_id,
           }));
         if (payload.length > 0) {
           await supabase.from("guarantor_security").upsert(payload, { onConflict: "id" });
@@ -306,6 +313,8 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         id_number: parseNumber(formData.nextOfKin.idNumber),
         relationship: formData.nextOfKin.relationship || null,
         mobile: formData.nextOfKin.mobile || null,
+        tenant_id: profile?.tenant_id,
+        updated_at: new Date().toISOString(),
       };
       await supabase.from("next_of_kin").upsert(nextOfKinUpdate, { onConflict: "customer_id" });
 
@@ -319,6 +328,8 @@ const EditCustomerForm = ({ customerId, onClose }) => {
             description: item.description || null,
             identification: item.identification || null,
             value: parseNumber(item.value),
+            tenant_id: profile?.tenant_id,
+            created_at: new Date().toISOString(),
           };
           await supabase.from("security_items").insert(securityItem);
         }
@@ -333,31 +344,35 @@ const EditCustomerForm = ({ customerId, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-60 z-50">
-      <div className="bg-white w-full max-w-6xl h-[90vh] overflow-y-auto rounded-lg shadow-lg p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-bold">
-            Mular Credit Limited - Edit Customer
+    <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
+      <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-brand-surface">
+        <div className="flex justify-between items-center p-6 border-b border-brand-surface sticky top-0 bg-white z-10">
+          <h2 className="text-xl font-bold text-text flex items-center gap-2">
+            <UserCircleIcon className="h-6 w-6 text-brand-primary" />
+            Edit Customer Details
           </h2>
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 text-lg font-bold"
+            className="p-2 hover:bg-brand-surface rounded-full transition-colors text-muted hover:text-text"
           >
-            ✕
+            <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        <form className="space-y-8" onSubmit={handleSubmit}>
+        <form className="p-8 space-y-10" onSubmit={handleSubmit}>
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Personal Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <UserCircleIcon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Personal Details
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <select
                 name="prefix"
                 value={formData.prefix}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Select Prefix</option>
                 <option>Mr</option>
@@ -370,7 +385,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="First Name"
                 value={formData.Firstname}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -378,13 +393,13 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Surname"
                 value={formData.Surname}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <select
                 name="maritalStatus"
                 value={formData.maritalStatus}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Select Marital Status</option>
                 <option>Single</option>
@@ -396,7 +411,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 name="residenceStatus"
                 value={formData.residenceStatus}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Residence Status</option>
                 <option>Own</option>
@@ -410,7 +425,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Mobile Number"
                 onChange={handleChange}
                 value={formData.mobile}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -418,7 +433,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="ID Number"
                 value={formData.idNumber}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -426,7 +441,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Postal Address"
                 value={formData.postalAddress}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -434,7 +449,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Code"
                 value={formData.code}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -442,7 +457,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Town / City"
                 value={formData.town}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -450,23 +465,26 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="County"
                 value={formData.county}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
             </div>
           </section>
           {/* BUSINESS INFORMATION */}
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Business Information
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <BuildingOffice2Icon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Business Information
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <input
                 type="text"
                 name="businessName"
                 placeholder="Business Name"
                 value={formData.businessName}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="number"
@@ -474,7 +492,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Year Established"
                 value={formData.yearEstablished}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -482,7 +500,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Business Location"
                 value={formData.businessLocation}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -490,7 +508,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Road"
                 value={formData.road}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -498,13 +516,13 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Landmark (e.g. Mosque)"
                 value={formData.landmark}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <select
                 name="hasLocalAuthorityLicense"
                 value={formData.hasLocalAuthorityLicense}
                 onChange={handleChange}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Have Local Authority Licence?</option>
                 <option value="Yes">Yes</option>
@@ -515,9 +533,12 @@ const EditCustomerForm = ({ customerId, onClose }) => {
 
           {/* BORROWER SECURITY */}
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Borrower Security
-            </h3>
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <ShieldCheckIcon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Borrower Security
+              </h3>
+            </div>
             {securityItems.map((item, index) => (
               <div
                 key={index}
@@ -529,7 +550,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                   placeholder="Item"
                   value={item.item}
                   onChange={(e) => handleSecurityChange(e, index)}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="text"
@@ -537,7 +558,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                   placeholder="Description"
                   value={item.description}
                   onChange={(e) => handleSecurityChange(e, index)}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="text"
@@ -545,7 +566,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                   placeholder="Identification (e.g. Serial No.)"
                   value={item.identification}
                   onChange={(e) => handleSecurityChange(e, index)}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="number"
@@ -553,30 +574,34 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                   placeholder="Est. Market Value (KES)"
                   value={item.value}
                   onChange={(e) => handleSecurityChange(e, index)}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
               </div>
             ))}
             <button
               type="button"
               onClick={addSecurityItem}
-              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg hover:bg-brand-secondary/20 transition-all font-medium"
             >
-              + Add Item
+              <PlusIcon className="h-4 w-4" />
+              Add Item
             </button>
           </section>
 
           {/* GUARANTOR DETAILS */}
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Guarantor Details
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <UserGroupIcon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Guarantor Details
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <select
                 name="prefix"
                 value={formData.guarantor.prefix}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Select Prefix</option>
                 <option>Mr</option>
@@ -587,7 +612,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 name="maritalStatus"
                 value={formData.guarantor.maritalStatus}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Select Marital Status</option>
                 <option>Single</option>
@@ -599,7 +624,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 name="gender"
                 value={formData.guarantor.gender}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               >
                 <option value="">Select Gender</option>
                 <option>Male</option>
@@ -611,7 +636,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Mobile Number"
                 value={formData.guarantor.mobile}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -619,7 +644,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Postal Address"
                 value={formData.guarantor.postalAddress}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -627,7 +652,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Code"
                 value={formData.guarantor.code}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -635,7 +660,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Occupation"
                 value={formData.guarantor.occupation}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -643,16 +668,19 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Relationship with Borrower"
                 value={formData.guarantor.relationship}
                 onChange={(e) => handleNestedChange(e, "guarantor")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
             </div>
           </section>
 
           {/* GUARANTOR SECURITY */}
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Guarantor Security
-            </h3>
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <ShieldCheckIcon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Guarantor Security
+              </h3>
+            </div>
             {guarantorSecurityItems.map((item, index) => (
               <div
                 key={index}
@@ -668,7 +696,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                     newItems[index][e.target.name] = e.target.value;
                     setGuarantorSecurityItems(newItems);
                   }}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="text"
@@ -680,7 +708,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                     newItems[index][e.target.name] = e.target.value;
                     setGuarantorSecurityItems(newItems);
                   }}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="text"
@@ -692,7 +720,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                     newItems[index][e.target.name] = e.target.value;
                     setGuarantorSecurityItems(newItems);
                   }}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
                 <input
                   type="number"
@@ -704,7 +732,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                     newItems[index][e.target.name] = e.target.value;
                     setGuarantorSecurityItems(newItems);
                   }}
-                  className="border p-2 rounded w-full"
+                  className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
               </div>
             ))}
@@ -716,25 +744,29 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                   { item: "", description: "", identification: "", value: "" },
                 ])
               }
-              className="px-3 py-1 bg-gray-200 rounded hover:bg-gray-300 text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg hover:bg-brand-secondary/20 transition-all font-medium"
             >
-              + Add Guarantor Security
+              <PlusIcon className="h-4 w-4" />
+              Add Guarantor Security
             </button>
           </section>
 
           {/* NEXT OF KIN */}
           <section>
-            <h3 className="text-lg font-semibold mb-4 border-b pb-2">
-              Next of Kin
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="flex items-center gap-3 mb-6 border-b border-brand-surface pb-4">
+              <UserGroupIcon className="h-6 w-6 text-brand-primary" />
+              <h3 className="text-lg font-bold text-text">
+                Next of Kin
+              </h3>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <input
                 type="text"
                 name="Firstname"
                 placeholder="First Name"
                 value={formData.nextOfKin.Firstname}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -742,7 +774,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Surname Name"
                 value={formData.nextOfKin.Surname}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -750,7 +782,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Middle Name"
                 value={formData.nextOfKin.Middlename}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
 
               <input
@@ -759,7 +791,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="ID Number"
                 value={formData.nextOfKin.idNumber}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -767,7 +799,7 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Relationship"
                 value={formData.nextOfKin.relationship}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
               <input
                 type="text"
@@ -775,22 +807,29 @@ const EditCustomerForm = ({ customerId, onClose }) => {
                 placeholder="Mobile Number"
                 value={formData.nextOfKin.mobile}
                 onChange={(e) => handleNestedChange(e, "nextOfKin")}
-                className="border p-2 rounded w-full"
+                className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
             </div>
           </section>
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-brand-surface">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-8 py-3 bg-brand-surface text-text rounded-xl hover:bg-brand-secondary/20 transition-all font-medium shadow-sm"
+            >
+              Cancel
+            </button>
             <button
               type="submit"
-              className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+              className="px-8 py-3 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-lg hover:shadow-brand-primary/20"
             >
-              Update
+              Update Customer
             </button>
           </div>
         </form>
       </div>
-    </div>
+    </div >
   );
 };
 

@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 import crypto from "crypto";
 
 const router = express.Router();
-const supabase = createClient(
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
@@ -13,18 +13,18 @@ const supabase = createClient(
 function generatePassword(length = 12) {
   const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
   let password = "";
-  
+
   // Ensure at least one of each type
   password += "ABCDEFGHIJKLMNOPQRSTUVWXYZ"[Math.floor(Math.random() * 26)];
   password += "abcdefghijklmnopqrstuvwxyz"[Math.floor(Math.random() * 26)];
   password += "0123456789"[Math.floor(Math.random() * 10)];
   password += "!@#$%^&*"[Math.floor(Math.random() * 8)];
-  
+
   // Fill the rest randomly
   for (let i = password.length; i < length; i++) {
     password += charset[Math.floor(Math.random() * charset.length)];
   }
-  
+
   // Shuffle the password
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
@@ -51,7 +51,7 @@ router.post("/", async (req, res) => {
     }
 
     // Check if tenant exists
-    const { data: tenantExists, error: tenantError } = await supabase
+    const { data: tenantExists, error: tenantError } = await supabaseAdmin
       .from("tenants")
       .select("id")
       .eq("id", tenant_id)
@@ -75,8 +75,8 @@ router.post("/", async (req, res) => {
       .maybeSingle();
 
     if (existingUser) {
-      return res.status(400).json({ 
-        error: "User with this email already exists for this tenant" 
+      return res.status(400).json({
+        error: "User with this email already exists for this tenant"
       });
     }
 
@@ -88,12 +88,12 @@ router.post("/", async (req, res) => {
     const hashed = await bcrypt.hash(generatedPassword, 10);
 
     // Insert into database
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("report_users")
-      .insert([{ 
-        email, 
+      .insert([{
+        email,
         password: hashed,
-        tenant_id 
+        tenant_id
       }])
       .select();
 

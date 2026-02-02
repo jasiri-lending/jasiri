@@ -50,34 +50,34 @@ const OfficerDashboard = () => {
 
   //  Fetch all dashboard data
 
-const fetchDashboardData = useCallback(async (forceRefresh = false) => {
-  if (!profile?.id || profile.role !== "relationship_officer") return;
+  const fetchDashboardData = useCallback(async (forceRefresh = false) => {
+    if (!profile?.id || profile.role !== "relationship_officer") return;
 
-  // Try reading cached data if no forced refresh
-  if (!forceRefresh) {
-    const cached = sessionStorage.getItem("dashboardData");
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      setDashboardData({
-        ...parsed,
-        isLoading: false,
-        error: null,
-      });
-      return; // ✅ Stop here — use cached data
+    // Try reading cached data if no forced refresh
+    if (!forceRefresh) {
+      const cached = sessionStorage.getItem("dashboardData");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        setDashboardData({
+          ...parsed,
+          isLoading: false,
+          error: null,
+        });
+        return; // ✅ Stop here — use cached data
+      }
     }
-  }
 
-  try {
-    setDashboardData((prev) => ({ ...prev, isLoading: true, error: null }));
+    try {
+      setDashboardData((prev) => ({ ...prev, isLoading: true, error: null }));
 
-    const [leadsResponse, customersResponse, loansResponse, fullName] =
-      await Promise.all([
-        supabase.from("leads").select("*").eq("created_by", profile.id),
-        supabase.from("customers").select("*").eq("created_by", profile.id),
-        supabase
-          .from("loans")
-          .select(
-            `
+      const [leadsResponse, customersResponse, loansResponse, fullName] =
+        await Promise.all([
+          supabase.from("leads").select("*").eq("created_by", profile.id),
+          supabase.from("customers").select("*").eq("created_by", profile.id),
+          supabase
+            .from("loans")
+            .select(
+              `
             *,
             customer:customers!customer_id (
               Firstname,
@@ -89,109 +89,109 @@ const fetchDashboardData = useCallback(async (forceRefresh = false) => {
               email
             )
           `
-          )
-          .eq("booked_by", profile.id),
-        fetchUserFullName(),
-      ]);
+            )
+            .eq("booked_by", profile.id),
+          fetchUserFullName(),
+        ]);
 
-    if (leadsResponse.error) throw leadsResponse.error;
-    if (customersResponse.error) throw customersResponse.error;
-    if (loansResponse.error) throw loansResponse.error;
+      if (leadsResponse.error) throw leadsResponse.error;
+      if (customersResponse.error) throw customersResponse.error;
+      if (loansResponse.error) throw loansResponse.error;
 
-    const leadsData = leadsResponse.data || [];
-    const customersData = customersResponse.data || [];
-    const loansData = loansResponse.data || [];
+      const leadsData = leadsResponse.data || [];
+      const customersData = customersResponse.data || [];
+      const loansData = loansResponse.data || [];
 
-    const leadStats = leadsData.reduce(
-      (acc, lead) => {
-        const status = lead.status?.toLowerCase() || "cold";
-        acc[status] = (acc[status] || 0) + 1;
-        return acc;
-      },
-      { hot: 0, warm: 0, cold: 0 }
-    );
+      const leadStats = leadsData.reduce(
+        (acc, lead) => {
+          const status = lead.status?.toLowerCase() || "cold";
+          acc[status] = (acc[status] || 0) + 1;
+          return acc;
+        },
+        { hot: 0, warm: 0, cold: 0 }
+      );
 
-    const totalInteractions = leadsData.length + customersData.length;
-    const conversionRate =
-      totalInteractions > 0
-        ? (customersData.length / totalInteractions) * 100
-        : 0;
+      const totalInteractions = leadsData.length + customersData.length;
+      const conversionRate =
+        totalInteractions > 0
+          ? (customersData.length / totalInteractions) * 100
+          : 0;
 
-    const recentLeads = leadsData
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      .slice(0, 4)
-      .map((lead) => ({
-        id: lead.id,
-        type: "lead",
-        full_name:
-          `${lead.Firstname || ""} ${lead.Surname || ""}`.trim() || "Unknown",
-        created_at: new Date(lead.created_at),
+      const recentLeads = leadsData
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 4)
+        .map((lead) => ({
+          id: lead.id,
+          type: "lead",
+          full_name:
+            `${lead.Firstname || ""} ${lead.Surname || ""}`.trim() || "Unknown",
+          created_at: new Date(lead.created_at),
+        }));
+
+      const recentCustomers = customersData
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .slice(0, 4)
+        .map((cust) => ({
+          id: cust.id,
+          type: "customer",
+          full_name:
+            `${cust.Firstname || ""} ${cust.Surname || ""}`.trim() || "Unknown",
+          created_at: new Date(cust.created_at),
+        }));
+
+      const recentLoans = loansData
+        .sort(
+          (a, b) =>
+            new Date(b.booked_at || b.created_at) -
+            new Date(a.booked_at || a.created_at)
+        )
+        .slice(0, 4)
+        .map((loan) => ({
+          id: loan.id,
+          type: "loan",
+          full_name: loan.customer
+            ? `${loan.customer.Firstname || ""} ${loan.customer.Surname || ""}`.trim()
+            : "Unknown Customer",
+          amount: loan.scored_amount,
+          created_at: loan.booked_at ? new Date(loan.booked_at) : new Date(),
+        }));
+
+      const allRecentActivity = [...recentLeads, ...recentCustomers, ...recentLoans]
+        .sort((a, b) => b.created_at - a.created_at)
+        .slice(0, 5);
+
+      const updatedData = {
+        stats: {
+          totalLeads: leadsData.length,
+          totalCustomers: customersData.length,
+          totalLoans: loansData.length,
+          conversionRate: parseFloat(conversionRate.toFixed(1)),
+          activeLeads: leadStats,
+        },
+        recentActivity: allRecentActivity,
+        fullName: fullName || "Officer",
+        isLoading: false,
+        error: null,
+      };
+
+      setDashboardData(updatedData);
+
+      // ✅ Cache the latest data for this user
+      sessionStorage.setItem("dashboardData", JSON.stringify(updatedData));
+    } catch (error) {
+      console.error("Dashboard Error:", error);
+      setDashboardData((prev) => ({
+        ...prev,
+        isLoading: false,
+        error: "Failed to load dashboard data.",
       }));
+    }
+  }, [profile, fetchUserFullName]);
 
-    const recentCustomers = customersData
-      .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      .slice(0, 4)
-      .map((cust) => ({
-        id: cust.id,
-        type: "customer",
-        full_name:
-          `${cust.Firstname || ""} ${cust.Surname || ""}`.trim() || "Unknown",
-        created_at: new Date(cust.created_at),
-      }));
-
-    const recentLoans = loansData
-      .sort(
-        (a, b) =>
-          new Date(b.booked_at || b.created_at) -
-          new Date(a.booked_at || a.created_at)
-      )
-      .slice(0, 4)
-      .map((loan) => ({
-        id: loan.id,
-        type: "loan",
-        full_name: loan.customer
-          ? `${loan.customer.Firstname || ""} ${loan.customer.Surname || ""}`.trim()
-          : "Unknown Customer",
-        amount: loan.scored_amount,
-        created_at: loan.booked_at ? new Date(loan.booked_at) : new Date(),
-      }));
-
-    const allRecentActivity = [...recentLeads, ...recentCustomers, ...recentLoans]
-      .sort((a, b) => b.created_at - a.created_at)
-      .slice(0, 5);
-
-    const updatedData = {
-      stats: {
-        totalLeads: leadsData.length,
-        totalCustomers: customersData.length,
-        totalLoans: loansData.length,
-        conversionRate: parseFloat(conversionRate.toFixed(1)),
-        activeLeads: leadStats,
-      },
-      recentActivity: allRecentActivity,
-      fullName: fullName || "Officer",
-      isLoading: false,
-      error: null,
-    };
-
-    setDashboardData(updatedData);
-
-    // ✅ Cache the latest data for this user
-    sessionStorage.setItem("dashboardData", JSON.stringify(updatedData));
-  } catch (error) {
-    console.error("Dashboard Error:", error);
-    setDashboardData((prev) => ({
-      ...prev,
-      isLoading: false,
-      error: "Failed to load dashboard data.",
-    }));
-  }
-}, [profile, fetchUserFullName]);
-
-// 🔹 On mount, load cached or fetch new data
-useEffect(() => {
-  if (profile) fetchDashboardData();
-}, [profile, fetchDashboardData]);
+  // 🔹 On mount, load cached or fetch new data
+  useEffect(() => {
+    if (profile) fetchDashboardData();
+  }, [profile, fetchDashboardData]);
 
 
   useEffect(() => {
@@ -211,9 +211,9 @@ useEffect(() => {
 
   if (isLoading)
     return (
-      <div className="flex flex-col justify-center items-center h-80 text-gray-700">
-        <div className="animate-spin w-10 h-10 border-4 border-indigo-400 border-t-transparent rounded-full"></div>
-        <p className="mt-3 text-sm text-gray-500">Loading dashboard...</p>
+      <div className="flex flex-col justify-center items-center h-80 text-text">
+        <div className="animate-spin w-10 h-10 border-4 border-brand-primary border-t-transparent rounded-full"></div>
+        <p className="mt-3 text-sm text-muted">Loading dashboard...</p>
       </div>
     );
 
@@ -234,18 +234,17 @@ useEffect(() => {
   // ========== MAIN DASHBOARD ========== //
   return (
     <div className="space-y-8">
-      {/* Header */}
-      <div className="flex justify-between items-center bg-gradient-to-r from-indigo-50 to-white p-6 rounded-xl shadow-sm">
+      <div className="flex justify-between items-center bg-brand-surface p-8 rounded-2xl shadow-sm border border-brand-secondary">
         <div>
-          <h1 className="text-xl font-bold text-gray-600">
-            {getGreeting()}, {fullName} 
+          <h1 className="text-2xl font-bold text-text">
+            {getGreeting()}, <span className="text-brand-primary">{fullName}</span>
           </h1>
-          <p className="text-gray-500 text-sm">
+          <p className="text-muted text-sm mt-1">
             Here’s your current performance summary.
           </p>
         </div>
-        <div className="text-xs text-gray-400">
-          Last updated at {new Date().toLocaleTimeString()}
+        <div className="text-xs text-muted font-medium bg-white px-3 py-1.5 rounded-full shadow-sm">
+          Last updated: {new Date().toLocaleTimeString()}
         </div>
       </div>
 
@@ -283,13 +282,13 @@ useEffect(() => {
               <path
                 d="M18 2.0845a 15.9155 15.9155 0 0 1 0 31.831a 15.9155 15.9155 0 0 1 0 -31.831"
                 fill="none"
-                stroke="#4f46e5"
+                stroke="#586ab1"
                 strokeWidth="3"
                 strokeDasharray={`${stats.conversionRate}, 100`}
                 strokeLinecap="round"
               />
             </svg>
-            <span className="text-3xl font-bold text-indigo-700">
+            <span className="text-3xl font-bold text-brand-primary">
               {stats.conversionRate}%
             </span>
           </div>
@@ -321,13 +320,12 @@ useEffect(() => {
                 >
                   <div className="flex items-center space-x-3">
                     <div
-                      className={`p-2 rounded-full ${
-                        item.type === "loan"
+                      className={`p-2 rounded-full ${item.type === "loan"
                           ? "bg-purple-100 text-purple-600"
                           : item.type === "customer"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-blue-100 text-blue-600"
-                      }`}
+                            ? "bg-green-100 text-green-600"
+                            : "bg-blue-100 text-blue-600"
+                        }`}
                     >
                       {item.type === "loan" ? (
                         <BanknotesIcon className="h-5 w-5" />
@@ -343,8 +341,8 @@ useEffect(() => {
                         {item.type === "loan"
                           ? `Loan booked - Ksh ${item.amount?.toLocaleString()}`
                           : item.type === "customer"
-                          ? "New customer added"
-                          : "Lead created"}
+                            ? "New customer added"
+                            : "Lead created"}
                       </p>
                     </div>
                   </div>

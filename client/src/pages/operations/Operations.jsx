@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
-import { 
-  UserPlusIcon, 
-  BuildingOfficeIcon, 
+import {
+  UserPlusIcon,
+  BuildingOfficeIcon,
   MapPinIcon,
   XMarkIcon,
   PencilIcon,
@@ -9,39 +9,41 @@ import {
   MagnifyingGlassIcon
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 
 export default function OperationsManagement() {
+  const { profile } = useAuth();
   const [activeTab, setActiveTab] = useState('users');
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState('');
-  
+
   // Data states
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
-  
+
   // Loading states
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  
+
   // Search
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   // Form states
   const [formData, setFormData] = useState({});
   const [editingItem, setEditingItem] = useState(null);
 
-  
-// Define roles array
-const roles = [
-  { value: "admin", label: "Admin" },
-  { value: "regional_manager", label: "Regional Manager" },
-  { value: "relationship_officer", label: "Relationship Officer" },
-  { value: "customer_service_officer", label: "Customer Service Officer" },
-  { value: "credit_analyst_officer", label: "Credit Analyst Officer" },
-  { value: "branch_manager", label: "Branch Manager" },
-  { value: "operation_officer", label: "Operation Officer" },
-];
+
+  // Define roles array
+  const roles = [
+    { value: "admin", label: "Admin" },
+    { value: "regional_manager", label: "Regional Manager" },
+    { value: "relationship_officer", label: "Relationship Officer" },
+    { value: "customer_service_officer", label: "Customer Service Officer" },
+    { value: "credit_analyst_officer", label: "Credit Analyst Officer" },
+    { value: "branch_manager", label: "Branch Manager" },
+    { value: "operation_officer", label: "Operation Officer" },
+  ];
 
 
   useEffect(() => {
@@ -73,6 +75,7 @@ const roles = [
           regions (id, name)
         )
       `)
+      .eq("tenant_id", profile?.tenant_id)
       .order("created_at", { ascending: false });
 
     if (!error && data) {
@@ -90,25 +93,31 @@ const roles = [
   };
 
   const fetchBranches = async () => {
-    const { data, error } = await supabase.from("branches").select("*");
+    const { data, error } = await supabase
+      .from("branches")
+      .select("*")
+      .eq("tenant_id", profile?.tenant_id);
     if (!error && data) setBranches(data);
   };
 
   const fetchRegions = async () => {
-    const { data, error } = await supabase.from("regions").select("*");
+    const { data, error } = await supabase
+      .from("regions")
+      .select("*")
+      .eq("tenant_id", profile?.tenant_id);
     if (!error && data) setRegions(data);
   };
 
   const openModal = (type, item = null) => {
     setModalType(type);
     setEditingItem(item);
-    
+
     if (item) {
       setFormData(item);
     } else {
       setFormData({});
     }
-    
+
     setShowModal(true);
   };
 
@@ -119,195 +128,206 @@ const roles = [
     setFormData({});
   };
 
- const handleSubmit = async (e) => {
-  e.preventDefault();
-  setSubmitting(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setSubmitting(true);
 
-  try {
-    if (modalType === "user") {
-      await handleUserSubmit();
-    } else if (modalType === "branch") {
-      await handleBranchSubmit();
-    } else if (modalType === "region") {
-      await handleRegionSubmit();
+    try {
+      if (modalType === "user") {
+        await handleUserSubmit();
+      } else if (modalType === "branch") {
+        await handleBranchSubmit();
+      } else if (modalType === "region") {
+        await handleRegionSubmit();
+      }
+
+      await fetchData(); // reload table data
+      closeModal();
+    } catch (error) {
+      console.error("❌ Error submitting:", error);
+      alert("Error: " + error.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+
+  const handleBranchSubmit = async () => {
+    const branchData = {
+      name: formData.name?.trim(),
+      region_id: formData.region_id || null,
+      code: formData.code?.trim(),
+      address: formData.address?.trim() || null,
+      tenant_id: profile?.tenant_id,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (!branchData.name || !branchData.region_id) {
+      throw new Error("Branch name and region are required");
     }
 
-    await fetchData(); // reload table data
-    closeModal();
-  } catch (error) {
-    console.error("❌ Error submitting:", error);
-    alert("Error: " + error.message);
-  } finally {
-    setSubmitting(false);
-  }
-};
+    const query = editingItem
+      ? supabase.from("branches").update(branchData).eq("id", editingItem.id)
+      : supabase.from("branches").insert(branchData);
 
-
-const handleBranchSubmit = async () => {
-  const branchData = {
-    name: formData.name?.trim(),
-    region_id: formData.region_id || null,
-    code: formData.code?.trim(),
-    address: formData.address?.trim() || null,
-    
+    const { error } = await query;
+    if (error) throw error;
   };
 
-  if (!branchData.name || !branchData.region_id) {
-    throw new Error("Branch name and region are required");
-  }
 
-  const query = editingItem
-    ? supabase.from("branches").update(branchData).eq("id", editingItem.id)
-    : supabase.from("branches").insert(branchData);
+  const handleRegionSubmit = async () => {
+    const regionData = {
+      name: formData.name?.trim(),
+      code: formData.code?.trim(),
+      tenant_id: profile?.tenant_id,
+      updated_at: new Date().toISOString(),
+      // description: formData.description?.trim() || null,
+      // status: formData.status || "active",
+    };
 
-  const { error } = await query;
-  if (error) throw error;
-};
+    if (!regionData.name || !regionData.code) {
+      throw new Error("Region name and code are required");
+    }
 
+    const query = editingItem
+      ? supabase.from("regions").update(regionData).eq("id", editingItem.id)
+      : supabase.from("regions").insert(regionData);
 
-const handleRegionSubmit = async () => {
-  const regionData = {
-    name: formData.name?.trim(),
-    code: formData.code?.trim(),
-    // description: formData.description?.trim() || null,
-    // status: formData.status || "active",
+    const { error } = await query;
+    if (error) throw error;
   };
 
-  if (!regionData.name || !regionData.code) {
-    throw new Error("Region name and code are required");
-  }
 
-  const query = editingItem
-    ? supabase.from("regions").update(regionData).eq("id", editingItem.id)
-    : supabase.from("regions").insert(regionData);
+  const handleUserSubmit = async () => {
+    try {
+      if (editingItem) {
+        console.log("✏️ Updating existing user:", editingItem.id, formData);
 
-  const { error } = await query;
-  if (error) throw error;
-};
-
-
-const handleUserSubmit = async () => {
-  try {
-    if (editingItem) {
-      console.log("✏️ Updating existing user:", editingItem.id, formData);
-
-      const { error: userError } = await supabase
-        .from("users")
-        .update({
-          full_name: formData.full_name?.trim(),
-          email: formData.email?.trim(),
-          role: formData.role,
-          phone: formData.phone?.trim() || null,
-        })
-        .eq("id", editingItem.id);
-
-      if (userError) {
-        console.error(" User update error:", userError);
-        throw userError;
-      }
-
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
-          branch_id: formData.branch_id || null,
-          region_id: formData.region_id || null,
-        })
-        .eq("id", editingItem.id);
-
-      if (profileError) {
-        console.error("Profile update error:", profileError);
-        throw profileError;
-      }
-    } else {
-      // 1. Validate
-      if (!formData.email || !formData.password) {
-        throw new Error("Email and password are required");
-      }
-      if (formData.password.length < 6) {
-        throw new Error("Password must be at least 6 characters");
-      }
-
-      // 2. Create Auth user with emailRedirectTo to prevent confirmation issues
-      console.log("Creating auth user with email:", formData.email);
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email.trim(),
-        password: formData.password.trim(),
-        options: {
-          emailRedirectTo: window.location.origin,
-          data: {
+        const { error: userError } = await supabase
+          .from("users")
+          .update({
             full_name: formData.full_name?.trim(),
+            email: formData.email?.trim(),
             role: formData.role,
             phone: formData.phone?.trim() || null,
+            tenant_id: profile?.tenant_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingItem.id);
+
+        if (userError) {
+          console.error(" User update error:", userError);
+          throw userError;
+        }
+
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .update({
             branch_id: formData.branch_id || null,
             region_id: formData.region_id || null,
-          },
-        },
-      });
+            tenant_id: profile?.tenant_id,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", editingItem.id);
 
-      console.log(" Auth response:", { authData, authError });
+        if (profileError) {
+          console.error("Profile update error:", profileError);
+          throw profileError;
+        }
+      } else {
+        // 1. Validate
+        if (!formData.email || !formData.password) {
+          throw new Error("Email and password are required");
+        }
+        if (formData.password.length < 6) {
+          throw new Error("Password must be at least 6 characters");
+        }
 
-      if (authError) throw authError;
-
-      const userId = authData?.user?.id;
-      if (!userId) throw new Error("Failed to create user in Auth");
-
-      // 3. Wait a moment for triggers to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      // 4. Update users table (use upsert to handle trigger conflicts)
-      console.log("🟢 Upserting into users table with ID:", userId);
-      const { error: userError } = await supabase
-        .from("users")
-        .upsert({
-          id: userId,
-          full_name: formData.full_name?.trim(),
+        // 2. Create Auth user with emailRedirectTo to prevent confirmation issues
+        console.log("Creating auth user with email:", formData.email);
+        const { data: authData, error: authError } = await supabase.auth.signUp({
           email: formData.email.trim(),
-          role: formData.role,
-          phone: formData.phone?.trim() || null,
-        }, {
-          onConflict: 'id',
-          ignoreDuplicates: false
+          password: formData.password.trim(),
+          options: {
+            emailRedirectTo: window.location.origin,
+            data: {
+              full_name: formData.full_name?.trim(),
+              role: formData.role,
+              phone: formData.phone?.trim() || null,
+              branch_id: formData.branch_id || null,
+              region_id: formData.region_id || null,
+            },
+          },
         });
 
-      if (userError) {
-        console.error("❌ Users upsert error:", userError);
-        throw userError;
+        console.log(" Auth response:", { authData, authError });
+
+        if (authError) throw authError;
+
+        const userId = authData?.user?.id;
+        if (!userId) throw new Error("Failed to create user in Auth");
+
+        // 3. Wait a moment for triggers to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 4. Update users table (use upsert to handle trigger conflicts)
+        console.log("🟢 Upserting into users table with ID:", userId);
+        const { error: userError } = await supabase
+          .from("users")
+          .upsert({
+            id: userId,
+            full_name: formData.full_name?.trim(),
+            email: formData.email.trim(),
+            role: formData.role,
+            phone: formData.phone?.trim() || null,
+            tenant_id: profile?.tenant_id,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
+
+        if (userError) {
+          console.error("❌ Users upsert error:", userError);
+          throw userError;
+        }
+
+        // 5. Update profiles table (use upsert to handle trigger conflicts)
+        console.log("🟢 Upserting into profiles table with ID:", userId);
+        const { error: profileError } = await supabase
+          .from("profiles")
+          .upsert({
+            id: userId,
+            branch_id: formData.branch_id || null,
+            region_id: formData.region_id || null,
+            tenant_id: profile?.tenant_id,
+            updated_at: new Date().toISOString(),
+          }, {
+            onConflict: 'id',
+            ignoreDuplicates: false
+          });
+
+        if (profileError) {
+          console.error("❌ Profiles upsert error:", profileError);
+          throw profileError;
+        }
       }
 
-      // 5. Update profiles table (use upsert to handle trigger conflicts)
-      console.log("🟢 Upserting into profiles table with ID:", userId);
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .upsert({
-          id: userId,
-          branch_id: formData.branch_id || null,
-          region_id: formData.region_id || null,
-        }, {
-          onConflict: 'id',
-          ignoreDuplicates: false
-        });
-
-      if (profileError) {
-        console.error("❌ Profiles upsert error:", profileError);
-        throw profileError;
-      }
+      console.log("✅ User operation successful");
+      await fetchUsers();
+      setEditingItem(null);
+      setFormData({});
+    } catch (err) {
+      console.error("❌ Error saving user (outer catch):", err);
+      alert(err.message || "Unexpected error saving user");
     }
-
-    console.log("✅ User operation successful");
-    await fetchUsers();
-    setEditingItem(null);
-    setFormData({});
-  } catch (err) {
-    console.error("❌ Error saving user (outer catch):", err);
-    alert(err.message || "Unexpected error saving user");
-  }
-};
+  };
 
 
 
 
 
-console.log("Creating user with:", formData.email, formData.password);
+  console.log("Creating user with:", formData.email, formData.password);
 
 
 
@@ -335,7 +355,7 @@ console.log("Creating user with:", formData.email, formData.password);
   };
 
   // Filter data based on search
-  const filteredUsers = users.filter(u => 
+  const filteredUsers = users.filter(u =>
     (u.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
     (u.role || '').toLowerCase().includes(searchTerm.toLowerCase())
@@ -366,33 +386,30 @@ console.log("Creating user with:", formData.email, formData.password);
             <nav className="flex space-x-8 px-6" aria-label="Tabs">
               <button
                 onClick={() => setActiveTab('users')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'users'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'users'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <UserPlusIcon className="h-5 w-5 inline-block mr-2" />
                 Users
               </button>
               <button
                 onClick={() => setActiveTab('branches')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'branches'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'branches'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <BuildingOfficeIcon className="h-5 w-5 inline-block mr-2" />
                 Branches
               </button>
               <button
                 onClick={() => setActiveTab('regions')}
-                className={`py-4 px-1 border-b-2 font-medium text-sm ${
-                  activeTab === 'regions'
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${activeTab === 'regions'
                     ? 'border-indigo-500 text-indigo-600'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                }`}
+                  }`}
               >
                 <MapPinIcon className="h-5 w-5 inline-block mr-2" />
                 Regions
@@ -458,7 +475,7 @@ console.log("Creating user with:", formData.email, formData.password);
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">{user.branches?.name || 'N/A'}</td>
                         <td className="px-6 py-4 whitespace-nowrap">{user.regions?.name || 'N/A'}</td>
-                      
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => openModal('user', user)}
@@ -507,7 +524,7 @@ console.log("Creating user with:", formData.email, formData.password);
                           {regions.find(r => r.id === branch.region_id)?.name || 'N/A'}
                         </td>
                         <td className="px-6 py-4">{branch.address || 'N/A'}</td>
-                       
+
                         <td className="px-6 py-4 whitespace-nowrap">
                           <button
                             onClick={() => openModal('branch', branch)}

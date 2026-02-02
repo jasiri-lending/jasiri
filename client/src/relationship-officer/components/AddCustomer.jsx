@@ -75,7 +75,7 @@ const FormField = memo(
 
     return (
       <div className={className}>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text mb-2">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
 
@@ -84,7 +84,7 @@ const FormField = memo(
             name={name}
             value={value || ""}
             onChange={section ? (e) => handleNestedChange(e, section) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
+            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
             disabled={disabled}
@@ -98,20 +98,19 @@ const FormField = memo(
           </select>
         ) : (
           <input
-            type={type}
             name={name}
+            type={type}
             value={value || ""}
             onChange={section ? (e) => handleNestedChange(e, section) : onChange}
-            placeholder={placeholder}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
+            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
+            placeholder={placeholder}
             disabled={disabled}
           />
         )}
-
         {errorMessage && (
-          <span className="text-red-500 text-xs mt-1">{errorMessage}</span>
+          <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
         )}
       </div>
     );
@@ -1441,6 +1440,7 @@ const AddCustomer = () => {
         created_by: profile?.id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
+        tenant_id: profile?.tenant_id,
         updated_at: new Date().toISOString(),
       };
 
@@ -1478,6 +1478,7 @@ const AddCustomer = () => {
           customer_id: customerId,
           image_url: url,
           created_by: profile?.id,
+          tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),
@@ -1501,6 +1502,7 @@ const AddCustomer = () => {
                 mobile: spouseData.mobile || null,
                 economic_activity: spouseData.economicActivity || null,
                 created_by: profile?.id,
+                tenant_id: profile?.tenant_id,
                 branch_id: profile?.branch_id,
                 region_id: profile?.region_id,
               },
@@ -1533,6 +1535,7 @@ const AddCustomer = () => {
               business_income: nextOfKin.businessIncome ? parseFloat(nextOfKin.businessIncome) : null,
               relationship_other: nextOfKin.relationshipOther || null,
               created_by: profile?.id,
+              tenant_id: profile?.tenant_id,
               branch_id: profile?.branch_id,
               region_id: profile?.region_id,
             },
@@ -1572,6 +1575,7 @@ const AddCustomer = () => {
               id_front_url: guarantorIdFrontUrl,
               id_back_url: guarantorIdBackUrl,
               created_by: profile?.id,
+              tenant_id: profile?.tenant_id,
               branch_id: profile?.branch_id,
               region_id: profile?.region_id,
             },
@@ -1592,6 +1596,7 @@ const AddCustomer = () => {
           document_type: doc.type,
           document_url: doc.file,
           created_by: profile?.id,
+          tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),
@@ -1627,6 +1632,7 @@ const AddCustomer = () => {
             identification: s.identification || null,
             value: s.value ? parseFloat(s.value) : null,
             created_by: profile?.id,
+            tenant_id: profile?.tenant_id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
           }));
@@ -1830,6 +1836,7 @@ const AddCustomer = () => {
         created_by: profile?.id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
+        tenant_id: profile?.tenant_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -1852,6 +1859,7 @@ const AddCustomer = () => {
           customer_id: customerId,
           image_url: url,
           created_by: profile?.id,
+          tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),
@@ -1869,6 +1877,7 @@ const AddCustomer = () => {
             mobile: formData.spouse.mobile || null,
             economic_activity: formData.spouse.economicActivity || null,
             created_by: profile?.id,
+            tenant_id: profile?.tenant_id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
             created_at: new Date().toISOString(),
@@ -1898,6 +1907,7 @@ const AddCustomer = () => {
             business_income: nextOfKin.businessIncome ? parseFloat(nextOfKin.businessIncome) : null,
             relationship_other: nextOfKin.relationshipOther || null,
             created_by: profile?.id,
+            tenant_id: profile?.tenant_id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
             created_at: new Date().toISOString(),
@@ -1935,6 +1945,7 @@ const AddCustomer = () => {
             id_front_url: guarantorIdFrontUrl,
             id_back_url: guarantorIdBackUrl,
             created_by: profile?.id,
+            tenant_id: profile?.tenant_id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
             created_at: new Date().toISOString(),
@@ -1954,6 +1965,7 @@ const AddCustomer = () => {
           document_type: doc.type,
           document_url: doc.file,
           created_by: profile?.id,
+          tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),
@@ -2004,6 +2016,7 @@ const AddCustomer = () => {
       identification: s.identification || null,
       [valueKey]: s.value ? parseFloat(s.value) : null,
       created_by: profile?.id,
+      tenant_id: profile?.tenant_id,
       branch_id: profile?.branch_id,
       region_id: profile?.region_id,
       created_at: new Date().toISOString(),
@@ -2032,6 +2045,7 @@ const AddCustomer = () => {
           [isGuarantor ? "guarantor_security_id" : "security_item_id"]: item.id,
           image_url: url,
           created_by: profile?.id,
+          tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),

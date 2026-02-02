@@ -145,7 +145,7 @@ import UserProfile from "./pages/UserProfile.jsx";
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const { user, profile, initializing } = useAuth();
-  
+
   const role = profile?.role;
 
   // Updated: Include admin and superadmin in sharedRoles
@@ -206,10 +206,10 @@ function App() {
     <Router>
       <ToastProvider>
         <div className="flex h-screen bg-gray-100 overflow-hidden">
-          {!initializing && profile && <>{renderSidebar()}</>}
+          {!initializing && profile && window.location.pathname !== "/login" && <>{renderSidebar()}</>}
 
           <div className="flex flex-col flex-1 min-w-0">
-            {!initializing && profile && renderHeader()}
+            {!initializing && profile && window.location.pathname !== "/login" && renderHeader()}
 
             <div className="flex-1 overflow-y-auto p-6">
               <Routes>
@@ -323,21 +323,21 @@ function App() {
                       }
                     />
 
-                    <Route 
-                      path="/journals/new" 
+                    <Route
+                      path="/journals/new"
                       element={
                         <ProtectedRoute>
                           <NewJournalEntry userRole={role} />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
-                    <Route 
-                      path="/journals/:id" 
+                    <Route
+                      path="/journals/:id"
                       element={
                         <ProtectedRoute>
                           <ViewJournal userRole={role} />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
 
                     {/* Registry */}
@@ -618,29 +618,29 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
-                    <Route 
-                      path="/customer/:customerId/verify" 
+                    <Route
+                      path="/customer/:customerId/verify"
                       element={
                         <ProtectedRoute>
                           <CustomerVerification />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
-                    <Route 
-                      path="/customer/:customerId/verify-amendment" 
+                    <Route
+                      path="/customer/:customerId/verify-amendment"
                       element={
                         <ProtectedRoute>
                           <CustomerVerification />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
-                    <Route 
-                      path="/customer/:customerId/verify-customer_service_officer" 
+                    <Route
+                      path="/customer/:customerId/verify-customer_service_officer"
                       element={
                         <ProtectedRoute>
                           <Verification />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
                     <Route
                       path="/customer/:customerId/interactions"
@@ -821,13 +821,13 @@ function App() {
                       }
                     />
 
-                    <Route 
-                      path="/viewdisbursedloans/:loanId" 
+                    <Route
+                      path="/viewdisbursedloans/:loanId"
                       element={
                         <ProtectedRoute>
                           <ViewDisbursedLoan userRole={role} />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
 
                     <Route
@@ -847,21 +847,21 @@ function App() {
                         </ProtectedRoute>
                       }
                     />
-                    <Route 
-                      path="/loans/:loanId" 
+                    <Route
+                      path="/loans/:loanId"
                       element={
                         <ProtectedRoute>
                           <ViewLoan userRole={role} />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
-                    <Route 
-                      path="/loans/:loanId/interactions" 
+                    <Route
+                      path="/loans/:loanId/interactions"
                       element={
                         <ProtectedRoute>
                           <LoanInteraction userRole={role} />
                         </ProtectedRoute>
-                      } 
+                      }
                     />
                     <Route
                       path="/promise-to-pay"
@@ -883,7 +883,7 @@ function App() {
 
 
 
-   <Route
+                    <Route
                       path="/operations/dashboard"
                       element={
                         <ProtectedRoute>
@@ -893,7 +893,7 @@ function App() {
                     />
 
 
-                      <Route
+                    <Route
                       path="/profile"
                       element={
                         <ProtectedRoute>
@@ -904,7 +904,7 @@ function App() {
 
 
 
-                      <Route
+                    <Route
                       path="/financial/dashboard"
                       element={
                         <ProtectedRoute>
@@ -1120,7 +1120,18 @@ function App() {
                 <Route
                   path="*"
                   element={
-                    <Navigate to={user && profile ? getDefaultRoute() : "/login"} replace />
+                    initializing ? (
+                      <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                          <p className="mt-4 text-gray-600">Loading...</p>
+                        </div>
+                      </div>
+                    ) : user && profile ? (
+                      <Navigate to={getDefaultRoute()} replace />
+                    ) : (
+                      <Navigate to="/login" replace />
+                    )
                   }
                 />
               </Routes>

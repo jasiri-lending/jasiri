@@ -30,7 +30,7 @@ const KENYA_COUNTIES = [
 
 const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
   const { profile } = useAuth();
-  
+
   // Form state - matching database column names
   const [formData, setFormData] = useState({
     customer_id: null,
@@ -67,9 +67,9 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
 
   // Security items state - matching AddCustomer structure
   const [securityItems, setSecurityItems] = useState([{
-    item: '', 
-    description: '', 
-    identification: '', 
+    item: '',
+    description: '',
+    identification: '',
     value: '',
     otherType: ''
   }]);
@@ -92,6 +92,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       const { data: regionsData, error: regionsError } = await supabase
         .from('regions')
         .select('id, name')
+        .eq('tenant_id', profile?.tenant_id)
         .order('name');
 
       if (regionsError) throw regionsError;
@@ -101,6 +102,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       const { data: branchesData, error: branchesError } = await supabase
         .from('branches')
         .select('id, name, region_id')
+        .eq('tenant_id', profile?.tenant_id)
         .order('name');
 
       if (branchesError) throw branchesError;
@@ -116,7 +118,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error for this field
     if (errors[name]) {
       setErrors(prev => ({
@@ -152,10 +154,10 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       try {
         const compressedFile = await compressImage(file);
         const path = `${pathPrefix}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${compressedFile.name}`;
-        
+
         const { data, error } = await supabase.storage
           .from('customers')
-          .upload(path, compressedFile, { 
+          .upload(path, compressedFile, {
             upsert: true,
             cacheControl: '3600'
           });
@@ -188,7 +190,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       const compressedFile = await compressImage(file);
       const { data, error } = await supabase.storage
         .from('customers')
-        .upload(path, compressedFile, { 
+        .upload(path, compressedFile, {
           upsert: true,
           cacheControl: '3600'
         });
@@ -231,9 +233,9 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       // Store preview with fileName and URL
       setPreviews((prev) => ({
         ...prev,
-        [key]: { 
-          url: URL.createObjectURL(compressedFile), 
-          fileName: file.name 
+        [key]: {
+          url: URL.createObjectURL(compressedFile),
+          fileName: file.name
         },
       }));
 
@@ -320,7 +322,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
     setGuarantorSecurityImages(prev => {
       const updatedSection = [...prev];
       const fileToRemove = updatedSection[sectionIndex]?.[fileIndex];
-      
+
       // Remove from global tracker
       if (fileToRemove) {
         setUploadedFiles(prevFiles => {
@@ -334,7 +336,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       if (updatedSection[sectionIndex]) {
         updatedSection[sectionIndex] = updatedSection[sectionIndex].filter((_, i) => i !== fileIndex);
       }
-      
+
       return updatedSection;
     });
   };
@@ -357,9 +359,9 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
 
   const handleSecurityChange = (e, index) => {
     const { name, value } = e.target;
-    
-    setSecurityItems(prev => 
-      prev.map((item, i) => 
+
+    setSecurityItems(prev =>
+      prev.map((item, i) =>
         i === index ? { ...item, [name]: value } : item
       )
     );
@@ -406,6 +408,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
         created_by: profile?.id,
         branch_id: formData.branch_id,
         region_id: formData.region_id,
+        tenant_id: profile?.tenant_id,
         created_at: new Date().toISOString(),
       }));
 
@@ -427,26 +430,27 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
         return itemImages.map(async (file) => {
           const filePath = `guarantor_security/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
           const url = await uploadFile(file, filePath);
-          
+
           return url ? {
             guarantor_security_id: item.id,
             image_url: url,
             created_by: profile?.id,
             branch_id: formData.branch_id,
             region_id: formData.region_id,
+            tenant_id: profile?.tenant_id,
             created_at: new Date().toISOString(),
           } : null;
         });
       });
 
       const imageRecords = (await Promise.all(allImageUploads)).filter(Boolean);
-      
+
       // Insert all image records at once
       if (imageRecords.length) {
         const { error: imgError } = await supabase
           .from('guarantor_security_images')
           .insert(imageRecords);
-        
+
         if (imgError) {
           console.error('Error inserting guarantor security images:', imgError);
         }
@@ -459,7 +463,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       setNotification({
         type: 'error',
@@ -496,6 +500,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
         is_guarantor: true,
         status: 'active',
         created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
         created_at: new Date().toISOString(),
         // Remove undefined/null values to avoid schema conflicts
       };
@@ -528,7 +533,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
         type: 'success',
         message: 'Guarantor added successfully!'
       });
-      
+
       setTimeout(() => {
         onSuccess();
       }, 1500);
@@ -549,7 +554,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
     setTimeout(() => setNotification(null), 5000);
   };
 
-  const filteredBranches = formData.region_id 
+  const filteredBranches = formData.region_id
     ? branches.filter(branch => branch.region_id === formData.region_id)
     : branches;
 
@@ -577,11 +582,10 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
 
       {/* Notification */}
       {notification && (
-        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${
-          notification.type === 'success' 
-            ? 'bg-green-50 border border-green-200' 
-            : 'bg-red-50 border border-red-200'
-        }`}>
+        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${notification.type === 'success'
+          ? 'bg-green-50 border border-green-200'
+          : 'bg-red-50 border border-red-200'
+          }`}>
           {notification.type === 'success' ? (
             <CheckCircle className="w-5 h-5 text-green-600" />
           ) : (
@@ -673,9 +677,8 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
                 name="Firstname"
                 value={formData.Firstname}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.Firstname ? 'border-red-300' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Firstname ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 placeholder="Enter first name"
               />
               {errors.Firstname && (
@@ -708,9 +711,8 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
                 name="Surname"
                 value={formData.Surname}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.Surname ? 'border-red-300' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Surname ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 placeholder="Enter surname"
               />
               {errors.Surname && (
@@ -728,9 +730,8 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
                 name="id_number"
                 value={formData.id_number}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.id_number ? 'border-red-300' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.id_number ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 placeholder="Enter ID number"
                 pattern="[0-9]*"
                 inputMode="numeric"
@@ -750,9 +751,8 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
                 name="mobile"
                 value={formData.mobile}
                 onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.mobile ? 'border-red-300' : 'border-gray-300'
-                }`}
+                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.mobile ? 'border-red-300' : 'border-gray-300'
+                  }`}
                 placeholder="07XXXXXXXX"
               />
               {errors.mobile && (

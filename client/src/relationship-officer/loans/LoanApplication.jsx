@@ -3,9 +3,9 @@ import { supabase } from '../../supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner.jsx";
-import { 
-  MagnifyingGlassIcon, 
-  ArrowPathIcon 
+import {
+  MagnifyingGlassIcon,
+  ArrowPathIcon
 } from "@heroicons/react/24/outline";
 
 function LoanApplication() {
@@ -132,7 +132,7 @@ function LoanApplication() {
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <div className="h-full bg-brand-surface p-8 min-h-screen">
         <Spinner text="Loading loan applications..." />
       </div>
     );
@@ -156,7 +156,7 @@ function LoanApplication() {
   return (
     <div className="h-full bg-brand-surface p-6 min-h-screen">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
-        Loan Applications 
+        Loan Applications
       </h1>
 
       {/* Search and Actions Bar */}
@@ -171,19 +171,14 @@ function LoanApplication() {
                 placeholder="Search by ID, phone or name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-slate-500 focus:border-slate-500"
+                className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
               />
             </div>
-            
+
             {/* Refresh Button */}
-            <button 
+            <button
               onClick={fetchApprovedCustomers}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
-              style={{ 
-                backgroundColor: "#586ab1",
-                color: "white",
-                borderColor: "#586ab1"
-              }}
+              className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium shadow-md flex items-center gap-2"
             >
               <ArrowPathIcon className="h-4 w-4" />
               Refresh
@@ -191,7 +186,7 @@ function LoanApplication() {
           </div>
         </div>
       </div>
-        
+
       {/* Applications Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="overflow-x-auto">
@@ -208,16 +203,15 @@ function LoanApplication() {
             </thead>
             <tbody>
               {filteredCustomers.map((application) => (
-                <tr 
-                  key={application.id} 
+                <tr
+                  key={application.id}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
                   {/* Customer Name */}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div className="flex items-center">
-                      <div 
-                        className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium"
-                        style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}
+                      <div
+                        className="flex-shrink-0 h-8 w-8 rounded-full flex items-center justify-center text-xs font-medium bg-brand-surface text-brand-primary border border-brand-primary/20"
                       >
                         {application.Firstname?.charAt(0)}
                         {application.Surname?.charAt(0)}
@@ -246,14 +240,14 @@ function LoanApplication() {
                       {application.caScoredAmount
                         ? `Ksh ${Number(application.caScoredAmount).toLocaleString()}`
                         : application.bmScoredAmount
-                        ? `Ksh ${Number(application.bmScoredAmount).toLocaleString()}`
-                        : "N/A"}
+                          ? `Ksh ${Number(application.bmScoredAmount).toLocaleString()}`
+                          : "N/A"}
                     </div>
                   </td>
 
                   {/* Status */}
                   <td className="px-4 py-3 text-center whitespace-nowrap">
-                    <span 
+                    <span
                       className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white"
                       style={{ backgroundColor: "#10b981" }}
                     >
@@ -264,9 +258,9 @@ function LoanApplication() {
                   {/* Actions */}
                   <td className="px-4 py-3 text-center whitespace-nowrap">
                     {application.lastLoanStatus === "bm_review" ||
-                     application.lastLoanStatus === "rm_review" ||
-                     application.lastLoanStatus === "ca_review" ||
-                     application.lastLoanStatus === "disbursed" ? (
+                      application.lastLoanStatus === "rm_review" ||
+                      application.lastLoanStatus === "ca_review" ||
+                      application.lastLoanStatus === "disbursed" ? (
                       <button
                         disabled
                         className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
@@ -289,25 +283,9 @@ function LoanApplication() {
                             state: { customerData: application },
                           })
                         }
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white transition-colors whitespace-nowrap flex items-center justify-center mx-auto"
-                        style={{ backgroundColor: "#586ab1" }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = "#4a5a9d"}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = "#586ab1"}
+                        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm mx-auto"
                       >
-                        <svg
-                          className="w-3 h-3 mr-1"
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth="2"
-                            d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                          ></path>
-                        </svg>
+                        <BanknotesIcon className="h-4 w-4" />
                         Book Loan
                       </button>
                     )}
@@ -317,7 +295,7 @@ function LoanApplication() {
             </tbody>
           </table>
         </div>
-        
+
         {filteredCustomers.length === 0 && (
           <div className="p-8 text-center text-xs text-gray-500">
             {searchTerm ? (

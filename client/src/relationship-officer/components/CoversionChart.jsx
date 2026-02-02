@@ -22,13 +22,13 @@ const ConversionChart = ({ stats }) => {
                 a 15.9155 15.9155 0 0 1 0 31.831
                 a 15.9155 15.9155 0 0 1 0 -31.831"
               fill="none"
-              stroke="#4f46e5"
+              stroke="#586ab1"
               strokeWidth="3"
               strokeDasharray={`${conversionRate}, 100`}
             />
           </svg>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-            <span className="text-2xl font-bold text-gray-900">{conversionRate}%</span>
+            <span className="text-2xl font-bold text-text">{conversionRate}%</span>
           </div>
         </div>
         <p className="mt-4 text-sm text-gray-600">Lead to Customer Conversion Rate</p>

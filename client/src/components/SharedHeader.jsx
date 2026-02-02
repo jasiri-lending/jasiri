@@ -29,14 +29,14 @@ const SharedHeader = ({ onMenuClick }) => {
 
   const getRoleDisplayName = (role) => roleDisplayNames[role] || role;
 
-  // Navigation handlers
-  const handleSettingsClick = () => {
-    navigate(isAdmin ? "/admin/settings" : "/settings");
-  };
+  // // Navigation handlers
+  // const handleSettingsClick = () => {
+  //   navigate(isAdmin ? "/admin/settings" : "/settings");
+  // };
 
-  const handleHelpClick = () => {
-    navigate("/help");
-  };
+  // const handleHelpClick = () => {
+  //   navigate("/help");
+  // };
 
   const handleLogout = async () => {
     await logout();
@@ -104,22 +104,22 @@ const SharedHeader = ({ onMenuClick }) => {
           {/* Action Buttons */}
           <div className="flex items-center space-x-2">
             {/* Settings Button */}
-            <button
+            {/* <button
               onClick={handleSettingsClick}
               className="p-2 rounded-lg hover:bg-brand-secondary/10 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 transition-all duration-200"
               aria-label="Settings"
             >
               <Settings className="h-5 w-5 text-brand-primary" />
-            </button>
+            </button> */}
 
             {/* Help Button */}
-            <button
+            {/* <button
               onClick={handleHelpClick}
               className="p-2 rounded-lg hover:bg-brand-secondary/10 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 transition-all duration-200"
               aria-label="Help"
             >
               <HelpCircle className="h-5 w-5 text-brand-primary" />
-            </button>
+            </button> */}
 
             {/* Logout Button */}
             <button
@@ -140,7 +140,7 @@ const SharedHeader = ({ onMenuClick }) => {
                 <div className="relative">
                   {profile?.avatar ? (
                     <img
-                      src={profile.avatar}
+                      src={profile.avatar_url}
                       alt={profile?.full_name}
                       className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-white shadow-sm"
                     />

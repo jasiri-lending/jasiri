@@ -1,7 +1,11 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import supabase from "./supabaseClient.js";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import supabase, { supabaseAdmin } from "./supabaseClient.js";
+import { baseEmailTemplate, styledHighlightBox, infoBox } from "./utils/emailTemplates.js";
+import transporter from "./utils/mailer.js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
 import stkpush from "./routes/stkpush.js";
@@ -10,11 +14,36 @@ import checkReportUserRoute from "./routes/checkReportUser.js";
 import tenantRouter from "./routes/tenantRoutes.js";
 import mpesaConfigRouter from "./routes/mpesa_configure.js";
 import Authrouter from "./routes/auth.js";
+import AvatarRouter from "./routes/avator.js";
+import deleteUserRouter from "./routes/deleteUser.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
 
+
+// Email transporter is now handled in ./utils/mailer.js
 const app = express();
+
+// ✅ Password generation utility
+function generateSecurePassword(length = 12) {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz';
+  const numbers = '0123456789';
+  const symbols = '!@#$%^&*';
+  const all = uppercase + lowercase + numbers + symbols;
+
+  let password = '';
+  password += uppercase[Math.floor(Math.random() * uppercase.length)];
+  password += lowercase[Math.floor(Math.random() * lowercase.length)];
+  password += numbers[Math.floor(Math.random() * numbers.length)];
+  password += symbols[Math.floor(Math.random() * symbols.length)];
+
+  for (let i = 4; i < length; i++) {
+    password += all[Math.floor(Math.random() * all.length)];
+  }
+
+  return password.split('').sort(() => Math.random() - 0.5).join('');
+}
 
 // ✅ CORS Configuration - Allows both local and production
 app.use(cors({
@@ -54,15 +83,15 @@ app.use("/api/report-users/create", createReportUser);
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/tenant", tenantRouter);
 app.use("/api", mpesaConfigRouter);
-
+app.use("/api", AvatarRouter);
 app.use("/api", Authrouter);
+app.use("/api/admin", deleteUserRouter);
 
 // Create user endpoint
 app.post("/create-user", async (req, res) => {
   try {
     const {
       email,
-      password,
       full_name,
       role,
       phone,
@@ -71,6 +100,9 @@ app.post("/create-user", async (req, res) => {
       logged_in_tenant_id,
     } = req.body;
 
+    // Generate secure password
+    const generatedPassword = generateSecurePassword(12);
+
     console.log("=== Create User Request ===", {
       email,
       role,
@@ -78,10 +110,10 @@ app.post("/create-user", async (req, res) => {
     });
 
     // 1️⃣ Validation
-    if (!email || !password || !full_name || !role) {
+    if (!email || !full_name || !role) {
       return res.status(400).json({
         success: false,
-        error: "email, password, full_name and role are required",
+        error: "email, full_name and role are required",
       });
     }
 
@@ -92,50 +124,39 @@ app.post("/create-user", async (req, res) => {
       });
     }
 
-    // 1.5️⃣ Domain Enforcement
-    // Fetch tenant's allowed domain
-    const { data: tenant, error: tenantErr } = await supabase
+    // 1.5️⃣ Domain Enforcement - Partially disabled for testing
+    const userDomain = email.split('@')[1]?.toLowerCase();
+
+    // Check for common personal email providers (block list)
+    /*
+    const personalProviders = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "live.com", "aol.com", "protonmail.com"];
+
+    if (personalProviders.includes(userDomain)) {
+      return res.status(400).json({
+        success: false,
+        error: `Personal email addresses (${userDomain}) are not allowed. Please use your company/business email domain.`,
+      });
+    }
+    */
+
+    // Optional: If tenant has a preferred domain, you can log it but not enforce it
+    const { data: tenant } = await supabase
       .from("tenants")
       .select("email_domain")
       .eq("id", logged_in_tenant_id)
       .single();
 
-    if (tenantErr || !tenant) {
-      return res.status(400).json({ success: false, error: "Invalid tenant or tenant domain not configured" });
+    if (tenant?.email_domain) {
+      console.log(`ℹ️ Tenant prefers domain @${tenant.email_domain}, but user provided @${userDomain}`);
     }
 
-    const userDomain = email.split('@')[1]?.toLowerCase();
-    const allowedDomain = tenant.email_domain?.toLowerCase();
+    console.log(`🔐 Generated password for ${email}: ${generatedPassword}`);
 
-    // Check for common personal email providers (block list)
-    const personalProviders = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com"];
-
-    if (personalProviders.includes(userDomain)) {
-      return res.status(400).json({
-        success: false,
-        error: `Personal email addresses (${userDomain}) are not allowed. Please use your company email domain.`,
-      });
-    }
-
-    if (allowedDomain && userDomain !== allowedDomain) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid email domain. Users for this tenant must use @${allowedDomain}`,
-      });
-    }
-
-    if (password.length < 6) {
-      return res.status(400).json({
-        success: false,
-        error: "Password must be at least 6 characters",
-      });
-    }
-
-    // 2️⃣ Create Supabase Auth user
+    // 2️⃣ Create Supabase Auth user using ADMIN client (service role)
     const { data: authData, error: authError } =
-      await supabase.auth.admin.createUser({
+      await supabaseAdmin.auth.admin.createUser({
         email,
-        password,
+        password: generatedPassword,
         email_confirm: true,
         user_metadata: {
           full_name,
@@ -158,7 +179,7 @@ app.post("/create-user", async (req, res) => {
     const userId = authData.user.id;
 
     // 3️⃣ Upsert into users table
-    const { error: usersError } = await supabase
+    const { error: usersError } = await supabaseAdmin
       .from("users")
       .upsert(
         {
@@ -169,14 +190,14 @@ app.post("/create-user", async (req, res) => {
           role,
           phone: phone || null,
           tenant_id: logged_in_tenant_id,
-          must_change_password: true // Force password change on first login
+          must_change_password: false // No longer forced to change password on first login
         },
         { onConflict: "id" }
       );
 
     if (usersError) {
       console.error("Users table error:", usersError);
-      await supabase.auth.admin.deleteUser(userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
 
       return res.status(400).json({
         success: false,
@@ -188,7 +209,7 @@ app.post("/create-user", async (req, res) => {
 
     if (usersError) {
       console.error("Users table error:", usersError);
-      await supabase.auth.admin.deleteUser(userId);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
 
       return res.status(400).json({
         success: false,
@@ -196,31 +217,38 @@ app.post("/create-user", async (req, res) => {
       });
     }
 
+    // 4️⃣ Send welcome email with credentials
+    try {
+      await transporter.sendMail({
+        from: '"Jasiri" <no-reply@jasiri.com>',
+        to: email,
+        subject: "Welcome to Jasiri - Your Account Credentials",
+        html: baseEmailTemplate("Welcome to Jasiri!", `
+          <p>Hello ${full_name},</p>
+          <p>Your account has been created successfully. Below are the login credentials for your new access portal.</p>
+          
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+             <p style="margin: 5px 0;"><strong>Access Email:</strong> ${email}</p>
+          </div>
 
-    // // Insert into profiles
-    // const { error: profilesError } = await supabaseAdmin
-    //   .from("profiles")
-    //   .insert({
-    //     id: userId,
-    //     branch_id: branch_id || null,
-    //     region_id: region_id || null,
-    //     tenant_id: logged_in_tenant_id,
-    //   });
-
-
-    // if (profilesError) {
-    //   console.error("Profiles table error:", profilesError);
-    //   await supabaseAdmin.auth.admin.deleteUser(userId);
-
-    //   return res.status(400).json({
-    //     success: false,
-    //     error: profilesError.message,
-    //   });
-    // }
+          <p style="margin-bottom: 5px;"><strong>Temporary Password:</strong></p>
+          ${styledHighlightBox(generatedPassword)}
+          
+          <p>You can now log in to the platform with these credentials. We recommend keeping your password secure.</p>
+          
+          <p>If you have any questions or need assistance, please contact your internal administrator.</p>
+        `)
+      });
+      console.log(`✅ Welcome email sent to ${email}`);
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+      // Don't fail user creation if email fails
+    }
 
     // ✅ Success
     return res.status(201).json({
       success: true,
+      message: "User created successfully. Login credentials have been sent to their email.",
       user: {
         id: userId,
         email,

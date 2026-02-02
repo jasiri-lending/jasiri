@@ -96,6 +96,8 @@ export default function Regions() {
           )
         `);
 
+            console.log('Fetching regions for tenant:', tenantId, 'Role:', userRole);
+
             if (userRole !== 'superadmin' && tenantId) {
                 query = query.eq('tenant_id', tenantId);
             }
@@ -103,6 +105,12 @@ export default function Regions() {
             query = query.order("created_at", { ascending: false });
 
             const { data, error } = await query;
+
+            console.log('Regions fetch result:', { data, error });
+            if (data) {
+                console.log('Regions found:', data.length);
+                data.forEach(r => console.log(`Region: ${r.name}, Tenant: ${r.tenant_id}`));
+            }
 
             if (error) throw error;
             if (data && mountedRef.current) {
@@ -164,35 +172,64 @@ export default function Regions() {
     const handleManualRefresh = () => {
         setRefreshKey(prev => prev + 1);
     };
-
     const handleSubmit = async (e) => {
         e.preventDefault();
         setSubmitting(true);
 
         try {
+            // Debug: Check profile data
+            console.log('Current profile:', profile);
+            console.log('Current formData:', formData);
+
+            // Ensure we have the tenant_id
+            let tenantId = null;
+
+            if (isSuperAdmin) {
+                // Superadmin can choose any tenant
+                tenantId = formData.tenant_id;
+                console.log('Superadmin selected tenant:', tenantId);
+            } else {
+                // Non-superadmin uses their own tenant_id
+                tenantId = profile?.tenant_id || currentUserTenantId;
+                console.log('User tenant_id:', tenantId);
+
+                if (!tenantId) {
+                    throw new Error("Your account is not associated with a tenant. Please contact your administrator.");
+                }
+            }
+
+            // Verify tenantId is a valid UUID
+            if (!tenantId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(tenantId)) {
+                throw new Error("Invalid tenant ID. Please select a valid tenant.");
+            }
+
             const regionData = {
                 name: formData.name?.trim(),
                 code: formData.code?.trim(),
+                tenant_id: tenantId, // Always include tenant_id
             };
 
-            if (!isSuperAdmin && currentUserTenantId) {
-                regionData.tenant_id = currentUserTenantId;
-            } else if (isSuperAdmin && formData.tenant_id) {
-                regionData.tenant_id = formData.tenant_id;
-            }
+            console.log('Submitting region data:', regionData);
 
+            // Validate required fields
             if (!regionData.name || !regionData.code) {
                 throw new Error("Region name and code are required");
             }
 
-            const query = editingItem
-                ? supabase.from("regions").update(regionData).eq("id", editingItem.id)
-                : supabase.from("regions").insert(regionData);
+            // Insert the region
+            const { error, data } = editingItem
+                ? await supabase.from("regions").update(regionData).eq("id", editingItem.id)
+                : await supabase.from("regions").insert(regionData).select();
 
-            const { error } = await query;
-            if (error) throw error;
+            if (error) {
+                console.error('Supabase error:', error);
+                throw error;
+            }
 
-            await fetchRegions(currentUserTenantId, profile.role);
+            console.log('Region saved successfully:', data);
+
+            // Refresh data
+            await fetchRegions(currentUserTenantId, profile?.role || 'user');
             closeModal();
             alert(`Region ${editingItem ? 'updated' : 'created'} successfully!`);
         } catch (error) {
@@ -279,7 +316,7 @@ export default function Regions() {
                                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                         Region Name
                                     </th>
-                                 
+
                                     {isSuperAdmin && (
                                         <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                                             Tenant
@@ -296,7 +333,7 @@ export default function Regions() {
                                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                                             {region.name}
                                         </td>
-                                     
+
                                         {isSuperAdmin && (
                                             <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                                 {region.tenant_name}

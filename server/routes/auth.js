@@ -1,32 +1,17 @@
 import express from "express";
-import supabase from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { createClient } from '@supabase/supabase-js';
 import crypto from "crypto";
 import nodemailer from "nodemailer";
 import bcrypt from "bcryptjs";
+import { baseEmailTemplate, styledHighlightBox, infoBox } from "../utils/emailTemplates.js";
+import transporter from "../utils/mailer.js";
 
 const Authrouter = express.Router();
 
-// Create admin client for password reset
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY,
-  {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false
-    }
-  }
-);
+// Email transporter is now handled in ../utils/mailer.js
 
-// Email transporter
-const transporter = nodemailer.createTransport({
-  service: "Gmail",
-  auth: { 
-    user: process.env.EMAIL_USERNAME, 
-    pass: process.env.EMAIL_PASSWORD 
-  }
-});
+// Email transporter is now handled in ../utils/mailer.js
 
 // Helper function to get current UTC time as ISO string
 const getCurrentUTC = () => {
@@ -42,10 +27,10 @@ const addMinutesToNow = (minutes) => {
 // Helper function to check if a timestamp has expired
 const isExpired = (expiryTimestamp) => {
   if (!expiryTimestamp) return true;
-  
+
   const now = new Date();
   const expiry = new Date(expiryTimestamp);
-  
+
   // Log for debugging
   console.log('Expiry check:', {
     nowUTC: now.toISOString(),
@@ -54,7 +39,7 @@ const isExpired = (expiryTimestamp) => {
     expiryTime: expiry.getTime(),
     isExpired: expiry.getTime() < now.getTime()
   });
-  
+
   return expiry.getTime() < now.getTime();
 };
 
@@ -64,7 +49,7 @@ Authrouter.post("/login", async (req, res) => {
 
   try {
     // Get user by email
-    const { data: user, error: userError } = await supabase
+    const { data: user, error: userError } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("email", email)
@@ -88,9 +73,9 @@ Authrouter.post("/login", async (req, res) => {
 
     // Generate verification code - Use consistent UTC time
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const verificationExpiresAt = addMinutesToNow(10); // 10 minutes from now
+    const verificationExpiresAt = addMinutesToNow(5); // 10 minutes from now
     const sessionToken = crypto.randomBytes(32).toString("hex");
-    const sessionExpiresAt = addMinutesToNow(30); // 30 minutes from now
+    const sessionExpiresAt = addMinutesToNow(360); // 30 minutes from now
 
     console.log(`Generated code for ${email}:`, {
       code: verificationCode,
@@ -99,7 +84,7 @@ Authrouter.post("/login", async (req, res) => {
     });
 
     // Save code and token in DB
-    await supabase.from("users").update({
+    await supabaseAdmin.from("users").update({
       verification_code: verificationCode,
       verification_expires_at: verificationExpiresAt,
       session_token: sessionToken,
@@ -108,18 +93,16 @@ Authrouter.post("/login", async (req, res) => {
 
     // Send code via email
     await transporter.sendMail({
-      from: '"Jasiri SaaS" <no-reply@jasiri.com>',
+      from: '"Jasiri" <no-reply@jasiri.com>',
       to: email,
       subject: "Your Login Verification Code",
       text: `Your login code is ${verificationCode}. It expires in 10 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your Login Verification Code</h2>
-          <p>Your verification code is: <strong>${verificationCode}</strong></p>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-        </div>
-      `
+      html: baseEmailTemplate("Login Verification", `
+        <p>Hello,</p>
+        <p>Use the following secure code to complete your login. For your security, this code is valid for 10 minutes.</p>
+        ${styledHighlightBox(verificationCode)}
+        ${infoBox("If you didn't request this code, your account is still secure, but we recommend checking your security settings.")}
+      `)
     });
 
     console.log(`Verification code sent to ${email}: ${verificationCode}`);
@@ -137,7 +120,7 @@ Authrouter.post("/resend-code", async (req, res) => {
 
   try {
     // Check if user exists
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .or(`id.eq.${userId},email.eq.${email}`)
@@ -153,33 +136,30 @@ Authrouter.post("/resend-code", async (req, res) => {
     const verificationExpiresAt = addMinutesToNow(10); // 10 minutes from now
 
     // Update user with new code
-    await supabase.from("users").update({
+    await supabaseAdmin.from("users").update({
       verification_code: verificationCode,
       verification_expires_at: verificationExpiresAt
     }).eq("id", user.id);
 
     // Send new code via email
     await transporter.sendMail({
-      from: '"Jasiri SaaS" <no-reply@jasiri.com>',
+      from: '"Jasiri" <no-reply@jasiri.com>',
       to: user.email,
       subject: "Your New Verification Code",
       text: `Your new verification code is ${verificationCode}. It expires in 10 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Your New Verification Code</h2>
-          <p>Your new verification code is: <strong>${verificationCode}</strong></p>
-          <p>This code will expire in 10 minutes.</p>
-          <p>If you didn't request this code, please ignore this email.</p>
-        </div>
-      `
+      html: baseEmailTemplate("New Verification Code", `
+        <p>Someone (hopefully you) requested a new verification code. This code replaces any previous codes and is valid for 10 minutes.</p>
+        ${styledHighlightBox(verificationCode)}
+        <p>Please enter this code on the verification screen to continue.</p>
+      `)
     });
 
     console.log(`New verification code sent to ${user.email}: ${verificationCode}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "New verification code sent",
-      userId: user.id 
+      userId: user.id
     });
   } catch (err) {
     console.error("Resend code crash:", err);
@@ -196,7 +176,7 @@ Authrouter.post("/verify-code", async (req, res) => {
   }
 
   try {
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("id", userId)
@@ -228,7 +208,7 @@ Authrouter.post("/verify-code", async (req, res) => {
     const newSessionToken = crypto.randomBytes(32).toString("hex");
     const sessionExpiresAt = addMinutesToNow(30);
 
-    const { error: updateError } = await supabase.from("users").update({
+    const { error: updateError } = await supabaseAdmin.from("users").update({
       verification_code: null,
       verification_expires_at: null,
       session_token: newSessionToken,
@@ -266,7 +246,7 @@ Authrouter.post("/forgot-password", async (req, res) => {
 
   try {
     // Check if user exists
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("email", email)
@@ -288,32 +268,29 @@ Authrouter.post("/forgot-password", async (req, res) => {
     });
 
     // Save reset code in DB
-    await supabase.from("users").update({
+    await supabaseAdmin.from("users").update({
       reset_code: resetCode,
       reset_code_expires_at: resetCodeExpiresAt
     }).eq("id", user.id);
 
     // Send reset code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <non-reply@jasiri.com>',
+      from: '"Jasiri" <no-reply@jasiri.com>',
       to: email,
       subject: "Password Reset Code",
       text: `Your password reset code is ${resetCode}. It expires in 15 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Password Reset Request</h2>
-          <p>You requested to reset your password. Your reset code is:</p>
-          <h3 style="color: #586ab1; font-size: 24px; margin: 20px 0;">${resetCode}</h3>
-          <p>This code will expire in 15 minutes.</p>
-          <p>If you didn't request a password reset, please ignore this email.</p>
-        </div>
-      `
+      html: baseEmailTemplate("Password Reset Request", `
+        <p>Recently, a request was made to reset the password for your account.</p>
+        <p>Please use the verification code below to proceed with resetting your password. This code is valid for 15 minutes.</p>
+        ${styledHighlightBox(resetCode)}
+        ${infoBox("If you did not request this reset, please ignore this email. No changes will be made to your account.")}
+      `)
     });
 
     console.log(`Reset code sent to ${email}: ${resetCode}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "Reset code sent to email",
       expiresIn: "15 minutes"
     });
@@ -329,7 +306,7 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
 
   try {
     // Check if user exists
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("email", email)
@@ -345,32 +322,28 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
     const resetCodeExpiresAt = addMinutesToNow(15); // 15 minutes from now
 
     // Update user with new reset code
-    await supabase.from("users").update({
+    await supabaseAdmin.from("users").update({
       reset_code: resetCode,
       reset_code_expires_at: resetCodeExpiresAt
     }).eq("id", user.id);
 
     // Send new reset code via email
     await transporter.sendMail({
-      from: '"Jasiri SaaS" <no-reply@jasiri.com>',
+      from: '"Jasiri" <no-reply@jasiri.com>',
       to: email,
       subject: "Your New Password Reset Code",
       text: `Your new password reset code is ${resetCode}. It expires in 15 minutes.`,
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>New Password Reset Code</h2>
-          <p>Your new password reset code is:</p>
-          <h3 style="color: #586ab1; font-size: 24px; margin: 20px 0;">${resetCode}</h3>
-          <p>This code will expire in 15 minutes.</p>
-          <p>If you didn't request a password reset, please ignore this email.</p>
-        </div>
-      `
+      html: baseEmailTemplate("New Reset Code", `
+        <p>A new password reset code has been generated as requested.</p>
+        ${styledHighlightBox(resetCode)}
+        <p>This code expires in 15 minutes from now.</p>
+      `)
     });
 
     console.log(`New reset code sent to ${email}: ${resetCode}`);
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       message: "New reset code sent to email",
       expiresIn: "15 minutes"
     });
@@ -386,7 +359,7 @@ Authrouter.post("/reset-password", async (req, res) => {
 
   try {
     // Check if user exists
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("email", email)
@@ -417,19 +390,19 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     if (updateError) {
       console.error("Supabase admin password update error:", updateError);
-      
+
       // Fallback: Try to update user password through auth API
       try {
         // Generate a reset token instead
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(email);
-        
+
         if (resetError) {
           throw new Error("Failed to reset password. Please try the forgot password process again.");
         }
-        
-        return res.json({ 
-          success: true, 
-          message: "Password reset link sent to your email. Please check your inbox to complete the reset." 
+
+        return res.json({
+          success: true,
+          message: "Password reset link sent to your email. Please check your inbox to complete the reset."
         });
       } catch (fallbackError) {
         console.error("Fallback password reset error:", fallbackError);
@@ -438,7 +411,7 @@ Authrouter.post("/reset-password", async (req, res) => {
     }
 
     // Clear reset code after successful password update
-    await supabase.from("users").update({
+    await supabaseAdmin.from("users").update({
       reset_code: null,
       reset_code_expires_at: null,
       must_change_password: false
@@ -448,23 +421,20 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     // Send confirmation email
     await transporter.sendMail({
-      from: '"Jasiri SaaS" <no-reply@jasiri.com>',
+      from: '"Jasiri" <no-reply@jasiri.com>',
       to: email,
       subject: "Password Reset Successful",
       text: "Your password has been successfully reset. You can now login with your new password.",
-      html: `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2>Password Reset Successful</h2>
-          <p>Your password has been successfully reset.</p>
-          <p>You can now login to your account with your new password.</p>
-          <p>If you didn't reset your password, please contact support immediately.</p>
-        </div>
-      `
+      html: baseEmailTemplate("Password Reset Successful", `
+        <p>Success! Your Jasiri account password has been updated.</p>
+        <p>You can now use your new password to log in to the dashboard.</p>
+        ${infoBox("If you did not perform this action, please contact our security team immediately to secure your account.", "Security Warning")}
+      `)
     });
 
-    res.json({ 
-      success: true, 
-      message: "Password reset successful" 
+    res.json({
+      success: true,
+      message: "Password reset successful"
     });
   } catch (err) {
     console.error("Reset password crash:", err);
@@ -481,7 +451,7 @@ const verifySession = async (req, res, next) => {
     }
 
     const sessionToken = authHeader.split(' ')[1];
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("users")
       .select("*")
       .eq("session_token", sessionToken)
@@ -515,9 +485,9 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
 
   try {
     console.log(`\n🔍 [PROFILE] Starting profile fetch for userId: ${userId}`);
-    
+
     // Fetch user details INCLUDING tenant_id
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
       .select("id, full_name, email, role, tenant_id, must_change_password")
       .eq("id", userId)
@@ -535,7 +505,7 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
     });
 
     // Fetch profile info (branch/region)
-    const { data: basicProfile, error: basicError } = await supabase
+    const { data: basicProfile, error: basicError } = await supabaseAdmin
       .from("profiles")
       .select("branch_id, region_id, avatar_url")
       .eq("id", userId)
@@ -558,8 +528,8 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
     // Fetch branch data (including region_id from branch)
     if (finalBranchId) {
       console.log(`🏢 [PROFILE] Fetching branch data for branch_id: ${finalBranchId}`);
-      
-      const { data: branchData, error: branchError } = await supabase
+
+      const { data: branchData, error: branchError } = await supabaseAdmin
         .from("branches")
         .select("name, code, region_id")
         .eq("id", finalBranchId)
@@ -576,7 +546,7 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
       if (branchData) {
         branchName = branchData.name;
         branchCode = branchData.code;
-        
+
         // If no region_id in profile, use branch's region_id
         if (!finalRegionId && branchData.region_id) {
           finalRegionId = branchData.region_id;
@@ -590,8 +560,8 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
     // Fetch region name
     if (finalRegionId) {
       console.log(`🌍 [PROFILE] Fetching region data for region_id: ${finalRegionId}`);
-      
-      const { data: regionData, error: regionError } = await supabase
+
+      const { data: regionData, error: regionError } = await supabaseAdmin
         .from("regions")
         .select("name")
         .eq("id", finalRegionId)
@@ -616,8 +586,8 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
     // Fetch tenant data if tenant_id exists
     if (userData.tenant_id) {
       console.log(`🏭 [PROFILE] Fetching tenant data for tenant_id: ${userData.tenant_id}`);
-      
-      const { data: tenant, error: tenantError } = await supabase
+
+      const { data: tenant, error: tenantError } = await supabaseAdmin
         .from("tenants")
         .select("*")
         .eq("id", userData.tenant_id)
@@ -667,6 +637,211 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
 
   } catch (err) {
     console.error("💥 [PROFILE] Profile fetch crash:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// Add to your Authrouter.js file
+
+// POST /api/request-password-change-code - Send password change verification code
+Authrouter.post("/request-password-change-code", verifySession, async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Generate verification code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationExpiresAt = addMinutesToNow(10);
+
+    console.log(`Generated password change code for ${email}:`, {
+      code: verificationCode,
+      expiresAt: verificationExpiresAt
+    });
+
+    // Save code in DB
+    await supabaseAdmin.from("users").update({
+      password_change_code: verificationCode,
+      password_change_expires_at: verificationExpiresAt
+    }).eq("email", email);
+
+    // Send code via email
+    await transporter.sendMail({
+      from: '"Jasiri" <no-reply@jasiri.com>',
+      to: email,
+      subject: "Password Change Verification Code",
+      html: baseEmailTemplate("Password Change Verification", `
+        <p>You requested to change your password. For verification, please enter the following code:</p>
+        ${styledHighlightBox(verificationCode)}
+        <p>Wait, if this wasn't you, your account password won't be changed without this code. You may want to update your security settings if you didn't expect this.</p>
+      `)
+    });
+
+    console.log(`Password change code sent to ${email}: ${verificationCode}`);
+
+    res.json({
+      success: true,
+      message: "Verification code sent",
+      expiresIn: "10 minutes"
+    });
+  } catch (err) {
+    console.error("Password change code request crash:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/resend-password-change-code - Resend password change code
+Authrouter.post("/resend-password-change-code", verifySession, async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    // Generate new code
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const verificationExpiresAt = addMinutesToNow(10);
+
+    // Update user with new code
+    await supabaseAdmin.from("users").update({
+      password_change_code: verificationCode,
+      password_change_expires_at: verificationExpiresAt
+    }).eq("email", email);
+
+    // Send new code via email
+    await transporter.sendMail({
+      from: '"Jasiri" <no-reply@jasiri.com>',
+      to: email,
+      subject: "New Password Change Code",
+      html: baseEmailTemplate("New Verification Code", `
+        <p>Your new verification code for password change is:</p>
+        ${styledHighlightBox(verificationCode)}
+        <p>This code is valid for 10 minutes. Please enter it to complete your request.</p>
+      `)
+    });
+
+    console.log(`New password change code sent to ${email}: ${verificationCode}`);
+
+    res.json({
+      success: true,
+      message: "New verification code sent",
+      expiresIn: "10 minutes"
+    });
+  } catch (err) {
+    console.error("Resend password change code crash:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+
+
+// POST /api/logout - Clear session (without verifySession middleware since token might be expired)
+Authrouter.post("/logout", async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log("⚠️ [LOGOUT] No session token provided");
+      return res.status(200).json({ success: true, message: "Already logged out" });
+    }
+
+    const sessionToken = authHeader.split(' ')[1];
+
+    // Find user by session token (even if expired)
+    const { data: user, error: findError } = await supabaseAdmin
+      .from("users")
+      .select("id, email")
+      .eq("session_token", sessionToken)
+      .maybeSingle();
+
+    if (findError || !user) {
+      console.log("⚠️ [LOGOUT] Session token not found or already cleared");
+      return res.status(200).json({ success: true, message: "Already logged out" });
+    }
+
+    // Clear session token and expiry in database
+    const { error: updateError } = await supabaseAdmin.from("users").update({
+      session_token: null,
+      session_expires_at: null
+    }).eq("id", user.id);
+
+    if (updateError) {
+      console.error("❌ [LOGOUT] Database update error:", updateError);
+      return res.status(500).json({ success: false, error: "Failed to clear session" });
+    }
+
+    console.log(`✅ [LOGOUT] Session cleared for user: ${user.email}`);
+
+    res.json({
+      success: true,
+      message: "Logged out successfully"
+    });
+  } catch (err) {
+    console.error("💥 [LOGOUT] Logout error:", err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+// POST /api/verify-password-change-code - Verify code and change password
+Authrouter.post("/verify-password-change-code", verifySession, async (req, res) => {
+  const { email, code, newPassword } = req.body;
+
+  try {
+    // Get user
+    const { data: user, error } = await supabaseAdmin
+      .from("users")
+      .select("*")
+      .eq("email", email)
+      .single();
+
+    if (error || !user) {
+      console.error("Verify password change code user error:", error);
+      return res.status(400).json({ success: false, error: "User not found" });
+    }
+
+    // Verify code
+    if (user.password_change_code !== code) {
+      console.error(`Code mismatch for ${email}`);
+      return res.status(400).json({ success: false, error: "Invalid verification code" });
+    }
+
+    // Check if code expired
+    if (isExpired(user.password_change_expires_at)) {
+      console.error("Password change code expired for user:", email);
+      return res.status(400).json({ success: false, error: "Verification code expired" });
+    }
+
+    // Update password using admin API
+    const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.auth_id,
+      { password: newPassword }
+    );
+
+    if (updateError) {
+      console.error("Password update error:", updateError);
+      return res.status(500).json({ success: false, error: "Failed to update password" });
+    }
+
+    // Clear password change code
+    await supabaseAdmin.from("users").update({
+      password_change_code: null,
+      password_change_expires_at: null,
+      must_change_password: false
+    }).eq("id", user.id);
+
+    console.log(`Password changed successfully for ${email}`);
+
+    // Send confirmation email
+    await transporter.sendMail({
+      from: '"Jasiri" <no-reply@jasiri.com>',
+      to: email,
+      subject: "Password Changed Successfully",
+      html: baseEmailTemplate("Security Alert: Password Changed", `
+         <p>The password for your Jasiri account was successfully changed.</p>
+         <p>If this was you, you can now log in with your new credentials. If this was not you, please contact support immediately.</p>
+         ${infoBox("This email was sent automatically to confirm recent security changes to your account.", "Security Notification")}
+       `)
+    });
+
+    res.json({
+      success: true,
+      message: "Password changed successfully"
+    });
+  } catch (err) {
+    console.error("Verify password change code crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

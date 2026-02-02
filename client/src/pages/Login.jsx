@@ -13,13 +13,13 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
 
   const handleChange = (index, digit) => {
     if (!/^\d*$/.test(digit)) return;
-    
+
     const newCode = [...codeDigits];
     newCode[index] = digit;
     const newCodeString = newCode.join('');
-    
+
     onChange(newCodeString);
-    
+
     // Auto focus next input
     if (digit && index < length - 1) {
       inputsRef.current[index + 1].focus();
@@ -41,7 +41,7 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
   const handlePaste = (e) => {
     e.preventDefault();
     const pasteData = e.clipboardData.getData('text').slice(0, length).replace(/\D/g, '');
-    
+
     if (pasteData.length === length) {
       onChange(pasteData);
       inputsRef.current[length - 1].focus();
@@ -180,125 +180,122 @@ export default function Login() {
     }
   };
 
-// In handleVerifyCode function, update the part after getting profile:
-const handleVerifyCode = async (e) => {
-  e.preventDefault();
-  
-  if (!code || code.length !== 6) {
-    toast.error("Enter the 6-digit verification code");
-    return;
-  }
+  // In handleVerifyCode function, update the part after getting profile:
+  const handleVerifyCode = async (e) => {
+    e.preventDefault();
 
-  setLoading(true);
-
-  try {
-    const res = await fetch(`${API_BASE_URL}/api/verify-code`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, code }),
-    });
-
-    const data = await res.json();
-
-    if (!res.ok || !data.success) {
-      if (data.error === "Code expired") {
-        toast.error("Code expired. Request a new one.");
-      } else if (data.error === "Invalid code") {
-        toast.error("Incorrect verification code.");
-      } else {
-        toast.error(data.error || "Verification failed");
-      }
+    if (!code || code.length !== 6) {
+      toast.error("Enter the 6-digit verification code");
       return;
     }
 
-    if (!data.sessionToken) {
-      throw new Error("Authentication failed — no session token");
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/verify-code`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, code }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        if (data.error === "Code expired") {
+          toast.error("Code expired. Request a new one.");
+        } else if (data.error === "Invalid code") {
+          toast.error("Incorrect verification code.");
+        } else {
+          toast.error(data.error || "Verification failed");
+        }
+        return;
+      }
+
+      if (!data.sessionToken) {
+        throw new Error("Authentication failed — no session token");
+      }
+
+      // Store session
+      localStorage.setItem("sessionToken", data.sessionToken);
+      localStorage.setItem("userId", userId);
+      localStorage.setItem("sessionExpiresAt", data.expiresAt);
+
+      // Fetch profile with token
+      const profileRes = await fetch(`${API_BASE_URL}/api/profile/${userId}`, {
+        headers: {
+          Authorization: `Bearer ${data.sessionToken}`,
+        },
+      });
+
+      if (!profileRes.ok) {
+        throw new Error("Failed to load user profile");
+      }
+
+      const profileResponse = await profileRes.json();
+
+      if (!profileResponse?.id) {
+        throw new Error("Invalid profile data");
+      }
+
+      // ✅ Store tenant if present
+      if (profileResponse.tenant) {
+        console.log("✅ Storing tenant data:", profileResponse.tenant);
+        localStorage.setItem("tenant", JSON.stringify(profileResponse.tenant));
+      }
+
+      // Ensure consistent naming
+      const normalizedProfile = {
+        ...profileResponse,
+        full_name: profileResponse.full_name || profileResponse.name || 'User',
+        name: profileResponse.name || profileResponse.full_name || 'User'
+        // Remove tenant from profile object since we store it separately
+      };
+
+      // Remove tenant from profile to avoid duplication
+      delete normalizedProfile.tenant;
+
+      // Create a user object for the auth context
+      const userObj = {
+        id: normalizedProfile.id,
+        email: normalizedProfile.email,
+        role: normalizedProfile.role
+      };
+
+      console.log("🔍 [LOGIN] Setting auth context:");
+      console.log("- User object:", userObj);
+      console.log("- Profile object:", normalizedProfile);
+      console.log("- Tenant:", profileResponse.tenant?.company_name || "none");
+
+      // Set both user and profile
+      setUser(userObj);
+      setProfile(normalizedProfile);
+
+      // Store profile in localStorage
+      localStorage.setItem("profile", JSON.stringify(normalizedProfile));
+
+      toast.success("Login successful! Redirecting...");
+
+      // Force a state update by waiting a tick
+      await new Promise(resolve => setTimeout(resolve, 100));
+
+      // Direct navigation
+      console.log("🔍 [LOGIN] Redirecting based on role:", normalizedProfile.role);
+
+      if (["superadmin", "admin"].includes(normalizedProfile.role)) {
+        console.log("Redirecting to /dashboard/admin");
+        window.location.href = "/dashboard/admin";
+      } else {
+        console.log("Redirecting to /dashboard");
+        window.location.href = "/dashboard";
+      }
+
+    } catch (err) {
+      console.error("Verify code error:", err);
+      toast.error(err.message || "Verification failed");
+    } finally {
+      setLoading(false);
     }
-
-    // Store session
-    localStorage.setItem("sessionToken", data.sessionToken);
-    localStorage.setItem("userId", userId);
-    localStorage.setItem("sessionExpiresAt", data.expiresAt);
-
-    // Fetch profile with token
-    const profileRes = await fetch(`${API_BASE_URL}/api/profile/${userId}`, {
-      headers: {
-        Authorization: `Bearer ${data.sessionToken}`,
-      },
-    });
-
-    if (!profileRes.ok) {
-      throw new Error("Failed to load user profile");
-    }
-
-    const profileResponse = await profileRes.json();
-
-    if (!profileResponse?.id) {
-      throw new Error("Invalid profile data");
-    }
-
-    // ✅ Store tenant if present
-    if (profileResponse.tenant) {
-      console.log("✅ Storing tenant data:", profileResponse.tenant);
-      localStorage.setItem("tenant", JSON.stringify(profileResponse.tenant));
-    }
-
-    // Ensure consistent naming
-    const normalizedProfile = {
-      ...profileResponse,
-      full_name: profileResponse.full_name || profileResponse.name || 'User',
-      name: profileResponse.name || profileResponse.full_name || 'User'
-      // Remove tenant from profile object since we store it separately
-    };
-    
-    // Remove tenant from profile to avoid duplication
-    delete normalizedProfile.tenant;
-
-    // Create a user object for the auth context
-    const userObj = {
-      id: normalizedProfile.id,
-      email: normalizedProfile.email,
-      role: normalizedProfile.role
-    };
-
-    console.log("🔍 [LOGIN] Setting auth context:");
-    console.log("- User object:", userObj);
-    console.log("- Profile object:", normalizedProfile);
-    console.log("- Tenant:", profileResponse.tenant?.company_name || "none");
-    
-    // Set both user and profile
-    setUser(userObj);
-    setProfile(normalizedProfile);
-    
-    // Store profile in localStorage
-    localStorage.setItem("profile", JSON.stringify(normalizedProfile));
-
-    toast.success("Login successful! Redirecting...");
-
-    // Force a state update by waiting a tick
-    await new Promise(resolve => setTimeout(resolve, 100));
-    
-    // Direct navigation
-    console.log("🔍 [LOGIN] Redirecting based on role:", normalizedProfile.role);
-    
-    if (normalizedProfile.must_change_password) {
-      console.log("Redirecting to /change-password");
-      window.location.href = "/change-password";
-    } else if (["superadmin", "admin"].includes(normalizedProfile.role)) {
-      console.log("Redirecting to /dashboard/admin");
-      window.location.href = "/dashboard/admin";
-    } else {
-      console.log("Redirecting to /dashboard");
-      window.location.href = "/dashboard";
-    }
-
-  } catch (err) {
-    console.error("Verify code error:", err);
-    toast.error(err.message || "Verification failed");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Forgot password - request reset
   const handleForgotPassword = async (e) => {
@@ -327,17 +324,17 @@ const handleVerifyCode = async (e) => {
   // Verify reset code and set new password
   const handleResetPassword = async (e) => {
     e.preventDefault();
-    
+
     if (resetCode.length !== 6) {
       toast.error("Please enter a valid 6-digit reset code");
       return;
     }
-    
+
     if (newPassword !== confirmPassword) {
       toast.error("Passwords do not match");
       return;
     }
-    
+
     if (newPassword.length < 8) {
       toast.error("Password must be at least 8 characters long");
       return;
@@ -348,7 +345,7 @@ const handleVerifyCode = async (e) => {
     const hasLowerCase = /[a-z]/.test(newPassword);
     const hasNumbers = /\d/.test(newPassword);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-    
+
     if (!(hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar)) {
       toast.error("Password must include uppercase, lowercase, numbers, and special characters");
       return;
@@ -359,10 +356,10 @@ const handleVerifyCode = async (e) => {
       const res = await fetch(`${API_BASE_URL}/api/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          email, 
-          resetCode, 
-          newPassword 
+        body: JSON.stringify({
+          email,
+          resetCode,
+          newPassword
         }),
       });
       const data = await res.json();
@@ -425,14 +422,14 @@ const handleVerifyCode = async (e) => {
             <div className="absolute top-10 left-10 w-20 h-20 bg-white rounded-full"></div>
             <div className="absolute bottom-10 right-10 w-16 h-16 bg-white rounded-full"></div>
           </div>
-          
+
           <div className="relative z-10 flex flex-col items-center">
             <div className="rounded-2xl flex items-center justify-center overflow-hidden mb-6">
               <img src="jasiri-white.png" alt="Jasiri Logo" className="object-contain w-48 h-48 lg:w-56 lg:h-56" />
             </div>
             <h1 className="text-2xl lg:text-3xl font-bold text-center">Welcome Back</h1>
           </div>
-          
+
           <div className="absolute bottom-4 left-4 text-blue-200 text-xs">Automation Moraans</div>
           <div className="absolute bottom-4 right-4 text-blue-200 text-xs">© {currentYear}</div>
         </div>
@@ -461,9 +458,9 @@ const handleVerifyCode = async (e) => {
 
           <form onSubmit={
             step === 1 ? handleLogin :
-            step === 2 ? handleVerifyCode :
-            step === 3 ? handleForgotPassword :
-            handleResetPassword
+              step === 2 ? handleVerifyCode :
+                step === 3 ? handleForgotPassword :
+                  handleResetPassword
           } className="space-y-5">
 
             {step === 1 ? (
@@ -588,7 +585,7 @@ const handleVerifyCode = async (e) => {
                     Reset code sent to:<br />
                     <span className="font-semibold text-gray-800">{email}</span>
                   </p>
-                  
+
                   <div className="space-y-5">
                     <div>
                       <label className="block text-sm font-semibold text-gray-700 mb-4 text-center">
@@ -701,14 +698,14 @@ const handleVerifyCode = async (e) => {
                   </span>
                 ) : (
                   <span>
-                    {step === 1 ? "Sign In" : 
-                     step === 2 ? "Verify & Continue" : 
-                     step === 3 ? "Send Reset Code" : 
-                     "Reset Password"}
+                    {step === 1 ? "Sign In" :
+                      step === 2 ? "Verify & Continue" :
+                        step === 3 ? "Send Reset Code" :
+                          "Reset Password"}
                   </span>
                 )}
               </button>
-              
+
               {(step === 2 || step === 3 || step === 4) && (
                 <button
                   type="button"
@@ -735,7 +732,7 @@ const handleVerifyCode = async (e) => {
               </p>
             </div>
           )}
-          
+
           <div className="mt-6 text-center text-xs text-gray-500">
             © {currentYear} Jasiri Lending Software. All rights reserved.
           </div>

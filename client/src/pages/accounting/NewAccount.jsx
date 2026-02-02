@@ -2,9 +2,11 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
+import { useAuth } from "../../hooks/userAuth";
 
 export default function NewAccount() {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [headerAccounts, setHeaderAccounts] = useState([]);
 
   const [form, setForm] = useState({
@@ -25,7 +27,8 @@ export default function NewAccount() {
         .from("chart_of_accounts")
         .select("*")
         .eq("account_type", form.account_type)
-        .eq("account_category", "Header Account");
+        .eq("account_category", "Header Account")
+        .eq("tenant_id", profile?.tenant_id);
 
       setHeaderAccounts(data || []);
     };
@@ -41,7 +44,10 @@ export default function NewAccount() {
       return;
     }
 
-    const { error } = await supabase.from("chart_of_accounts").insert([form]);
+    const { error } = await supabase.from("chart_of_accounts").insert([{
+      ...form,
+      tenant_id: profile?.tenant_id
+    }]);
 
     if (error) {
       alert("Failed to create account.");

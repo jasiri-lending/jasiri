@@ -28,7 +28,7 @@ import Spinner from "../../components/Spinner";
 const CustomerDetailsPage = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  
+
   const [customer, setCustomer] = useState(null);
   const [guarantors, setGuarantors] = useState([]);
   const [securityItems, setSecurityItems] = useState([]);
@@ -87,7 +87,7 @@ const CustomerDetailsPage = () => {
       if (!businessError) setBusinessImages(businessImagesData || []);
       if (!loanError) setLoanDetails(loanData || null);
       if (!guarantorsError) setGuarantors(guarantorsData || []);
-      
+
       if (!securityError) {
         const processedSecurityItems = (securityItemsData || []).map((item) => ({
           ...item,
@@ -151,8 +151,8 @@ const CustomerDetailsPage = () => {
   const DocumentCard = ({ title, imageUrl, placeholder, icon: Icon }) => (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
       <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
-        <h4 className="text-sm font-semibold text-gray-800 flex items-center">
-          <Icon className="h-4 w-4 text-indigo-600 mr-2" />
+        <h4 className="text-sm font-semibold text-text flex items-center">
+          <Icon className="h-4 w-4 text-brand-primary mr-2" />
           {title}
         </h4>
       </div>
@@ -184,7 +184,7 @@ const CustomerDetailsPage = () => {
   const DetailRow = ({ label, value, icon: Icon }) => (
     <div className="flex items-center justify-between py-2 border-b border-gray-100 last:border-b-0">
       <div className="flex items-center text-sm text-gray-600">
-        {Icon && <Icon className="h-4 w-4 mr-2 text-indigo-500" />}
+        {Icon && <Icon className="h-4 w-4 mr-2 text-brand-primary" />}
         {label}:
       </div>
       <span className="text-sm font-semibold text-gray-600 text-right">
@@ -193,9 +193,9 @@ const CustomerDetailsPage = () => {
     </div>
   );
 
- if (loading) {
+  if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-brand-surface p-8 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
@@ -210,9 +210,9 @@ const CustomerDetailsPage = () => {
           <p className="text-gray-600">The requested customer details could not be loaded.</p>
           <button
             onClick={() => navigate(-1)}
-            className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            className="mt-6 px-6 py-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-md uppercase tracking-wide text-xs"
           >
-            Go Back 
+            Go Back
           </button>
         </div>
       </div>
@@ -222,37 +222,38 @@ const CustomerDetailsPage = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
-     
+
 
       {/* Main Content */}
       <div className="max-w-7xl mx-auto py-1 sm:px-6 lg:px-8">
-        
-        <div className="px-4 py-6 sm:px-0">
-          
-       
-       {/* Customer Profile */}
-<div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-4 overflow-hidden">
-  <div className="p-2 flex items-center">
-    <button
-      onClick={() => navigate(-1)}
-      className="flex items-center text-gray-600 hover:text-gray-900 gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition"
-    >
-      <ArrowLeftIcon className="h-5 w-5" />
-      <span className="text-sm">Back to Customers </span>
-    </button>
-  </div>
 
-  <div className="p-8">
-    <div className="border-b border-gray-200 pb-6 mb-2">
-      <h2 className=" text-lg flex items-center font-semibold" style={{ color: "#586ab1" }}>
-        <UserCircleIcon className="h-8 w-8 text-indigo-600 mr-3" />
-        Customer Information
-      </h2>
-    </div>
+        <div className="px-4 py-6 sm:px-0">
+
+
+          {/* Customer Profile */}
+          <div className="bg-white rounded-2xl shadow-xl border border-brand-surface mb-8 overflow-hidden">
+            <div className="p-2 flex items-center">
+              <button
+                onClick={() => navigate(-1)}
+                className="flex items-center text-gray-600 hover:text-gray-900 gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition"
+              >
+                <ArrowLeftIcon className="h-5 w-5" />
+                <span className="text-sm font-medium">Back to Customers </span>
+              </button>
+            </div>
+
+            <div className="p-8">
+              <div className="border-b border-gray-200 pb-6 mb-2">
+                <h2 className=" text-lg flex items-center font-bold text-text">
+                  <UserCircleIcon className="h-8 w-8 text-brand-primary mr-3" />
+                  Customer Information
+                </h2>
+              </div>
 
 
               {/* Customer Profile Header */}
-              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+              <div className="bg-brand-surface rounded-2xl p-8 mb-8 border border-brand-surface
+">
                 <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                   {/* Profile Photo */}
                   <div className="flex flex-col items-center">
@@ -279,7 +280,7 @@ const CustomerDetailsPage = () => {
                       )}
                     </div>
 
-                    <h3 className="text-lg font-bold text-slate-600 mt-4 text-center">
+                    <h3 className="text-xl font-bold text-text mt-4 text-center">
                       {customer.prefix} {customer.Firstname} {customer.Middlename} {customer.Surname}
                     </h3>
                   </div>
@@ -288,12 +289,12 @@ const CustomerDetailsPage = () => {
                   <div className="flex-1">
                     {/* Highlighted ID + Mobile */}
                     <div className="flex flex-col md:flex-row gap-4 mb-6">
-                      <p className="flex-1 inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-semibold shadow-sm">
-                        <IdentificationIcon className="h-5 w-5 text-indigo-600" />
+                      <p className="flex-1 inline-flex items-center gap-2 bg-brand-surface text-brand-primary px-4 py-2 rounded-lg font-bold shadow-sm border border-brand-primary/20">
+                        <IdentificationIcon className="h-5 w-5" />
                         ID Number: {customer.id_number || "Not provided"}
                       </p>
-                      <p className="flex-1 inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg font-semibold shadow-sm">
-                        <DevicePhoneMobileIcon className="h-5 w-5 text-green-600" />
+                      <p className="flex-1 inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-lg font-bold shadow-sm border border-accent/20">
+                        <DevicePhoneMobileIcon className="h-5 w-5" />
                         Mobile: {customer.mobile || "Not provided"}
                       </p>
                     </div>
@@ -360,10 +361,10 @@ const CustomerDetailsPage = () => {
                     <UserGroupIcon className="h-8 w-8 text-indigo-600 mr-3" />
                     Next of Kin Information
                   </h2>
-                  
+
                 </div>
 
-                <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+                <div className="bg-brand-surface rounded-2xl p-8 mb-8 border border-brand-surface">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left column */}
                     <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
@@ -393,7 +394,7 @@ const CustomerDetailsPage = () => {
             <div className="p-8">
               <div className="border-b border-gray-200 pb-6 mb-8">
                 <h2 className="text-lg font-bold text-gray-600 flex items-center">
-                  <BuildingOffice2Icon className="h-8 w-8 text-indigo-600 mr-3" />
+                  <BuildingOffice2Icon className="h-8 w-8 text-brand-primary mr-3" />
                   Business Information
                 </h2>
               </div>
@@ -401,7 +402,7 @@ const CustomerDetailsPage = () => {
               {/* Business Details */}
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
                 <h3 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
-                  <BuildingOffice2Icon className="h-6 w-6 text-indigo-600" />
+                  <BuildingOffice2Icon className="h-6 w-6 text-brand-primary" />
                   Business Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -433,7 +434,7 @@ const CustomerDetailsPage = () => {
                       >
                         <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
                           <h4 className="text-sm font-semibold text-gray-600 flex items-center">
-                            <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
+                            <PhotoIcon className="h-4 w-4 text-brand-primary mr-2" />
                             Business Image {index + 1}
                           </h4>
                         </div>
@@ -490,16 +491,16 @@ const CustomerDetailsPage = () => {
                       {/* Header */}
                       <div className="flex items-center justify-between mb-8">
                         <h3 className="text-lg font-semibold text-slate-600 flex items-center">
-                          <UserGroupIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                          <UserGroupIcon className="h-6 w-6 text-brand-primary mr-3" />
                           Guarantor {index + 1}
                         </h3>
-                        <span className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-full text-sm font-medium">
+                        <span className="px-4 py-2 bg-indigo-100 text-brand-primary rounded-full text-sm font-medium">
                           {guarantor.relationship || "Relationship Unknown"}
                         </span>
                       </div>
 
                       {/* Profile */}
-                      <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+                      <div className="bg-brand-surface rounded-2xl p-8 mb-8 border border-brand-surface">
                         <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                           {/* Profile Photo */}
                           <div className="flex flex-col items-center">
@@ -534,12 +535,12 @@ const CustomerDetailsPage = () => {
                           {/* Highlighted Info */}
                           <div className="flex-1">
                             <div className="flex flex-col md:flex-row gap-4 mb-6">
-                              <p className="flex-1 inline-flex items-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg font-semibold shadow-sm">
-                                <IdentificationIcon className="h-5 w-5 text-indigo-600" />
+                              <p className="flex-1 inline-flex items-center gap-2 bg-brand-surface text-brand-primary px-4 py-2 rounded-lg font-bold shadow-sm border border-brand-primary/20">
+                                <IdentificationIcon className="h-5 w-5" />
                                 ID Number: {guarantor.id_number || "Not provided"}
                               </p>
-                              <p className="flex-1 inline-flex items-center gap-2 bg-green-50 text-green-700 px-4 py-2 rounded-lg font-semibold shadow-sm">
-                                <DevicePhoneMobileIcon className="h-5 w-5 text-green-600" />
+                              <p className="flex-1 inline-flex items-center gap-2 bg-accent/10 text-accent px-4 py-2 rounded-lg font-bold shadow-sm border border-accent/20">
+                                <DevicePhoneMobileIcon className="h-5 w-5" />
                                 Mobile: {guarantor.mobile || "Not provided"}
                               </p>
                             </div>
@@ -604,7 +605,7 @@ const CustomerDetailsPage = () => {
               <div className="p-8">
                 <div className="border-b border-gray-200 pb-6 mb-8">
                   <h2 className="text-lg font-bold text-slate-600 flex items-center">
-                    <ShieldCheckIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                    <ShieldCheckIcon className="h-8 w-8 text-brand-primary mr-3" />
                     Security Items
                   </h2>
                   <p className="text-gray-600 mt-2">Customer and guarantor security items</p>
@@ -635,7 +636,7 @@ const CustomerDetailsPage = () => {
                                 <p className="text-sm text-gray-600">Item {index + 1}</p>
                               </div>
                             </div>
-                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-medium">
+                            <span className="px-3 py-1 bg-accent/10 text-accent rounded-full text-sm font-medium">
                               KES {item.value?.toLocaleString() || "N/A"}
                             </span>
                           </div>
@@ -694,7 +695,7 @@ const CustomerDetailsPage = () => {
                           <div className="flex items-start justify-between mb-4">
                             <div className="flex items-center">
                               <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mr-4">
-                                <ShieldCheckIcon className="h-6 w-6 text-purple-600" />
+                                <ShieldCheckIcon className="h-6 w-6 text-accent" />
                               </div>
                               <div>
                                 <h4 className="font-semibold text-gray-600">{item.item || "Security Item"}</h4>
@@ -751,22 +752,22 @@ const CustomerDetailsPage = () => {
               <div className="p-8">
                 <div className="border-b border-gray-200 pb-6 mb-8">
                   <h2 className="text-lg  font-bold text-slate-600 flex items-center">
-                    <CurrencyDollarIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                    <CurrencyDollarIcon className="h-8 w-8 text-brand-primary mr-3" />
                     Loan Information
                   </h2>
                 </div>
 
                 <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
                   <h3 className="text-xl font-semibold text-gray-600 mb-6 flex items-center">
-                    <CurrencyDollarIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                    <CurrencyDollarIcon className="h-6 w-6 text-brand-primary mr-3" />
                     Loan Details
                   </h3>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-blue-100">
+                    <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-6 rounded-xl border border-brand-surface">
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-semibold text-blue-900">Prequalified Amount</h4>
-                        <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                        <div className="w-10 h-10 bg-brand-surface rounded-full flex items-center justify-center">
                           <span className="text-blue-600 font-bold text-lg">ksh</span>
                         </div>
                       </div>
@@ -780,7 +781,7 @@ const CustomerDetailsPage = () => {
                       <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border border-emerald-100">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-semibold text-emerald-900">Final Scored Amount</h4>
-                          <div className="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center">
+                          <div className="w-10 h-10 bg-brand-surface rounded-full flex items-center justify-center">
                             <CurrencyDollarIcon className="h-6 w-6 text-emerald-600" />
                           </div>
                         </div>
@@ -792,7 +793,7 @@ const CustomerDetailsPage = () => {
                     )}
                   </div>
 
-                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
+                  <div className="bg-gradient-to-r from-accent/10 to-orange-50 rounded-xl p-6 border border-amber-200">
                     <h4 className="font-semibold text-amber-900 mb-4">Loan Application Details</h4>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                       <div className="text-center">
@@ -805,7 +806,7 @@ const CustomerDetailsPage = () => {
                         <p className="text-sm font-medium text-amber-700">Status</p>
                         <p className="text-lg font-semibold text-amber-900 capitalize">{loanDetails.status}</p>
                       </div>
-                   
+
                       {loanDetails.term && (
                         <div className="text-center">
                           <p className="text-sm font-medium text-amber-700">Term</p>
@@ -866,27 +867,27 @@ const CustomerDetailsPage = () => {
                 "Second Officer and Client Image",
                 "Both Officers Image"
               ].includes(d.document_type)).length > 0 && (
-                <div className="mt-8">
-                  <h3 className="text-xl font-semibold text-gray-600 mb-6">Additional Documents</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {documents
-                      .filter(d => ![
-                        "First Officer and Client Image",
-                        "Second Officer and Client Image",
-                        "Both Officers Image"
-                      ].includes(d.document_type))
-                      .map((document, index) => (
-                        <DocumentCard
-                          key={index}
-                          title={document.document_type}
-                          imageUrl={document.document_url}
-                          placeholder="No image available"
-                          icon={DocumentTextIcon}
-                        />
-                      ))}
+                  <div className="mt-8">
+                    <h3 className="text-xl font-semibold text-gray-600 mb-6">Additional Documents</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {documents
+                        .filter(d => ![
+                          "First Officer and Client Image",
+                          "Second Officer and Client Image",
+                          "Both Officers Image"
+                        ].includes(d.document_type))
+                        .map((document, index) => (
+                          <DocumentCard
+                            key={index}
+                            title={document.document_type}
+                            imageUrl={document.document_url}
+                            placeholder="No image available"
+                            icon={DocumentTextIcon}
+                          />
+                        ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
             </div>
           </div>
         </div>
@@ -894,7 +895,7 @@ const CustomerDetailsPage = () => {
 
       {/* Image Modal */}
       {selectedImage && (
-        <div 
+        <div
           className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
           onClick={() => setSelectedImage(null)}
         >
@@ -911,7 +912,7 @@ const CustomerDetailsPage = () => {
                 </button>
               </div>
             </div>
-            
+
             {/* Modal Image */}
             <div className="p-4 bg-gray-50">
               <img
@@ -921,7 +922,7 @@ const CustomerDetailsPage = () => {
                 onClick={(e) => e.stopPropagation()}
               />
             </div>
-            
+
             {/* Modal Footer */}
             <div className="px-6 py-4 bg-gray-50 border-t">
               <div className="flex justify-between items-center">

@@ -262,57 +262,57 @@ const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
   </div>
 );
 
-const StatCard = ({ 
-  icon: Icon, 
-  label, 
-  value, 
-  subtext, 
-  color = COLORS.primary, 
+const StatCard = ({
+  icon: Icon,
+  label,
+  value,
+  subtext,
+  color = COLORS.primary,
   bgColor = COLORS.background,
 }) => (
-  <div 
+  <div
     className="p-4 sm:p-5 rounded-xl shadow-sm"
-    style={{ 
+    style={{
       backgroundColor: bgColor,
       border: `1px solid #E5E7EB`
     }}
   >
     <div className="space-y-1">
-        {subtext && (
-        <div className="text-2xl font-semibold " style={{color:COLORS.primary}}>{subtext}</div>
+      {subtext && (
+        <div className="text-2xl font-semibold " style={{ color: COLORS.primary }}>{subtext}</div>
       )}
-            <div className="text-xs sm:text-sm font-medium text-gray-600">{label}</div>
+      <div className="text-xs sm:text-sm font-medium text-gray-600">{label}</div>
       <div className="h-px bg-gray-200 my-2" />
 
       <div className="text-sm sm:text-sm font-bold" style={{ color }}>
         {value}
       </div>
-    
+
     </div>
   </div>
 );
 
-const PortfolioStatCard = ({ 
-  label, 
-  amount, 
-  details, 
+const PortfolioStatCard = ({
+  label,
+  amount,
+  details,
   color = COLORS.authority,
   bgColor = COLORS.background,
 }) => (
   <div className="p-5 sm:p-6 min-h-[190px] rounded-xl shadow-sm flex flex-col justify-between"
-    style={{ 
+    style={{
       backgroundColor: bgColor,
       border: `1px solid #E5E7EB`
     }}
   >
-   
+
     <div className="text-3xl sm:text-3xl font-extrabold" style={{ color }}>
       {amount}
     </div>
-     <div>
+    <div>
       <div className="text-sm font-medium text-gray-600 mt-2">{label}</div>
     </div>
-          <div className="h-px bg-gray-300 mt-5" />
+    <div className="h-px bg-gray-300 mt-5" />
 
     {details && (
       <div className="text-sm mt-2 text-gray-600 text-right w-full ">
@@ -330,8 +330,8 @@ const CollectionCard = ({
   shortfall,
   label,
 }) => (
-  <div 
-    className="p-6 rounded-xl flex flex-col items-center" 
+  <div
+    className="p-6 rounded-xl flex flex-col items-center"
     style={{
       backgroundColor: COLORS.background,
       border: `1px solid #E5E7EB`
@@ -357,8 +357,8 @@ const RiskMetricCard = ({
   color = COLORS.danger,
   bgColor = '#fee2e2',
 }) => (
-  <div 
-    className="p-4 rounded-xl text-center" 
+  <div
+    className="p-4 rounded-xl text-center"
     style={{
       backgroundColor: bgColor,
       border: `1px solid #94a3b8`
@@ -385,8 +385,8 @@ const LeadConversionCard = ({
   borderColor = '#9ca3af',
   leadsTextColor = '#6B7280'
 }) => (
-  <div 
-    className="p-4 rounded-xl" 
+  <div
+    className="p-4 rounded-xl"
     style={{
       backgroundColor: bgColor,
       border: `1px solid ${borderColor}`
@@ -413,8 +413,8 @@ const CustomerStatBox = ({
   color = COLORS.success,
   bgColor = `${COLORS.success}15`,
 }) => (
-  <div 
-    className="text-center p-3 rounded-lg" 
+  <div
+    className="text-center p-3 rounded-lg"
     style={{ backgroundColor: bgColor }}
   >
     <div className="text-2xl font-bold" style={{ color }}>
@@ -512,8 +512,8 @@ const Dashboard = () => {
       todayAmount: 0,
       thisMonth: 0,
       thisMonthAmount: 0,
-        ytd: 0, 
-    ytdAmount: 0, 
+      ytd: 0,
+      ytdAmount: 0,
     },
     collections: {
       today: { collected: 0, expected: 0, rate: 0 },
@@ -526,7 +526,7 @@ const Dashboard = () => {
       inactive: 0,
       newToday: 0,
       newMonth: 0,
-        newYTD: 0,
+      newYTD: 0,
       leadsToday: 0,
       leadsMonth: 0,
       convertedToday: 0,
@@ -551,75 +551,86 @@ const Dashboard = () => {
       customerHQ: 0,
     }
   });
- // ========== DATA FETCHING & CALCULATION FUNCTIONS ==========
-// Key fix: Added tenant_id to the users query
-const fetchUserProfile = async () => {
-  try {
-    const { data: { user }, error } = await supabase.auth.getUser();
-    if (error) throw error;
-    if (!user) return null;
+  // ========== DATA FETCHING & CALCULATION FUNCTIONS ==========
+  // Key fix: Added tenant_id to the users query
+  const fetchUserProfile = async () => {
+    try {
+      // Multi-layer user ID discovery (resilient to custom auth flow)
+      const storedUserId = localStorage.getItem("userId");
+      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
 
-    const tenantId = user.app_metadata?.tenant_id;
+      const userId = authData?.user?.id || storedUserId;
+      if (!userId) return null;
 
-    // FIXED: Added tenant_id to the select statement
-    let userQuery = supabase
-      .from("users")
-      .select("role, full_name, tenant_id")  
-      .eq("id", user.id);
+      const tenantIdFromStorage = (() => {
+        try {
+          const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+          return profile.tenant_id;
+        } catch { return null; }
+      })();
 
-    if (tenantId) userQuery = userQuery.eq("tenant_id", tenantId);
+      const finalTenantId = authData?.user?.app_metadata?.tenant_id || tenantIdFromStorage;
 
-    const { data: userData, error: userError } = await userQuery.single();
-    if (userError) throw userError;
+      // Fetch base user data
+      let userQuery = supabase
+        .from("users")
+        .select("id, role, full_name, tenant_id")
+        .eq("id", userId);
 
-    let profileQuery = supabase
-      .from("profiles")
-      .select(`
-        region_id,
-        branch_id,
-        branches!inner(name, code, region_id),
-        regions!inner(name, code)
-      `)
-      .eq("id", user.id);
+      if (finalTenantId) userQuery = userQuery.eq("tenant_id", finalTenantId);
 
-    if (tenantId) profileQuery = profileQuery.eq("tenant_id", tenantId);
+      const { data: userData, error: userError } = await userQuery.single();
+      if (userError) throw userError;
 
-    const { data: profileData, error: profileError } = await profileQuery.single();
+      // Fetch profile details
+      let profileQuery = supabase
+        .from("profiles")
+        .select(`
+          region_id,
+          branch_id,
+          branches!inner(name, code, region_id),
+          regions!inner(name, code)
+        `)
+        .eq("id", userId);
 
-    if (profileError) {
+      if (finalTenantId) profileQuery = profileQuery.eq("tenant_id", finalTenantId);
+
+      const { data: profileData, error: profileError } = await profileQuery.single();
+
+      if (profileError) {
+        const profile = {
+          id: userId,
+          role: userData.role,
+          fullName: userData.full_name,
+          regionId: null,
+          branchId: null,
+          regionName: null,
+          branchName: null,
+          tenantId: userData.tenant_id || finalTenantId,
+        };
+        setUserProfile(profile);
+        return profile;
+      }
+
       const profile = {
-        id: user.id,
+        id: userId,
         role: userData.role,
         fullName: userData.full_name,
-        regionId: null,
-        branchId: null,
-        regionName: null,
-        branchName: null,
-        tenantId: userData.tenant_id || tenantId,  // Use from userData or fallback to app_metadata
+        regionId: profileData.region_id,
+        branchId: profileData.branch_id,
+        regionName: profileData.regions?.name ?? null,
+        branchName: profileData.branches?.name ?? null,
+        tenantId: userData.tenant_id || finalTenantId,
       };
+
       setUserProfile(profile);
       return profile;
+    } catch (error) {
+      console.error("Error fetching user profile:", error);
+      return null;
     }
-
-    const profile = {
-      id: user.id,
-      role: userData.role,
-      fullName: userData.full_name,
-      regionId: profileData.region_id,
-      branchId: profileData.branch_id,
-      regionName: profileData.regions?.name ?? null,
-      branchName: profileData.branches?.name ?? null,
-      tenantId: userData.tenant_id || tenantId,  // Use from userData or fallback to app_metadata
-    };
-
-    setUserProfile(profile);
-    return profile;
-  } catch (error) {
-    console.error("Error fetching user profile:", error);
-    return null;
-  }
-};
- const fetchRegions = async () => {
+  };
+  const fetchRegions = async () => {
     try {
       const { data, error } = await supabase
         .from("regions")
@@ -707,86 +718,80 @@ const fetchUserProfile = async () => {
     }
   };
 
-// ========== UPDATED INITIALIZATION ==========
-const initializeFilters = async (profile) => {
+  // ========== UPDATED INITIALIZATION ==========
+  const initializeFilters = async (profile) => {
+    if (!profile) return;
 
-  
-  setSelectedRegion("all");
-  setSelectedBranch("all");
-  setSelectedRO("all");
-  setAvailableRegions([]);
-  setAvailableBranches([]);
-  setAvailableROs([]);
-  
-  // Fetch regions based on user profile
-  const regions = await fetchRegions();
-  setAvailableRegions(regions);
-  
-  if (profile.role === "regional_manager") {
-  
-    
-    setSelectedRegion(profile.regionId);
-    
-    const regionBranches = await fetchBranches(profile.regionId);
-    setAvailableBranches(regionBranches);
-    
-    const regionROs = await fetchRelationshipOfficers("all", profile.regionId);
-    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...regionROs]);
-    
-  } else if (profile.role === "branch_manager") {
-   
-    
-    setSelectedRegion(profile.regionId);
-    setSelectedBranch(profile.branchId);
-    
-    const userBranch = await fetchBranches("all");
-    setAvailableBranches(userBranch);
-    
-    const branchROs = await fetchRelationshipOfficers(profile.branchId, "all");
-    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...branchROs]);
-    
-  } else if (profile.role === "relationship_officer") {
-  
-    
-    setSelectedRegion(profile.regionId);
-    setSelectedBranch(profile.branchId);
-    
-    const userBranch = await fetchBranches("all");
-    setAvailableBranches(userBranch);
-    
-    const selfRO = await fetchRelationshipOfficers("all", "all");
-    
-    if (selfRO.length > 0) {
-      setAvailableROs(selfRO.map(ro => ({ id: ro.id, full_name: ro.full_name })));
-      setSelectedRO(selfRO[0].id);
+    setSelectedRegion("all");
+    setSelectedBranch("all");
+    setSelectedRO("all");
+    setAvailableRegions([]);
+    setAvailableBranches([]);
+    setAvailableROs([]);
+
+    // Fetch regions based on user profile
+    const regions = await fetchRegions();
+    setAvailableRegions(regions);
+
+    if (profile.role === "regional_manager") {
+      setSelectedRegion(profile.regionId);
+
+      const regionBranches = await fetchBranches(profile.regionId);
+      setAvailableBranches(regionBranches);
+
+      const regionROs = await fetchRelationshipOfficers("all", profile.regionId);
+      setAvailableROs([{ id: "all", full_name: "All ROs" }, ...regionROs]);
+
+    } else if (profile.role === "branch_manager") {
+      setSelectedRegion(profile.regionId);
+      setSelectedBranch(profile.branchId);
+
+      const userBranch = await fetchBranches("all");
+      setAvailableBranches(userBranch);
+
+      const branchROs = await fetchRelationshipOfficers(profile.branchId, "all");
+      setAvailableROs([{ id: "all", full_name: "All ROs" }, ...branchROs]);
+
+    } else if (profile.role === "relationship_officer") {
+      setSelectedRegion(profile.regionId);
+      setSelectedBranch(profile.branchId);
+
+      const userBranch = await fetchBranches("all");
+      setAvailableBranches(userBranch);
+
+      const selfRO = await fetchRelationshipOfficers("all", "all");
+
+      if (selfRO.length > 0) {
+        setAvailableROs(selfRO.map(ro => ({ id: ro.id, full_name: ro.full_name })));
+        setSelectedRO(selfRO[0].id);
+      }
+
+    } else {
+      const branches = await fetchBranches("all");
+      setAvailableBranches(branches);
+
+      const ros = await fetchRelationshipOfficers("all", "all");
+      setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
     }
-    
-  } else {
-   
-    
-    const branches = await fetchBranches("all");
-   
-    setAvailableBranches(branches);
-    
-    const ros = await fetchRelationshipOfficers("all", "all");
-   
-    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
-  }
- 
-};
+  };
 
   const applyFilters = useCallback((data, tableName = "loans") => {
- 
-    
     if (!userProfile || !Array.isArray(data)) return [];
     const { role, regionId: userRegionId, branchId: userBranchId, id: userId } = userProfile;
-    
+
     let result = [...data];
-    
+
     if (role === "relationship_officer") {
-      const field = tableName === "loans" ? "booked_by" : "created_by";
-      result = result.filter(item => String(item[field]) === String(userId));
-      return result;
+      if (tableName === "loans") {
+        return result.filter(item => String(item.booked_by) === String(userId));
+      }
+      if (tableName === "customers") {
+        // Table relationship: Customers created by me OR having a loan booked by me
+        const myLoanCustomerIds = new Set(allLoans.filter(l => String(l.booked_by) === String(userId)).map(l => l.customer_id));
+        return result.filter(item => String(item.created_by) === String(userId) || myLoanCustomerIds.has(item.id));
+      }
+      // For leads, search results etc.
+      return result.filter(item => String(item.created_by) === String(userId));
     }
     if (role === "branch_manager") {
       result = result.filter(item => item.branch_id === userBranchId);
@@ -807,13 +812,13 @@ const initializeFilters = async (profile) => {
     }
 
     return result;
-  }, [userProfile, selectedRegion, selectedBranch, selectedRO]);
+  }, [userProfile, selectedRegion, selectedBranch, selectedRO, allLoans]);
 
 
   const calculatePortfolioMetrics = useCallback((filteredLoans) => {
     const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
     const loanIds = disbursedLoans.map(loan => loan.id);
-    
+
     const filteredPayments = allPayments.filter(payment => loanIds.includes(payment.loan_id));
     const filteredInstallments = allInstallments.filter(installment => loanIds.includes(installment.loan_id));
 
@@ -830,8 +835,8 @@ const initializeFilters = async (profile) => {
 
       const today = getTodayDate();
       const monthStart = getMonthStartDate();
-      
-      const overdueInstallments = filteredInstallments.filter(inst => 
+
+      const overdueInstallments = filteredInstallments.filter(inst =>
         ["overdue", "partial"].includes(inst.status) && inst.due_date && inst.due_date <= today
       );
 
@@ -839,11 +844,11 @@ const initializeFilters = async (profile) => {
         const dueAmount = Number(inst.due_amount) || 0;
         const paidAmount = (Number(inst.interest_paid) || 0) + (Number(inst.principal_paid) || 0);
         const arrears = dueAmount - paidAmount;
-        
+
         if (arrears > 0) {
           totalArrears += arrears;
           arrearsLoans.add(inst.loan_id);
-          
+
           // MTD Arrears: installments due this month that are unpaid
           if (inst.due_date >= monthStart && inst.due_date <= today) {
             mtdArrears += arrears;
@@ -880,41 +885,41 @@ const initializeFilters = async (profile) => {
     };
   }, [allPayments, allInstallments]);
 
- const calculateDisbursementMetrics = useCallback((filteredLoans) => {
-  const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
-  const today = getTodayDate();
-  const monthStart = getMonthStartDate();
-  const yearStart = getYearStartDate();
+  const calculateDisbursementMetrics = useCallback((filteredLoans) => {
+    const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
+    const today = getTodayDate();
+    const monthStart = getMonthStartDate();
+    const yearStart = getYearStartDate();
 
-  const disbursedToday = disbursedLoans.filter(loan => {
-    if (!loan.disbursed_at) return false;
-    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
-    return disbursedDate === today;
-  });
+    const disbursedToday = disbursedLoans.filter(loan => {
+      if (!loan.disbursed_at) return false;
+      const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+      return disbursedDate === today;
+    });
 
-  const disbursedThisMonth = disbursedLoans.filter(loan => {
-    if (!loan.disbursed_at) return false;
-    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
-    return disbursedDate >= monthStart && disbursedDate <= today;
-  });
+    const disbursedThisMonth = disbursedLoans.filter(loan => {
+      if (!loan.disbursed_at) return false;
+      const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+      return disbursedDate >= monthStart && disbursedDate <= today;
+    });
 
-  const disbursedYTD = disbursedLoans.filter(loan => {
-    if (!loan.disbursed_at) return false;
-    const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
-    return disbursedDate >= yearStart && disbursedDate <= today;
-  });
+    const disbursedYTD = disbursedLoans.filter(loan => {
+      if (!loan.disbursed_at) return false;
+      const disbursedDate = getLocalYYYYMMDD(new Date(loan.disbursed_at));
+      return disbursedDate >= yearStart && disbursedDate <= today;
+    });
 
-  return {
-    total: disbursedLoans.length,
-    totalAmount: disbursedLoans.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-    today: disbursedToday.length,
-    todayAmount: disbursedToday.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-    thisMonth: disbursedThisMonth.length,
-    thisMonthAmount: disbursedThisMonth.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-    ytd: disbursedYTD.length,
-    ytdAmount: disbursedYTD.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
-  };
-}, []);
+    return {
+      total: disbursedLoans.length,
+      totalAmount: disbursedLoans.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+      today: disbursedToday.length,
+      todayAmount: disbursedToday.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+      thisMonth: disbursedThisMonth.length,
+      thisMonthAmount: disbursedThisMonth.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+      ytd: disbursedYTD.length,
+      ytdAmount: disbursedYTD.reduce((sum, loan) => sum + (Number(loan.scored_amount) || 0), 0),
+    };
+  }, []);
 
   const calculateCollectionMetrics = useCallback((filteredLoans) => {
     const loanIds = filteredLoans
@@ -943,7 +948,7 @@ const initializeFilters = async (profile) => {
       return paymentDate === today;
     });
 
-    const monthInstallments = filteredInstallments.filter(inst => 
+    const monthInstallments = filteredInstallments.filter(inst =>
       inst.due_date && inst.due_date >= monthStart && inst.due_date <= monthEnd
     );
     const monthPayments = filteredPayments.filter(payment => {
@@ -986,87 +991,87 @@ const initializeFilters = async (profile) => {
     };
   }, [allInstallments, allPayments]);
 
-const calculateCustomerMetrics = useCallback((filteredCustomers) => {
-  const today = getTodayDate();
-  const monthStart = getMonthStartDate();
-  
-  // Add this function for year start
-  const getYearStartDate = () => {
-    const now = new Date();
-    return getLocalYYYYMMDD(new Date(now.getFullYear(), 0, 1));
-  };
-  
-  const yearStart = getYearStartDate();
+  const calculateCustomerMetrics = useCallback((filteredCustomers) => {
+    const today = getTodayDate();
+    const monthStart = getMonthStartDate();
 
-  // FIXED: Active customer = has at least one disbursed loan with outstanding balance
-  const filteredLoans = applyFilters(allLoans, "loans");
-  const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
-  const loanIds = disbursedLoans.map(loan => loan.id);
-  
-  const filteredPayments = allPayments.filter(payment => loanIds.includes(payment.loan_id));
-  
-  const activeCustomerIds = new Set();
-  disbursedLoans.forEach(loan => {
-    const totalPayable = Number(loan.total_payable) || 0;
-    const totalPaid = filteredPayments
-      .filter(p => p.loan_id === loan.id)
-      .reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
-    
-    if (totalPayable > totalPaid) {
-      activeCustomerIds.add(loan.customer_id);
-    }
-  });
+    // Add this function for year start
+    const getYearStartDate = () => {
+      const now = new Date();
+      return getLocalYYYYMMDD(new Date(now.getFullYear(), 0, 1));
+    };
 
-  const activeCustomers = filteredCustomers.filter(c => activeCustomerIds.has(c.id)).length;
-  const inactiveCustomers = filteredCustomers.length - activeCustomers;
-  
-  const newToday = filteredCustomers.filter(c => 
-    c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) === today
-  ).length;
-  
-  const newMonth = filteredCustomers.filter(c => 
-    c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) >= monthStart
-  ).length;
-  
-  // NEW: YTD calculation
-  const newYTD = filteredCustomers.filter(c => 
-    c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) >= yearStart
-  ).length;
+    const yearStart = getYearStartDate();
 
-  const filteredLeads = applyFilters(allLeads, "leads");
-  const leadsToday = filteredLeads.filter(lead => 
-    lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) === today
-  ).length;
-  
-  const leadsMonth = filteredLeads.filter(lead => 
-    lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) >= monthStart
-  ).length;
+    // FIXED: Active customer = has at least one disbursed loan with outstanding balance
+    const filteredLoans = applyFilters(allLoans, "loans");
+    const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
+    const loanIds = disbursedLoans.map(loan => loan.id);
 
-  const convertedToday = newToday;
-  const convertedMonth = newMonth;
+    const filteredPayments = allPayments.filter(payment => loanIds.includes(payment.loan_id));
 
-  const conversionRateToday = leadsToday > 0 ? (convertedToday / leadsToday) * 100 : 0;
-  const conversionRateMonth = leadsMonth > 0 ? (convertedMonth / leadsMonth) * 100 : 0;
+    const activeCustomerIds = new Set();
+    disbursedLoans.forEach(loan => {
+      const totalPayable = Number(loan.total_payable) || 0;
+      const totalPaid = filteredPayments
+        .filter(p => p.loan_id === loan.id)
+        .reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
 
-  return {
-    total: filteredCustomers.length,
-    active: activeCustomers,
-    inactive: inactiveCustomers,
-    newToday,
-    newMonth,
-    newYTD, // Add this field
-    leadsToday,
-    leadsMonth,
-    convertedToday,
-    convertedMonth,
-    conversionRateToday,
-    conversionRateMonth,
-  };
-}, [allLeads, applyFilters, allLoans, allPayments]);
+      if (totalPayable > totalPaid) {
+        activeCustomerIds.add(loan.customer_id);
+      }
+    });
+
+    const activeCustomers = filteredCustomers.filter(c => activeCustomerIds.has(c.id)).length;
+    const inactiveCustomers = filteredCustomers.length - activeCustomers;
+
+    const newToday = filteredCustomers.filter(c =>
+      c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) === today
+    ).length;
+
+    const newMonth = filteredCustomers.filter(c =>
+      c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) >= monthStart
+    ).length;
+
+    // NEW: YTD calculation
+    const newYTD = filteredCustomers.filter(c =>
+      c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) >= yearStart
+    ).length;
+
+    const filteredLeads = applyFilters(allLeads, "leads");
+    const leadsToday = filteredLeads.filter(lead =>
+      lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) === today
+    ).length;
+
+    const leadsMonth = filteredLeads.filter(lead =>
+      lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) >= monthStart
+    ).length;
+
+    const convertedToday = newToday;
+    const convertedMonth = newMonth;
+
+    const conversionRateToday = leadsToday > 0 ? (convertedToday / leadsToday) * 100 : 0;
+    const conversionRateMonth = leadsMonth > 0 ? (convertedMonth / leadsMonth) * 100 : 0;
+
+    return {
+      total: filteredCustomers.length,
+      active: activeCustomers,
+      inactive: inactiveCustomers,
+      newToday,
+      newMonth,
+      newYTD, // Add this field
+      leadsToday,
+      leadsMonth,
+      convertedToday,
+      convertedMonth,
+      conversionRateToday,
+      conversionRateMonth,
+    };
+  }, [allLeads, applyFilters, allLoans, allPayments]);
 
   const calculateRiskMetrics = useCallback((portfolioMetrics) => {
-    const par = portfolioMetrics.outstandingBalance > 0 
-      ? (portfolioMetrics.totalArrears / portfolioMetrics.outstandingBalance) * 100 
+    const par = portfolioMetrics.outstandingBalance > 0
+      ? (portfolioMetrics.totalArrears / portfolioMetrics.outstandingBalance) * 100
       : 0;
 
     return {
@@ -1078,60 +1083,60 @@ const calculateCustomerMetrics = useCallback((filteredCustomers) => {
       outstandingBalance: portfolioMetrics.outstandingBalance,
     };
   }, []);
-const calculatePendingActions = useCallback(
-  (filteredLoans = [], filteredCustomers = []) => {
-    const now = new Date();
+  const calculatePendingActions = useCallback(
+    (filteredLoans = [], filteredCustomers = []) => {
+      const now = new Date();
 
-    return {
-      /* =========================
-         LOAN PENDING ACTIONS
-      ========================== */
+      return {
+        /* =========================
+           LOAN PENDING ACTIONS
+        ========================== */
 
-      // Loans awaiting BM decision
-      loanBM: filteredLoans.filter(
-        l => l.status === "bm_review"
-      ).length,
+        // Loans awaiting BM decision
+        loanBM: filteredLoans.filter(
+          l => l.status === "bm_review"
+        ).length,
 
-      // Loans awaiting RM decision (DB uses rn_review)
-      loanRM: filteredLoans.filter(
-        l => l.status === "rn_review"
-      ).length,
+        // Loans awaiting RM decision (DB uses rn_review)
+        loanRM: filteredLoans.filter(
+          l => l.status === "rn_review"
+        ).length,
 
-      // Loans approved & waiting for disbursement
-      disbursement: filteredLoans.filter(
-        l =>
-          l.status === "ready_for_disbursement" &&
-          !l.disbursed_at
-      ).length,
+        // Loans approved & waiting for disbursement
+        disbursement: filteredLoans.filter(
+          l =>
+            l.status === "ready_for_disbursement" &&
+            !l.disbursed_at
+        ).length,
 
-      /* =========================
-         CUSTOMER PENDING ACTIONS
-      ========================== */
+        /* =========================
+           CUSTOMER PENDING ACTIONS
+        ========================== */
 
-      // Customers awaiting BM approval
-      customerBM: filteredCustomers.filter(
-        c => c.status === "bm_review"
-      ).length,
+        // Customers awaiting BM approval
+        customerBM: filteredCustomers.filter(
+          c => c.status === "bm_review"
+        ).length,
 
-      // Customers with scheduled future callbacks
-      customerCallbacks: filteredCustomers.filter(
-        c =>
-          c.callback_date &&
-          new Date(c.callback_date) > now
-      ).length,
+        // Customers with scheduled future callbacks
+        customerCallbacks: filteredCustomers.filter(
+          c =>
+            c.callback_date &&
+            new Date(c.callback_date) > now
+        ).length,
 
-      // Customers awaiting HQ review
-      customerHQ: filteredCustomers.filter(
-        c => c.status === "hq_review"
-      ).length,
-    };
-  },
-  []
-);
+        // Customers awaiting HQ review
+        customerHQ: filteredCustomers.filter(
+          c => c.status === "hq_review"
+        ).length,
+      };
+    },
+    []
+  );
 
 
   const recalculateDashboardMetrics = useCallback(() => {
-    if (!userProfile || allLoans.length === 0 || allCustomers.length === 0) return;
+    if (!userProfile) return;
 
     const filteredLoans = applyFilters(allLoans, "loans");
     const filteredCustomers = applyFilters(allCustomers, "customers");
@@ -1270,7 +1275,7 @@ const calculatePendingActions = useCallback(
   }, []);
 
   useEffect(() => {
-    if (userProfile && allLoans.length > 0 && allCustomers.length > 0) {
+    if (userProfile) {
       recalculateDashboardMetrics();
     }
   }, [userProfile, allLoans, allCustomers, selectedRegion, selectedBranch, selectedRO, recalculateDashboardMetrics]);
@@ -1310,44 +1315,44 @@ const calculatePendingActions = useCallback(
   }, [selectedBranch]);
 
 
-const PENDING_COLORS = {
-  disbursement: COLORS.primary,     // money action → primary
-  loanBM: COLORS.warning,           // internal approval → warning
-  loanRM: COLORS.secondary,         // higher-level approval → secondary
-  customerCallbacks: COLORS.success,// customer engagement → success
-  customerBM: COLORS.warning,       // customer approval → warning
-  customerHQ: COLORS.authority,     // HQ / authority → authority
-};
+  const PENDING_COLORS = {
+    disbursement: COLORS.primary,     // money action → primary
+    loanBM: COLORS.warning,           // internal approval → warning
+    loanRM: COLORS.secondary,         // higher-level approval → secondary
+    customerCallbacks: COLORS.success,// customer engagement → success
+    customerBM: COLORS.warning,       // customer approval → warning
+    customerHQ: COLORS.authority,     // HQ / authority → authority
+  };
 
 
-  // if (loading) {
-  //   return (
-  //     <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
-  //       <div className="flex items-center justify-center h-screen">
-  //         <div className="text-center">
-  //           <Spinner text="Loading Dashboard..." />
-  //         </div>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (loading) {
+    return (
+      <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <Spinner text="Loading Dashboard..." />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const cleanBookPercentage = dashboardData.portfolio.outstandingBalance > 0
     ? (dashboardData.portfolio.cleanBook / dashboardData.portfolio.outstandingBalance) * 100
     : 0;
 
-const cleanBookMeta = (percentage) => {
-  if (percentage <= 25) return { label: "Very Poor", color: COLORS.danger };
-  if (percentage <= 50) return { label: "Poor", color: "#f97316" };
-  if (percentage <= 75) return { label: "Average", color: COLORS.warning };
-  if (percentage < 85) return { label: "Good", color: "#22c55e" };
-  return { label: "Excellent", color: "#16a34a" };
-};
+  const cleanBookMeta = (percentage) => {
+    if (percentage <= 25) return { label: "Very Poor", color: COLORS.danger };
+    if (percentage <= 50) return { label: "Poor", color: "#f97316" };
+    if (percentage <= 75) return { label: "Average", color: COLORS.warning };
+    if (percentage < 85) return { label: "Good", color: "#22c55e" };
+    return { label: "Excellent", color: "#16a34a" };
+  };
 
-const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
+  const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
 
   return (
-    <div 
+    <div
       className="min-h-screen p-3 sm:p-4 md:p-6"
       style={{ backgroundColor: COLORS.background }}
     >
@@ -1416,7 +1421,7 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
                 border: `1px solid ${COLORS.surface}`,
               }}
             />
-            
+
             {quickSearchTerm && quickSearchResults.length > 0 && (
               <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-96 overflow-y-auto">
                 {quickSearchResults.map((customer) => (
@@ -1441,12 +1446,12 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
 
       <div className="space-y-8">
         {/* Section 1: Portfolio Overview */}
-        <div 
+        <div
           className="rounded-2xl p-6 shadow-md"
           style={{ backgroundColor: COLORS.surface }}
         >
           <SectionHeader icon={Briefcase} title="Portfolio Overview" />
-          
+
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <PortfolioStatCard
               label="Outstanding Loan Balance"
@@ -1455,17 +1460,17 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
               color={COLORS.primary}
               bgColor={COLORS.background}
             />
-  <PortfolioStatCard
-      label="Clean Book"
-      amount={formatCurrency(dashboardData.portfolio.cleanBook)}
-      details={
-        <span style={{ color: cleanBookMetaInfo.color }}>
-          {`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
-        </span>
-      }
-      color={COLORS.success}
-      bgColor={COLORS.background}
-    />
+            <PortfolioStatCard
+              label="Clean Book"
+              amount={formatCurrency(dashboardData.portfolio.cleanBook)}
+              details={
+                <span style={{ color: cleanBookMetaInfo.color }}>
+                  {`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
+                </span>
+              }
+              color={COLORS.success}
+              bgColor={COLORS.background}
+            />
 
             {/* <PortfolioStatCard
               label="Non-Performing Loans"
@@ -1474,23 +1479,23 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
               color={COLORS.danger}
               bgColor={COLORS.background}
             /> */}
-        <PortfolioStatCard
-  label="Total Customers"
-  amount={dashboardData.customers.total.toLocaleString()}
-  details={`(YTD) ${dashboardData.customers.newYTD}`}
-  color={COLORS.secondary}
-  bgColor={COLORS.background}
-/>
+            <PortfolioStatCard
+              label="Total Customers"
+              amount={dashboardData.customers.total.toLocaleString()}
+              details={`(YTD) ${dashboardData.customers.newYTD}`}
+              color={COLORS.secondary}
+              bgColor={COLORS.background}
+            />
           </div>
         </div>
 
         {/* Section 2: Collection Performance */}
-        <div 
+        <div
           className="rounded-2xl p-6 shadow-md"
           style={{ backgroundColor: COLORS.surface }}
         >
           <SectionHeader icon={Receipt} title="Collection Performance" />
-          
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
             <CollectionCard
               title="Today's Collection"
@@ -1519,76 +1524,76 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
           </div>
         </div>
 
-      {/* Section 3: Loan Disbursement */}
-<div 
-  className="rounded-2xl p-6 shadow-md"
-  style={{ backgroundColor: COLORS.surface }}
->
-  <SectionHeader icon={CreditCard} title="Loan Disbursement" />
-  
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-    <StatCard
-      icon={Database}
-      label="Total Loans"
-      value={dashboardData.disbursements.total.toLocaleString()}
-      subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
-      color={COLORS.authority}
-      bgColor={COLORS.background}
-    />
-    <StatCard
-      icon={Calendar}
-      label="Today"
-      value={dashboardData.disbursements.today.toLocaleString()}
-      subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
-      color={COLORS.success}
-      bgColor={COLORS.background}
-    />
-    <StatCard
-      icon={Calendar}
-      label="This Month"
-      value={dashboardData.disbursements.thisMonth.toLocaleString()}
-      subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-      color={COLORS.primary}
-      bgColor={COLORS.background}
-    />
-    <StatCard
-      icon={TrendingUp}
-      label="MTD Disbursement"
-      value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-      subtext={`${dashboardData.disbursements.thisMonth} `}
-      color={COLORS.secondary}
-      bgColor={COLORS.background}
-    />
-    <StatCard
-      icon={TrendingUp}
-      label="Avg. Loan Size"
-      value={dashboardData.disbursements.total > 0 
-        ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
-        : "0.00"
-      }
-      color={COLORS.primary}
-      bgColor={COLORS.background}
-    />
-    <StatCard
-      icon={CalendarCheck} // Changed from CheckCircle
-      label="YTD Disbursement"
-      value={dashboardData.disbursements.ytd.toLocaleString()}
-      subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
-      color={COLORS.secondary}
-      bgColor={COLORS.background}
-    />
-  </div>
-</div>
+        {/* Section 3: Loan Disbursement */}
+        <div
+          className="rounded-2xl p-6 shadow-md"
+          style={{ backgroundColor: COLORS.surface }}
+        >
+          <SectionHeader icon={CreditCard} title="Loan Disbursement" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <StatCard
+              icon={Database}
+              label="Total Loans"
+              value={dashboardData.disbursements.total.toLocaleString()}
+              subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
+              color={COLORS.authority}
+              bgColor={COLORS.background}
+            />
+            <StatCard
+              icon={Calendar}
+              label="Today"
+              value={dashboardData.disbursements.today.toLocaleString()}
+              subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
+              color={COLORS.success}
+              bgColor={COLORS.background}
+            />
+            <StatCard
+              icon={Calendar}
+              label="This Month"
+              value={dashboardData.disbursements.thisMonth.toLocaleString()}
+              subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+              color={COLORS.primary}
+              bgColor={COLORS.background}
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="MTD Disbursement"
+              value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+              subtext={`${dashboardData.disbursements.thisMonth} `}
+              color={COLORS.secondary}
+              bgColor={COLORS.background}
+            />
+            <StatCard
+              icon={TrendingUp}
+              label="Avg. Loan Size"
+              value={dashboardData.disbursements.total > 0
+                ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
+                : "0.00"
+              }
+              color={COLORS.primary}
+              bgColor={COLORS.background}
+            />
+            <StatCard
+              icon={CalendarCheck} // Changed from CheckCircle
+              label="YTD Disbursement"
+              value={dashboardData.disbursements.ytd.toLocaleString()}
+              subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
+              color={COLORS.secondary}
+              bgColor={COLORS.background}
+            />
+          </div>
+        </div>
 
         {/* Sections 4 & 5: Risk Metrics and Customer Analytics */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Section 4: Risk Metrics */}
-          <div 
+          <div
             className="rounded-2xl p-6 shadow-md"
             style={{ backgroundColor: COLORS.surface }}
           >
             <SectionHeader icon={Shield} title="Risk Metrics" />
-            
+
             <div className="space-y-6">
               <div className="flex justify-center">
                 <CircularProgress
@@ -1619,12 +1624,12 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
           </div>
 
           {/* Section 5: Customer Analytics */}
-          <div 
+          <div
             className="rounded-2xl p-6 shadow-md"
             style={{ backgroundColor: COLORS.surface }}
           >
             <SectionHeader icon={Users} title="Customer Analytics" />
-            
+
             <div className="space-y-6">
               <div className="grid grid-cols-4 gap-3">
                 <CustomerStatBox
@@ -1653,13 +1658,13 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
                 />
               </div>
 
-          
 
 
 
 
 
-                <div className="grid grid-cols-2 gap-6">
+
+              <div className="grid grid-cols-2 gap-6">
                 <LeadConversionCard
                   title="Leads Today"
                   percentage={Math.round(dashboardData.customers.conversionRateToday)}
@@ -1671,7 +1676,7 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
                   leadsTextColor="#6B7280"
                 />
 
-                  <LeadConversionCard
+                <LeadConversionCard
                   title="Leads This Month"
                   percentage={Math.round(dashboardData.customers.conversionRateMonth)}
                   label="Conversion"
@@ -1687,75 +1692,75 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
         </div>
 
         {/* Section 6: Pending Actions */}
-<div
-  className="rounded-2xl p-6 shadow-md"
-  style={{ backgroundColor: COLORS.surface }}
->
-  <SectionHeader icon={Clock} title="Pending Actions" />
+        <div
+          className="rounded-2xl p-6 shadow-md"
+          style={{ backgroundColor: COLORS.surface }}
+        >
+          <SectionHeader icon={Clock} title="Pending Actions" />
 
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
 
-    {/* Pending Disbursement */}
-    <PendingActionCard
-      icon={FileCheck}
-      value={dashboardData.pending.disbursement}
-      label="Pending Disbursement"
-      color={PENDING_COLORS.disbursement}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/loaning/pending-disbursement")}
-    />
+            {/* Pending Disbursement */}
+            <PendingActionCard
+              icon={FileCheck}
+              value={dashboardData.pending.disbursement}
+              label="Pending Disbursement"
+              color={PENDING_COLORS.disbursement}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/loaning/pending-disbursement")}
+            />
 
-    {/* Loan BM Approval */}
-    <PendingActionCard
-      icon={ThumbsUp}
-      value={dashboardData.pending.loanBM}
-      label="Loan Pending BM Approval"
-      color={PENDING_COLORS.loanBM}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/loaning/pending-branch-manager")}
-    />
+            {/* Loan BM Approval */}
+            <PendingActionCard
+              icon={ThumbsUp}
+              value={dashboardData.pending.loanBM}
+              label="Loan Pending BM Approval"
+              color={PENDING_COLORS.loanBM}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/loaning/pending-branch-manager")}
+            />
 
-    {/* Loan RM Approval */}
-    <PendingActionCard
-      icon={ThumbsUp}
-      value={dashboardData.pending.loanRM}
-      label="Loan Pending RM Approval"
-      color={PENDING_COLORS.loanRM}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/loaning/pending-regional-manager")}
-    />
+            {/* Loan RM Approval */}
+            <PendingActionCard
+              icon={ThumbsUp}
+              value={dashboardData.pending.loanRM}
+              label="Loan Pending RM Approval"
+              color={PENDING_COLORS.loanRM}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/loaning/pending-regional-manager")}
+            />
 
-    {/* Customer Callbacks */}
-    <PendingActionCard
-      icon={PhoneCall}
-      value={dashboardData.pending.customerCallbacks}
-      label="Customer Callbacks"
-      color={PENDING_COLORS.customerCallbacks}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/registry/callbacks-pending")}
-    />
+            {/* Customer Callbacks */}
+            <PendingActionCard
+              icon={PhoneCall}
+              value={dashboardData.pending.customerCallbacks}
+              label="Customer Callbacks"
+              color={PENDING_COLORS.customerCallbacks}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/registry/callbacks-pending")}
+            />
 
-    {/* Customer BM Approval */}
-    <PendingActionCard
-      icon={ThumbsUp}
-      value={dashboardData.pending.customerBM}
-      label="Customer Pending BM Approval"
-      color={PENDING_COLORS.customerBM}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/registry/bm-pending")}
-    />
+            {/* Customer BM Approval */}
+            <PendingActionCard
+              icon={ThumbsUp}
+              value={dashboardData.pending.customerBM}
+              label="Customer Pending BM Approval"
+              color={PENDING_COLORS.customerBM}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/registry/bm-pending")}
+            />
 
-    {/* Customer HQ Review */}
-    <PendingActionCard
-      icon={Building}
-      value={dashboardData.pending.customerHQ}
-      label="Customer HQ Review"
-      color={PENDING_COLORS.customerHQ}
-      bgColor={COLORS.background}
-      onClick={() => navigate("/registry/hq-pending")}
-    />
-  </div>
-</div>
+            {/* Customer HQ Review */}
+            <PendingActionCard
+              icon={Building}
+              value={dashboardData.pending.customerHQ}
+              label="Customer HQ Review"
+              color={PENDING_COLORS.customerHQ}
+              bgColor={COLORS.background}
+              onClick={() => navigate("/registry/hq-pending")}
+            />
+          </div>
+        </div>
 
 
       </div>
@@ -1778,7 +1783,7 @@ const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
             </button>
           </div>
           <div className="text-sm text-gray-500">
-            Data as of {lastUpdated.toLocaleDateString('en-KE', { 
+            Data as of {lastUpdated.toLocaleDateString('en-KE', {
               weekday: 'long',
               year: 'numeric',
               month: 'long',

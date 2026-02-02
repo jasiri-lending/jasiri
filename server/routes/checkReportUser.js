@@ -4,7 +4,7 @@ import { createClient } from "@supabase/supabase-js";
 
 const router = express.Router();
 
-const supabase = createClient(
+const supabaseAdmin = createClient(
   process.env.SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 );
@@ -29,7 +29,7 @@ router.post("/", async (req, res) => {
     }
 
     // Fetch user with tenant_id validation
-    const { data: user, error } = await supabase
+    const { data: user, error } = await supabaseAdmin
       .from("report_users")
       .select("id, email, password, tenant_id, created_at")
       .eq("email", email)

@@ -48,13 +48,13 @@ const Leads = () => {
   const hasFetchedData = useRef(false);
 
   const handleConvertToCustomer = (lead) => {
-    navigate('/officer/customer-form', { 
-      state: { 
+    navigate('/officer/customer-form', {
+      state: {
         leadData: lead,
-        fromLeads: true 
-      } 
+        fromLeads: true
+      }
     });
-  }; 
+  };
 
   //  Fetch leads for logged-in officer
   const fetchLeads = async () => {
@@ -102,6 +102,8 @@ const Leads = () => {
   // Check uniqueness of mobile across ALL relevant tables
   const checkUniqueMobile = async (mobile) => {
     try {
+      console.log("🔍 [LEADS] Starting mobile uniqueness check for:", mobile);
+
       // normalize number (remove spaces/dashes)
       const cleanMobile = mobile.replace(/\D/g, "");
 
@@ -114,28 +116,37 @@ const Leads = () => {
       ];
 
       for (const { table, column } of tablesToCheck) {
+        console.log(`📡 [LEADS] Checking table: ${table}, column: ${column} for value: ${cleanMobile}`);
         const { data, error } = await supabase
           .from(table)
           .select("id")
-          .eq(column, cleanMobile);
+          .eq(column, cleanMobile)
+          .eq("tenant_id", profile?.tenant_id);
 
         if (error) {
-          console.error(`Error checking mobile in ${table}:`, error);
+          console.error(`❌ [LEADS] Error checking mobile in ${table}:`, {
+            message: error.message,
+            details: error.details,
+            hint: error.hint,
+            code: error.code
+          });
           toast.error(`Failed checking uniqueness in ${table}`);
           return false;
         }
 
-        if (data.length > 0) {
+        if (data && data.length > 0) {
           // phone already exists in this table
+          console.warn(`⚠️ [LEADS] Duplicate found in table: ${table}, ID:`, data[0].id);
           toast.error(`This phone number already exists in ${table}`);
           return false;
         }
       }
 
       //  Passed all checks
+      console.log("✅ [LEADS] Mobile uniqueness check passed");
       return true;
     } catch (err) {
-      console.error("Error checking mobile uniqueness:", err);
+      console.error("💥 [LEADS] Fatal error in uniqueness check:", err);
       toast.error("Error checking mobile uniqueness");
       return false;
     }
@@ -144,6 +155,9 @@ const Leads = () => {
   // Add new lead
   const addLead = async (e) => {
     e.preventDefault();
+    console.log("📝 [LEADS] addLead triggered");
+    console.log("👤 [LEADS] Current Profile:", profile);
+    console.log("📋 [LEADS] New Lead Form Data:", newLead);
     setIsSaving(true);
 
     try {
@@ -166,19 +180,29 @@ const Leads = () => {
         ...newLead,
         mobile: cleanMobile,
         created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
         created_at: new Date().toISOString(),
       };
 
+      console.log("🚀 [LEADS] Attempting to insert lead data:", leadData);
+
       const { data, error } = await supabase.from("leads").insert([leadData]).select();
 
       if (error) {
-        toast.error("Error saving lead");
-        console.error("Error saving lead:", error);
+        console.error("❌ [LEADS] Supabase Insert Error:", {
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          code: error.code
+        });
+        toast.error(`Error saving lead: ${error.message}`);
         setIsSaving(false);
         return;
       }
+
+      console.log("✅ [LEADS] Lead saved successfully:", data);
 
       setLeads([...leads, data[0]]);
       setNewLead({
@@ -289,7 +313,7 @@ const Leads = () => {
   }
 
   return (
-    <div className="h-full bg-brand-surface p-6 min-h-screen">
+    <div className="h-full bg-brand-surface p-8 min-h-screen font-body">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Leads Management
       </h1>
@@ -308,7 +332,7 @@ const Leads = () => {
                   placeholder="Search leads..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                 />
               </div>
 
@@ -317,7 +341,7 @@ const Leads = () => {
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="appearance-none bg-white border border-gray-300 rounded-md px-3 py-1.5 pr-8 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="appearance-none bg-white border border-gray-300 rounded-xl px-4 py-2 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all cursor-pointer"
                 >
                   <option value="all">All Status</option>
                   <option value="Hot">Hot</option>
@@ -329,15 +353,10 @@ const Leads = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-3">
               <button
                 onClick={fetchLeads}
-                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
-                style={{ 
-                  backgroundColor: "#586ab1",
-                  color: "white",
-                  borderColor: "#586ab1"
-                }}
+                className="px-4 py-2 bg-white border border-gray-300 text-text rounded-xl hover:bg-brand-surface transition-all font-medium shadow-sm flex items-center gap-2"
               >
                 <ArrowPathIcon className="h-4 w-4" />
                 Refresh
@@ -345,37 +364,32 @@ const Leads = () => {
 
               <button
                 onClick={() => setShowLeadForm(true)}
-                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border whitespace-nowrap"
-                style={{ 
-                  backgroundColor: "#586ab1",
-                  color: "white",
-                  borderColor: "#586ab1"
-                }}
+                className="px-4 py-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-lg hover:shadow-brand-primary/20 flex items-center gap-2"
               >
-                <PlusIcon className="h-4 w-4" />
+                <PlusIcon className="h-5 w-5" />
                 Add Lead
               </button>
             </div>
           </div>
+        </div>
 
-          {/* Results Info */}
-          <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
-            <span>
-              Showing {sortedLeads.length} of {leads.length} leads
-            </span>
-            {(searchTerm || statusFilter !== "all") && (
-              <button
-                onClick={() => {
-                  setSearchTerm("");
-                  setStatusFilter("all");
-                }}
-                className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
-              >
-                <XMarkIcon className="h-3 w-3" />
-                Clear filters
-              </button>
-            )}
-          </div>
+        {/* Results Info */}
+        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
+          <span>
+            Showing {sortedLeads.length} of {leads.length} leads
+          </span>
+          {(searchTerm || statusFilter !== "all") && (
+            <button
+              onClick={() => {
+                setSearchTerm("");
+                setStatusFilter("all");
+              }}
+              className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+            >
+              <XMarkIcon className="h-3 w-3" />
+              Clear filters
+            </button>
+          )}
         </div>
       </div>
 
@@ -386,20 +400,16 @@ const Leads = () => {
             <UserPlusIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
             <h3 className="text-sm font-medium text-gray-900 mb-2">No leads found</h3>
             <p className="text-xs text-gray-500 mb-4">
-              {searchTerm || statusFilter !== "all" 
+              {searchTerm || statusFilter !== "all"
                 ? "No leads match your current filters. Try adjusting your search or filter criteria."
                 : "Start building your pipeline by adding your first lead."
               }
             </p>
             <button
               onClick={() => setShowLeadForm(true)}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors mx-auto"
-              style={{ 
-                backgroundColor: "#586ab1",
-                color: "white"
-              }}
+              className="px-6 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium mx-auto shadow-md flex items-center gap-2"
             >
-              <PlusIcon className="h-4 w-4" />
+              <PlusIcon className="h-5 w-5" />
               Add Your First Lead
             </button>
           </div>
@@ -460,7 +470,7 @@ const Leads = () => {
                       {lead.business_location}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
+                      <span
                         className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
                         style={{ backgroundColor: getStatusColor(lead.status) }}
                       >
@@ -471,10 +481,7 @@ const Leads = () => {
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <button
                         onClick={() => handleConvertToCustomer(lead)}
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white transition-colors whitespace-nowrap inline-flex items-center gap-1"
-                        style={{ backgroundColor: "#586ab1" }}
-                        onMouseEnter={(e) => e.target.style.backgroundColor = "#4a5a9d"}
-                        onMouseLeave={(e) => e.target.style.backgroundColor = "#586ab1"}
+                        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm"
                         title="Convert to Customer"
                       >
                         <ArrowPathIcon className="h-3 w-3" />
@@ -499,164 +506,162 @@ const Leads = () => {
       </div>
 
       {/* Add Lead Modal */}
-      {showLeadForm && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white w-full max-w-2xl rounded-lg shadow-xl p-6 m-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-gray-800">
-                Add New Lead
-              </h2>
-              <button
-                onClick={() => setShowLeadForm(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            </div>
-
-            <form onSubmit={addLead} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    First Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="Firstname"
-                    value={newLead.Firstname}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter first name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Surname *
-                  </label>
-                  <input
-                    type="text"
-                    name="Surname"
-                    value={newLead.Surname}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter surname"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Phone Number *
-                  </label>
-                  <input
-                    type="text"
-                    name="mobile"
-                    value={newLead.mobile}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter phone number"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Status
-                  </label>
-                  <select
-                    name="status"
-                    value={newLead.status}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="Hot">Hot</option>
-                    <option value="Warm">Warm</option>
-                    <option value="Cold">Cold</option>
-                  </select>
-                </div>
-
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Business Name *
-                  </label>
-                  <input
-                    type="text"
-                    name="business_name"
-                    value={newLead.business_name}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter business name"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Business Type *
-                  </label>
-                  <input
-                    type="text"
-                    name="business_type"
-                    value={newLead.business_type}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., Retail, Restaurant, Service"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">
-                    Business Location *
-                  </label>
-                  <input
-                    type="text"
-                    name="business_location"
-                    value={newLead.business_location}
-                    onChange={handleChange}
-                    required
-                    className="w-full px-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Enter business location"
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-200">
+      {
+        showLeadForm && (
+          <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
+            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 border border-brand-surface max-h-[90vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-8 border-b border-brand-surface pb-4">
+                <h2 className="text-xl font-bold text-text flex items-center gap-2">
+                  <UserPlusIcon className="h-6 w-6 text-brand-primary" />
+                  Add New Lead
+                </h2>
                 <button
-                  type="button"
                   onClick={() => setShowLeadForm(false)}
-                  className="px-4 py-2 text-xs bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 transition-colors font-medium"
+                  className="p-2 hover:bg-brand-surface rounded-full transition-colors text-muted hover:text-text"
                 >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSaving}
-                  className="flex items-center gap-1.5 px-4 py-2 text-xs text-white rounded-md font-medium transition-all"
-                  style={{ 
-                    backgroundColor: isSaving ? "#9ca3af" : "#586ab1",
-                    cursor: isSaving ? "not-allowed" : "pointer"
-                  }}
-                >
-                  {isSaving ? (
-                    <>
-                      <div className="animate-spin rounded-full h-3 w-3 border-2 border-white border-t-transparent"></div>
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircleIcon className="h-4 w-4" />
-                      Save Lead
-                    </>
-                  )}
+                  <XMarkIcon className="h-6 w-6" />
                 </button>
               </div>
-            </form>
+
+              <form onSubmit={addLead} className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      First Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="Firstname"
+                      value={newLead.Firstname}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="Enter first name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Surname *
+                    </label>
+                    <input
+                      type="text"
+                      name="Surname"
+                      value={newLead.Surname}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="Enter surname"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Phone Number *
+                    </label>
+                    <input
+                      type="text"
+                      name="mobile"
+                      value={newLead.mobile}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="Enter phone number"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Status
+                    </label>
+                    <select
+                      name="status"
+                      value={newLead.status}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all cursor-pointer"
+                    >
+                      <option value="Hot">Hot</option>
+                      <option value="Warm">Warm</option>
+                      <option value="Cold">Cold</option>
+                    </select>
+                  </div>
+
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Business Name *
+                    </label>
+                    <input
+                      type="text"
+                      name="business_name"
+                      value={newLead.business_name}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="Enter business name"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Business Type *
+                    </label>
+                    <input
+                      type="text"
+                      name="business_type"
+                      value={newLead.business_type}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="e.g., Retail, Restaurant, Service"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-text mb-2">
+                      Business Location *
+                    </label>
+                    <input
+                      type="text"
+                      name="business_location"
+                      value={newLead.business_location}
+                      onChange={handleChange}
+                      required
+                      className="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                      placeholder="Enter business location"
+                    />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-4 pt-6 border-t border-brand-surface mt-8">
+                  <button
+                    type="button"
+                    onClick={() => setShowLeadForm(false)}
+                    className="px-8 py-3 bg-brand-surface text-text rounded-xl hover:bg-brand-secondary/20 transition-all font-medium shadow-sm"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSaving}
+                    className="px-8 py-3 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-lg hover:shadow-brand-primary/20 flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {isSaving ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Saving...
+                      </>
+                    ) : (
+                      <>
+                        <CheckCircleIcon className="h-5 w-5" />
+                        Save Lead
+                      </>
+                    )}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
-        </div>
-      )}
+        )}
     </div>
   );
 };

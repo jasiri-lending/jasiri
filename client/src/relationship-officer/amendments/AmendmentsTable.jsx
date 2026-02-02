@@ -18,7 +18,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [selectedStatus, setSelectedStatus] = useState('');
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -42,7 +42,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
   // Helper function to get status display value
   const getStatusDisplay = (status) => {
     if (!status) return 'N/A';
-    
+
     const statusMap = {
       'sent_back_by_bm': 'Sent Back by BM',
       'sent_back_by_ca': 'Sent Back by CA',
@@ -57,19 +57,19 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
       'approved': 'Approved',
       'rejected': 'Rejected'
     };
-    
+
     return statusMap[status] || status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   // Helper function to get status color
   const getStatusColor = (status) => {
     const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
-    
+
     if (statusValue.includes('approved')) return '#10b981'; // green
     if (statusValue.includes('rejected')) return '#ef4444'; // red
     if (statusValue.includes('review') || statusValue.includes('pending')) return '#f59e0b'; // amber
     if (statusValue.includes('sent back') || statusValue.includes('amend')) return '#8b5cf6'; // purple
-    
+
     return '#586ab1'; // default blue
   };
 
@@ -138,53 +138,53 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(i);
       }
     } else {
       pageNumbers.push(1);
-      
+
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
+
       if (currentPage <= 2) {
         endPage = 4;
       }
-      
+
       if (currentPage >= totalPages - 1) {
         startPage = totalPages - 3;
       }
-      
+
       if (startPage > 2) {
         pageNumbers.push('...');
       }
-      
+
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i);
       }
-      
+
       if (endPage < totalPages - 1) {
         pageNumbers.push('...');
       }
-      
+
       pageNumbers.push(totalPages);
     }
-    
+
     return pageNumbers;
   };
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-brand-surface p-8 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen">
+    <div className="h-full bg-brand-surface p-8 min-h-screen font-body">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Amendments / Pending Amendments
       </h1>
@@ -196,14 +196,14 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
             <div className="text-sm font-medium text-gray-700">
               Total: {filteredAmendments.length} {filteredAmendments.length === 1 ? 'amendment' : 'amendments'}
             </div>
-            
+
             <div className="flex items-center gap-4">
               <div className="relative w-96">
                 <MagnifyingGlassIcon className="h-4 w-4 absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name, ID, business, phone..."
-                  className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-full text-xs focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -211,12 +211,10 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium transition-colors border"
-                style={{ 
-                  backgroundColor: showFilters ? "#586ab1" : "white",
-                  color: showFilters ? "white" : "#586ab1",
-                  borderColor: "#586ab1"
-                }}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium transition-all shadow-sm border ${showFilters
+                    ? "bg-brand-primary text-white border-brand-primary"
+                    : "bg-white text-brand-primary border-gray-300 hover:bg-brand-surface"
+                  }`}
               >
                 <FunnelIcon size={14} /> Filters
                 {(selectedStatus) && (
@@ -240,7 +238,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                   <select
                     value={selectedStatus}
                     onChange={(e) => setSelectedStatus(e.target.value)}
-                    className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full px-4 py-2 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                   >
                     <option value="">All Statuses</option>
                     {uniqueStatuses.map((status) => (
@@ -268,7 +266,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 <div className="flex flex-wrap gap-2 mt-3 pt-3 border-t">
                   <span className="text-xs text-gray-600">Active filters:</span>
                   {selectedStatus && (
-                    <span className="inline-flex items-center px-2 py-1 text-xs font-medium rounded-full" style={{ backgroundColor: "#e0e7ff", color: "#586ab1" }}>
+                    <span className="inline-flex items-center px-3 py-1 bg-brand-surface text-brand-primary rounded-full text-xs font-medium border border-brand-primary/20">
                       Status: {getStatusDisplay(selectedStatus)}
                       <button
                         onClick={() => setSelectedStatus("")}
@@ -324,10 +322,10 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                   const customer = amendment.customers || {};
                   const statusColor = getStatusColor(customer.status);
                   const displayStatus = getStatusDisplay(customer.status);
-                  
+
                   return (
-                    <tr 
-                      key={amendment.id || amendment.customer_id} 
+                    <tr
+                      key={amendment.id || amendment.customer_id}
                       className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                     >
                       <td className="px-4 py-3 text-xs font-medium text-slate-600 whitespace-nowrap">
@@ -337,7 +335,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                       <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.mobile || "N/A"}</td>
                       <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{customer.business_name || "N/A"}</td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span 
+                        <span
                           className="inline-block px-2 py-0.5 rounded-full text-xs font-medium text-white whitespace-nowrap"
                           style={{ backgroundColor: statusColor }}
                         >
@@ -376,7 +374,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
             <div className="text-xs text-gray-600 whitespace-nowrap">
               Showing <span className="font-medium">{startIndex + 1}</span> to <span className="font-medium">{Math.min(endIndex, filteredAmendments.length)}</span> of <span className="font-medium">{filteredAmendments.length}</span> amendments
             </div>
-            
+
             {totalPages > 1 && (
               <div className="flex items-center gap-1">
                 {/* First Page */}
@@ -388,7 +386,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 >
                   <ChevronDoubleLeftIcon size={16} className="text-gray-600" />
                 </button>
-                
+
                 {/* Previous Page */}
                 <button
                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -398,7 +396,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 >
                   <ChevronLeftIcon size={16} className="text-gray-600" />
                 </button>
-                
+
                 {/* Page Numbers */}
                 <div className="flex items-center gap-1 mx-1">
                   {getPageNumbers().map((pageNum, index) => (
@@ -410,18 +408,17 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${
-                          currentPage === pageNum
-                            ? "bg-blue-500 text-white"
-                            : "text-gray-600 hover:bg-gray-100"
-                        }`}
+                        className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${currentPage === pageNum
+                            ? "bg-brand-primary text-white"
+                            : "bg-white text-gray-600 hover:bg-brand-surface border border-gray-200"
+                          }`}
                       >
                         {pageNum}
                       </button>
                     )
                   ))}
                 </div>
-                
+
                 {/* Next Page */}
                 <button
                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -431,7 +428,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 >
                   <ChevronRightIcon size={16} className="text-gray-600" />
                 </button>
-                
+
                 {/* Last Page */}
                 <button
                   onClick={() => setCurrentPage(totalPages)}
@@ -458,7 +455,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 // Note: itemsPerPage is currently not stateful
                 console.log("Items per page changed to:", e.target.value);
               }}
-              className="text-xs border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              className="w-full px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
             >
               <option value={10}>10</option>
               <option value={25}>25</option>

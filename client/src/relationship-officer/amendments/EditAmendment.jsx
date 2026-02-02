@@ -1508,7 +1508,7 @@ function EditAmendment({ customerId, onClose }) {
                       Item Images
                     </label>
                     <div className="flex gap-3 mb-4">
-                      <label className={`flex items-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      <label className={`flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                         }`}>
                         <Upload className="w-5 h-5" />
                         <span className="font-medium">Upload Images</span>
@@ -1562,7 +1562,7 @@ function EditAmendment({ customerId, onClose }) {
               <button
                 type="button"
                 onClick={addSecurityItem}
-                className={`flex items-center gap-2 px-8 py-3.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-bold text-sm uppercase tracking-wide ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-btn hover:bg-brand-primary"
+                className={`flex items-center gap-2 px-8 py-3.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-bold text-sm uppercase tracking-wide ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-primary hover:bg-brand-primary/90"
                   }`}
                 disabled={!currentSectionHasAmendments}
               >
@@ -1591,7 +1591,7 @@ function EditAmendment({ customerId, onClose }) {
               </p>
             </div>
 
-            <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-8 border border-emerald-200">
+            <div className="bg-brand-surface rounded-2xl p-8 border border-brand-surface">
               <div className="max-w-md mx-auto">
                 <AmendmentField
                   label="Pre-qualified Amount (KES)"
@@ -1820,7 +1820,7 @@ function EditAmendment({ customerId, onClose }) {
                 ].map((file) => (
                   <div
                     key={file.key}
-                    className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-200 shadow-sm"
+                    className="bg-brand-surface rounded-xl p-6 border border-brand-surface shadow-sm"
                   >
                     <div className="flex items-center gap-2 mb-4">
                       <file.icon className="h-6 w-6 text-brand-primary" />
@@ -1830,7 +1830,7 @@ function EditAmendment({ customerId, onClose }) {
                     </div>
 
                     <div className="flex gap-2 mb-3">
-                      <label className={`flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-brand-surface text-brand-primary hover:bg-brand-secondary/20"
+                      <label className={`flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
                         }`}>
                         <Upload size={16} />
                         Upload
@@ -1956,7 +1956,7 @@ function EditAmendment({ customerId, onClose }) {
                       Item Images
                     </label>
                     <div className="flex gap-3 mb-4">
-                      <label className={`flex items-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      <label className={`flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                         }`}>
                         <Upload className="w-5 h-5" />
                         <span className="font-medium">Upload Images</span>
@@ -2184,7 +2184,7 @@ function EditAmendment({ customerId, onClose }) {
                   </label>
 
                   <div className="flex flex-col sm:flex-row gap-3 w-full">
-                    <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                    <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                       }`}>
                       <Upload className="w-5 h-5" />
                       <span className="text-sm font-medium">Upload</span>
@@ -2214,7 +2214,7 @@ function EditAmendment({ customerId, onClose }) {
                         <XIcon className="w-4 h-4" />
                       </button>
                       {file.existing && !file.preview && (
-                        <div className="absolute top-2 left-2 bg-blue-600 text-white text-xs px-2 py-1 rounded">
+                        <div className="absolute top-2 left-2 bg-brand-primary text-white text-xs px-2 py-1 rounded">
                           Existing
                         </div>
                       )}
@@ -2285,7 +2285,7 @@ function EditAmendment({ customerId, onClose }) {
           <div className="flex items-center gap-3">
             <button
               onClick={onClose}
-              className="text-gray-600 hover:text-green-700 transition"
+              className="text-gray-600 hover:text-brand-primary transition"
               disabled={isSubmitting}
             >
               <ArrowLeftIcon className="h-6 w-6" />

@@ -142,7 +142,8 @@ const SMSService = {
           error.message,
           undefined,
           undefined,
-          customerId
+          customerId,
+          null // tenantId will be handled within logSMS if called from sendSMS
         );
       }
 
@@ -162,7 +163,8 @@ const SMSService = {
     errorMessage,
     messageId,
     cost,
-    customerId
+    customerId,
+    tenantId
   ) {
     try {
       const { error } = await supabase.from("sms_logs").insert({
@@ -174,6 +176,7 @@ const SMSService = {
         sender_id: senderId,
         customer_id: customerId,
         cost: cost,
+        tenant_id: tenantId,
       });
 
       if (error) {
@@ -291,7 +294,7 @@ const Customer360View = () => {
       // Fetch wallet transactions and calculate balance
       const { data: walletTxns } = await supabase
         .from("customer_wallets")
-        .select("*")
+        .select("created_at, credit, debit, transaction_type, mpesa_reference")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
@@ -317,10 +320,9 @@ const Customer360View = () => {
 
       setWalletTransactions(cleanedTxns);
 
-      // Calculate wallet balance
+      // Calculate wallet balance: balance = sum(credit) - sum(debit)
       const balance = (walletTxns || []).reduce((acc, txn) => {
-        const amount = parseFloat(txn.amount || 0);
-        return acc + amount;
+        return acc + (parseFloat(txn.credit || 0) - parseFloat(txn.debit || 0));
       }, 0);
 
       setWalletBalance(balance);
@@ -361,10 +363,15 @@ const Customer360View = () => {
 
       setInteractions(interactionsWithOfficer);
 
-      // Fetch SMS logs
+      // Fetch SMS logs with sender info
       const { data: smsData } = await supabase
         .from("sms_logs")
-        .select("*")
+        .select(`
+          *,
+          users!sent_by (
+            full_name
+          )
+        `)
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
@@ -481,6 +488,7 @@ const Customer360View = () => {
             created_by: profile.id,
             status: "pending",
             interaction_type: ptpFormData.interaction_type,
+            tenant_id: profile?.tenant_id,
           },
         ])
         .select()
@@ -514,9 +522,9 @@ const Customer360View = () => {
     try {
       const { error } = await supabase
         .from("promise_to_pay")
-        .update({ 
-          status: newStatus, 
-          updated_at: new Date().toISOString() 
+        .update({
+          status: newStatus,
+          updated_at: new Date().toISOString()
         })
         .eq("id", id);
 
@@ -533,14 +541,14 @@ const Customer360View = () => {
   };
 
   const tabs = [
-    { id: "overview", name: "Overview", icon: UserCircleIcon },
-    { id: "loan", name: "Loan Details", icon: BanknotesIcon },
-    { id: "repayments", name: "Repayment History", icon: ClockIcon },
-    { id: "wallet", name: "Wallet", icon: WalletIcon },
-    { id: "statements", name: "M-Pesa Transactions", icon: DocumentTextIcon },
-    { id: "interactions", name: "Interactions", icon: ChatBubbleLeftRightIcon },
-    { id: "sms", name: "SMS", icon: ChatBubbleLeftRightIcon },
-    { id: "promised", name: "Promised to Pay", icon: CalendarDaysIcon },
+    { id: "overview", name: "Overview" },
+    { id: "loan", name: "Loan" },
+    { id: "repayments", name: "Repayment" },
+    { id: "wallet", name: "Wallet" },
+    { id: "statements", name: "Mpesa-Trans" },
+    { id: "interactions", name: "Interaction" },
+    { id: "sms", name: "SMS" },
+    { id: "promised", name: "PTP" },
   ];
 
   const getInitials = () => {
@@ -561,16 +569,16 @@ const Customer360View = () => {
   };
 
   const getStatusBadge = (status) => {
-    const base = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+    const base = "inline-flex items-center px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border";
     switch (status) {
       case "pending":
-        return <span className={`${base} bg-yellow-100 text-yellow-800`}>Pending</span>;
+        return <span className={`${base} bg-yellow-50 text-yellow-700 border-yellow-200`}>Pending</span>;
       case "kept":
-        return <span className={`${base} bg-green-100 text-green-800`}>Kept</span>;
+        return <span className={`${base} bg-accent/10 text-accent border-accent/20`}>Kept</span>;
       case "broken":
-        return <span className={`${base} bg-red-100 text-red-800`}>Broken</span>;
+        return <span className={`${base} bg-red-50 text-red-700 border-red-200`}>Broken</span>;
       default:
-        return <span className={`${base} bg-gray-100 text-gray-800`}>Unknown</span>;
+        return <span className={`${base} bg-gray-50 text-gray-700 border-gray-200`}>Unknown</span>;
     }
   };
 
@@ -578,10 +586,10 @@ const Customer360View = () => {
   const renderOverview = () => {
     const outstandingBalance = loanDetails
       ? parseFloat(loanDetails.total_payable || 0) -
-        loanInstallments.reduce(
-          (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-          0
-        )
+      loanInstallments.reduce(
+        (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
+        0
+      )
       : 0;
 
     const totalPaidAmount = loanInstallments.reduce(
@@ -590,10 +598,10 @@ const Customer360View = () => {
     );
 
     return (
-      <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+      <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-gradient-to-br from-slate-100 via-blue-100 to-cyan-100 border-2 border-gray-200 rounded-xl shadow-sm">
-          <div className="from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-100">
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
               <div className="flex-shrink-0">
@@ -624,18 +632,16 @@ const Customer360View = () => {
                     </div>
                   </div>
 
-                  {/* Status badges */}
-                  <div className="mt-2 flex flex-wrap gap-1 justify-center">
+                  <div className="mt-4 flex flex-wrap gap-1 justify-center">
                     <span
-                      className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${
-                        customer.status === "approved"
-                          ? "bg-green-600 text-white"
-                          : customer.status === "bm_review"
-                          ? "bg-yellow-500 text-white"
+                      className={`inline-flex px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${customer.status === "approved"
+                        ? "bg-accent/10 text-accent border-accent/20"
+                        : customer.status === "bm_review"
+                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
                           : customer.status === "rejected"
-                          ? "bg-red-500 text-white"
-                          : "bg-gray-500 text-white"
-                      }`}
+                            ? "bg-red-50 text-red-700 border-red-200"
+                            : "bg-gray-50 text-gray-700 border-gray-200"
+                        }`}
                     >
                       {customer.status || "Pending"}
                     </span>
@@ -651,42 +657,48 @@ const Customer360View = () => {
                       label: "Wallet Balance",
                       value: walletBalance,
                       icon: WalletIcon,
+                      color: "bg-blue-50 border-blue-100 text-blue-600",
                     },
                     {
                       label: "Principal",
                       value: loanDetails?.scored_amount,
                       icon: CreditCardIcon,
+                      color: "bg-indigo-50 border-indigo-100 text-indigo-600",
                     },
                     {
                       label: "Interest",
                       value: loanDetails?.total_interest,
                       icon: ChartBarIcon,
+                      color: "bg-amber-50 border-amber-100 text-amber-600",
                     },
                     {
                       label: "Total Payable",
                       value: loanDetails?.total_payable,
                       icon: DocumentTextIcon,
+                      color: "bg-emerald-50 border-emerald-100 text-emerald-600",
                     },
                     {
                       label: "Total Paid",
                       value: totalPaidAmount,
                       icon: CheckCircleIcon,
+                      color: "bg-green-50 border-green-100 text-green-600",
                     },
                     {
                       label: "Outstanding",
                       value: outstandingBalance,
                       icon: ExclamationCircleIcon,
+                      color: "bg-rose-50 border-rose-100 text-rose-600",
                     },
                   ].map((item, index) => (
                     <div
                       key={index}
-                      className="bg-white/20 backdrop-blur-sm border border-white/30 rounded-lg p-3 text-center"
+                      className={`${item.color} border rounded-2xl p-4 text-center shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}
                     >
-                      <item.icon className="h-6 w-6 text-slate-800 mx-auto mb-1" />
-                      <p className="text-xs text-slate-700 font-medium mb-1">
+                      <item.icon className="h-5 w-5 mx-auto mb-2 opacity-80" />
+                      <p className="text-[10px] uppercase tracking-widest font-black mb-1 opacity-70">
                         {item.label}
                       </p>
-                      <p className="text-base font-semibold text-slate-800">
+                      <p className="text-base font-black">
                         {formatCurrency(item.value || 0)}
                       </p>
                     </div>
@@ -694,15 +706,15 @@ const Customer360View = () => {
                 </div>
 
                 {/* Branch info below financial cards */}
-                <div className="mt-4 bg-white/30 backdrop-blur-sm rounded-lg p-3 border border-white/40">
-                  <div className="flex items-center justify-between">
+                <div className="mt-4 bg-brand-surface/50 rounded-lg p-3 border border-brand-surface">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
-                      <BuildingLibraryIcon className="h-5 w-5 text-slate-700" />
-                      <span className="text-sm font-medium text-slate-800">
+                      <BuildingLibraryIcon className="h-4 w-4 text-brand-secondary" />
+                      <span className="text-xs font-semibold text-brand-primary">
                         {customer.branches?.name || "No branch assigned"}
                       </span>
                     </div>
-                    <div className="text-xs text-slate-600">
+                    <div className="text-[10px] text-brand-secondary font-medium uppercase tracking-tight">
                       Customer since:{" "}
                       {customer.created_at
                         ? new Date(customer.created_at).toLocaleDateString()
@@ -929,8 +941,8 @@ const Customer360View = () => {
                   <span className="font-medium text-slate-800">
                     {loanDetails.bm_reviewed_at
                       ? new Date(
-                          loanDetails.bm_reviewed_at
-                        ).toLocaleDateString()
+                        loanDetails.bm_reviewed_at
+                      ).toLocaleDateString()
                       : "Pending"}
                   </span>
                 </div>
@@ -939,8 +951,8 @@ const Customer360View = () => {
                   <span className="font-medium text-slate-800">
                     {loanDetails.rm_reviewed_at
                       ? new Date(
-                          loanDetails.rm_reviewed_at
-                        ).toLocaleDateString()
+                        loanDetails.rm_reviewed_at
+                      ).toLocaleDateString()
                       : "N/A"}
                   </span>
                 </div>
@@ -955,11 +967,10 @@ const Customer360View = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Processing Fee Paid</span>
                   <span
-                    className={`font-medium  ${
-                      loanDetails.processing_fee_paid
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
+                    className={`font-medium  ${loanDetails.processing_fee_paid
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
                   >
                     {loanDetails.processing_fee_paid ? "Yes" : "No"}
                   </span>
@@ -967,11 +978,10 @@ const Customer360View = () => {
                 <div className="flex justify-between">
                   <span className="text-gray-600">Registration Fee Paid</span>
                   <span
-                    className={`font-medium ${
-                      loanDetails.registration_fee_paid
-                        ? "text-green-600"
-                        : "text-red-600"
-                    }`}
+                    className={`font-medium ${loanDetails.registration_fee_paid
+                      ? "text-green-600"
+                      : "text-red-600"
+                      }`}
                   >
                     {loanDetails.registration_fee_paid ? "Yes" : "No"}
                   </span>
@@ -1025,15 +1035,14 @@ const Customer360View = () => {
                         </td>
                         <td className="px-4 py-3 text-sm">
                           <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              installment.status === "paid"
-                                ? "bg-green-100 text-green-800"
-                                : installment.status === "partial"
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${installment.status === "paid"
+                              ? "bg-green-100 text-green-800"
+                              : installment.status === "partial"
                                 ? "bg-yellow-100 text-yellow-800"
                                 : installment.status === "overdue"
-                                ? "bg-red-100 text-red-800"
-                                : "bg-gray-100 text-gray-800"
-                            }`}
+                                  ? "bg-red-100 text-red-800"
+                                  : "bg-gray-100 text-gray-800"
+                              }`}
                           >
                             {installment.status}
                           </span>
@@ -1067,10 +1076,10 @@ const Customer360View = () => {
   const renderRepaymentHistory = () => {
     const outstandingBalance = loanDetails
       ? parseFloat(loanDetails.total_payable || 0) -
-        loanInstallments.reduce(
-          (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-          0
-        )
+      loanInstallments.reduce(
+        (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
+        0
+      )
       : 0;
 
     const totalPaidAmount = loanInstallments.reduce(
@@ -1239,11 +1248,10 @@ const Customer360View = () => {
 
               <td className="px-4 py-3 text-sm">
                 <span
-                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                    txn.type === "credit"
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.transaction_type === "credit"
                       ? "bg-green-100 text-green-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
+                      : "bg-red-100 text-red-800"
+                    }`}
                 >
                   {txn.transaction_type}
                 </span>
@@ -1254,11 +1262,12 @@ const Customer360View = () => {
               </td>
 
               <td
-                className={`px-4 py-3 text-sm font-medium text-right ${
-                  txn.type === "credit" ? "text-green-600" : "text-green-600"
-                }`}
+                className={`px-4 py-3 text-sm font-medium text-right ${txn.transaction_type === "credit" ? "text-green-600" : "text-red-600"
+                  }`}
               >
-                {formatCurrency(txn.amount)}
+                {txn.transaction_type === "credit"
+                  ? formatCurrency(txn.credit)
+                  : formatCurrency(txn.debit)}
               </td>
             </tr>
           ))}
@@ -1315,25 +1324,24 @@ const Customer360View = () => {
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
                       {formatCurrency(txn.amount)}
                     </td>
-                   <td className="px-4 py-3 text-sm text-gray-600 capitalize">
-  {txn.description
-    ? txn.description.includes("Credited to wallet - no active loan")
-      ? "Credited to wallet"
-      : txn.description.includes("Loan repayment processed")
-        ? "Loan repayment"
-        : txn.description
-    : "N/A"}
-</td>
+                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                      {txn.description
+                        ? txn.description.includes("Credited to wallet - no active loan")
+                          ? "Credited to wallet"
+                          : txn.description.includes("Loan repayment processed")
+                            ? "Loan repayment"
+                            : txn.description
+                        : "N/A"}
+                    </td>
 
                     <td className="px-4 py-3 text-sm">
                       <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                          txn.status === "applied"
-                            ? "bg-green-100 text-green-800"
-                            : txn.status === "pending"
+                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.status === "applied"
+                          ? "bg-green-100 text-green-800"
+                          : txn.status === "pending"
                             ? "bg-yellow-100 text-yellow-800"
                             : "bg-red-100 text-red-800"
-                        }`}
+                          }`}
                       >
                         {txn.status}
                       </span>
@@ -1385,6 +1393,7 @@ const Customer360View = () => {
               notes: newInteraction.notes,
               created_by: officerId,   // <-- FIXED: using profile.id
               interaction_date: new Date().toISOString(),
+              tenant_id: profile?.tenant_id,
             },
           ])
           .select("*")
@@ -1421,7 +1430,7 @@ const Customer360View = () => {
         {/* Header with Add Button */}
         <div className="flex justify-between items-center">
           <div>
-           
+
             <p className="text-sm text-gray-600 mt-1">
               Track all customer communication and touchpoints
             </p>
@@ -1472,17 +1481,17 @@ const Customer360View = () => {
         {showInteractionForm && (
           <div className="bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-5 shadow-sm">
             <h4 className="text-lg font-semibold text-slate-600 mb-4 flex items-center">
-              <svg 
-                className="h-5 w-5 mr-2 text-[#586ab1]" 
-                fill="none" 
-                viewBox="0 0 24 24" 
+              <svg
+                className="h-5 w-5 mr-2 text-[#586ab1]"
+                fill="none"
+                viewBox="0 0 24 24"
                 stroke="currentColor"
               >
-                <path 
-                  strokeLinecap="round" 
-                  strokeLinejoin="round" 
-                  strokeWidth={2} 
-                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" 
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
                 />
               </svg>
               Record New Interaction
@@ -1588,17 +1597,17 @@ const Customer360View = () => {
                     </>
                   ) : (
                     <>
-                      <svg 
-                        className="h-4 w-4" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
+                      <svg
+                        className="h-4 w-4"
+                        fill="none"
+                        viewBox="0 0 24 24"
                         stroke="currentColor"
                       >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M5 13l4 4L19 7" 
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M5 13l4 4L19 7"
                         />
                       </svg>
                       Save Interaction
@@ -1637,23 +1646,22 @@ const Customer360View = () => {
                   <div className="flex items-center justify-between flex-wrap gap-2">
                     <div className="flex items-center space-x-3">
                       <span
-                        className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${
-                          interaction.interaction_type === "call"
-                            ? "bg-blue-100 text-blue-800"
-                            : interaction.interaction_type === "sms"
+                        className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${interaction.interaction_type === "call"
+                          ? "bg-blue-100 text-blue-800"
+                          : interaction.interaction_type === "sms"
                             ? "bg-green-100 text-green-800"
                             : interaction.interaction_type === "email"
-                            ? "bg-purple-100 text-purple-800"
-                            : interaction.interaction_type === "visit"
-                            ? "bg-orange-100 text-orange-800"
-                            : interaction.interaction_type === "meeting"
-                            ? "bg-[#586ab1] bg-opacity-10 text-[#586ab1]"
-                            : interaction.interaction_type === "follow_up"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : interaction.interaction_type === "complaint"
-                            ? "bg-red-100 text-red-800"
-                            : "bg-gray-100 text-gray-800"
-                        }`}
+                              ? "bg-purple-100 text-purple-800"
+                              : interaction.interaction_type === "visit"
+                                ? "bg-orange-100 text-orange-800"
+                                : interaction.interaction_type === "meeting"
+                                  ? "bg-[#586ab1] bg-opacity-10 text-[#586ab1]"
+                                  : interaction.interaction_type === "follow_up"
+                                    ? "bg-yellow-100 text-yellow-800"
+                                    : interaction.interaction_type === "complaint"
+                                      ? "bg-red-100 text-red-800"
+                                      : "bg-gray-100 text-gray-800"
+                          }`}
                       >
                         {interaction.interaction_type === "call" && "📞"}
                         {interaction.interaction_type === "email" && "📧"}
@@ -1669,17 +1677,17 @@ const Customer360View = () => {
                         </span>
                       </span>
                       <div className="flex items-center text-xs text-gray-500">
-                        <svg 
-                          className="h-3.5 w-3.5 mr-1" 
-                          fill="none" 
-                          viewBox="0 0 24 24" 
+                        <svg
+                          className="h-3.5 w-3.5 mr-1"
+                          fill="none"
+                          viewBox="0 0 24 24"
                           stroke="currentColor"
                         >
-                          <path 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round" 
-                            strokeWidth={2} 
-                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" 
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
                           />
                         </svg>
                         {new Date(
@@ -1731,17 +1739,17 @@ const Customer360View = () => {
                     {interaction.officer_name ? (
                       <div className="flex items-center space-x-2">
                         <div className="flex items-center justify-center h-7 w-7 rounded-full bg-[#586ab1] bg-opacity-10">
-                          <svg 
-                            className="h-4 w-4 text-[#586ab1]" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                          <svg
+                            className="h-4 w-4 text-[#586ab1]"
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                           >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={2} 
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                           </svg>
                         </div>
@@ -1755,17 +1763,17 @@ const Customer360View = () => {
                     ) : (
                       <div className="flex items-center space-x-2">
                         <div className="h-7 w-7 rounded-full bg-gray-100 flex items-center justify-center">
-                          <svg 
-                            className="h-4 w-4 text-gray-400" 
-                            fill="none" 
-                            viewBox="0 0 24 24" 
+                          <svg
+                            className="h-4 w-4 text-gray-400"
+                            fill="none"
+                            viewBox="0 0 24 24"
                             stroke="currentColor"
                           >
-                            <path 
-                              strokeLinecap="round" 
-                              strokeLinejoin="round" 
-                              strokeWidth={2} 
-                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" 
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                             />
                           </svg>
                         </div>
@@ -1778,13 +1786,12 @@ const Customer360View = () => {
                     {/* Optional: Add outcome badge if available */}
                     {interaction.outcome && (
                       <span
-                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                          interaction.outcome === "positive"
-                            ? "bg-green-50 text-green-700 border border-green-200"
-                            : interaction.outcome === "negative"
+                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${interaction.outcome === "positive"
+                          ? "bg-green-50 text-green-700 border border-green-200"
+                          : interaction.outcome === "negative"
                             ? "bg-red-50 text-red-700 border border-red-200"
                             : "bg-gray-50 text-gray-700 border border-gray-200"
-                        }`}
+                          }`}
                       >
                         {interaction.outcome}
                       </span>
@@ -1796,17 +1803,17 @@ const Customer360View = () => {
           </div>
         ) : (
           <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
-            <svg 
-              className="h-16 w-16 text-gray-300 mx-auto mb-3" 
-              fill="none" 
-              viewBox="0 0 24 24" 
+            <svg
+              className="h-16 w-16 text-gray-300 mx-auto mb-3"
+              fill="none"
+              viewBox="0 0 24 24"
               stroke="currentColor"
             >
-              <path 
-                strokeLinecap="round" 
-                strokeLinejoin="round" 
-                strokeWidth={1.5} 
-                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" 
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
               />
             </svg>
             <p className="text-gray-600 font-medium">
@@ -1821,395 +1828,392 @@ const Customer360View = () => {
     );
   };
 
-const renderSmsTab = () => {
+  const renderSmsTab = () => {
 
-  // Load SMS logs on component mount
-  const loadSmsLogs = async () => {
-    console.log("=== LOADING SMS LOGS ===");
-    
-    const { data, error } = await supabase
-      .from("sms_logs")
-      .select(`
+    // Load SMS logs on component mount
+    const loadSmsLogs = async () => {
+      console.log("=== LOADING SMS LOGS ===");
+
+      const { data, error } = await supabase
+        .from("sms_logs")
+        .select(`
         id,
         message,
         status,
         created_at,
         error_message,
         sent_by,
-        users!sms_logs_sent_by_fkey (
+        users!sent_by (
           id,
           full_name,
           email
         )
       `)
-      .eq("customer_id", customerId)
-      .order("created_at", { ascending: false });
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
 
-    if (error) {
-      console.error("Error loading SMS logs:", error);
-      setSmsLogs([]);
-      return;
-    }
+      if (error) {
+        console.error("Error loading SMS logs:", error);
+        setSmsLogs([]);
+        return;
+      }
 
-    console.log("Loaded SMS logs:", data?.length || 0);
-    
-    // Debug each log
-    data?.forEach((sms, index) => {
-      console.log(`Log ${index + 1}:`, {
-        id: sms.id,
-        sent_by: sms.sent_by,
-        user_data: sms.users
+      console.log("Loaded SMS logs:", data?.length || 0);
+
+      // Debug each log
+      data?.forEach((sms, index) => {
+        console.log(`Log ${index + 1}:`, {
+          id: sms.id,
+          sent_by: sms.sent_by,
+          user_data: sms.users
+        });
       });
-    });
 
-    setSmsLogs(data || []);
-  };
+      setSmsLogs(data || []);
+    };
 
-  // Call on mount
-  // React.useEffect(() => {
-  //   loadSmsLogs();
-  // }, [customerId]);
+    // Call on mount
+    // React.useEffect(() => {
+    //   loadSmsLogs();
+    // }, [customerId]);
 
-  const handleSendSms = async () => {
-    if (!smsMessage.trim() || !customer?.mobile) {
-      alert("Please enter a message and ensure customer has a mobile number");
-      return;
-    }
+    const handleSendSms = async () => {
+      if (!smsMessage.trim() || !customer?.mobile) {
+        alert("Please enter a message and ensure customer has a mobile number");
+        return;
+      }
 
-    // CRITICAL: Verify user is logged in
-    if (!profile?.id) {
-      console.error("❌ BLOCKED: No logged-in user profile");
-      setSmsStatus("Failed: You must be logged in to send SMS");
-      return;
-    }
+      // CRITICAL: Verify user is logged in
+      if (!profile?.id) {
+        console.error("❌ BLOCKED: No logged-in user profile");
+        setSmsStatus("Failed: You must be logged in to send SMS");
+        return;
+      }
 
-    console.log("=== SENDING SMS ===");
-    console.log("Sender (Profile ID):", profile.id);
-    console.log("Sender Name:", profile.full_name);
-    console.log("Sender Email:", profile.email);
+      console.log("=== SENDING SMS ===");
+      console.log("Sender (Profile ID):", profile.id);
+      console.log("Sender Name:", profile.full_name);
+      console.log("Sender Email:", profile.email);
 
-    const today = new Date().toISOString().split("T")[0];
+      const today = new Date().toISOString().split("T")[0];
 
-    // Check daily SMS limit (2 per customer per day)
-    const { count } = await supabase
-      .from("sms_logs")
-      .select("*", { count: "exact", head: true })
-      .eq("customer_id", customerId)
-      .gte("created_at", `${today}T00:00:00`)
-      .lte("created_at", `${today}T23:59:59`);
-
-    if ((count ?? 0) >= 2) {
-      alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
-      return;
-    }
-
-    setSendingSms(true);
-    setSmsStatus("Sending...");
-
-    try {
-      const result = await SMSService.sendSMS(
-        customer.mobile,
-        smsMessage,
-        CELCOM_AFRICA_CONFIG.defaultShortcode,
-        customerId
-      );
-
-      // CRITICAL: Always set sent_by to the current user's ID
-      const insertData = {
-        customer_id: customerId,
-        recipient_phone: customer.mobile,
-        message: smsMessage,
-        status: result.success ? "sent" : "failed",
-        message_id: result.messageId ?? null,
-        error_message: result.success ? null : (result.error || "Unknown error"),
-        sent_by: profile.id, // ✅ MUST be the logged-in user's UUID
-        tenant_id: profile.tenant_id
-      };
-      
-      console.log("=== INSERTING SMS LOG ===");
-      console.log("Data to insert:", insertData);
-
-      // Insert SMS log
-      const { data: insertedData, error: insertError } = await supabase
+      // Check daily SMS limit (2 per customer per day)
+      const { count } = await supabase
         .from("sms_logs")
-        .insert(insertData)
-        .select(`
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", customerId)
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
+
+      if ((count ?? 0) >= 2) {
+        alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
+        return;
+      }
+
+      setSendingSms(true);
+      setSmsStatus("Sending...");
+
+      try {
+        const result = await SMSService.sendSMS(
+          customer.mobile,
+          smsMessage,
+          CELCOM_AFRICA_CONFIG.defaultShortcode,
+          customerId
+        );
+
+        // CRITICAL: Always set sent_by to the current user's ID
+        const insertData = {
+          customer_id: customerId,
+          recipient_phone: customer.mobile,
+          message: smsMessage,
+          status: result.success ? "sent" : "failed",
+          message_id: result.messageId ?? null,
+          error_message: result.success ? null : (result.error || "Unknown error"),
+          sent_by: profile.id, // ✅ MUST be the logged-in user's UUID
+          tenant_id: profile.tenant_id
+        };
+
+        console.log("=== INSERTING SMS LOG ===");
+        console.log("Data to insert:", insertData);
+
+        // Insert SMS log
+        const { data: insertedData, error: insertError } = await supabase
+          .from("sms_logs")
+          .insert(insertData)
+          .select(`
           id,
           message,
           status,
           created_at,
           error_message,
           sent_by,
-          users!sms_logs_sent_by_fkey (
+          users!sent_by (
             id,
             full_name,
             email
           )
         `)
-        .single();
+          .single();
 
-      if (insertError) {
-        console.error("❌ Insert Error:", insertError);
-        throw insertError;
+        if (insertError) {
+          console.error("❌ Insert Error:", insertError);
+          throw insertError;
+        }
+
+        console.log("✅ Inserted SMS Log:", insertedData);
+        console.log("Inserted user data:", insertedData?.users);
+
+        // Reload all SMS logs to refresh the list
+        await loadSmsLogs();
+
+        setSmsMessage("");
+        setSmsStatus("Message sent successfully!");
+        setTimeout(() => setSmsStatus(""), 5000);
+
+      } catch (error) {
+        console.error("❌ SMS send error:", error);
+        setSmsStatus("Failed to send message");
+      } finally {
+        setSendingSms(false);
       }
+    };
 
-      console.log("✅ Inserted SMS Log:", insertedData);
-      console.log("Inserted user data:", insertedData?.users);
+    // Debug function to check for data issues
+    const checkOrphanedLogs = async () => {
+      console.log("\n=== CHECKING FOR DATA ISSUES ===");
 
-      // Reload all SMS logs to refresh the list
-      await loadSmsLogs();
+      // Get all SMS logs for this customer
+      const { data: allLogs, error } = await supabase
+        .from("sms_logs")
+        .select("id, sent_by, created_at")
+        .eq("customer_id", customerId);
 
-      setSmsMessage("");
-      setSmsStatus("Message sent successfully!");
-      setTimeout(() => setSmsStatus(""), 5000);
-
-    } catch (error) {
-      console.error("❌ SMS send error:", error);
-      setSmsStatus("Failed to send message");
-    } finally {
-      setSendingSms(false);
-    }
-  };
-
-  // Debug function to check for data issues
-  const checkOrphanedLogs = async () => {
-    console.log("\n=== CHECKING FOR DATA ISSUES ===");
-    
-    // Get all SMS logs for this customer
-    const { data: allLogs, error } = await supabase
-      .from("sms_logs")
-      .select("id, sent_by, created_at")
-      .eq("customer_id", customerId);
-
-    if (error) {
-      console.error("Error fetching logs:", error);
-      return;
-    }
-
-    console.log("Total SMS logs:", allLogs?.length);
-    
-    // Check for NULL sent_by (should not exist)
-    const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
-    console.log("⚠️ Logs with NULL sent_by:", logsWithNullSentBy.length);
-    
-    if (logsWithNullSentBy.length > 0) {
-      console.log("These logs have NULL sent_by (BAD - should not happen):");
-      logsWithNullSentBy.forEach(log => {
-        console.log(`  - SMS ID ${log.id} created at ${log.created_at}`);
-      });
-    }
-
-    // Verify all sent_by UUIDs exist in users table
-    const sentByIds = allLogs
-      ?.filter(log => log.sent_by)
-      .map(log => log.sent_by) || [];
-    
-    if (sentByIds.length > 0) {
-      const uniqueIds = [...new Set(sentByIds)];
-      console.log("\nUnique user IDs in SMS logs:", uniqueIds);
-      
-      const { data: existingUsers, error: userError } = await supabase
-        .from("users")
-        .select("id, full_name, email")
-        .in("id", uniqueIds);
-      
-      if (userError) {
-        console.error("❌ Error fetching users:", userError);
-        console.error("This could be an RLS (Row Level Security) policy issue!");
+      if (error) {
+        console.error("Error fetching logs:", error);
         return;
       }
 
-      console.log("✅ Users found in database:", existingUsers);
-      
-      const existingUserIds = existingUsers?.map(u => u.id) || [];
-      const missingUserIds = uniqueIds.filter(id => !existingUserIds.includes(id));
-      
-      if (missingUserIds.length > 0) {
-        console.error("⚠️ These user IDs in SMS logs don't exist in users table:", missingUserIds);
-      } else {
-        console.log("✅ All user IDs exist in users table");
+      console.log("Total SMS logs:", allLogs?.length);
+
+      // Check for NULL sent_by (should not exist)
+      const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
+      console.log("⚠️ Logs with NULL sent_by:", logsWithNullSentBy.length);
+
+      if (logsWithNullSentBy.length > 0) {
+        console.log("These logs have NULL sent_by (BAD - should not happen):");
+        logsWithNullSentBy.forEach(log => {
+          console.log(`  - SMS ID ${log.id} created at ${log.created_at}`);
+        });
       }
-    }
-  };
 
-  return (
-    <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
-      
-      {/* Debug render */}
-      {console.log("=== RENDER: smsLogs state ===", smsLogs)}
+      // Verify all sent_by UUIDs exist in users table
+      const sentByIds = allLogs
+        ?.filter(log => log.sent_by)
+        .map(log => log.sent_by) || [];
 
-      {/* SMS COMPOSE - Only for non-RO users */}
-      {profile?.role !== "relationship_officer" && (
-        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
-          <h3 className="text-base text-slate-600 mb-4 flex items-center">
-            <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2 text-blue-600" />
-            Send SMS to Customer
-          </h3>
+      if (sentByIds.length > 0) {
+        const uniqueIds = [...new Set(sentByIds)];
+        console.log("\nUnique user IDs in SMS logs:", uniqueIds);
 
-          <div className="space-y-4">
+        const { data: existingUsers, error: userError } = await supabase
+          .from("users")
+          .select("id, full_name, email")
+          .in("id", uniqueIds);
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Recipient
-              </label>
-              <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200">
-                <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-sm font-medium text-gray-900">
-                  {customer?.Firstname && customer?.mobile
-                    ? `${customer.Firstname} - ${customer.mobile}`
-                    : customer?.mobile || "No mobile number"}
-                </span>
+        if (userError) {
+          console.error("❌ Error fetching users:", userError);
+          console.error("This could be an RLS (Row Level Security) policy issue!");
+          return;
+        }
+
+        console.log("✅ Users found in database:", existingUsers);
+
+        const existingUserIds = existingUsers?.map(u => u.id) || [];
+        const missingUserIds = uniqueIds.filter(id => !existingUserIds.includes(id));
+
+        if (missingUserIds.length > 0) {
+          console.error("⚠️ These user IDs in SMS logs don't exist in users table:", missingUserIds);
+        } else {
+          console.log("✅ All user IDs exist in users table");
+        }
+      }
+    };
+
+    return (
+      <div className="space-y-6 pr-2">
+
+        {/* Debug render */}
+        {console.log("=== RENDER: smsLogs state ===", smsLogs)}
+
+        {/* SMS COMPOSE - Only for non-RO users */}
+        {profile?.role !== "relationship_officer" && (
+          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
+            <h3 className="text-base text-slate-600 mb-4 flex items-center">
+              <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2 text-blue-600" />
+              Send SMS to Customer
+            </h3>
+
+            <div className="space-y-4">
+
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Recipient
+                </label>
+                <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200">
+                  <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-sm font-medium text-gray-900">
+                    {customer?.Firstname && customer?.mobile
+                      ? `${customer.Firstname} - ${customer.mobile}`
+                      : customer?.mobile || "No mobile number"}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Message (2 SMS per customer per day)
-              </label>
-              <textarea
-                value={smsMessage}
-                onChange={(e) => setSmsMessage(e.target.value)}
-                className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
-                maxLength={160}
-                placeholder="Type your message here..."
-              />
-              <div className="flex justify-between mt-1">
-                <span className="text-xs text-gray-500">
-                  {smsMessage.length}/160 characters
-                </span>
-                <span className="text-xs text-gray-500">
-                  Sender ID: {CELCOM_AFRICA_CONFIG.defaultShortcode}
-                </span>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Message (2 SMS per customer per day)
+                </label>
+                <textarea
+                  value={smsMessage}
+                  onChange={(e) => setSmsMessage(e.target.value)}
+                  className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  maxLength={160}
+                  placeholder="Type your message here..."
+                />
+                <div className="flex justify-between mt-1">
+                  <span className="text-xs text-gray-500">
+                    {smsMessage.length}/160 characters
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    Sender ID: {CELCOM_AFRICA_CONFIG.defaultShortcode}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Current logged-in user display */}
-            {profile && (
-              <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                Sending as: <span className="font-medium">{profile.full_name}</span>
-              </div>
-            )}
+              {/* Current logged-in user display */}
+              {profile && (
+                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
+                  Sending as: <span className="font-medium">{profile.full_name}</span>
+                </div>
+              )}
 
-            {smsStatus && (
-              <div
-                className={`p-3 text-sm rounded-lg flex items-center ${
-                  smsStatus.includes("successfully")
+              {smsStatus && (
+                <div
+                  className={`p-3 text-sm rounded-lg flex items-center ${smsStatus.includes("successfully")
                     ? "bg-green-50 text-green-800 border border-green-200"
                     : "bg-red-50 text-red-800 border border-red-200"
-                }`}
-              >
-                {smsStatus.includes("successfully") ? (
-                  <CheckCircleIcon className="h-4 w-4 mr-2" />
-                ) : (
-                  <ExclamationCircleIcon className="h-4 w-4 mr-2" />
-                )}
-                {smsStatus}
-              </div>
-            )}
+                    }`}
+                >
+                  {smsStatus.includes("successfully") ? (
+                    <CheckCircleIcon className="h-4 w-4 mr-2" />
+                  ) : (
+                    <ExclamationCircleIcon className="h-4 w-4 mr-2" />
+                  )}
+                  {smsStatus}
+                </div>
+              )}
 
-            <div className="flex justify-end pt-4 border-t border-gray-200">
-              <button
-                onClick={handleSendSms}
-                disabled={sendingSms || !smsMessage.trim() || !profile?.id}
-                className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 flex items-center"
-              >
-                {sendingSms ? "Sending..." : "Send SMS"}
-              </button>
+              <div className="flex justify-end pt-4 border-t border-gray-200">
+                <button
+                  onClick={handleSendSms}
+                  disabled={sendingSms || !smsMessage.trim() || !profile?.id}
+                  className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 flex items-center"
+                >
+                  {sendingSms ? "Sending..." : "Send SMS"}
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
-
-      {/* SMS HISTORY */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
-          <h3 className="text-base text-slate-600">SMS History</h3>
-          <button
-            onClick={() => {
-              loadSmsLogs();
-              checkOrphanedLogs();
-            }}
-            className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
-          >
-            Debug Logs
-          </button>
-        </div>
-
-        {smsLogs.length > 0 ? (
-          <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50 sticky top-0">
-                <tr>
-                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Date & Time</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Message</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Sent By</th>
-                  <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y">
-                {smsLogs.map((sms) => {
-                  // Debug log for each row
-                  const senderDisplay = sms.users?.full_name || "Unknown User";
-                  
-                  console.log("Rendering SMS row:", {
-                    id: sms.id,
-                    sent_by: sms.sent_by,
-                    users_object: sms.users,
-                    full_name: sms.users?.full_name,
-                    display: senderDisplay
-                  });
-                  
-                  return (
-                    <tr key={sms.id} className="hover:bg-blue-50">
-                      <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
-                        {new Date(sms.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700">
-                        <div className="whitespace-pre-wrap break-words">
-                          {sms.message}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-700 align-top">
-                        {senderDisplay}
-                        {!sms.users && sms.sent_by && (
-                          <div className="text-xs text-red-500 mt-1">
-                            (User not found: {sms.sent_by.substring(0, 8)}...)
-                          </div>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 align-top">
-                        <span className={`px-3 py-1 text-xs rounded-full whitespace-nowrap ${
-                          sms.status === "sent"
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
-                        }`}>
-                          {sms.status}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="text-center py-12 text-gray-500">
-            No SMS messages sent yet
-          </div>
         )}
+
+        {/* SMS HISTORY */}
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
+            <h3 className="text-base text-slate-600">SMS History</h3>
+            <button
+              onClick={() => {
+                loadSmsLogs();
+                checkOrphanedLogs();
+              }}
+              className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
+            >
+              Debug Logs
+            </button>
+          </div>
+
+          {smsLogs.length > 0 ? (
+            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50 sticky top-0">
+                  <tr>
+                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Date & Time</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Message</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Sent By</th>
+                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y">
+                  {smsLogs.map((sms) => {
+                    const isSystem = !sms.sent_by;
+                    const senderDisplay = sms.users?.full_name || (isSystem ? "SYSTEM" : "Unknown User");
+
+                    return (
+                      <tr key={sms.id} className="hover:bg-brand-surface transition-colors">
+                        <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
+                          <div className="flex flex-col">
+                            <span>{new Date(sms.created_at).toLocaleDateString()}</span>
+                            <span className="text-xs text-slate-400">{new Date(sms.created_at).toLocaleTimeString()}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm text-gray-700 max-w-md">
+                          <div className="whitespace-pre-wrap break-words leading-relaxed">
+                            {sms.message}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-sm align-top">
+                          <div className="flex flex-col">
+                            <span className={`font-medium ${isSystem ? "text-brand-secondary" : "text-brand-primary"}`}>
+                              {senderDisplay}
+                            </span>
+                            {!sms.users && sms.sent_by && (
+                              <span className="text-[10px] text-red-400 italic mt-0.5">
+                                (ID: {sms.sent_by.substring(0, 8)}...)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 align-top">
+                          <span className={`inline-flex px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${sms.status === "sent"
+                            ? "bg-accent/10 text-accent border border-accent/20"
+                            : "bg-red-50 text-red-600 border border-red-100"
+                            }`}>
+                            {sms.status}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="text-center py-12 text-gray-500">
+              No SMS messages sent yet
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-};
+    );
+  };
 
 
   const renderPromisedToPay = () => {
     const outstandingBalance = loanDetails
       ? parseFloat(loanDetails.total_payable || 0) -
-        loanInstallments.reduce(
-          (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-          0
-        )
+      loanInstallments.reduce(
+        (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
+        0
+      )
       : 0;
 
     const totalPaidAmount = loanInstallments.reduce(
@@ -2218,14 +2222,14 @@ const renderSmsTab = () => {
     );
 
     return (
-      <div className="space-y-6 max-h-[calc(100vh-200px)] overflow-y-auto pr-2">
+      <div className="space-y-6 pr-2">
         {/* Customer & Loan Info Card */}
         {loanDetails && (
           <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
             <h3 className="text-base font-semibold text-slate-600 mb-4">
               Loan Information
             </h3>
-            
+
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Loan Info */}
               <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-white/60">
@@ -2245,7 +2249,7 @@ const renderSmsTab = () => {
                   {formatCurrency(totalPaidAmount)}
                 </p>
                 <p className="text-xs text-gray-400 mt-0.5">
-                  {loanDetails.total_payable > 0 
+                  {loanDetails.total_payable > 0
                     ? `${((totalPaidAmount / parseFloat(loanDetails.total_payable)) * 100).toFixed(1)}% Complete`
                     : "0% Complete"}
                 </p>
@@ -2411,123 +2415,123 @@ const renderSmsTab = () => {
                 </p>
               </div>
             ) : (
-             <table className="min-w-full divide-y divide-gray-200 table-fixed">
-  <thead className="bg-gray-50">
-    <tr>
-      <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
-        Promised Date
-      </th>
-      <th className="px-3 py-3 w-20 text-left text-xs  text-gray-700 uppercase">
-        Amount
-      </th>
-      <th className="px-3 py-3 w-28 text-left text-xs  text-gray-700 uppercase">
-        Created
-      </th>
-      <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
-        Type
-      </th>
+              <table className="min-w-full divide-y divide-gray-200 table-fixed">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
+                      Promised Date
+                    </th>
+                    <th className="px-3 py-3 w-20 text-left text-xs  text-gray-700 uppercase">
+                      Amount
+                    </th>
+                    <th className="px-3 py-3 w-28 text-left text-xs  text-gray-700 uppercase">
+                      Created
+                    </th>
+                    <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
+                      Type
+                    </th>
 
-      {/* Remarks takes more space */}
-      <th className="px-3 py-3 w-[35%] text-left text-xs  text-gray-700 uppercase">
-        Remarks
-      </th>
+                    {/* Remarks takes more space */}
+                    <th className="px-3 py-3 w-[35%] text-left text-xs  text-gray-700 uppercase">
+                      Remarks
+                    </th>
 
-      <th className="px-3 py-3 w-20 text-center text-xs  text-gray-700 uppercase">
-        Status
-      </th>
-      <th className="px-3 py-3 w-24 text-center text-xs  text-gray-700 uppercase">
-        Actions
-      </th>
-    </tr>
-  </thead>
+                    <th className="px-3 py-3 w-20 text-center text-xs  text-gray-700 uppercase">
+                      Status
+                    </th>
+                    <th className="px-3 py-3 w-24 text-center text-xs  text-gray-700 uppercase">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
 
-  <tbody className="bg-white divide-y divide-gray-200">
-    {ptps.map((ptp) => (
-      <tr key={ptp.id} className="hover:bg-gray-50 transition">
-        <td className="px-3 py-3 text-sm text-slate-600">
-          <div className="flex items-center gap-2">
-            <CalendarIcon className="h-4 w-4 text-indigo-500" />
-            {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
-          </div>
-        </td>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {ptps.map((ptp) => (
+                    <tr key={ptp.id} className="hover:bg-gray-50 transition">
+                      <td className="px-3 py-3 text-sm text-slate-600">
+                        <div className="flex items-center gap-2">
+                          <CalendarIcon className="h-4 w-4 text-indigo-500" />
+                          {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
+                        </div>
+                      </td>
 
-        <td className="px-3 py-3 text-sm  text-slate-600">
-          {formatCurrency(ptp.promised_amount)}
-        </td>
+                      <td className="px-3 py-3 text-sm  text-slate-600">
+                        {formatCurrency(ptp.promised_amount)}
+                      </td>
 
-        <td className="px-3 py-3 text-sm text-slate-600">
-          <div className="leading-tight">
-            <div className="font-medium">{ptp.users?.full_name || "Unknown"}</div>
-            <div className="text-xs text-gray-500">
-              {new Date(ptp.created_at).toLocaleDateString("en-GB")}
-            </div>
-          </div>
-        </td>
+                      <td className="px-3 py-3 text-sm text-slate-600">
+                        <div className="leading-tight">
+                          <div className="font-medium">{ptp.users?.full_name || "Unknown"}</div>
+                          <div className="text-xs text-gray-500">
+                            {new Date(ptp.created_at).toLocaleDateString("en-GB")}
+                          </div>
+                        </div>
+                      </td>
 
-        <td className="px-3 py-3 text-sm text-gray-700">
-          {ptp.interaction_type || "N/A"}
-        </td>
+                      <td className="px-3 py-3 text-sm text-gray-700">
+                        {ptp.interaction_type || "N/A"}
+                      </td>
 
-        {/* ✅ Improved Remarks Cell */}
-        <td className="px-3 py-3 align-top">
-          <div className="text-sm text-gray-700 whitespace-normal break-words leading-relaxed">
-            {ptp.remarks || "-"}
-          </div>
-        </td>
+                      {/* ✅ Improved Remarks Cell */}
+                      <td className="px-3 py-3 align-top">
+                        <div className="text-sm text-gray-700 whitespace-normal break-words leading-relaxed">
+                          {ptp.remarks || "-"}
+                        </div>
+                      </td>
 
-        <td className="px-3 py-3 text-center">
-          {getStatusBadge(ptp.status)}
-        </td>
+                      <td className="px-3 py-3 text-center">
+                        {getStatusBadge(ptp.status)}
+                      </td>
 
-        <td className="px-3 py-3 text-center">
-          {ptp.status === "pending" ? (
-            <div className="flex justify-center gap-2">
-              <button
-                onClick={() => updatePTPStatus(ptp.id, "kept")}
-                className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-semibold"
-              >
-                Kept
-              </button>
-              <button
-                onClick={() => updatePTPStatus(ptp.id, "broken")}
-                className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-semibold"
-              >
-                Broken
-              </button>
-            </div>
-          ) : (
-            <span className="text-xs text-gray-500 italic">No actions</span>
-          )}
-        </td>
-      </tr>
-    ))}
-  </tbody>
-</table>
+                      <td className="px-3 py-3 text-center">
+                        {ptp.status === "pending" ? (
+                          <div className="flex justify-center gap-2">
+                            <button
+                              onClick={() => updatePTPStatus(ptp.id, "kept")}
+                              className="px-2 py-1 bg-green-600 text-white rounded-md hover:bg-green-700 text-xs font-semibold"
+                            >
+                              Kept
+                            </button>
+                            <button
+                              onClick={() => updatePTPStatus(ptp.id, "broken")}
+                              className="px-2 py-1 bg-red-600 text-white rounded-md hover:bg-red-700 text-xs font-semibold"
+                            >
+                              Broken
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-gray-500 italic">No actions</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
 
             )}
           </div>
 
           {/* Summary Stats */}
           {ptps.length > 0 && (
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                <div className="bg-gradient-to-br from-yellow-50 to-amber-50 border border-yellow-200 rounded-lg p-3 shadow-sm">
-                  <p className="text-xs text-yellow-800 font-semibold mb-0.5">Pending Promises</p>
-                  <p className="text-base font-bold text-yellow-900">
+            <div className="px-6 py-4 border-t border-gray-200 bg-brand-surface/30">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-white border border-yellow-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-[10px] text-yellow-600 font-bold uppercase tracking-wider mb-1">Pending Promises</p>
+                  <p className="text-xl font-black text-yellow-700">
                     {ptps.filter(p => p.status === "pending").length}
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-lg p-3 shadow-sm">
-                  <p className="text-xs text-green-800 font-semibold mb-0.5">Kept Promises</p>
-                  <p className="text-base font-bold text-green-900">
+                <div className="bg-white border border-accent/10 rounded-xl p-4 shadow-sm">
+                  <p className="text-[10px] text-accent font-bold uppercase tracking-wider mb-1">Kept Promises</p>
+                  <p className="text-xl font-black text-accent">
                     {ptps.filter(p => p.status === "kept").length}
                   </p>
                 </div>
 
-                <div className="bg-gradient-to-br from-red-50 to-rose-50 border border-red-200 rounded-lg p-3 shadow-sm">
-                  <p className="text-xs text-red-800 font-semibold mb-0.5">Broken Promises</p>
-                  <p className="text-base font-bold text-red-900">
+                <div className="bg-white border border-red-100 rounded-xl p-4 shadow-sm">
+                  <p className="text-[10px] text-red-600 font-bold uppercase tracking-wider mb-1">Broken Promises</p>
+                  <p className="text-xl font-black text-red-700">
                     {ptps.filter(p => p.status === "broken").length}
                   </p>
                 </div>
@@ -2562,34 +2566,31 @@ const renderSmsTab = () => {
   }
 
   return (
-    <div className="p-4 h-screen flex flex-col">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-slate-50">
       {/* Header with Back Button */}
-      <div className="mb-2 flex-shrink-0">
+      <div className="mb-4 flex-shrink-0">
         <button
           onClick={handleBack}
-          className="flex items-center text-sm text-gray-600 hover:text-gray-900 mb-4"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all duration-200 bg-white rounded-xl border border-brand-surface shadow-sm hover:shadow-md group"
         >
-          <ArrowLeftIcon className="h-4 w-4 mr-2" />
+          <ArrowLeftIcon className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back to Customers
         </button>
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-4 flex-shrink-0">
-        <nav className="flex space-x-1 overflow-x-auto" aria-label="Tabs">
+      <div className="border-b border-gray-200 mb-6 flex-shrink-0 bg-white rounded-t-xl overflow-x-auto no-scrollbar">
+        <nav className="flex flex-nowrap w-full p-1" aria-label="Tabs">
           {tabs.map((tab) => {
-            const Icon = tab.icon;
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center px-3 py-2 text-xs font-medium border-b-2 whitespace-nowrap transition ${
-                  activeTab === tab.id
-                    ? "border-indigo-600 text-indigo-600"
-                    : "border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300"
-                }`}
+                className={`flex-1 flex items-center justify-center px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 whitespace-nowrap transition-all duration-300 rounded-lg ${activeTab === tab.id
+                  ? "border-brand-primary text-brand-primary bg-brand-surface/30 shadow-sm"
+                  : "border-transparent text-black hover:bg-slate-50 hover:text-brand-secondary"
+                  }`}
               >
-                <Icon className="h-4 w-4 mr-1.5" />
                 {tab.name}
               </button>
             );

@@ -2,18 +2,20 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
+import { useAuth } from "../../hooks/userAuth";
 
 function NewJournalEntry() {
   const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [glAccounts, setGLAccounts] = useState([]);
-  
+
   const [journalType, setJournalType] = useState("Credit Customer Account");
   const [accountType, setAccountType] = useState("Customer Account");
   const [selectedAccount, setSelectedAccount] = useState("");
   const [amount, setAmount] = useState("");
   const [accountName, setAccountName] = useState("");
   const [description, setDescription] = useState("");
+  const { profile } = useAuth();
 
   useEffect(() => {
     fetchCustomers();
@@ -24,6 +26,7 @@ function NewJournalEntry() {
     const { data } = await supabase
       .from("customers")
       .select("id, full_name, account_number")
+      .eq("tenant_id", profile?.tenant_id)
       .order("full_name");
     if (data) setCustomers(data);
   };
@@ -32,6 +35,7 @@ function NewJournalEntry() {
     const { data } = await supabase
       .from("gl_accounts")
       .select("id, account_code, account_name")
+      .eq("tenant_id", profile?.tenant_id)
       .order("account_code");
     if (data) setGLAccounts(data);
   };
@@ -42,9 +46,10 @@ function NewJournalEntry() {
       return;
     }
 
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    if (!selectedAccount || !amount || !accountName) {
+      alert("Please fill in all required fields.");
+      return;
+    }
 
     const { error } = await supabase.from("journals").insert([
       {
@@ -54,7 +59,8 @@ function NewJournalEntry() {
         amount: parseFloat(amount),
         account_name: accountName,
         description,
-        created_by: user.id,
+        created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
         status: "Posted",
       },
     ]);

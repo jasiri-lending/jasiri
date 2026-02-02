@@ -1467,6 +1467,7 @@ const CustomerDraft = () => {
         created_by: profile?.id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
+        tenant_id: profile?.tenant_id,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -1569,6 +1570,7 @@ const CustomerDraft = () => {
             created_by: profile?.id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
+            tenant_id: profile?.tenant_id,
             created_at: new Date().toISOString(),
           }]).select("id").single()
         );
