@@ -470,12 +470,12 @@ export default function LoanProducts() {
 
         {/* Products List */}
         {products.length === 0 ? (
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
+          <div className="bg-brand-surface rounded-2xl shadow-sm border border-gray-100 p-16 text-center">
             <div className="max-w-xs mx-auto">
               <div className="w-20 h-20 bg-blue-50 rounded-full flex items-center justify-center mx-auto mb-6">
                 <BanknotesIcon className="w-10 h-10 text-brand-primary" />
               </div>
-              <h3 className="text-xl font-heading font-bold text-gray-900 mb-2">
+              <h3 className="text-sm font-heading font-bold text-gray-900 mb-2">
                 No Products Defined
               </h3>
               <p className="text-gray-500 mb-8 leading-relaxed">
@@ -507,20 +507,20 @@ export default function LoanProducts() {
                       <BanknotesIcon className="w-6 h-6" />
                     </div>
                     <div>
-                      <h2 className="text-xl font-heading font-bold text-gray-900">
+                      <h2 className="text-sm  font-bold text-brand-primary">
                         {product.product_name}
                       </h2>
                       <div className="flex gap-4 text-sm mt-1">
                         <span className="text-gray-500">
                           Min:{" "}
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-green-600">
                             {Number(product.min_amount).toLocaleString()}
                           </span>
                         </span>
                         <span className="text-gray-300">|</span>
                         <span className="text-gray-500">
                           Max:{" "}
-                          <span className="font-medium text-gray-900">
+                          <span className="font-medium text-green-600">
                             {product.max_amount
                               ? Number(product.max_amount).toLocaleString()
                               : "Unlimited"}
@@ -588,7 +588,7 @@ export default function LoanProducts() {
                           </div>
 
                           <div className="mb-3">
-                            <h4 className="font-bold text-gray-900">
+                            <h4 className="font-semibold text-gray-600">
                               {type.product_type}
                             </h4>
                             <div className="flex items-center gap-1.5 text-xs text-gray-500 mt-1">
@@ -780,7 +780,7 @@ export default function LoanProducts() {
         {/* Type Modal */}
         {showTypeModal && selectedProduct && (
           <div className="fixed inset-0 bg-gray-900/60 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-opacity">
-            <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100">
+            <div className="bg-brand-surface rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden transform transition-all scale-100">
               <div className="px-6 py-4 bg-gray-50 border-b border-gray-100 flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-heading font-bold text-gray-900">

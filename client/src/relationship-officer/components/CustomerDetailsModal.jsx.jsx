@@ -220,7 +220,7 @@ const CustomerDetailsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-brand-surface">
       {/* Header */}
 
 
@@ -238,13 +238,13 @@ const CustomerDetailsPage = () => {
                 className="flex items-center text-gray-600 hover:text-gray-900 gap-2 px-2 py-1 rounded-lg hover:bg-gray-50 transition"
               >
                 <ArrowLeftIcon className="h-5 w-5" />
-                <span className="text-sm font-medium">Back to Customers </span>
+                <span className="text-sm font-medium text-brand-primary">Back to Customers </span>
               </button>
             </div>
 
             <div className="p-8">
               <div className="border-b border-gray-200 pb-6 mb-2">
-                <h2 className=" text-lg flex items-center font-bold text-text">
+                <h2 className=" text-lg flex items-center font-bold text-slate-600">
                   <UserCircleIcon className="h-8 w-8 text-brand-primary mr-3" />
                   Customer Information
                 </h2>
@@ -901,12 +901,12 @@ const CustomerDetailsPage = () => {
         >
           <div className="relative max-w-4xl max-h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
             {/* Modal Header */}
-            <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-white">
+            <div className="bg-brand-surface px-6 py-4 text-slate-600 border-b">
               <div className="flex items-center justify-between">
                 <h3 className="text-lg font-semibold">{selectedImage.title}</h3>
                 <button
                   onClick={() => setSelectedImage(null)}
-                  className="text-white hover:text-gray-200 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
+                  className="text-slate-600 hover:text-gray-400 transition-colors p-1 rounded-full hover:bg-white hover:bg-opacity-20"
                 >
                   <XCircleIcon className="h-8 w-8" />
                 </button>
