@@ -107,6 +107,7 @@ import Verification from "./pages/registry/Verification.jsx";
 import ViewLoan from "./pages/loaning/ViewLoan.jsx";
 import LoanInteraction from "./pages/loaning/LoanInteraction.jsx";
 import ChangePassword from "./pages/ChangePassword.jsx";
+import LoanProducts from "./pages/loaning/LoanProducts.jsx";
 
 import { ToastProvider } from "./components/Toast";
 import ViewDisbursedLoan from "./pages/loaning/ViewDisbursedLoan.jsx";
@@ -785,6 +786,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <AllLoans userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/loaning/products"
+                      element={
+                        <ProtectedRoute>
+                          <LoanProducts userRole={role} />
                         </ProtectedRoute>
                       }
                     />

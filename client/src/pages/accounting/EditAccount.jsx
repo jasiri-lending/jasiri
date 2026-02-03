@@ -2,85 +2,90 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
+import { useToast } from "../../components/Toast";
 
 export default function EditAccount() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { success, error: toastError, warning } = useToast();
   const [form, setForm] = useState(null);
-  const [headerAccounts, setHeaderAccounts] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadAccount = async () => {
-    const { data } = await supabase
-      .from("chart_of_accounts")
-      .select("*")
-      .eq("id", id)
-      .single();
+    try {
+      const { data, error } = await supabase
+        .from("chart_of_accounts")
+        .select("*")
+        .eq("id", id)
+        .single();
 
-    setForm(data);
-  };
-
-  const loadHeaderAccounts = async (accountType) => {
-    if (!accountType) return;
-
-    const { data } = await supabase
-      .from("chart_of_accounts")
-      .select("*")
-      .eq("account_type", accountType)
-      .eq("account_category", "Header Account")
-      .neq("id", id); // Exclude current account
-
-    setHeaderAccounts(data || []);
+      if (error) throw error;
+      setForm(data);
+    } catch (err) {
+      console.error("Error loading account:", err);
+      toastError("Failed to load account details.");
+    }
   };
 
   useEffect(() => {
     loadAccount();
-  }, []);
+  }, [id]);
 
-  useEffect(() => {
-    if (form?.account_type) {
-      loadHeaderAccounts(form.account_type);
+  const saveChanges = async (e) => {
+    e.preventDefault();
+
+    // Code is now optional, deleted parent_id logic
+    if (!form.account_name || !form.account_type || !form.account_category) {
+      warning("Please fill in all required fields.");
+      return;
     }
-  }, [form?.account_type]);
+
+    setIsSubmitting(true);
+
+    try {
+      const { error } = await supabase
+        .from("chart_of_accounts")
+        .update({
+          account_name: form.account_name,
+          account_type: form.account_type,
+          account_category: form.account_category,
+          code: form.code, // Optional
+          status: form.status
+        })
+        .eq("id", id);
+
+      if (error) throw error;
+
+      success("Account updated successfully!");
+      navigate("/accounting/chart-of-accounts");
+    } catch (err) {
+      console.error("Error updating account:", err);
+      toastError(err.message || "Failed to update account.");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   if (!form) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen">
-        <div className="flex items-center justify-center h-64">
-          <p className="text-xs text-gray-500">Loading account details...</p>
+      <div className="p-6 bg-gray-50 min-h-screen font-body flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
+          <p className="mt-2 text-xs text-gray-500">Loading account details...</p>
         </div>
       </div>
     );
   }
 
-  const saveChanges = async () => {
-    if (!form.account_name || !form.account_type || !form.account_category || !form.code) {
-      alert("Please fill in all required fields.");
-      return;
-    }
-
-    const { error } = await supabase
-      .from("chart_of_accounts")
-      .update(form)
-      .eq("id", id);
-
-    if (error) {
-      alert("Failed to update account.");
-      console.log(error);
-    } else {
-      alert("Account updated successfully!");
-      navigate("/chart-of-accounts");
-    }
-  };
-
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-gray-50 min-h-screen font-body">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Accounting / Chart of Accounts / Edit Account
       </h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl">
         <div className="p-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-6">
+          <h2 className="text-sm font-semibold text-gray-800 mb-6 font-heading">
             Edit Account
           </h2>
 
@@ -92,9 +97,9 @@ export default function EditAccount() {
                   Account Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   placeholder="Enter account name"
-                  value={form.account_name}
+                  value={form.account_name || ""}
                   onChange={(e) =>
                     setForm({ ...form, account_name: e.target.value })
                   }
@@ -107,16 +112,16 @@ export default function EditAccount() {
                   Account Type <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  value={form.account_type}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                  value={form.account_type || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       account_type: e.target.value,
-                      parent_id: null,
                     })
                   }
                 >
+                  <option value="">Select Type</option>
                   <option value="ASSET">Asset</option>
                   <option value="LIABILITY">Liability</option>
                   <option value="EQUITY">Equity</option>
@@ -131,62 +136,32 @@ export default function EditAccount() {
                   Account Category <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  value={form.account_category}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                  value={form.account_category || ""}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       account_category: e.target.value,
-                      parent_id: null,
                     })
                   }
                 >
+                  <option value="">Select Category</option>
                   <option value="Header Account">Header Account</option>
                   <option value="Detail Account">Detail Account</option>
                 </select>
               </div>
 
-              {/* Parent Account (only for Detail Accounts) */}
-              {form.account_category === "Detail Account" && (
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                    Parent Account (Header)
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                    value={form.parent_id || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, parent_id: Number(e.target.value) || null })
-                    }
-                  >
-                    <option value="">Select Parent (Optional)</option>
-                    {headerAccounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.code} - {acc.account_name}
-                      </option>
-                    ))}
-                  </select>
-                  {headerAccounts.length === 0 && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      No header accounts available for this type.
-                    </p>
-                  )}
-                </div>
-              )}
-
               {/* Code */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Account Code <span className="text-red-500">*</span>
+                  Account Code <span className="text-gray-400 font-normal">(Optional)</span>
                 </label>
                 <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   placeholder="Enter code"
                   type="text"
-                  value={form.code}
-                  onChange={(e) =>
-                    setForm({ ...form, code: e.target.value })
-                  }
+                  value={form.code || ""}
+                  onChange={(e) => setForm({ ...form, code: e.target.value })}
                 />
               </div>
 
@@ -196,7 +171,7 @@ export default function EditAccount() {
                   Status
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   value={form.status || "Active"}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                 >
@@ -209,29 +184,27 @@ export default function EditAccount() {
         </div>
 
         {/* FOOTER WITH BUTTONS */}
-        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50">
+        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50 rounded-b-lg">
           <button
             onClick={() => navigate(-1)}
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
           >
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={16} /> Back
           </button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
             >
-              <X size={14} /> Cancel
+              <X size={16} /> Cancel
             </button>
             <button
               onClick={saveChanges}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
-              style={{ backgroundColor: "#586ab1" }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#4a5a9d"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#586ab1"}
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
             >
-              <Save size={14} /> Update Account
+              <Save size={16} /> {isSubmitting ? "Saving..." : "Update Account"}
             </button>
           </div>
         </div>

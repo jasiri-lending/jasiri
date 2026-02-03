@@ -427,7 +427,7 @@ const fetchGuarantors = async () => {
   }
 
   return (
-  <div className="p-6 max-w-7xl mx-auto">
+  <div className="p-6 max-w-7xl mx-auto bg-brand-surface min-h-screen">
   <div className="mb-6">
     <div className="flex justify-between items-start">
       <div>

@@ -1,72 +1,77 @@
+
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
+import { useToast } from "../../components/Toast";
+import { getNextCode } from "../../utils/accountingUtils";
 
 export default function NewAccount() {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const [headerAccounts, setHeaderAccounts] = useState([]);
+  const { success, error: toastError, warning } = useToast();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [form, setForm] = useState({
     account_name: "",
     account_type: "",
     account_category: "",
-    parent_id: null,
     code: "",
     status: "Active",
   });
 
-  // Load header accounts when account_type changes
+  // Auto-generate code when account_type changes
   useEffect(() => {
-    const loadHeaderAccounts = async () => {
-      if (!form.account_type) return;
-
-      const { data } = await supabase
-        .from("chart_of_accounts")
-        .select("*")
-        .eq("account_type", form.account_type)
-        .eq("account_category", "Header Account")
-        .eq("tenant_id", profile?.tenant_id);
-
-      setHeaderAccounts(data || []);
+    const fetchCode = async () => {
+      if (form.account_type && profile?.tenant_id) {
+        const nextCode = await getNextCode(form.account_type, profile.tenant_id);
+        if (nextCode) {
+          setForm(prev => ({ ...prev, code: nextCode }));
+        }
+      }
     };
 
-    loadHeaderAccounts();
-  }, [form.account_type]);
+    fetchCode();
+  }, [form.account_type, profile?.tenant_id]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    if (!form.account_name || !form.account_type || !form.account_category || !form.code) {
-      alert("Please fill in all required fields.");
+    if (!form.account_name || !form.account_type || !form.account_category) {
+      warning("Please fill in all required fields.");
       return;
     }
 
-    const { error } = await supabase.from("chart_of_accounts").insert([{
-      ...form,
-      tenant_id: profile?.tenant_id
-    }]);
+    setIsSubmitting(true);
 
-    if (error) {
-      alert("Failed to create account.");
-      console.log(error);
-    } else {
-      alert("Account created successfully!");
-      navigate("/chart-of-accounts");
+    try {
+      const { error } = await supabase.from("chart_of_accounts").insert([{
+        ...form,
+        tenant_id: profile?.tenant_id
+      }]);
+
+      if (error) throw error;
+
+      success("Account created successfully!");
+      navigate("/accounting/chart-of-accounts");
+    } catch (err) {
+      console.error("Error creating account:", err);
+      toastError(err.message || "Failed to create account.");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+    <div className="p-6 bg-brand-surface min-h-screen">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-body">
         Accounting / Chart of Accounts / New Account
       </h1>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl font-body">
         <div className="p-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-6">
+          <h2 className="text-sm font-semibold text-gray-800 mb-6 font-heading">
             Create New Account
           </h2>
 
@@ -78,7 +83,7 @@ export default function NewAccount() {
                   Account Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   placeholder="Enter account name"
                   value={form.account_name}
                   onChange={(e) =>
@@ -93,13 +98,12 @@ export default function NewAccount() {
                   Account Type <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   value={form.account_type}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       account_type: e.target.value,
-                      parent_id: null,
                     })
                   }
                 >
@@ -118,13 +122,12 @@ export default function NewAccount() {
                   Account Category <span className="text-red-500">*</span>
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   value={form.account_category}
                   onChange={(e) =>
                     setForm({
                       ...form,
                       account_category: e.target.value,
-                      parent_id: null,
                     })
                   }
                 >
@@ -134,42 +137,14 @@ export default function NewAccount() {
                 </select>
               </div>
 
-              {/* Parent Account (only for Detail Accounts) */}
-              {form.account_category === "Detail Account" && (
-                <div className="col-span-2">
-                  <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                    Parent Account (Header)
-                  </label>
-                  <select
-                    className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                    value={form.parent_id || ""}
-                    onChange={(e) =>
-                      setForm({ ...form, parent_id: Number(e.target.value) || null })
-                    }
-                  >
-                    <option value="">Select Parent (Optional)</option>
-                    {headerAccounts.map((acc) => (
-                      <option key={acc.id} value={acc.id}>
-                        {acc.code} - {acc.account_name}
-                      </option>
-                    ))}
-                  </select>
-                  {headerAccounts.length === 0 && form.account_type && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      No header accounts available for this type. Create a header account first.
-                    </p>
-                  )}
-                </div>
-              )}
-
               {/* Code */}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Account Code <span className="text-red-500">*</span>
+                  Account Code <span className="text-gray-400 font-normal">(Auto-generated)</span>
                 </label>
                 <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  placeholder="Enter code"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors bg-gray-50"
+                  placeholder="Auto-generated"
                   type="text"
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value })}
@@ -182,7 +157,7 @@ export default function NewAccount() {
                   Status
                 </label>
                 <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
                   value={form.status}
                   onChange={(e) => setForm({ ...form, status: e.target.value })}
                 >
@@ -195,29 +170,27 @@ export default function NewAccount() {
         </div>
 
         {/* FOOTER WITH BUTTONS */}
-        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50">
+        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50 rounded-b-lg">
           <button
             onClick={() => navigate(-1)}
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
           >
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={16} /> Back
           </button>
 
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
             >
-              <X size={14} /> Cancel
+              <X size={16} /> Cancel
             </button>
             <button
               onClick={handleSubmit}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
-              style={{ backgroundColor: "#586ab1" }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#4a5a9d"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#586ab1"}
+              disabled={isSubmitting}
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
             >
-              <Save size={14} /> Save Account
+              <Save size={16} /> {isSubmitting ? "Saving..." : "Save Account"}
             </button>
           </div>
         </div>

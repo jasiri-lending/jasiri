@@ -16,6 +16,7 @@ import mpesaConfigRouter from "./routes/mpesa_configure.js";
 import Authrouter from "./routes/auth.js";
 import AvatarRouter from "./routes/avator.js";
 import deleteUserRouter from "./routes/deleteUser.js";
+import loanProductsRouter from "./routes/loanProducts.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -86,6 +87,7 @@ app.use("/api", mpesaConfigRouter);
 app.use("/api", AvatarRouter);
 app.use("/api", Authrouter);
 app.use("/api/admin", deleteUserRouter);
+app.use("/api/loan-products", loanProductsRouter);
 
 // Create user endpoint
 app.post("/create-user", async (req, res) => {

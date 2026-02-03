@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/userAuth";
 import { useGlobalLoading } from "../hooks/LoadingContext";
 import { useToast } from "../components/Toast.jsx";
@@ -128,7 +127,6 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { loading, setLoading } = useGlobalLoading();
-  const navigate = useNavigate();
   const { setUser, setProfile } = useAuth();
   const toast = useToast();
   const currentYear = new Date().getFullYear();
@@ -239,7 +237,6 @@ export default function Login() {
 
       // ✅ Store tenant if present
       if (profileResponse.tenant) {
-        console.log("✅ Storing tenant data:", profileResponse.tenant);
         localStorage.setItem("tenant", JSON.stringify(profileResponse.tenant));
       }
 
@@ -261,10 +258,7 @@ export default function Login() {
         role: normalizedProfile.role
       };
 
-      console.log("🔍 [LOGIN] Setting auth context:");
-      console.log("- User object:", userObj);
-      console.log("- Profile object:", normalizedProfile);
-      console.log("- Tenant:", profileResponse.tenant?.company_name || "none");
+     
 
       // Set both user and profile
       setUser(userObj);
@@ -279,13 +273,11 @@ export default function Login() {
       await new Promise(resolve => setTimeout(resolve, 100));
 
       // Direct navigation
-      console.log("🔍 [LOGIN] Redirecting based on role:", normalizedProfile.role);
 
       if (["superadmin", "admin"].includes(normalizedProfile.role)) {
         console.log("Redirecting to /dashboard/admin");
         window.location.href = "/dashboard/admin";
       } else {
-        console.log("Redirecting to /dashboard");
         window.location.href = "/dashboard";
       }
 
@@ -312,7 +304,6 @@ export default function Login() {
 
       toast.success(`Reset code sent to ${email}. Check your inbox!`);
       setStep(4); // Go to reset password step
-      console.log("Forgot password email sent.");
     } catch (err) {
       console.error("Forgot password error:", err);
       toast.error(err.message || "Failed to process request");
@@ -466,7 +457,7 @@ export default function Login() {
             {step === 1 ? (
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Email Address</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -484,7 +475,7 @@ export default function Login() {
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                  <label className="block text-sm font-medium text-gray-600 mb-2">Password</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                       <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -557,9 +548,7 @@ export default function Login() {
             ) : step === 3 ? (
               <div className="space-y-5">
                 <div>
-                  <p className="text-sm text-gray-600 mb-6">
-                    Enter your email address and we'll send you a code to reset your password.
-                  </p>
+                 
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -722,16 +711,7 @@ export default function Login() {
             </div>
           </form>
 
-          {step === 1 && (
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-center text-sm text-gray-600">
-                Don't have an account?{" "}
-                <a href="/signup" className="font-semibold text-[#586ab1] hover:text-[#46528a]">
-                  Sign up now
-                </a>
-              </p>
-            </div>
-          )}
+        
 
           <div className="mt-6 text-center text-xs text-gray-500">
             © {currentYear} Jasiri Lending Software. All rights reserved.

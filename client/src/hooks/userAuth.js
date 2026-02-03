@@ -33,12 +33,7 @@ export function useAuth() {
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
 
-  console.log("🔍 [AUTH HOOK] Current state:", {
-    user: user?.email || "null",
-    profile: profile?.email || "null",
-    tenant: tenant?.company_name || "null",
-    initializing
-  });
+ 
 
   // Helper function to check if session has expired
   const isSessionExpired = () => {
@@ -48,11 +43,7 @@ export function useAuth() {
     const now = new Date();
     const expiryTime = new Date(sessionExpiresAt);
 
-    console.log("🕒 [AUTH HOOK] Session expiry check:", {
-      now: now.toISOString(),
-      expiresAt: expiryTime.toISOString(),
-      expired: expiryTime < now
-    });
+   
 
     return expiryTime < now;
   };
@@ -66,9 +57,7 @@ export function useAuth() {
     const now = new Date().getTime();
     const timeUntilExpiry = expiryTime - now;
 
-    console.log("⏰ [AUTH HOOK] Setting up auto-logout timer:", {
-      timeUntilExpiry: timeUntilExpiry / 1000 + " seconds"
-    });
+   
 
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
@@ -76,11 +65,9 @@ export function useAuth() {
 
     if (timeUntilExpiry > 0) {
       logoutTimerRef.current = setTimeout(() => {
-        console.log("🔐 [AUTH HOOK] Session expired, logging out...");
         logout();
       }, timeUntilExpiry);
     } else {
-      console.log("🔐 [AUTH HOOK] Session already expired");
       logout();
     }
   };
@@ -88,12 +75,10 @@ export function useAuth() {
   // Enhanced logout function
   const logout = useCallback(async () => {
     if (logoutCalledRef.current) {
-      console.log("⚠️ [AUTH HOOK] Logout already in progress");
       return;
     }
 
     logoutCalledRef.current = true;
-    console.log("🚪 [AUTH HOOK] Logging out...");
 
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
@@ -117,9 +102,9 @@ export function useAuth() {
             signal: controller.signal
           }).catch(error => {
             if (error.name === 'AbortError') {
-              console.warn("⚠️ [AUTH HOOK] Logout request timed out");
+              console.warn(" Logout request timed out");
             } else {
-              console.warn("⚠️ [AUTH HOOK] Could not clear server session:", error.message);
+              console.warn(" Could not clear server session:", error.message);
             }
           });
 
@@ -150,10 +135,10 @@ export function useAuth() {
       }, 1000);
 
       if (window.location.pathname !== "/login") {
-        console.log("🔐 [AUTH HOOK] Redirecting to login...");
+        console.log("Redirecting to login...");
         window.location.href = "/login";
       } else {
-        console.log("✅ [AUTH HOOK] Already on login page");
+        console.log(" Already on login page");
       }
     }
   }, []);
@@ -173,7 +158,6 @@ export function useAuth() {
         return null;
       }
 
-      console.log("✅ [AUTH HOOK] Fetched tenant:", data.company_name);
       localStorage.setItem("tenant", JSON.stringify(data));
       setTenant(data);
       return data;
@@ -185,11 +169,9 @@ export function useAuth() {
 
   // Fetch profile with correct region logic
   const fetchProfile = useCallback(async (userId) => {
-    console.log("\n🔍 [AUTH HOOK] ========== fetchProfile START ==========");
-    console.log("🔍 [AUTH HOOK] userId:", userId);
+ 
 
     if (isSessionExpired()) {
-      console.log("❌ [AUTH HOOK] Session expired, logging out...");
       logout();
       return;
     }
@@ -205,21 +187,15 @@ export function useAuth() {
         .single();
 
       if (userError) {
-        console.error("❌ [AUTH HOOK] User fetch error:", userError);
         throw userError;
       }
 
       if (userData?.session_expires_at && new Date(userData.session_expires_at) < new Date()) {
-        console.log("❌ [AUTH HOOK] Database session expired");
         logout();
         return;
       }
 
-      console.log("✅ [AUTH HOOK] User data fetched:", {
-        email: userData.email,
-        role: userData.role,
-        tenant_id: userData.tenant_id
-      });
+   
 
       // For superadmin and tenant admin, they don't need branch/region
       const isAdminUser = ["superadmin", "admin"].includes(userData.role);
@@ -228,16 +204,15 @@ export function useAuth() {
         await fetchTenantData(userData.tenant_id);
 
         // DEBUG: Fetch and log all regions for this tenant as requested
-        console.log(`🔍 [AUTH HOOK DEBUG] Fetching ALL regions for tenant: ${userData.tenant_id}`);
         const { data: tenantRegions, error: trError } = await supabase
           .from('regions')
           .select('*')
           .eq('tenant_id', userData.tenant_id);
 
         if (trError) {
-          console.error('❌ [AUTH HOOK DEBUG] Error fetching tenant regions:', trError);
+          console.error('Error fetching :', trError);
         } else {
-          console.log(`✅ [AUTH HOOK DEBUG] Found ${tenantRegions?.length || 0} regions for tenant ${userData.tenant_id}:`, tenantRegions);
+          console.log(`[ Found ${tenantRegions?.length || 0} regions for tenant ${userData.tenant_id}:`, tenantRegions);
         }
       }
 
@@ -249,7 +224,6 @@ export function useAuth() {
       let branchCode = null;
       let regionName = "N/A";
 
-      // Fetch profile data for ALL users (including admins) to ensure we get region/branch info if available
       // if (!isAdminUser) {
       if (true) {
         // Fetch profile data
@@ -263,17 +237,11 @@ export function useAuth() {
           console.warn("⚠️ [AUTH HOOK] Profile fetch error:", profileError);
         } else {
           profileData = profileResult;
-          console.log("📋 [AUTH HOOK] Profile data:", {
-            exists: !!profileData,
-            avatar_url: profileData?.avatar_url || 'null',
-            branch_id: profileData?.branch_id || 'null',
-            region_id: profileData?.region_id || 'null'
-          });
+         
         }
 
         // Fetch branch data if branch_id exists
         if (profileData?.branch_id) {
-          console.log(`🏢 [AUTH HOOK] Fetching branch: ${profileData.branch_id}`);
 
           const { data: branch } = await supabase
             .from("branches")
@@ -282,12 +250,7 @@ export function useAuth() {
             .maybeSingle();
 
           branchData = branch;
-          console.log("🏢 [AUTH HOOK] Branch data:", {
-            found: !!branch,
-            name: branch?.name || 'null',
-            code: branch?.code || 'null',
-            region_id: branch?.region_id || 'null'
-          });
+       
 
           if (branchData) {
             branchName = branchData.name;
@@ -295,7 +258,6 @@ export function useAuth() {
 
             // Fetch region from branch's region_id
             if (branchData.region_id) {
-              console.log(`🌍 [AUTH HOOK] Fetching region from branch: ${branchData.region_id}`);
 
               const { data: region } = await supabase
                 .from("regions")
@@ -306,7 +268,6 @@ export function useAuth() {
               if (region) {
                 regionData = region;
                 regionName = region.name;
-                console.log(`✅ [AUTH HOOK] Region from branch: ${regionName}`);
               }
             }
           }
@@ -314,7 +275,6 @@ export function useAuth() {
 
         // If still no region, try to fetch from profile's region_id
         if (!regionData && profileData?.region_id) {
-          console.log(`🌍 [AUTH HOOK] Fetching region from profile: ${profileData.region_id}`);
 
           const { data: region } = await supabase
             .from("regions")
@@ -325,7 +285,6 @@ export function useAuth() {
           if (region) {
             regionData = region;
             regionName = region.name;
-            console.log(`✅ [AUTH HOOK] Region from profile: ${regionName}`);
           }
         }
       }
@@ -350,13 +309,7 @@ export function useAuth() {
         session_expires_at: userData?.session_expires_at || null
       };
 
-      console.log("🖼️ [AUTH HOOK] User profile:", {
-        name: profileObj.full_name,
-        role: profileObj.role,
-        branch: profileObj.branch,
-        region: profileObj.region,
-        isAdmin: isAdminUser
-      });
+     
 
       setProfile(profileObj);
       setUser(userData); // Set user state so auth checks pass
@@ -368,7 +321,6 @@ export function useAuth() {
         setupAutoLogout();
       }
 
-      console.log("✅ [AUTH HOOK] ========== fetchProfile COMPLETE ==========\n");
 
     } catch (err) {
       console.error("💥 [AUTH HOOK] Auth loading error:", err);
@@ -381,10 +333,8 @@ export function useAuth() {
   }, [fetchTenantData, setGlobalLoading, logout]);
 
   useEffect(() => {
-    console.log("🔍 [AUTH HOOK] useEffect running");
 
     if (isSessionExpired()) {
-      console.log("❌ [AUTH HOOK] Session expired on mount, logging out...");
       logout();
       return;
     }
@@ -393,16 +343,13 @@ export function useAuth() {
     const customUserId = localStorage.getItem("userId");
 
     if (customSessionToken && customUserId) {
-      console.log("✅ [AUTH HOOK] Found custom session, fetching fresh data");
       fetchProfile(customUserId);
       setupAutoLogout();
       return;
     }
 
-    console.log("🔍 [AUTH HOOK] No custom session, checking Supabase...");
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      console.log("🔍 [AUTH HOOK] Supabase session check:", session?.user?.email || "no session");
       if (session?.user) {
         setUser(session.user);
         fetchProfile(session.user.id);
@@ -416,7 +363,6 @@ export function useAuth() {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log("🔍 [AUTH HOOK] Supabase auth state change:", event, session?.user?.email || "no session");
 
         if (session?.user) {
           setUser(session.user);
@@ -447,7 +393,6 @@ export function useAuth() {
   const refreshProfile = async () => {
     const userId = user?.id || localStorage.getItem("userId");
     if (userId) {
-      console.log("🔄 [AUTH HOOK] Manually refreshing profile");
       await fetchProfile(userId);
     }
   };

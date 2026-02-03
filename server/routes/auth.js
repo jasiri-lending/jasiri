@@ -75,7 +75,7 @@ Authrouter.post("/login", async (req, res) => {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationExpiresAt = addMinutesToNow(5); // 10 minutes from now
     const sessionToken = crypto.randomBytes(32).toString("hex");
-    const sessionExpiresAt = addMinutesToNow(360); // 30 minutes from now
+    const sessionExpiresAt = addMinutesToNow(3600); // 30 minutes from now
 
     console.log(`Generated code for ${email}:`, {
       code: verificationCode,
