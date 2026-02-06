@@ -1,1095 +1,935 @@
 // OperationsDashboard.jsx
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from "../../supabaseClient";
 import {
-  FileText, Clock, CheckCircle, DollarSign, XCircle,
-  Users, AlertTriangle, FileCheck, TrendingUp, BarChart2,
-  Building, UserCircle, Calendar, Filter, RefreshCw,
-  ChevronRight, Loader, Search, Eye, Shield, UserPlus,
-  FileWarning, AlertCircle, TrendingDown, Briefcase, 
-  Database, Target, BarChart3, CalendarCheck, Receipt,
-  CreditCard, PhoneCall
+  Users, DollarSign, FileText, AlertTriangle, TrendingUp, BarChart2,
+  Briefcase, Activity, Calendar, Phone, ShieldCheck, RefreshCw,
+  Home, Building, UserCircle
 } from 'lucide-react';
 
-// Skeleton Loader Components
-const SkeletonCard = () => (
-  <div className="animate-pulse bg-white rounded-xl p-6 shadow-lg border border-gray-200">
-    <div className="flex items-center justify-between mb-4">
-      <div className="h-4 bg-gray-200 rounded w-1/3"></div>
-      <div className="h-8 bg-gray-200 rounded w-12"></div>
-    </div>
-    <div className="h-6 bg-gray-200 rounded w-1/2 mb-2"></div>
-    <div className="h-3 bg-gray-200 rounded w-2/3"></div>
-  </div>
-);
-
-const StatCardSkeleton = () => (
-  <div className="animate-pulse bg-white rounded-xl p-5 shadow-lg border border-gray-200">
-    <div className="flex items-center gap-3">
-      <div className="h-10 w-10 bg-gray-200 rounded-lg"></div>
-      <div className="flex-1">
-        <div className="h-8 bg-gray-200 rounded w-1/3 mb-2"></div>
-        <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-      </div>
-    </div>
-  </div>
-);
-
-// Reusable Components
-const StatCard = ({ 
-  icon: Icon, 
-  label, 
-  value, 
-  change, 
-  color = 'primary',
-  loading = false,
-  onClick
-}) => {
-  if (loading) return <StatCardSkeleton />;
-  
-  const getColorClasses = () => {
-    const colorMap = {
-      primary: {
-        bg: 'bg-brand-primary',
-        text: 'text-brand-primary',
-        border: 'border-brand-primary',
-        iconBg: 'bg-brand-primary/10'
-      },
-      success: {
-        bg: 'bg-accent',
-        text: 'text-accent',
-        border: 'border-accent',
-        iconBg: 'bg-accent/10'
-      },
-      warning: {
-        bg: 'bg-highlight',
-        text: 'text-highlight',
-        border: 'border-highlight',
-        iconBg: 'bg-highlight/10'
-      },
-      danger: {
-        bg: 'bg-red-500',
-        text: 'text-red-500',
-        border: 'border-red-500',
-        iconBg: 'bg-red-500/10'
-      }
-    };
-    return colorMap[color] || colorMap.primary;
-  };
-  
-  const colors = getColorClasses();
-  
-  return (
-    <div 
-      onClick={onClick}
-      className={`${colors.bg} rounded-xl p-5 shadow-lg border-2 border-transparent hover:shadow-xl transition-all duration-300 cursor-pointer hover:border-opacity-30 hover:${colors.border} transform hover:-translate-y-1`}
-    >
-      <div className="flex items-center justify-between mb-3">
-        <div className={`p-3 rounded-xl bg-white/20`}>
-          <Icon className="w-5 h-5 text-white" />
-        </div>
-        {change !== undefined && (
-          <div className={`text-xs px-3 py-1 rounded-full font-medium bg-white/20 text-white border border-white/30`}>
-            {change > 0 ? '↑' : change < 0 ? '↓' : '→'} {Math.abs(change)}%
-          </div>
-        )}
-      </div>
-      
-      <div className="space-y-1">
-        <div className="text-2xl font-bold text-white">
-          {value}
-        </div>
-        <div className="text-sm text-white/90">
-          {label}
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ChartCard = ({ title, subtitle, children, loading = false, className = '' }) => {
-  if (loading) return <SkeletonCard />;
-  
-  return (
-    <div className={`bg-white rounded-xl p-6 shadow-lg border border-gray-200 ${className}`}>
-      <div className="mb-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-text">
-              {title}
-            </h3>
-            {subtitle && (
-              <p className="text-sm mt-1 text-muted">
-                {subtitle}
-              </p>
-            )}
-          </div>
-        </div>
-      </div>
-      {children}
-    </div>
-  );
-};
-
-const AlertCard = ({ 
-  type = 'warning', 
-  title, 
-  description, 
-  count,
-  actionLabel = 'View',
-  onAction
-}) => {
-  const config = {
-    warning: {
-      bg: 'bg-amber-50',
-      border: 'border-amber-200',
-      icon: AlertTriangle,
-      iconColor: 'text-amber-600',
-      text: 'text-amber-800',
-      countBg: 'bg-amber-100'
-    },
-    danger: {
-      bg: 'bg-red-50',
-      border: 'border-red-200',
-      icon: AlertCircle,
-      iconColor: 'text-red-600',
-      text: 'text-red-800',
-      countBg: 'bg-red-100'
-    },
-    info: {
-      bg: 'bg-blue-50',
-      border: 'border-blue-200',
-      icon: FileWarning,
-      iconColor: 'text-brand-primary',
-      text: 'text-blue-800',
-      countBg: 'bg-brand-surface'
-    }
-  }[type];
-
-  const Icon = config.icon;
-
-  return (
-    <div className={`${config.bg} border ${config.border} rounded-lg p-4 hover:shadow-md transition-shadow`}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-3">
-          <div className={`p-2 rounded-lg ${config.countBg}`}>
-            <Icon className={`w-5 h-5 ${config.iconColor}`} />
-          </div>
-          <div className="flex-1">
-            <div className="flex items-center gap-2">
-              <h4 className={`font-semibold ${config.text}`}>{title}</h4>
-              {count && (
-                <span className={`px-2 py-1 text-xs rounded-full font-semibold ${config.countBg} ${config.text}`}>
-                  {count}
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-gray-600 mt-1">{description}</p>
-          </div>
-        </div>
-        {onAction && (
-          <button
-            onClick={onAction}
-            className="text-sm font-medium hover:underline flex items-center gap-1 text-brand-primary"
-          >
-            {actionLabel}
-            <ChevronRight className="w-4 h-4" />
-          </button>
-        )}
-      </div>
-    </div>
-  );
-};
-
-const PipelineStage = ({ stage, count, total, colorClass }) => {
-  const percentage = total > 0 ? (count / total) * 100 : 0;
-  
-  return (
-    <div className="flex flex-col items-center group">
-      <div className="relative">
-        <div 
-          className={`w-24 h-24 rounded-xl flex flex-col items-center justify-center mb-3 transition-all duration-300 group-hover:scale-110 group-hover:shadow-lg ${colorClass} border-2`}
-        >
-          <span className="text-2xl font-bold text-white">{count}</span>
-          <span className="text-xs text-white/80">loans</span>
-        </div>
-        <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <div className="px-3 py-1.5 rounded-full text-xs font-semibold shadow-sm bg-white border border-gray-200">
-            {percentage.toFixed(1)}%
-          </div>
-        </div>
-      </div>
-      <div className="text-sm font-semibold mt-4 text-text">
-        {stage.name}
-      </div>
-      <div className="text-xs text-center mt-1 text-muted">
-        {stage.description}
-      </div>
-    </div>
-  );
-};
-
-const FilterBar = ({ filters, onFilterChange, regions = [], branches = [], officers = [] }) => {
-  const [dateRange, setDateRange] = useState('today');
-  
-  const dateOptions = [
-    { value: 'today', label: 'Today' },
-    { value: 'week', label: 'This Week' },
-    { value: 'month', label: 'This Month' },
-    { value: 'custom', label: 'Custom Range' }
-  ];
-  
-  return (
-    <div className="backdrop-blur-lg border-b px-6 py-4 bg-brand-surface/80 border-brand-secondary/30">
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
-        
-        
-        <div className="flex flex-col sm:flex-row gap-3">
-          {/* Region Filter */}
-          <div className="relative">
-            <select
-              value={filters.region}
-              onChange={(e) => onFilterChange('region', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
-            >
-              <option value="all">All Regions</option>
-              {regions.map(region => (
-                <option key={region.id} value={region.id}>
-                  {region.name}
-                </option>
-              ))}
-            </select>
-            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
-          </div>
-          
-          {/* Branch Filter */}
-          <div className="relative">
-            <select
-              value={filters.branch}
-              onChange={(e) => onFilterChange('branch', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
-            >
-              <option value="all">All Branches</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </select>
-            <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
-          </div>
-          
-          {/* Officer Filter */}
-          <div className="relative">
-            <select
-              value={filters.officer}
-              onChange={(e) => onFilterChange('officer', e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
-            >
-              <option value="all">All Officers</option>
-              {officers.map(officer => (
-                <option key={officer.id} value={officer.id}>
-                  {officer.full_name}
-                </option>
-              ))}
-            </select>
-            <UserCircle className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
-          </div>
-          
-          {/* Date Range */}
-          <div className="relative">
-            <select
-              value={dateRange}
-              onChange={(e) => setDateRange(e.target.value)}
-              className="pl-9 pr-4 py-2.5 text-sm rounded-lg focus:ring-2 focus:ring-brand-primary focus:ring-opacity-50 outline-none appearance-none transition-all bg-white border border-brand-secondary/50 text-text"
-            >
-              {dateOptions.map(option => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-            <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-brand-primary" />
-          </div>
-          
-          <button
-            onClick={() => onFilterChange('refresh', true)}
-            className="px-4 py-2.5 text-sm font-medium rounded-lg transition-all hover:shadow-md flex items-center gap-2 bg-brand-primary text-white"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Refresh
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
+// Components
+import MetricCard from '../../components/dashboard/MetricCard';
+import PipelineWidget from '../../components/dashboard/PipelineWidget';
+import TasksWidget from '../../components/dashboard/TasksWidget';
+import RepaymentWidget from '../../components/dashboard/RepaymentWidget';
+import DelinquencyWidget from '../../components/dashboard/DelinquencyWidget';
+import PerformanceWidget from '../../components/dashboard/PerformanceWidget';
+import DisbursementWidget from '../../components/dashboard/DisbursementWidget';
+import PortfolioChartsWidget from '../../components/dashboard/PortfolioChartsWidget';
+import SystemAlertsWidget from '../../components/dashboard/SystemAlertsWidget';
+import DashboardCard from '../../components/dashboard/DashboardCard';
 
 // Utility Functions
 const getLocalYYYYMMDD = (d = new Date()) => {
   const date = new Date(d);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
+  // Kenya timezone offset (UTC+3)
+  const kenyaTime = new Date(date.getTime() + 3 * 60 * 60 * 1000);
+  const year = kenyaTime.getUTCFullYear();
+  const month = String(kenyaTime.getUTCMonth() + 1).padStart(2, "0");
+  const day = String(kenyaTime.getUTCDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
 };
 
 const formatCurrency = (amount) => {
   if (!amount) return "0.00";
   const numAmount = Number(amount);
-  const parts = numAmount.toFixed(2).split('.');
-  const integerPart = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-  const decimalPart = parts[1];
-  return `${integerPart}.${decimalPart}`;
+  return numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
+
+// Filter Select Component
+const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
+  <div className="relative">
+    <div className="absolute left-3 top-1/2 -translate-y-1/2">
+      <Icon className="w-4 h-4 text-brand-primary" strokeWidth={2.4} />
+    </div>
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-white appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
+    >
+      {options.map((option) => (
+        <option key={option.value} value={option.value}>
+          {option.label}
+        </option>
+      ))}
+    </select>
+    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
+    </div>
+  </div>
+);
+
+// Custom Date Range Filter Component
+const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange, onApply }) => (
+  <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+    <div className="flex items-center gap-2">
+      <div className="flex-1">
+        <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
+        <input
+          type="date"
+          value={startDate}
+          onChange={(e) => onStartChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+        />
+      </div>
+      <div className="flex-1">
+        <label className="text-xs text-gray-500 mb-1 block">End Date</label>
+        <input
+          type="date"
+          value={endDate}
+          onChange={(e) => onEndChange(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+        />
+      </div>
+      <button
+        onClick={onApply}
+        className="mt-5 px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-colors"
+      >
+        Apply
+      </button>
+    </div>
+  </div>
+);
+
+// Collections Activity Widget
+const CollectionsActivityWidget = ({ data }) => (
+  <DashboardCard title="Collections Activity Monitor">
+    <div className="grid grid-cols-2 gap-4 mt-2">
+      <div className="p-3 bg-brand-surface rounded-lg">
+        <p className="text-xs text-brand-primary font-medium uppercase">Calls Made</p>
+        <div className="flex justify-between items-end mt-1">
+          <h3 className="text-xl font-bold text-primary">{data.callsMade}</h3>
+          <Phone className="w-4 h-4 text-brand-secondary" />
+        </div>
+      </div>
+      <div className="p-3 bg-emerald-50 rounded-lg">
+        <p className="text-xs text-accent font-medium uppercase">Success Rate</p>
+        <div className="flex justify-between items-end mt-1">
+          <h3 className="text-xl font-bold text-accent">{data.successRate}%</h3>
+          <Activity className="w-4 h-4 text-accent" />
+        </div>
+      </div>
+      <div className="p-3 bg-amber-50 rounded-lg">
+        <p className="text-xs text-highlight font-medium uppercase">PTPs Created</p>
+        <div className="flex justify-between items-end mt-1">
+          <h3 className="text-xl font-bold text-amber-600">{data.ptpCreated}</h3>
+          <FileText className="w-4 h-4 text-highlight" />
+        </div>
+      </div>
+      <div className="p-3 bg-indigo-50 rounded-lg">
+        <p className="text-xs text-indigo-600 font-medium uppercase">PTP Kept</p>
+        <div className="flex justify-between items-end mt-1">
+          <h3 className="text-xl font-bold text-indigo-900">{data.ptpKept}%</h3>
+          <ShieldCheck className="w-4 h-4 text-indigo-400" />
+        </div>
+      </div>
+    </div>
+  </DashboardCard>
+);
+
+// Revenue Widget
+const RevenueWidget = ({ data }) => (
+  <DashboardCard title="Fees & Revenue Tracking">
+    <div className="space-y-4 mt-2">
+      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
+        <span className="text-sm text-gray-500">Interest Earned</span>
+        <span className="font-bold text-gray-600">{formatCurrency(data.interest)}</span>
+      </div>
+      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
+        <span className="text-sm text-gray-500">Penalties</span>
+        <span className="font-bold text-gray-600">{formatCurrency(data.penalties)}</span>
+      </div>
+      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
+        <span className="text-sm text-gray-500">Processing Fees</span>
+        <span className="font-bold text-gray-600">{formatCurrency(data.processingFees)}</span>
+      </div>
+      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
+        <span className="text-sm text-gray-500">Registration Fees</span>
+        <span className="font-bold text-gray-600">{formatCurrency(data.registrationFees)}</span>
+      </div>
+      <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+        <span className="text-sm font-bold text-gray-700">Total Revenue</span>
+        <span className="text-lg font-extrabold text-emerald-600">{formatCurrency(data.totalRevenue)}</span>
+      </div>
+    </div>
+  </DashboardCard>
+);
+
+// Loading Skeleton
+const DashboardSkeleton = () => (
+  <div className="p-4 md:p-6 space-y-6 animate-pulse bg-brand-surface min-h-screen">
+    <div className="flex justify-between items-center mb-6">
+      <div className="h-8 bg-gray-200 rounded w-1/3"></div>
+      <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+    </div>
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      {[1, 2, 3, 4].map((i) => (
+        <div key={i} className="h-32 bg-gray-200 rounded-xl"></div>
+      ))}
+    </div>
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+      <div className="space-y-5">
+        <div className="h-64 bg-gray-200 rounded-xl"></div>
+        <div className="h-64 bg-gray-200 rounded-xl"></div>
+      </div>
+      <div className="space-y-5">
+        <div className="h-96 bg-gray-200 rounded-xl"></div>
+      </div>
+      <div className="space-y-5">
+        <div className="h-48 bg-gray-200 rounded-xl"></div>
+        <div className="h-48 bg-gray-200 rounded-xl"></div>
+        <div className="h-48 bg-gray-200 rounded-xl"></div>
+      </div>
+    </div>
+  </div>
+);
 
 // Main Dashboard Component
 const OperationsDashboard = () => {
   const [loading, setLoading] = useState(true);
-  const [lastUpdated, setLastUpdated] = useState(new Date());
-  const [filters, setFilters] = useState({
-    region: 'all',
-    branch: 'all',
-    officer: 'all',
-    dateRange: 'today'
-  });
+  const [userProfile, setUserProfile] = useState(null);
 
-  const [regions, setRegions] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [officers, setOfficers] = useState([]);
-  
+  // Filter State
+  const [selectedRegion, setSelectedRegion] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedRO, setSelectedRO] = useState("all");
+  const [dateFilter, setDateFilter] = useState("this_month");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+
+  // Options State
+  const [availableRegions, setAvailableRegions] = useState([]);
+  const [availableBranches, setAvailableBranches] = useState([]);
+  const [availableROs, setAvailableROs] = useState([]);
+
   const [dashboardData, setDashboardData] = useState({
-    dailyActivity: {
-      applicationsToday: 0,
-      underReview: 0,
-      approvedPending: 0,
-      disbursedToday: 0,
-      rejectedToday: 0
+    metrics: {
+      activeLoans: 0,
+      disbursedTodayCount: 0,
+      disbursedTodayAmount: 0,
+      repaymentsCollected: 0,
+      pendingApps: 0,
+      overdueLoansCount: 0,
+      overdueLoansAmount: 0,
+      portfolioOutstanding: 0,
+      defaultRate: 0,
+      parValue: 0,
     },
-    
-    pipeline: {
-      submitted: 0,
-      underReview: 0,
-      approved: 0,
-      disbursed: 0,
-      rejected: 0
+    pipeline: { new: 0, review: 0, docs: 0, approved: 0, rejected: 0 },
+    tasks: {
+      approvedNotDisbursed: 0,
+      loansDueToday: 0,
+      overdue: 0,
+      kycPending: 0
     },
-    
-    processSpeed: {
-      approvalTime: 0,
-      disbursementTime: 0,
-      approvalTrend: 0,
-      disbursementTrend: 0
+    repayment: {
+      dueToday: 0,
+      collectedToday: 0,
+      collectionRate: 0,
+      missedPayments: 0
     },
-    
-    workload: [],
-    
-    disbursement: {
-      today: 0,
-      pending: 0,
-      failed: 0
-    },
-    
-    clientKyc: {
-      newBorrowers: 0,
-      missingDocuments: 0,
-      unverifiedKyc: 0
-    },
-    
-    alerts: []
+    delinquency: { buckets: [], writeOffs: 0 },
+    par30: 0,
+    agentPerformance: { processed: 0, approvalRate: 0, avgTime: 0, conversionRate: 0 },
+    collectorPerformance: { calls: 0, collectedAmount: 0, recoveryRate: 0, ptpKept: 0 },
+    disbursement: { failedCount: 0, failedAmount: 0, pendingCount: 0 },
+    portfolio: { status: { labels: [], data: [] }, types: { labels: [], data: [] } },
+    recentActivity: [],
+    alerts: [],
+    collectionsActivity: { callsMade: 0, successRate: 0, ptpCreated: 0, ptpKept: 0 },
+    revenue: { interest: 0, penalties: 0, processingFees: 0, registrationFees: 0, totalRevenue: 0 }
   });
 
-  // Fetch filter data
-  const fetchFilterData = useCallback(async () => {
-    try {
-      // Fetch regions
-      const { data: regionsData } = await supabase
-        .from('regions')
-        .select('id, name, code')
-        .order('name');
-      
-      // Fetch branches
-      const { data: branchesData } = await supabase
-        .from('branches')
-        .select('id, name, code, region_id')
-        .order('name');
-      
-      // Fetch officers (users with role relationship_officer)
-      const { data: officersData } = await supabase
-        .from('users')
-        .select('id, full_name, email, role')
-        .eq('role', 'relationship_officer')
-        .order('full_name');
-      
-      setRegions(regionsData || []);
-      setBranches(branchesData || []);
-      setOfficers(officersData || []);
-    } catch (error) {
-      console.error('Error fetching filter data:', error);
-    }
-  }, []);
+  const [chartData, setChartData] = useState([]);
 
-  // Fetch dashboard data
-  const fetchDashboardData = useCallback(async () => {
-    setLoading(true);
+  // Raw Data Store
+  const [rawData, setRawData] = useState({
+    loans: [],
+    customers: [],
+    payments: [],
+    installments: [],
+    interactions: [],
+    ptps: []
+  });
+
+  // Filter Helpers
+  const fetchBranches = async (regionId) => {
+    try {
+      let query = supabase.from("branches").select("id, name");
+      if (regionId && regionId !== "all") {
+        query = query.eq("region_id", regionId);
+      }
+      const { data, error } = await query;
+      if (error) throw error;
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching branches:", error);
+      return [];
+    }
+  };
+
+  const fetchRelationshipOfficers = async (branchId) => {
+    try {
+      let query = supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("role", "relationship_officer");
+
+      if (branchId && branchId !== "all") {
+        query = query.eq("branch_id", branchId);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data || []).map(u => ({
+        id: u.id,
+        full_name: u.full_name
+      }));
+    } catch (error) {
+      console.error("Error fetching ROs:", error);
+      return [];
+    }
+  };
+
+  const applyFilters = useCallback((data, type = 'loans') => {
+    if (!Array.isArray(data)) return [];
+
+    return data.filter(item => {
+      if (selectedRegion !== "all" && item.region_id !== selectedRegion) return false;
+      if (selectedBranch !== "all" && item.branch_id !== selectedBranch) return false;
+      
+      if (selectedRO !== "all") {
+        const field = type === 'loans' ? 'booked_by' : 'created_by';
+        if (String(item[field]) !== String(selectedRO)) return false;
+      }
+
+      return true;
+    });
+  }, [selectedRegion, selectedBranch, selectedRO]);
+
+  // Handle Filter Changes
+  const handleRegionChange = async (val) => {
+    setSelectedRegion(val);
+    setSelectedBranch("all");
+    setSelectedRO("all");
+    const branches = await fetchBranches(val);
+    setAvailableBranches(branches);
+  };
+
+  const handleBranchChange = async (val) => {
+    setSelectedBranch(val);
+    setSelectedRO("all");
+    const ros = await fetchRelationshipOfficers(val);
+    setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+  };
+
+  const handleROChange = (val) => setSelectedRO(val);
+
+  // Helper function to get date range based on filter
+  const getDateRange = useCallback(() => {
+    const today = getLocalYYYYMMDD();
     
+    if (dateFilter === 'custom_range' && customStartDate && customEndDate) {
+      return { start: customStartDate, end: customEndDate };
+    }
+    
+    if (dateFilter === 'today') {
+      return { start: today, end: today };
+    }
+    
+    if (dateFilter === 'yesterday') {
+      const yesterday = new Date();
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yesterdayStr = getLocalYYYYMMDD(yesterday);
+      return { start: yesterdayStr, end: yesterdayStr };
+    }
+    
+    if (dateFilter === 'this_week') {
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setDate(now.getDate() - now.getDay());
+      return { start: getLocalYYYYMMDD(startOfWeek), end: today };
+    }
+    
+    if (dateFilter === 'this_month') {
+      const startOfMonth = today.substring(0, 7) + '-01';
+      return { start: startOfMonth, end: today };
+    }
+    
+    if (dateFilter === 'last_month') {
+      const now = new Date();
+      const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
+      return { 
+        start: getLocalYYYYMMDD(lastMonth), 
+        end: getLocalYYYYMMDD(lastMonthEnd) 
+      };
+    }
+    
+    // all_time
+    return { start: '2000-01-01', end: today };
+  }, [dateFilter, customStartDate, customEndDate]);
+
+  // Fetch Real Data
+  const fetchRealData = useCallback(async () => {
+    setLoading(true);
     try {
       const today = getLocalYYYYMMDD();
-      const yesterday = getLocalYYYYMMDD(new Date(Date.now() - 86400000));
-      
-      // Build query based on filters
-      let loansQuery = supabase
-        .from('loans')
-        .select('*');
-      
-      let customersQuery = supabase
-        .from('customers')
-        .select('*');
-      
-      // Apply region filter
-      if (filters.region !== 'all') {
-        loansQuery = loansQuery.eq('region_id', filters.region);
-        customersQuery = customersQuery.eq('region_id', filters.region);
+      const startOfMonth = today.substring(0, 7) + '-01';
+
+      // Get current user
+      const storedUserId = localStorage.getItem("userId");
+      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
+      const userId = authData?.user?.id || storedUserId;
+
+      if (!userId) {
+        console.error("No authenticated user");
+        setLoading(false);
+        return;
       }
-      
-      // Apply branch filter
-      if (filters.branch !== 'all') {
-        loansQuery = loansQuery.eq('branch_id', filters.branch);
-        customersQuery = customersQuery.eq('branch_id', filters.branch);
-      }
-      
-      // Apply officer filter
-      if (filters.officer !== 'all') {
-        loansQuery = loansQuery.eq('booked_by', filters.officer);
-        customersQuery = customersQuery.eq('created_by', filters.officer);
-      }
-      
-      // Fetch loans and customers
-      const { data: loansData } = await loansQuery;
-      const { data: customersData } = await customersQuery;
-      
-      const loans = loansData || [];
-      const customers = customersData || [];
-      
-      // Calculate daily activity
-      const applicationsToday = loans.filter(loan => {
-        const created = getLocalYYYYMMDD(new Date(loan.created_at));
-        return created === today && loan.status === 'booked';
-      }).length;
-      
-      const underReview = loans.filter(loan => 
-        ['bm_review', 'rn_review', 'ca_review'].includes(loan.status)
-      ).length;
-      
-      const approvedPending = loans.filter(loan => 
-        loan.status === 'ready_for_disbursement'
-      ).length;
-      
-      const disbursedToday = loans.filter(loan => {
-        const disbursed = loan.disbursed_at ? getLocalYYYYMMDD(new Date(loan.disbursed_at)) : null;
-        return disbursed === today && loan.status === 'disbursed';
-      }).length;
-      
-      const rejectedToday = loans.filter(loan => {
-        const rejected = loan.rejected_at ? getLocalYYYYMMDD(new Date(loan.rejected_at)) : null;
-        return rejected === today && loan.status === 'rejected';
-      }).length;
-      
-      // Calculate pipeline
-      const submitted = loans.filter(loan => loan.status === 'booked').length;
-      const underReviewCount = loans.filter(loan => 
-        ['bm_review', 'rn_review', 'ca_review'].includes(loan.status)
-      ).length;
-      const approved = loans.filter(loan => loan.status === 'approved').length;
-      const disbursed = loans.filter(loan => loan.status === 'disbursed').length;
-      const rejected = loans.filter(loan => loan.status === 'rejected').length;
-      
-      // Calculate process speed (simplified)
-      const approvedLoans = loans.filter(loan => loan.status === 'disbursed');
-      const totalApprovalTime = approvedLoans.reduce((sum, loan) => {
-        const created = new Date(loan.created_at);
-        const approved = new Date(loan.approved_by_bm_at || loan.disbursed_at);
-        return sum + (approved - created) / (1000 * 60 * 60); // hours
-      }, 0);
-      const approvalTime = approvedLoans.length > 0 ? 
-        Math.round(totalApprovalTime / approvedLoans.length) : 24;
-      
-      // Calculate workload
-      const workloadData = officers.map(officer => {
-        const officerLoans = loans.filter(loan => loan.booked_by === officer.id);
-        const activeLoans = officerLoans.filter(loan => 
-          !['disbursed', 'rejected'].includes(loan.status)
-        ).length;
-        
-        let threshold = 'low';
-        if (activeLoans > 20) threshold = 'high';
-        else if (activeLoans > 10) threshold = 'medium';
-        
-        return {
-          name: officer.full_name,
-          count: activeLoans,
-          threshold
-        };
-      }).sort((a, b) => b.count - a.count).slice(0, 5);
-      
-      // Calculate disbursement metrics
-      const pendingDisbursement = loans.filter(loan => 
-        loan.status === 'ready_for_disbursement'
-      ).length;
-      
-      // Calculate client & KYC metrics
-      const newBorrowersToday = customers.filter(customer => {
-        const created = getLocalYYYYMMDD(new Date(customer.created_at));
-        return created === today;
-      }).length;
-      
-      const missingDocuments = customers.filter(customer => 
-        customer.status === 'pending'
-      ).length;
-      
-      // Generate alerts
-      const alerts = [
-        {
-          id: 1,
-          type: 'warning',
-          title: 'Loans Under Review > 48h',
-          description: 'Applications pending review for more than 48 hours',
-          count: Math.floor(underReviewCount * 0.3) // Simulate 30%
-        },
-        {
-          id: 2,
-          type: 'danger',
-          title: 'Approved but Not Disbursed',
-          description: 'Loans approved but awaiting disbursement',
-          count: pendingDisbursement
-        },
-        {
-          id: 3,
-          type: 'warning',
-          title: 'Missing Documents',
-          description: 'Applications with incomplete documentation',
-          count: missingDocuments
-        },
-        {
-          id: 4,
-          type: 'danger',
-          title: 'Excessive Workload',
-          description: 'Officers with over 20 active loans',
-          count: workloadData.filter(o => o.threshold === 'high').length
+
+      // Get tenant_id
+      const tenantIdFromStorage = (() => {
+        try {
+          const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+          return profile.tenant_id;
+        } catch { return null; }
+      })();
+
+      let tenantId = authData?.user?.app_metadata?.tenant_id || tenantIdFromStorage;
+
+      try {
+        const { data: profile, error: profileError } = await supabase
+          .from('users')
+          .select('tenant_id')
+          .eq('id', userId)
+          .single();
+
+        if (!profileError && profile?.tenant_id) {
+          tenantId = profile.tenant_id;
         }
-      ].filter(alert => alert.count > 0);
-      
-      // Update dashboard data
-      setDashboardData({
-        dailyActivity: {
-          applicationsToday,
-          underReview,
-          approvedPending,
-          disbursedToday,
-          rejectedToday
-        },
-        
-        pipeline: {
-          submitted,
-          underReview: underReviewCount,
-          approved,
-          disbursed,
-          rejected
-        },
-        
-        processSpeed: {
-          approvalTime,
-          disbursementTime: 12, // Simplified
-          approvalTrend: -5,
-          disbursementTrend: 2
-        },
-        
-        workload: workloadData,
-        
-        disbursement: {
-          today: disbursedToday,
-          pending: pendingDisbursement,
-          failed: rejectedToday
-        },
-        
-        clientKyc: {
-          newBorrowers: newBorrowersToday,
-          missingDocuments,
-          unverifiedKyc: Math.floor(missingDocuments * 0.4) // Simulate 40%
-        },
-        
-        alerts
+      } catch (error) {
+        console.warn("Could not fetch user profile:", error);
+      }
+
+      if (!tenantId) {
+        console.error("No tenant_id available");
+        setLoading(false);
+        return;
+      }
+
+      // Fetch Loans
+      const { data: loans, error: loansError } = await supabase
+        .from('loans')
+        .select('*')
+
+      if (loansError) console.error("Error fetching loans:", loansError);
+      const loansData = loans || [];
+
+      // Fetch Customers
+      const { data: customers } = await supabase
+        .from('customers')
+        .select('id, status, created_at')
+        .eq('tenant_id', tenantId);
+      const custData = customers || [];
+
+      // Fetch Loan Payments
+      let paymentsData = [];
+      try {
+        const { data: payments } = await supabase
+          .from('loan_payments')
+          .select('*')
+        paymentsData = payments || [];
+      } catch (error) {
+        console.warn('loan_payments table not available:', error);
+      }
+
+      // Fetch Installments
+      let installmentsData = [];
+      try {
+        const { data: installments } = await supabase
+          .from('loan_installments')
+          .select('*')
+        installmentsData = installments || [];
+      } catch (error) {
+        console.warn('loan_installments table not available:', error);
+      }
+
+      // Fetch Collections Data
+      let interactionsData = [];
+      let ptpsData = [];
+
+      try {
+        const { data: interactions } = await supabase
+          .from('customer_interactions')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', startOfMonth);
+        interactionsData = interactions || [];
+      } catch (error) {
+        console.warn('customer_interactions table not available:', error);
+      }
+
+      try {
+        const { data: ptps } = await supabase
+          .from('promise_to_pay')
+          .select('*')
+          .eq('tenant_id', tenantId)
+          .gte('created_at', startOfMonth);
+        ptpsData = ptps || [];
+      } catch (error) {
+        console.warn('promise_to_pay table not available:', error);
+      }
+
+      // Store Raw Data
+      setRawData({
+        loans: loansData,
+        customers: custData,
+        payments: paymentsData,
+        installments: installmentsData,
+        interactions: interactionsData,
+        ptps: ptpsData
+      });
+
+      // Fetch user profile and options
+      if (!userProfile) {
+        const { data: userP } = await supabase.from('users').select('*').eq('id', userId).single();
+        if (userP) {
+          setUserProfile(userP);
+          
+          if (userP.role === 'branch_manager') {
+            setSelectedBranch(userP.branch_id);
+            setAvailableBranches([{ id: userP.branch_id, name: 'My Branch' }]);
+          }
+
+          const branches = await fetchBranches("all");
+          setAvailableBranches([{ id: "all", name: "All Branches" }, ...branches]);
+
+          const ros = await fetchRelationshipOfficers("all");
+          setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+
+          const { data: regions } = await supabase.from('regions').select('id, name');
+          setAvailableRegions(regions || []);
+        }
+      }
+
+      setLoading(false);
+
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      setLoading(false);
+    }
+  }, [userProfile]);
+
+  // Calculate Metrics
+  const calculateMetrics = useCallback(() => {
+    try {
+      const { loans, customers, payments, installments, interactions, ptps } = rawData;
+
+      // Apply Filters
+      const loansData = applyFilters(loans, 'loans');
+      const custData = applyFilters(customers, 'customers');
+
+      // Get filtered loan IDs
+      const filteredLoanIds = new Set(loansData.map(l => l.id));
+
+      // Filter dependent data
+      const filteredPayments = payments.filter(p => filteredLoanIds.has(p.loan_id));
+      const filteredInstallments = installments.filter(i => filteredLoanIds.has(i.loan_id));
+
+      const today = getLocalYYYYMMDD();
+      const startOfMonth = today.substring(0, 7) + '-01';
+
+      // ===== ACTIVE LOANS CALCULATION =====
+      // Active loans: disbursed OR partially_disbursed, repayment_state = ongoing/partial/overdue (not completed/defaulted)
+      const activeLoans = loansData.filter(l => {
+        const isDisbursed = l.status === 'disbursed' || l.status === 'partially_disbursed';
+        const isActive = ['ongoing', 'partial', 'overdue'].includes(l.repayment_state);
+        return isDisbursed && isActive;
+      });
+
+      // Calculate total principal (scored_amount) for active loans
+      const totalActivePrincipal = activeLoans.reduce((sum, l) => sum + (Number(l.scored_amount) || 0), 0);
+
+      // ===== DISBURSED TODAY CALCULATION =====
+      const disbursedToday = loansData.filter(l => {
+        return l.status === 'disbursed' && l.disbursed_at && getLocalYYYYMMDD(l.disbursed_at) === today;
+      });
+      // scored_amount is the principal amount
+      const disbursedTodayAmount = disbursedToday.reduce((sum, l) => sum + (Number(l.scored_amount) || 0), 0);
+
+      // ===== COLLECTIONS TODAY (from loan_payments table - sum of paid_amount) =====
+      const todayPayments = filteredPayments.filter(p => {
+        return p.paid_at && getLocalYYYYMMDD(p.paid_at) === today;
+      });
+      const collectedToday = todayPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
+
+      // ===== OLB CALCULATION (Outstanding Loan Balance) =====
+      // OLB = Sum of (total_payable) for active loans - Sum of all paid_amount
+      const totalPayable = activeLoans.reduce((sum, l) => sum + (Number(l.total_payable) || 0), 0);
+      const totalPaid = filteredPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
+      const olb = Math.max(0, totalPayable - totalPaid);
+
+      // ===== PAR CALCULATION (Arrears / OLB) =====
+      // Total Arrears = Sum of overdue/partial installments where (due_amount - (principal_paid + interest_paid)) > 0
+      let totalArrears = 0;
+      const overdueInstallments = filteredInstallments.filter(inst => {
+        return ['overdue', 'partial'].includes(inst.status) && inst.due_date && inst.due_date <= today;
+      });
+
+      overdueInstallments.forEach(inst => {
+        const dueAmount = Number(inst.due_amount) || 0;
+        const paidAmount = (Number(inst.principal_paid) || 0) + (Number(inst.interest_paid) || 0);
+        const arrears = Math.max(0, dueAmount - paidAmount);
+        totalArrears += arrears;
+      });
+
+      // PAR = (Total Arrears / OLB) × 100
+      const parValue = olb > 0 ? ((totalArrears / olb) * 100).toFixed(1) : 0;
+
+
+      // ===== REVENUE CALCULATION (Date Range Based) =====
+      // Get date range based on filter (supports custom range)
+      const { start: revenueStartDate, end: revenueEndDate } = getDateRange();
+
+      // Filter payments for the date range
+      const dateRangePayments = filteredPayments.filter(p => {
+        if (!p.paid_at) return false;
+        const paidDate = getLocalYYYYMMDD(p.paid_at);
+        return paidDate >= revenueStartDate && paidDate <= revenueEndDate;
       });
       
-      setLastUpdated(new Date());
+      // Interest Earned: Sum all interest_paid from loan_payments (regardless of payment_type)
+      const interestEarned = dateRangePayments.reduce((sum, p) => sum + (Number(p.interest_paid) || 0), 0);
+      
+      // Penalties: from loans.net_penalties (for active loans with penalties)
+      // net_penalties is a generated column: (total_penalties - penalty_waived)
+      const netPenalties = activeLoans.reduce((sum, l) => sum + (Number(l.net_penalties) || 0), 0);
+
+      // Processing Fees & Registration Fees: from loans table for disbursed loans in date range
+      const dateRangeDisbursedLoans = loansData.filter(l => {
+        if (l.status !== 'disbursed' || !l.disbursed_at) return false;
+        const disbursedDate = getLocalYYYYMMDD(l.disbursed_at);
+        return disbursedDate >= revenueStartDate && disbursedDate <= revenueEndDate;
+      });
+
+      const processingFees = dateRangeDisbursedLoans
+        .filter(l => l.processing_fee_paid === true)
+        .reduce((sum, l) => sum + (Number(l.processing_fee) || 0), 0);
+
+      const registrationFees = dateRangeDisbursedLoans
+        .filter(l => l.registration_fee_paid === true)
+        .reduce((sum, l) => sum + (Number(l.registration_fee) || 0), 0);
+
+      const totalRevenue = interestEarned + netPenalties + processingFees + registrationFees;
+
+
+      // ===== OTHER METRICS =====
+      const overdueLoans = loansData.filter(l => l.repayment_state === 'overdue');
+      const overdueLoansCount = overdueLoans.length;
+
+      const defaultedLoans = loansData.filter(l => l.repayment_state === 'defaulted');
+      const defaultRate = activeLoans.length > 0 ? 
+        ((defaultedLoans.length / activeLoans.length) * 100).toFixed(1) : 0;
+
+      const pendingApps = loansData.filter(l => 
+        ['booked', 'bm_review', 'rn_review', 'ca_review'].includes(l.status)
+      ).length;
+
+      // ===== PIPELINE =====
+      const pipeline = {
+        new: loansData.filter(l => l.status === 'booked' && l.is_new_loan).length,
+        review: loansData.filter(l => ['bm_review', 'rn_review', 'ca_review'].includes(l.status)).length,
+        docs: custData.filter(c => c.status === 'pending').length,
+        approved: loansData.filter(l => ['approved', 'ready_for_disbursement'].includes(l.status)).length,
+        rejected: loansData.filter(l => l.status === 'rejected').length
+      };
+
+      // ===== TASKS =====
+      const todayInstallments = filteredInstallments.filter(inst => inst.due_date === today);
+      
+      const tasks = {
+        approvedNotDisbursed: loansData.filter(l => l.status === 'ready_for_disbursement').length,
+        loansDueToday: todayInstallments.length,
+        overdue: overdueLoansCount,
+        kycPending: custData.filter(c => ['pending_kyc', 'pending'].includes(c.status)).length
+      };
+
+      // ===== REPAYMENT =====
+      const todayExpected = todayInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
+      const todayCollectionRate = todayExpected > 0 ? ((collectedToday / todayExpected) * 100).toFixed(1) : 0;
+
+      const repayment = {
+        dueToday: todayExpected,
+        collectedToday: collectedToday,
+        collectionRate: todayCollectionRate,
+        missedPayments: 0
+      };
+
+      // ===== COLLECTIONS ACTIVITY (from promise_to_pay) =====
+      const callsMade = interactions.filter(i => i.type === 'call').length;
+      const successfulCalls = interactions.filter(i => i.type === 'call' && i.outcome === 'successful').length;
+      const successRate = callsMade > 0 ? Math.round((successfulCalls / callsMade) * 100) : 0;
+      
+      const ptpCreated = ptps.length;
+      const ptpKeptCount = ptps.filter(p => p.status === 'kept').length;
+      const ptpKeptRate = ptpCreated > 0 ? Math.round((ptpKeptCount / ptpCreated) * 100) : 0;
+
+      // ===== PORTFOLIO CHARTS =====
+      const statusCounts = {};
+      loansData.forEach(l => {
+        const status = l.repayment_state || l.status || 'Unknown';
+        statusCounts[status] = (statusCounts[status] || 0) + 1;
+      });
+
+      const typeCounts = {};
+      loansData.forEach(l => {
+        const type = l.product_type || l.product_name || 'General';
+        typeCounts[type] = (typeCounts[type] || 0) + 1;
+      });
+
+      // ===== REPAYMENT CHART DATA (Weekly Collections) =====
+      // Get the last 7 days of payment data
+      const last7Days = [];
+      const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+      
+      for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = getLocalYYYYMMDD(date);
+        const dayName = dayNames[date.getDay()];
+        
+        // Sum all payments for this day
+        const dayPayments = filteredPayments.filter(p => 
+          p.paid_at && getLocalYYYYMMDD(p.paid_at) === dateStr
+        );
+        
+        const dayAmount = dayPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
+        
+        last7Days.push({
+          name: dayName,
+          amount: dayAmount,
+          date: dateStr
+        });
+      }
+
+      // ===== UPDATE DASHBOARD DATA =====
+      setDashboardData({
+        metrics: {
+          activeLoans: activeLoans.length,
+          disbursedTodayCount: disbursedToday.length,
+          disbursedTodayAmount: disbursedTodayAmount,
+          repaymentsCollected: collectedToday,
+          pendingApps: pendingApps,
+          overdueLoansCount: overdueLoansCount,
+          overdueLoansAmount: totalArrears,
+          portfolioOutstanding: olb, // Using OLB (Outstanding Loan Balance)
+          defaultRate: defaultRate,
+          parValue: parValue,
+        },
+        pipeline,
+        tasks,
+        repayment,
+        delinquency: { buckets: [], writeOffs: 0 },
+        par30: parValue,
+        agentPerformance: { processed: 0, approvalRate: 0, avgTime: 0, conversionRate: 0 },
+        collectorPerformance: { calls: 0, collectedAmount: 0, recoveryRate: 0, ptpKept: 0 },
+        disbursement: { failedCount: 0, failedAmount: 0, pendingCount: 0 },
+        portfolio: {
+          status: { 
+            labels: Object.keys(statusCounts), 
+            data: Object.values(statusCounts) 
+          },
+          types: { 
+            labels: Object.keys(typeCounts), 
+            data: Object.values(typeCounts) 
+          }
+        },
+        recentActivity: [],
+        alerts: [],
+        collectionsActivity: {
+          callsMade,
+          successRate,
+          ptpCreated,
+          ptpKept: ptpKeptRate
+        },
+        revenue: {
+          interest: interestEarned,
+          penalties: netPenalties,
+          processingFees: processingFees,
+          registrationFees: registrationFees,
+          totalRevenue: totalRevenue
+        }
+      });
+
+      // Set actual chart data from database
+      setChartData(last7Days);
+
+   
+
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-    } finally {
-      setTimeout(() => setLoading(false), 500);
+      console.error("Error calculating metrics:", error);
     }
-  }, [filters, officers]);
+  }, [rawData, applyFilters, getDateRange]);
 
   useEffect(() => {
-    fetchFilterData();
-  }, [fetchFilterData]);
+    fetchRealData();
+  }, [fetchRealData]);
 
   useEffect(() => {
-    if (officers.length > 0) {
-      fetchDashboardData();
-    }
-  }, [fetchDashboardData, officers.length, filters]);
+    calculateMetrics();
+  }, [rawData, selectedRegion, selectedBranch, selectedRO, dateFilter, customStartDate, customEndDate, calculateMetrics]);
 
-  const handleFilterChange = useCallback((filter, value) => {
-    setFilters(prev => ({ ...prev, [filter]: value }));
-  }, []);
-
-  const totalPipeline = useMemo(() => {
-    return Object.values(dashboardData.pipeline).reduce((sum, count) => sum + count, 0);
-  }, [dashboardData.pipeline]);
-
-  const pipelineStages = [
-    { name: 'Submitted', description: 'New applications', colorClass: 'bg-brand-primary border-brand-primary' },
-    { name: 'Under Review', description: 'In assessment', colorClass: 'bg-highlight border-highlight' },
-    { name: 'Approved', description: 'Approval granted', colorClass: 'bg-accent border-accent' },
-    { name: 'Disbursed', description: 'Funds released', colorClass: 'bg-brand-secondary border-brand-secondary' },
-    { name: 'Rejected', description: 'Applications declined', colorClass: 'bg-red-500 border-red-500' }
-  ];
+  if (loading) {
+    return <DashboardSkeleton />;
+  }
 
   return (
-    <div className="min-h-screen bg-brand-surface">
-      {/* Page Header */}
-      <div className=" text-white px-6 py-2">
-        <h1 className="text-sm font-semibold  text-slate-600 font-bold">Operations Dashboard</h1>
-      </div>
+    <div className="bg-brand-surface min-h-screen pb-6 font-sans">
+      <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-5">
 
-      {/* Global Filter Bar */}
-      <FilterBar 
-        filters={filters} 
-        onFilterChange={handleFilterChange}
-        regions={regions}
-        branches={branches}
-        officers={officers}
-      />
-      
-      <div className="p-6 space-y-6">
-        {/* Section 1: Daily Loan Activity */}
-        <div >
-          <div className="mb-6">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 rounded-lg bg-brand-primary text-white">
-                <Briefcase className="w-3 h-3" />
+        {/* Header & Filters */}
+        <div className="flex flex-col gap-4 border-b border-gray-200 pb-4">
+          <div className="flex justify-between items-end">
+            <div>
+              <h1 className="text-lg font-bold text-gray-600 tracking-tight">Operations Dashboard</h1>
+              <p className="text-sm text-gray-500 mt-1">Real-time overview of lending operations</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 shadow-sm mr-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                Live
               </div>
-              <div>
-                <h2 className="text-sm font-semibold  text-primary">
-                  Daily Loan Activity
-                </h2>
-               
-              </div>
+              <button 
+                onClick={fetchRealData} 
+                className="p-2 text-gray-500 hover:text-brand-primary hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200"
+              >
+                <RefreshCw className="w-5 h-5" />
+              </button>
             </div>
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-            <StatCard
-              icon={Database}
-              label="Applications Today"
-              value={dashboardData.dailyActivity.applicationsToday}
-              change={12}
-              color="primary"
-              loading={loading}
+
+          {/* Filters Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+            <FilterSelectCompact
+              icon={Home}
+              value={selectedRegion}
+              onChange={handleRegionChange}
+              options={[
+                { value: 'all', label: 'All Regions' }, 
+                ...availableRegions.map(r => ({ value: r.id, label: r.name }))
+              ]}
             />
-            
-            <StatCard
-              icon={Clock}
-              label="Under Review"
-              value={dashboardData.dailyActivity.underReview}
-              change={5}
-              color="warning"
-              loading={loading}
+            <FilterSelectCompact
+              icon={Building}
+              value={selectedBranch}
+              onChange={handleBranchChange}
+              options={availableBranches.map(b => ({ value: b.id, label: b.name }))}
             />
-            
-            <StatCard
-              icon={CheckCircle}
-              label="Approved (Pending)"
-              value={dashboardData.dailyActivity.approvedPending}
-              change={-3}
-              color="success"
-              loading={loading}
+            <FilterSelectCompact
+              icon={UserCircle}
+              value={selectedRO}
+              onChange={handleROChange}
+              options={availableROs.map(ro => ({ value: ro.id, label: ro.full_name }))}
             />
-            
-            <StatCard
-              icon={DollarSign}
-              label="Disbursed Today"
-              value={dashboardData.dailyActivity.disbursedToday}
-              change={8}
-              color="primary"
-              loading={loading}
-            />
-            
-            <StatCard
-              icon={XCircle}
-              label="Rejected Today"
-              value={dashboardData.dailyActivity.rejectedToday}
-              change={2}
-              color="danger"
-              loading={loading}
+            <FilterSelectCompact
+              icon={Calendar}
+              value={dateFilter}
+              onChange={setDateFilter}
+              options={[
+                { value: 'today', label: 'Today' },
+                { value: 'yesterday', label: 'Yesterday' },
+                { value: 'this_week', label: 'This Week' },
+                { value: 'this_month', label: 'This Month' },
+                { value: 'last_month', label: 'Last Month' },
+                { value: 'custom_range', label: 'Custom Range' },
+                { value: 'all_time', label: 'All Time' }
+              ]}
             />
           </div>
+
+          {/* Custom Date Range Picker - Show only when custom_range is selected */}
+          {dateFilter === 'custom_range' && (
+            <CustomDateRangeFilter
+              startDate={customStartDate}
+              endDate={customEndDate}
+              onStartChange={setCustomStartDate}
+              onEndChange={setCustomEndDate}
+              onApply={calculateMetrics}
+            />
+          )}
         </div>
-        
-        {/* Section 2: Loan Pipeline */}
-        <ChartCard
-          title="Loan Pipeline"
-          subtitle="Current status of all loan applications"
-          loading={loading}
-        >
-          <div className="flex flex-wrap justify-center gap-8 py-6">
-            {pipelineStages.map((stage, index) => (
-              <div key={stage.name} className="relative">
-                <PipelineStage
-                  stage={stage}
-                  count={Object.values(dashboardData.pipeline)[index]}
-                  total={totalPipeline}
-                  colorClass={stage.colorClass}
-                />
-                
-                {index < pipelineStages.length - 1 && (
-                  <div className="absolute top-12 right-[-2rem] lg:block hidden">
-                    <ChevronRight className="w-8 h-8 text-muted/40" />
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-          
-          <div className="mt-8 pt-6 border-t border-brand-secondary/30">
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-              {pipelineStages.map((stage, index) => (
-                <div key={stage.name} className="flex items-center gap-3 p-3 rounded-lg hover:bg-neutral transition-colors">
-                  <div className={`w-3 h-3 rounded-full flex-shrink-0 ${stage.colorClass.split(' ')[0]}`} />
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate text-text">
-                      {stage.name}
-                    </div>
-                    <div className="text-xs truncate text-muted">
-                      {stage.description}
-                    </div>
-                  </div>
-                  <div className={`text-sm font-bold ${stage.colorClass.split(' ')[0].replace('bg-', 'text-')}`}>
-                    {Object.values(dashboardData.pipeline)[index]}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </ChartCard>
-        
-        {/* Sections 3 & 4 */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Section 3: Process Speed Metrics */}
-          <ChartCard
-            title="Process Speed Metrics"
-            subtitle="Average processing times in hours"
-            loading={loading}
-          >
-            <div className="space-y-8">
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-brand-primary/10 text-brand-primary">
-                      <Clock className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-text">
-                        Application → Approval
-                      </div>
-                      <div className="text-xs text-muted">
-                        Target: 48h
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-text">
-                      {dashboardData.processSpeed.approvalTime}h
-                    </span>
-                    {dashboardData.processSpeed.approvalTrend < 0 ? (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700">
-                        <TrendingDown className="w-4 h-4" />
-                        <span className="text-xs font-medium">
-                          {Math.abs(dashboardData.processSpeed.approvalTrend)}%
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="text-xs font-medium">
-                          +{dashboardData.processSpeed.approvalTrend}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-brand-primary to-brand-secondary"
-                    style={{ width: `${Math.min(100, dashboardData.processSpeed.approvalTime / 48 * 100)}%` }}
-                  />
-                </div>
-              </div>
-              
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-accent/10 text-accent">
-                      <DollarSign className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="font-semibold text-text">
-                        Approval → Disbursement
-                      </div>
-                      <div className="text-xs text-muted">
-                        Target: 24h
-                      </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-2xl font-bold text-text">
-                      {dashboardData.processSpeed.disbursementTime}h
-                    </span>
-                    {dashboardData.processSpeed.disbursementTrend < 0 ? (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-green-50 text-green-700">
-                        <TrendingDown className="w-4 h-4" />
-                        <span className="text-xs font-medium">
-                          {Math.abs(dashboardData.processSpeed.disbursementTrend)}%
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-1 px-2 py-1 rounded-full bg-red-50 text-red-700">
-                        <TrendingUp className="w-4 h-4" />
-                        <span className="text-xs font-medium">
-                          +{dashboardData.processSpeed.disbursementTrend}%
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="h-3 bg-gray-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full rounded-full transition-all duration-1000 bg-gradient-to-r from-accent to-green-500"
-                    style={{ width: `${Math.min(100, dashboardData.processSpeed.disbursementTime / 24 * 100)}%` }}
-                  />
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-          
-          {/* Section 4: Staff Workload */}
-          <ChartCard
-            title="Staff Workload"
-            subtitle="Active loans per relationship officer"
-            loading={loading}
-          >
-            <div className="space-y-6">
-              {dashboardData.workload.map((officer, index) => (
-                <div key={index} className="group p-3 rounded-lg hover:bg-neutral transition-all">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold bg-brand-primary/10 text-brand-primary">
-                        {officer.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-medium text-text">
-                          {officer.name}
-                        </div>
-                        <div className="text-xs text-muted">
-                          Relationship Officer
-                        </div>
-                      </div>
-                    </div>
-                    <div className="text-lg font-bold text-text">
-                      {officer.count}
-                      <span className="text-sm font-normal ml-1 text-muted">
-                        loans
-                      </span>
-                    </div>
-                  </div>
-                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full rounded-full transition-all duration-700 ${
-                        officer.threshold === 'high' 
-                          ? 'bg-gradient-to-r from-amber-500 to-red-500' 
-                          : officer.threshold === 'medium'
-                          ? 'bg-gradient-to-r from-blue-400 to-blue-600'
-                          : 'bg-gradient-to-r from-green-400 to-green-600'
-                      }`}
-                      style={{ width: `${Math.min(100, (officer.count / 30) * 100)}%` }}
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs mt-2">
-                    <span className="text-muted">0</span>
-                    <span className={`font-medium ${
-                      officer.threshold === 'high' ? 'text-red-600' :
-                      officer.threshold === 'medium' ? 'text-amber-600' : 'text-green-600'
-                    }`}>
-                      {officer.threshold === 'high' ? 'High Load' :
-                       officer.threshold === 'medium' ? 'Moderate' : 'Optimal'}
-                    </span>
-                    <span className="text-muted">30</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </ChartCard>
+
+        {/* Top Metrics Row */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard
+            title="Active Loans"
+            value={dashboardData.metrics.activeLoans}
+            subValue={formatCurrency(dashboardData.metrics.portfolioOutstanding)}
+            icon={Users}
+            color="brand"
+            className="bg-gradient-to-br from-blue-50 to-white border-blue-100"
+          />
+          <MetricCard
+            title="Disbursed Today"
+            value={dashboardData.metrics.disbursedTodayCount}
+            subValue={formatCurrency(dashboardData.metrics.disbursedTodayAmount)}
+            icon={DollarSign}
+            color="green"
+            className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100"
+          />
+          <MetricCard
+            title="Collected Today"
+            value={formatCurrency(dashboardData.metrics.repaymentsCollected)}
+            subValue={`${dashboardData.repayment.collectionRate}% Rate`}
+            icon={Briefcase}
+            color="indigo"
+            className="bg-gradient-to-br from-indigo-50 to-white border-indigo-100"
+          />
+          <MetricCard
+            title="Portfolio At Risk"
+            value={`${dashboardData.par30}%`}
+            subValue={`PAR `}
+            icon={AlertTriangle}
+            color="red"
+            className="bg-gradient-to-br from-red-50 to-white border-red-100"
+          />
         </div>
-        
-        {/* Sections 5 & 6 */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Section 5: Disbursement Monitor */}
-          <ChartCard
-            title="Disbursement Monitor"
-            subtitle="Today's disbursement status"
-            loading={loading}
-          >
-            <div className="space-y-4">
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-accent/5 border-accent/30">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <CheckCircle className="w-5 h-5 text-accent" />
-                    <div>
-                      <div className="font-semibold text-text">
-                        Disbursed Today
-                      </div>
-                      <div className="text-sm text-muted">
-                        Successfully processed
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-text">
-                    {dashboardData.disbursement.today}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-highlight/5 border-highlight/30">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-highlight" />
-                    <div>
-                      <div className="font-semibold text-text">
-                        Pending Disbursement
-                      </div>
-                      <div className="text-sm text-muted">
-                        Awaiting processing
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-text">
-                    {dashboardData.disbursement.pending}
-                  </div>
-                </div>
-              </div>
-              
-              <div className="p-4 rounded-lg border-2 transition-all hover:scale-[1.02] bg-red-50 border-red-200">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <XCircle className="w-5 h-5 text-red-500" />
-                    <div>
-                      <div className="font-semibold text-text">
-                        Failed Disbursements
-                      </div>
-                      <div className="text-sm text-muted">
-                        Requires attention
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-2xl font-bold text-text">
-                    {dashboardData.disbursement.failed}
-                  </div>
-                </div>
-              </div>
-            </div>
-          </ChartCard>
-          
-          {/* Section 6: Client & KYC Status */}
-          <div className="lg:col-span-2 space-y-6">
-            <ChartCard
-              title="Client & KYC Status"
-              subtitle="Customer onboarding metrics"
-              loading={loading}
-            >
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-brand-primary/5 border-brand-primary/20">
-                  <UserPlus className="w-10 h-10 mx-auto mb-3 text-brand-primary" />
-                  <div className="text-3xl font-bold mb-2 text-text">
-                    {dashboardData.clientKyc.newBorrowers}
-                  </div>
-                  <div className="text-sm font-semibold mb-1 text-brand-primary">
-                    New Borrowers
-                  </div>
-                  <div className="text-xs text-muted">
-                    Registered today
-                  </div>
-                </div>
-                
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-highlight/5 border-highlight/20">
-                  <FileWarning className="w-10 h-10 mx-auto mb-3 text-highlight" />
-                  <div className="text-3xl font-bold mb-2 text-text">
-                    {dashboardData.clientKyc.missingDocuments}
-                  </div>
-                  <div className="text-sm font-semibold mb-1 text-highlight">
-                    Missing Documents
-                  </div>
-                  <div className="text-xs text-muted">
-                    Requires follow-up
-                  </div>
-                </div>
-                
-                <div className="text-center p-6 rounded-xl border-2 hover:shadow-lg transition-all bg-red-50 border-red-200">
-                  <Shield className="w-10 h-10 mx-auto mb-3 text-red-500" />
-                  <div className="text-3xl font-bold mb-2 text-text">
-                    {dashboardData.clientKyc.unverifiedKyc}
-                  </div>
-                  <div className="text-sm font-semibold mb-1 text-red-500">
-                    Unverified KYC
-                  </div>
-                  <div className="text-xs text-muted">
-                    Pending verification
-                  </div>
-                </div>
-              </div>
-            </ChartCard>
-            
-            {/* Section 7: Operational Alerts */}
-            <ChartCard
-              title="Operational Alerts"
-              subtitle="Items requiring attention"
-              loading={loading}
-            >
-              <div className="space-y-3">
-                {dashboardData.alerts.length > 0 ? (
-                  dashboardData.alerts.map(alert => (
-                    <AlertCard
-                      key={alert.id}
-                      type={alert.type}
-                      title={alert.title}
-                      description={alert.description}
-                      count={alert.count}
-                      onAction={() => console.log('View alert:', alert.id)}
-                    />
-                  ))
-                ) : (
-                  <div className="text-center py-8">
-                    <CheckCircle className="w-12 h-12 mx-auto mb-3 text-accent" />
-                    <div className="text-lg font-semibold mb-2 text-text">
-                      All Systems Operational
-                    </div>
-                    <p className="text-sm text-muted">
-                      No pending alerts requiring immediate attention
-                    </p>
-                  </div>
-                )}
-              </div>
-            </ChartCard>
+
+        {/* Main Content Grid */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+          {/* Left Column */}
+          <div className="space-y-5">
+            <PipelineWidget data={dashboardData.pipeline} />
+            <DelinquencyWidget data={dashboardData.delinquency} par30={dashboardData.par30} />
+            <CollectionsActivityWidget data={dashboardData.collectionsActivity} />
           </div>
+
+          {/* Middle Column */}
+          <div className="space-y-5">
+            <TasksWidget data={dashboardData.tasks} />
+            <PortfolioChartsWidget
+              statusData={dashboardData.portfolio.status}
+              typeData={dashboardData.portfolio.types}
+            />
+            <RevenueWidget data={dashboardData.revenue} />
+          </div>
+
+          {/* Right Column */}
+          <div className="space-y-5">
+            <RepaymentWidget data={dashboardData.repayment} chartData={chartData} />
+            <DisbursementWidget data={dashboardData.disbursement} />
+            <div className="bg-gradient-to-b from-blue-50/50 to-white rounded-xl shadow-sm border border-blue-100 overflow-hidden">
+              <PerformanceWidget type="agent" data={dashboardData.agentPerformance} title="Officer Performance" />
+            </div>
+            <PerformanceWidget type="collector" data={dashboardData.collectorPerformance} />
+            <SystemAlertsWidget alerts={dashboardData.alerts} />
+          </div>
+
         </div>
       </div>
     </div>

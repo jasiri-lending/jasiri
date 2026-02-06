@@ -1,215 +1,432 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "../../supabaseClient";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save, X } from "lucide-react";
+import { ArrowLeft, User, Phone, Building, X } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
+import { API_BASE_URL } from "../../../config";
 
 function NewJournalEntry() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [searchingCustomers, setSearchingCustomers] = useState(false);
   const [customers, setCustomers] = useState([]);
-  const [glAccounts, setGLAccounts] = useState([]);
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
+  const accountDropdownRef = useRef(null);
+  
+  const [formData, setFormData] = useState({
+    journal_type: "",
+    account_type: "",
+    account_name: "",
+    amount: "",
+    description: "",
+    customer_id: "",
+    customer_phone: "",
+    customer_name: "",
+    account_search: ""
+  });
 
-  const [journalType, setJournalType] = useState("Credit Customer Account");
-  const [accountType, setAccountType] = useState("Customer Account");
-  const [selectedAccount, setSelectedAccount] = useState("");
-  const [amount, setAmount] = useState("");
-  const [accountName, setAccountName] = useState("");
-  const [description, setDescription] = useState("");
   const { profile } = useAuth();
 
+  // Close dropdown when clicking outside
   useEffect(() => {
-    fetchCustomers();
-    fetchGLAccounts();
+    function handleClickOutside(event) {
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
+        setShowAccountDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
   }, []);
 
-  const fetchCustomers = async () => {
-    const { data } = await supabase
-      .from("customers")
-      .select("id, full_name, account_number")
-      .eq("tenant_id", profile?.tenant_id)
-      .order("full_name");
-    if (data) setCustomers(data);
+  // Search customers when user types in account name field
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(() => {
+      if (formData.account_search && formData.account_search.length >= 2) {
+        searchCustomers(formData.account_search);
+      } else {
+        setCustomers([]);
+        setShowAccountDropdown(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [formData.account_search]);
+
+  const searchCustomers = async (searchTerm) => {
+    if (!profile?.tenant_id) return;
+    
+    setSearchingCustomers(true);
+    try {
+      const sessionToken = localStorage.getItem('sessionToken');
+      const response = await fetch(
+        `${API_BASE_URL}/api/journals/search-customers?tenant_id=${profile.tenant_id}&search=${encodeURIComponent(searchTerm)}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${sessionToken}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+      const data = await response.json();
+      if (data.success) {
+        setCustomers(data.customers || []);
+        setShowAccountDropdown(true);
+      }
+    } catch (error) {
+      console.error("Error searching customers:", error);
+    } finally {
+      setSearchingCustomers(false);
+    }
   };
 
-  const fetchGLAccounts = async () => {
-    const { data } = await supabase
-      .from("gl_accounts")
-      .select("id, account_code, account_name")
-      .eq("tenant_id", profile?.tenant_id)
-      .order("account_code");
-    if (data) setGLAccounts(data);
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const selectCustomer = (customer) => {
+    setFormData(prev => ({
+      ...prev,
+      customer_id: customer.id,
+      customer_phone: customer.phone,
+      customer_name: customer.display_name,
+      account_name: customer.display_name,
+      account_search: customer.display_name
+    }));
+    setShowAccountDropdown(false);
+  };
+
+  const clearCustomerSelection = () => {
+    setFormData(prev => ({
+      ...prev,
+      customer_id: "",
+      customer_phone: "",
+      customer_name: "",
+      account_name: "",
+      account_search: ""
+    }));
+    setCustomers([]);
   };
 
   const createJournal = async () => {
-    if (!selectedAccount || !amount || !accountName) {
-      alert("Please fill in all required fields.");
+    if (!formData.journal_type) {
+      alert("Please select a journal type.");
       return;
     }
 
-    if (!selectedAccount || !amount || !accountName) {
-      alert("Please fill in all required fields.");
+    if (!formData.account_type) {
+      alert("Please select an account type.");
       return;
     }
 
-    const { error } = await supabase.from("journals").insert([
-      {
-        journal_type: journalType,
-        account_type: accountType,
-        account_id: selectedAccount,
-        amount: parseFloat(amount),
-        account_name: accountName,
-        description,
-        created_by: profile?.id,
-        tenant_id: profile?.tenant_id,
-        status: "Posted",
-      },
-    ]);
+    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+      alert("Please enter a valid amount greater than 0.");
+      return;
+    }
 
-    if (error) {
-      alert("Failed to create journal.");
-      console.log(error);
-    } else {
-      alert("Journal created successfully!");
-      navigate("/journals");
+    if (!formData.account_name || !formData.customer_id) {
+      alert("Please search and select a customer.");
+      return;
+    }
+
+    if (!formData.description) {
+      alert("Please enter a description.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const sessionToken = localStorage.getItem('sessionToken');
+      const response = await fetch(`${API_BASE_URL}/api/journals`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          journal_type: formData.journal_type,
+          account_type: formData.account_type,
+          amount: parseFloat(formData.amount),
+          description: formData.description,
+          tenant_id: profile?.tenant_id,
+          customer_id: formData.customer_id,
+          customer_name: formData.customer_name
+        })
+      });
+
+      const data = await response.json();
+      
+      if (data.success) {
+        alert("Journal created successfully!");
+        navigate("/journals");
+      } else {
+        alert(`Failed to create journal: ${data.error}`);
+      }
+    } catch (error) {
+      console.error("Error creating journal:", error);
+      alert("Failed to create journal. Please try again.");
+    } finally {
+      setLoading(false);
     }
   };
 
+  const journalTypes = [
+    { value: "debit", label: "Debit" },
+    { value: "credit", label: "Credit" }
+  ];
+
+  const accountTypes = [
+    { value: "Customer Account", label: "Customer Account" },
+    { value: "General Ledger", label: "General Ledger" }
+  ];
+
   return (
-    <div className="p-6 bg-brand-surface min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
-        Journals / New Journal Entry
-      </h1>
+    <div className="p-6 bg-gray-50 min-h-screen">
+      <div className="mb-4 text-sm text-gray-600">
+        Journals / Create Journal Voucher
+      </div>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-5xl">
-        <div className="p-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-6">
-            Create New Journal Entry
-          </h2>
-
-          <div className="grid grid-cols-2 gap-6">
-            {/* LEFT COLUMN */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  value={journalType}
-                  onChange={(e) => setJournalType(e.target.value)}
-                >
-                  <option>Credit Customer Account</option>
-                  {/* <option>Debit G/L Account</option> */}
-                  <option>Charge Customer</option>
-                  <option>Debit Customer Account</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Account Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  value={accountType}
-                  onChange={(e) => {
-                    setAccountType(e.target.value);
-                    setSelectedAccount("");
-                  }}
-                >
-                  <option>Customer Account</option>
-                  {/* <option>G/L Account</option> */}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Customer <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  value={selectedAccount}
-                  onChange={(e) => setSelectedAccount(e.target.value)}
-                >
-                  <option value="">Select customer</option>
-                  {customers.map((cust) => (
-                    <option key={cust.id} value={cust.id}>
-                      {cust.account_number} - {cust.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Amount <span className="text-red-500">*</span>
-                </label>
-                <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* RIGHT COLUMN */}
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Account Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent"
-                  type="text"
-                  placeholder="Enter account name"
-                  value={accountName}
-                  onChange={(e) => setAccountName(e.target.value)}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
-                  Description
-                </label>
-                <textarea
-                  className="w-full border border-gray-300 rounded-md px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[#586ab1] focus:border-transparent resize-none"
-                  rows="8"
-                  placeholder="Enter description..."
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                />
-              </div>
-            </div>
+      <div className="bg-white rounded-lg shadow-sm">
+        <div className="border-b">
+          <div className="px-6 py-3">
+            <span className="inline-block px-4 py-2 bg-teal-500 text-white text-sm rounded">
+              Journal Voucher
+            </span>
           </div>
         </div>
 
-        {/* FOOTER WITH BUTTONS */}
-        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50">
+        <div className="p-6">
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Type
+              </label>
+              <select
+                name="journal_type"
+                value={formData.journal_type}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+              >
+                <option value="">Select type...</option>
+                {journalTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account Name
+              </label>
+              <input
+                name="account_name"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                type="text"
+                value={formData.account_name}
+                readOnly
+                placeholder="Selected customer will appear here"
+              />
+            </div>
+          </div>
+
+          <div className="mb-4">
+            <span className="inline-block px-4 py-2 bg-teal-500 text-white text-sm rounded">
+              Journal Details
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6 mb-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account Type
+              </label>
+              <select
+                name="account_type"
+                value={formData.account_type}
+                onChange={handleInputChange}
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+              >
+                <option value="">Select account type...</option>
+                {accountTypes.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="relative" ref={accountDropdownRef}>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Account Name
+              </label>
+              <div className="relative">
+                <input
+                  name="account_search"
+                  className="w-full border border-gray-300 rounded px-3 py-2 pr-20 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                  type="text"
+                  placeholder="Search Account"
+                  value={formData.account_search}
+                  onChange={handleInputChange}
+                  autoComplete="off"
+                />
+                {formData.customer_id && (
+                  <button
+                    type="button"
+                    onClick={clearCustomerSelection}
+                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {showAccountDropdown && customers.length > 0 && (
+                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
+                  {searchingCustomers ? (
+                    <div className="p-3 text-center">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-teal-500 mx-auto"></div>
+                      <p className="text-sm text-gray-500 mt-2">Searching...</p>
+                    </div>
+                  ) : (
+                    <>
+                      {customers.map((customer) => (
+                        <div
+                          key={customer.id}
+                          onClick={() => selectCustomer(customer)}
+                          className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="bg-blue-50 p-2 rounded-full">
+                              {customer.business_name ? (
+                                <Building size={14} className="text-blue-600" />
+                              ) : (
+                                <User size={14} className="text-blue-600" />
+                              )}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 truncate">
+                                {customer.display_name}
+                              </p>
+                              <div className="flex flex-wrap gap-2 mt-1">
+                                {customer.phone && (
+                                  <div className="flex items-center gap-1">
+                                    <Phone size={12} className="text-gray-500" />
+                                    <span className="text-xs text-gray-600">{customer.phone}</span>
+                                  </div>
+                                )}
+                                {customer.id_number && (
+                                  <span className="text-xs text-gray-500">
+                                    ID: {customer.id_number}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {formData.account_search && customers.length === 0 && !searchingCustomers && formData.account_search.length >= 2 && (
+                <div className="absolute z-10 w-full mt-1 bg-yellow-50 border border-yellow-200 rounded p-3">
+                  <p className="text-sm text-yellow-800">
+                    No customer found. Try phone number or ID.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Amount
+              </label>
+              <input
+                name="amount"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500"
+                type="number"
+                step="0.01"
+                min="0.01"
+                placeholder="0.00"
+                value={formData.amount}
+                onChange={handleInputChange}
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                name="description"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-teal-500 focus:border-teal-500 resize-none"
+                rows="3"
+                placeholder="Enter description..."
+                value={formData.description}
+                onChange={handleInputChange}
+              />
+            </div>
+          </div>
+
+          {formData.customer_id && (
+            <div className="mt-6 p-4 bg-green-50 border border-green-200 rounded">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-green-100 p-2 rounded-full">
+                    <User size={16} className="text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-gray-900">{formData.customer_name}</p>
+                    {formData.customer_phone && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <Phone size={12} className="text-gray-500" />
+                        <span className="text-xs text-gray-600">{formData.customer_phone}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={clearCustomerSelection}
+                  className="text-sm text-red-600 hover:text-red-800"
+                >
+                  Change
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <div className="border-t px-6 py-4 flex justify-between items-center bg-gray-50">
           <button
-            onClick={() => navigate(-1)}
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            onClick={() => navigate("/journals")}
+            className="px-4 py-2 rounded flex items-center gap-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 transition-colors"
           >
-            <ArrowLeft size={14} /> Back
+            <ArrowLeft size={16} /> Back
           </button>
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate(-1)}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
-            >
-              <X size={14} /> Cancel
-            </button>
+          <div className="flex gap-3">
             <button
               onClick={createJournal}
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
-              style={{ backgroundColor: "#586ab1" }}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#4a5a9d"}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#586ab1"}
+              disabled={loading}
+              className={`px-6 py-2 rounded text-sm font-medium text-white bg-green-600 hover:bg-green-700 transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
-              <Save size={14} /> Save Entry
+              {loading ? 'Saving...' : 'Save'}
+            </button>
+            <button
+              onClick={() => navigate("/journals")}
+              className="px-6 py-2 rounded text-sm font-medium text-white bg-pink-500 hover:bg-pink-600 transition-colors"
+            >
+              Cancel
             </button>
           </div>
         </div>

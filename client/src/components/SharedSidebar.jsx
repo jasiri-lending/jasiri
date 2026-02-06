@@ -180,13 +180,13 @@ const SharedSidebar = () => {
           icon: Calculator,
           children: [
             {
-              name: "Chart of Accounts",
+              name: "Accounts Setup",
               href: "/accounting/chart-of-accounts",
               icon: BookOpen,
             },
-            { name: "Journals", href: "/accounting/journals", icon: Book },
+            { name: "Accounting Journals", href: "/accounting/journals", icon: Book },
             {
-              name: "Transactions",
+              name: "Financial Transactions",
               href: "/accounting/transactions",
               icon: CreditCard,
             },
