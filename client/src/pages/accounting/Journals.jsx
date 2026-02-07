@@ -1,16 +1,26 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Plus, Search, CheckCircle, XCircle, Send, MoreVertical } from "lucide-react";
+import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/userAuth";
+import { useToast } from "../../components/Toast";
 import { API_BASE_URL } from "../../../config.js";
 
 function Journals() {
   const [journals, setJournals] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false); // Valid: boolean or ID string if needed, but here boolean is enough for modal
+
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState(null); // 'approve' | 'reject'
+  const [selectedJournalId, setSelectedJournalId] = useState(null);
+  const [actionReason, setActionReason] = useState("");
+
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const toast = useToast();
 
   const fetchJournals = async () => {
     try {
@@ -29,7 +39,7 @@ function Journals() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
         setJournals(data.journals || []);
       } else {
@@ -48,111 +58,64 @@ function Journals() {
     }
   }, [profile?.tenant_id]);
 
-  const handlePostJournal = async (journalId) => {
-    if (!window.confirm("Are you sure you want to post this journal? This will create accounting entries.")) {
+  const openActionModal = (action, journalId) => {
+    setModalAction(action);
+    setSelectedJournalId(journalId);
+    setActionReason("");
+    setIsModalOpen(true);
+  };
+
+  const closeActionModal = () => {
+    setIsModalOpen(false);
+    setModalAction(null);
+    setSelectedJournalId(null);
+    setActionReason("");
+  };
+
+  const handleSubmitAction = async () => {
+    if (modalAction === 'reject' && !actionReason.trim()) {
+      toast.error("Rejection reason is required");
       return;
     }
 
-    setActionLoading(journalId);
+    setActionLoading(true);
     try {
       const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(`${API_BASE_URL}/api/journals/${journalId}/post`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          tenant_id: profile?.tenant_id,
-          posted_by: profile?.id
-        })
-      });
+      const endpoint = modalAction === 'approve' ? 'approve' : 'reject';
 
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(data.message);
-        fetchJournals(); // Refresh the list
+      const body = {
+        tenant_id: profile?.tenant_id
+      };
+
+      if (modalAction === 'approve') {
+        body.approval_note = actionReason;
       } else {
-        alert(`Failed to post journal: ${data.error}`);
+        body.rejection_reason = actionReason;
       }
-    } catch (error) {
-      console.error("Error posting journal:", error);
-      alert("Failed to post journal");
-    } finally {
-      setActionLoading(null);
-    }
-  };
 
-  const handleApproveJournal = async (journalId) => {
-    const approvalNote = prompt("Enter approval note (optional):");
-    
-    setActionLoading(`approve-${journalId}`);
-    try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(`${API_BASE_URL}/api/journals/${journalId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/api/journals/${selectedJournalId}/${endpoint}`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${sessionToken}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          tenant_id: profile?.tenant_id,
-          approval_note: approvalNote
-        })
+        body: JSON.stringify(body)
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
-        alert(data.message);
+        toast.success(data.message);
         fetchJournals();
+        closeActionModal();
       } else {
-        alert(`Failed to approve journal: ${data.error}`);
+        toast.error(`Action failed: ${data.error}`);
       }
     } catch (error) {
-      console.error("Error approving journal:", error);
-      alert("Failed to approve journal");
+      console.error(`Error ${modalAction}ing journal:`, error);
+      toast.error(`Failed to ${modalAction} journal`);
     } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const handleRejectJournal = async (journalId) => {
-    const rejectionReason = prompt("Enter rejection reason:");
-    if (!rejectionReason) {
-      alert("Rejection reason is required");
-      return;
-    }
-    
-    setActionLoading(`reject-${journalId}`);
-    try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(`${API_BASE_URL}/api/journals/${journalId}/reject`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          tenant_id: profile?.tenant_id,
-          rejection_reason: rejectionReason
-        })
-      });
-
-      const data = await response.json();
-      
-      if (data.success) {
-        alert(data.message);
-        fetchJournals();
-      } else {
-        alert(`Failed to reject journal: ${data.error}`);
-      }
-    } catch (error) {
-      console.error("Error rejecting journal:", error);
-      alert("Failed to reject journal");
-    } finally {
-      setActionLoading(null);
+      setActionLoading(false);
     }
   };
 
@@ -172,18 +135,16 @@ function Journals() {
   };
 
   const filteredJournals = journals.filter((j) =>
-    j.customers?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
+    j.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
     j.description?.toLowerCase().includes(search.toLowerCase()) ||
     j.journal_type?.toLowerCase().includes(search.toLowerCase())
   );
 
   if (loading) {
     return (
+
       <div className="p-6 bg-brand-surface min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#586ab1] mx-auto"></div>
-          <p className="text-xs text-gray-500 mt-2">Loading journals...</p>
-        </div>
+        <Spinner text="Loading journals..." />
       </div>
     );
   }
@@ -198,24 +159,21 @@ function Journals() {
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           {/* NEW ENTRY BUTTON */}
           <button
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors"
-            style={{ backgroundColor: "#586ab1" }}
+            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-btn hover:bg-brand-primary"
             onClick={() => navigate("/journals/new")}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#4a5a9d"}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#586ab1"}
           >
             <Plus size={14} /> New Entry
           </button>
 
           <div className="relative">
-            <Search 
-              size={14} 
+            <Search
+              size={14}
               className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
             />
             <input
               type="text"
               placeholder="Search by customer, description, or type..."
-              className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-64 text-xs focus:outline-none focus:ring-1 focus:border-transparent"
+              className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-64 text-xs focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-transparent"
               style={{ focusRingColor: "#586ab1" }}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
@@ -227,9 +185,9 @@ function Journals() {
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
+              <tr className="bg-brand-surface border-b border-gray-200">
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
-                  Type
+                  Journal Type
                 </th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
                   Customer
@@ -257,36 +215,36 @@ function Journals() {
 
             <tbody>
               {filteredJournals.map((j) => (
-                <tr 
-                  key={j.id} 
+                <tr
+                  key={j.id}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-4 py-3 text-xs text-gray-700">
+                  <td className="px-4 py-3 text-sm  text-gray-700">
                     {j.journal_type}
                   </td>
-                  <td className="px-4 py-3 text-xs font-medium text-gray-900">
-                    {j.customers?.full_name || "Unknown"}
+                  <td className="px-4 py-3 text-xs font-medium text-gray-700">
+                    {j.customer_name || "Unknown"}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-700 text-right font-medium">
+                  <td className="px-4 py-3 text-sm text-gray-700 text-right font-medium">
                     {parseFloat(j.amount).toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 max-w-xs truncate">
+                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
                     {j.description}
                   </td>
                   <td className="px-4 py-3 text-center">
-                    <span 
+                    <span
                       className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(j.status)}`}
                     >
                       {j.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600">
-                    {j.profiles?.full_name}
+                  <td className="px-4 py-3 text-sm text-gray-600">
+                    {j.created_by_name}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-600 text-center">
+                  <td className="px-4 py-3 text-sm text-gray-600 text-center">
                     {new Date(j.created_at).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "short",
@@ -303,49 +261,25 @@ function Journals() {
                       >
                         <Eye className="text-gray-600 hover:text-gray-900" size={16} />
                       </button>
-                      
+
                       {j.status === 'pending' && (
                         <>
                           <button
-                            className={`inline-flex items-center justify-center p-1 rounded hover:bg-green-100 transition-colors ${actionLoading === j.id ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={() => handlePostJournal(j.id)}
-                            disabled={actionLoading === j.id}
-                            aria-label="Post journal"
-                            title="Post to Accounting"
-                          >
-                            {actionLoading === j.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#586ab1]"></div>
-                            ) : (
-                              <Send className="text-green-600 hover:text-green-800" size={16} />
-                            )}
-                          </button>
-                          
-                          <button
-                            className={`inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors ${actionLoading === `approve-${j.id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={() => handleApproveJournal(j.id)}
-                            disabled={actionLoading === `approve-${j.id}`}
+                            className="inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors"
+                            onClick={() => openActionModal('approve', j.id)}
                             aria-label="Approve journal"
                             title="Approve"
                           >
-                            {actionLoading === `approve-${j.id}` ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#586ab1]"></div>
-                            ) : (
-                              <CheckCircle className="text-blue-600 hover:text-blue-800" size={16} />
-                            )}
+                            <CheckCircle className="text-blue-600 hover:text-blue-800" size={16} />
                           </button>
-                          
+
                           <button
-                            className={`inline-flex items-center justify-center p-1 rounded hover:bg-red-100 transition-colors ${actionLoading === `reject-${j.id}` ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            onClick={() => handleRejectJournal(j.id)}
-                            disabled={actionLoading === `reject-${j.id}`}
+                            className="inline-flex items-center justify-center p-1 rounded hover:bg-red-100 transition-colors"
+                            onClick={() => openActionModal('reject', j.id)}
                             aria-label="Reject journal"
                             title="Reject"
                           >
-                            {actionLoading === `reject-${j.id}` ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#586ab1]"></div>
-                            ) : (
-                              <XCircle className="text-red-600 hover:text-red-800" size={16} />
-                            )}
+                            <XCircle className="text-red-600 hover:text-red-800" size={16} />
                           </button>
                         </>
                       )}
@@ -363,6 +297,80 @@ function Journals() {
           </div>
         )}
       </div>
+      {/* ACTION MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'
+              }`}>
+              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-blue-800' : 'text-red-800'
+                }`}>
+                {modalAction === 'approve' ? 'Approve Journal Entry' : 'Reject Journal Entry'}
+              </h3>
+              <button
+                onClick={closeActionModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={actionLoading}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {actionLoading ? (
+                <div className="py-8 flex justify-center">
+                  <Spinner text={modalAction === 'approve' ? 'Approving Journal...' : 'Rejecting Journal...'} />
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {modalAction === 'approve'
+                      ? 'Are you sure you want to approve this journal? This will post the transaction to the ledger and update wallet balances.'
+                      : 'Please provide a reason for rejecting this journal entry.'
+                    }
+                  </p>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-gray-700">
+                      {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
+                    </label>
+                    <textarea
+                      className="w-full text-xs border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-btn focus:border-transparent outline-none transition-all"
+                      rows={4}
+                      placeholder={modalAction === 'approve' ? 'Enter any notes...' : 'Enter reason for rejection...'}
+                      value={actionReason}
+                      onChange={(e) => setActionReason(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            {!actionLoading && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                  onClick={closeActionModal}
+                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitAction}
+                  className={`px-4 py-2 text-xs font-medium text-white rounded-md transition-colors ${modalAction === 'approve'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                    }`}
+                >
+                  {modalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

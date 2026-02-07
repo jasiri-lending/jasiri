@@ -13,7 +13,7 @@ const verifyTenant = async (req, res, next) => {
     }
 
     const sessionToken = authHeader.split(' ')[1];
-    
+
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
       .select("*")
@@ -57,98 +57,66 @@ JournalRouter.get("/search-customers", verifyTenant, async (req, res) => {
 
     // Check if search is purely numeric
     const isNumeric = /^\d+$/.test(search);
-    
+
+    let query = supabaseAdmin
+      .from("customers")
+      .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
+      .eq("tenant_id", tenant_id)
+      .limit(10);
+
     if (isNumeric) {
-      // For numeric search, use the RPC function or fallback
-      try {
-        const { data: customers, error } = await supabaseAdmin
-          .rpc('search_customers_by_number', {
-            p_tenant_id: tenant_id,
-            p_search: search
-          });
-
-        if (error) {
-          // Fallback: only search mobile (text field)
-          console.log("RPC function not found, using fallback");
-          const { data: fallbackCustomers, error: fallbackError } = await supabaseAdmin
-            .from("customers")
-            .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
-            .eq("tenant_id", tenant_id)
-            .ilike("mobile", `%${search}%`)
-            .limit(10);
-
-          if (fallbackError) throw fallbackError;
-
-          const formattedCustomers = formatCustomers(fallbackCustomers || []);
-          return res.json({
-            success: true,
-            customers: formattedCustomers
-          });
-        }
-
-        const formattedCustomers = formatCustomers(customers || []);
-        return res.json({
-          success: true,
-          customers: formattedCustomers
-        });
-      } catch (rpcError) {
-        console.error('RPC error:', rpcError);
-        // Fallback to mobile-only search
-        const { data: fallbackCustomers, error: fallbackError } = await supabaseAdmin
-          .from("customers")
-          .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
-          .eq("tenant_id", tenant_id)
-          .ilike("mobile", `%${search}%`)
-          .limit(10);
-
-        if (fallbackError) throw fallbackError;
-
-        const formattedCustomers = formatCustomers(fallbackCustomers || []);
-        return res.json({
-          success: true,
-          customers: formattedCustomers
-        });
-      }
+      // Search mobile (partial) OR id_number (exact) - using raw OR syntax for mixed types if needed, 
+      // but mobile is text and id_number is bigint. 
+      // Safest is to use the .or() filter with explicit casting or just string matching if Supabase handles it.
+      // We will try the flexible string syntax: mobile.ilike.%search%,id_number.eq.search
+      query = query.or(`mobile.ilike.%${search}%,id_number.eq.${search}`);
     } else {
-      // For text search, search in name fields only (not id_number)
-      const { data: customers, error } = await supabaseAdmin
-        .from("customers")
-        .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
-        .eq("tenant_id", tenant_id)
-        .or(`Firstname.ilike.%${search}%,Surname.ilike.%${search}%,Middlename.ilike.%${search}%,business_name.ilike.%${search}%,mobile.ilike.%${search}%`)
-        .limit(10);
-
-      if (error) throw error;
-
-      const formattedCustomers = formatCustomers(customers || []);
-      return res.json({
-        success: true,
-        customers: formattedCustomers
-      });
+      // Text search: Names or Business Name
+      query = query.or(`Firstname.ilike.%${search}%,Surname.ilike.%${search}%,Middlename.ilike.%${search}%,business_name.ilike.%${search}%`);
     }
+
+    const { data: customers, error } = await query;
+
+    if (error) throw error;
+
+    const formattedCustomers = formatCustomers(customers || []);
+    return res.json({
+      success: true,
+      customers: formattedCustomers
+    });
+
   } catch (error) {
     console.error('Error searching customers:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to search customers',
-      details: error.message 
+      details: error.message
     });
   }
 });
 
 // Helper function to format customers
 function formatCustomers(customers) {
-  return customers.map(customer => ({
-    id: customer.id,
-    display_name: customer.business_name || 
-                 `${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim() ||
-                 `Customer ${customer.id}`,
-    phone: customer.mobile,
-    id_number: customer.id_number,
-    business_name: customer.business_name,
-    first_name: customer.Firstname,
-    surname: customer.Surname
-  }));
+  return customers.map(customer => {
+    // Construct full name
+    const fname = customer.Firstname || '';
+    const mname = customer.Middlename || '';
+    const sname = customer.Surname || '';
+    const fullName = `${fname} ${mname} ${sname}`.trim();
+
+    // Display Name priority: Full Name > Business Name > Customer ID
+    const displayName = fullName || customer.business_name || `Customer ${customer.id}`;
+
+    return {
+      id: customer.id,
+      display_name: displayName,
+      phone: customer.mobile,
+      id_number: customer.id_number,
+      business_name: customer.business_name,
+      first_name: customer.Firstname,
+      surname: customer.Surname
+    };
+  });
 }
 
 // POST /api/journals - Create new pending journal
@@ -161,7 +129,7 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
       description,
       tenant_id,
       customer_id,
-      customer_name
+      recipient_id
     } = req.body;
 
     if (!journal_type || !account_type || !amount || !tenant_id) {
@@ -185,6 +153,21 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
       });
     }
 
+    if (journal_type === 'transfer') {
+      if (!recipient_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Recipient is required for transfers'
+        });
+      }
+      if (customer_id === recipient_id) {
+        return res.status(400).json({
+          success: false,
+          error: 'Sender and recipient cannot be the same'
+        });
+      }
+    }
+
     // Verify customer exists and belongs to this tenant
     const { data: customer, error: customerError } = await supabaseAdmin
       .from("customers")
@@ -200,8 +183,25 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
       });
     }
 
+    if (recipient_id) {
+      const { data: recipient, error: recipientError } = await supabaseAdmin
+        .from("customers")
+        .select("id")
+        .eq("id", recipient_id)
+        .eq("tenant_id", tenant_id)
+        .single();
+
+      if (recipientError || !recipient) {
+        return res.status(400).json({
+          success: false,
+          error: 'Recipient customer not found or does not belong to this tenant'
+        });
+      }
+    }
+
     const journalData = {
       customer_id: customer_id,
+      recipient_id: recipient_id || null,
       journal_type,
       account_type,
       amount: parseFloat(amount),
@@ -217,7 +217,8 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
       .insert([journalData])
       .select(`
         *,
-        customers:customer_id(Firstname, Middlename, Surname, mobile, business_name)
+        customers:customer_id(Firstname, Middlename, Surname, mobile, business_name),
+        recipient:recipient_id(Firstname, Middlename, Surname, mobile, business_name)
       `)
       .single();
 
@@ -230,179 +231,10 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
     });
   } catch (error) {
     console.error('Error creating journal:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to create journal',
-      details: error.message 
-    });
-  }
-});
-
-// POST /api/journals/:id/post - Post journal to accounting AND update customer wallet
-JournalRouter.post("/:id/post", verifyTenant, async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { tenant_id } = req.body;
-
-    const { data: journal, error: journalError } = await supabaseAdmin
-      .from("journals")
-      .select(`
-        *,
-        customers:customer_id(*)
-      `)
-      .eq("id", id)
-      .eq("tenant_id", tenant_id)
-      .single();
-
-    if (journalError) throw journalError;
-
-    if (journal.status !== 'pending') {
-      return res.status(400).json({
-        success: false,
-        error: `Journal cannot be posted. Current status: ${journal.status}`
-      });
-    }
-
-    if (journal.journal_entry_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Journal already has a journal entry'
-      });
-    }
-
-    if (!journal.customer_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Journal must have a customer to be posted'
-      });
-    }
-
-    // Create journal entry
-    const journalEntry = {
-      tenant_id,
-      reference_type: 'journal',
-      reference_id: id.toString(),
-      description: journal.description || `Journal entry for ${journal.journal_type}`,
-      entry_date: journal.entry_date || new Date().toISOString().split('T')[0],
-      created_by: journal.created_by || req.user.id
-    };
-
-    const { data: entry, error: entryError } = await supabaseAdmin
-      .from("journal_entries")
-      .insert([journalEntry])
-      .select()
-      .single();
-
-    if (entryError) throw entryError;
-
-    // Fetch appropriate accounts for the tenant
-    const { data: accounts } = await supabaseAdmin
-      .from("chart_of_accounts")
-      .select("id, account_type, account_name, account_code")
-      .eq("tenant_id", tenant_id);
-
-    if (!accounts || accounts.length === 0) {
-      throw new Error('No chart of accounts found for this tenant');
-    }
-
-    const customerAccountId = journal.customers?.receivable_account_id;
-    let debitAccountId, creditAccountId;
-
-    switch (journal.journal_type.toLowerCase()) {
-      case 'debit':
-        debitAccountId = customerAccountId || 
-                        accounts.find(a => a.account_type === 'asset' && 
-                          (a.account_name.toLowerCase().includes('receivable') || a.account_code.startsWith('1')))?.id;
-        creditAccountId = accounts.find(a => a.account_type === 'revenue')?.id;
-        break;
-      
-      case 'credit':
-        creditAccountId = customerAccountId || 
-                         accounts.find(a => a.account_type === 'asset' && 
-                           (a.account_name.toLowerCase().includes('receivable') || a.account_code.startsWith('1')))?.id;
-        debitAccountId = accounts.find(a => a.account_type === 'revenue')?.id;
-        break;
-      
-      default:
-        debitAccountId = accounts.find(a => a.account_type === 'asset' && a.account_name.toLowerCase().includes('cash'))?.id;
-        creditAccountId = accounts.find(a => a.account_type === 'equity')?.id;
-    }
-
-    if (!debitAccountId || !creditAccountId) {
-      throw new Error('Could not determine accounts for journal type. Please set up chart of accounts.');
-    }
-
-    // Create journal entry lines
-    const journalEntryLines = [
-      {
-        journal_entry_id: entry.id,
-        account_id: debitAccountId,
-        debit: journal.amount,
-        credit: 0
-      },
-      {
-        journal_entry_id: entry.id,
-        account_id: creditAccountId,
-        debit: 0,
-        credit: journal.amount
-      }
-    ];
-
-    const { error: linesError } = await supabaseAdmin
-      .from("journal_entry_lines")
-      .insert(journalEntryLines);
-
-    if (linesError) throw linesError;
-
-    // UPDATE CUSTOMER WALLET
-    const walletEntry = {
-      customer_id: journal.customer_id,
-      tenant_id: tenant_id,
-      type: journal.journal_type.toLowerCase(),
-      amount: parseFloat(journal.amount),
-      debit: journal.journal_type.toLowerCase() === 'debit' ? parseFloat(journal.amount) : 0,
-      credit: journal.journal_type.toLowerCase() === 'credit' ? parseFloat(journal.amount) : 0,
-      description: journal.description,
-      narration: `Journal Entry: ${journal.description}`,
-      transaction_type: 'journal_entry',
-      billref: `JE-${entry.id}`
-    };
-
-    const { error: walletError } = await supabaseAdmin
-      .from("customer_wallets")
-      .insert([walletEntry]);
-
-    if (walletError) {
-      console.error('Error updating customer wallet:', walletError);
-      throw new Error('Failed to update customer wallet: ' + walletError.message);
-    }
-
-    // Update journal status
-    const { error: updateError } = await supabaseAdmin
-      .from("journals")
-      .update({
-        journal_entry_id: entry.id,
-        status: 'posted',
-        approved_by: req.user.id,
-        approved_at: new Date().toISOString()
-      })
-      .eq("id", id)
-      .eq("tenant_id", tenant_id);
-
-    if (updateError) throw updateError;
-
-    res.json({
-      success: true,
-      message: 'Journal posted successfully and customer wallet updated',
-      journal_entry_id: entry.id,
-      journal_lines: journalEntryLines
-    });
-  } catch (error) {
-    console.error('Error posting journal:', error);
-    res.status(500).json({ 
-      success: false,
-      error: 'Failed to post journal',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -413,45 +245,217 @@ JournalRouter.post("/:id/approve", verifyTenant, async (req, res) => {
     const { id } = req.params;
     const { tenant_id, approval_note } = req.body;
 
+    // Check Permissions
+    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        success: false,
+        error: 'Insufficient permissions. Credit Analyst role required.'
+      });
+    }
+
+    // Fetch Journal
+    const { data: journal, error: journalError } = await supabaseAdmin
+      .from("journals")
+      .select(`
+        *,
+        customers:customer_id(*),
+        recipient:recipient_id(*)
+      `)
+      .eq("id", id)
+      .eq("tenant_id", tenant_id)
+      .single();
+
+    if (journalError) throw journalError;
+
+    if (journal.status !== 'pending') {
+      return res.status(400).json({
+        success: false,
+        error: `Journal cannot be approved. Current status: ${journal.status}`
+      });
+    }
+
+    // Create Journal Entry (GL)
+    const journalEntry = {
+      tenant_id,
+      reference_type: 'journal',
+      reference_id: id.toString(),
+      description: journal.description || `Journal entry for ${journal.journal_type}`,
+      entry_date: journal.entry_date || new Date().toISOString().split('T')[0],
+      created_by: journal.created_by
+    };
+
+    const { data: entry, error: entryError } = await supabaseAdmin
+      .from("journal_entries")
+      .insert([journalEntry])
+      .select()
+      .single();
+
+    if (entryError) throw entryError;
+
+    // Fetch Accounts
+    const { data: accounts } = await supabaseAdmin
+      .from("chart_of_accounts")
+      .select("id, account_type, account_name, code")
+      .eq("tenant_id", tenant_id);
+
+    if (!accounts || accounts.length === 0) {
+      throw new Error('No chart of accounts found for this tenant');
+    }
+
+    let debitAccountId, creditAccountId;
+    const walletEntries = [];
+
+    // --- LOGIC ---
+    if (journal.journal_type === 'transfer') {
+      // TRANSFER
+      const walletControlAccount = accounts.find(a => a.code === '2000') || accounts.find(a => a.account_name === 'Customer Wallet Balances');
+      if (!walletControlAccount) throw new Error("Customer Wallet Balances account (2000) not found");
+
+      debitAccountId = walletControlAccount.id;
+      creditAccountId = walletControlAccount.id;
+
+      // Debit Sender
+      walletEntries.push({
+        customer_id: journal.customer_id,
+        tenant_id,
+        type: 'debit',
+        amount: parseFloat(journal.amount),
+        debit: parseFloat(journal.amount),
+        credit: 0,
+        description: `Transfer to ${journal.recipient?.display_name || 'Customer'}`,
+        narration: journal.description,
+        transaction_type: 'transfer_out',
+        billref: `JE-${entry.id}`
+      });
+
+      // Credit Recipient
+      walletEntries.push({
+        customer_id: journal.recipient_id,
+        tenant_id,
+        type: 'credit',
+        amount: parseFloat(journal.amount),
+        debit: 0,
+        credit: parseFloat(journal.amount),
+        description: `Transfer from ${journal.customers?.display_name || 'Customer'}`,
+        narration: journal.description,
+        transaction_type: 'transfer_in',
+        billref: `JE-${entry.id}`
+      });
+
+    } else if (journal.journal_type === 'credit') {
+      // CREDIT / DEPOSIT
+      debitAccountId = accounts.find(a => a.code === '1020')?.id ||
+        accounts.find(a => a.account_type === 'Asset' && a.account_name.includes('Cash'))?.id;
+
+      const walletControl = accounts.find(a => a.code === '2000') || accounts.find(a => a.account_name === 'Customer Wallet Balances');
+
+      if (!debitAccountId) throw new Error("Cash/Bank Asset account not found");
+      if (!walletControl) throw new Error("Customer Wallet Balances account not found");
+
+      creditAccountId = walletControl.id;
+
+      walletEntries.push({
+        customer_id: journal.customer_id,
+        tenant_id,
+        type: 'credit',
+        amount: parseFloat(journal.amount),
+        debit: 0,
+        credit: parseFloat(journal.amount),
+        description: journal.description,
+        narration: `Deposit: ${journal.description}`,
+        transaction_type: 'deposit',
+        billref: `JE-${entry.id}`
+      });
+
+    } else if (journal.journal_type === 'debit') {
+      // DEBIT / WITHDRAWAL
+      const walletControl = accounts.find(a => a.code === '2000') || accounts.find(a => a.account_name === 'Customer Wallet Balances');
+      if (!walletControl) throw new Error("Customer Wallet Balances account not found");
+
+      debitAccountId = walletControl.id;
+
+      // Credit Income or Bank
+      if (journal.account_type === 'Income' || journal.account_type === 'Revenue') {
+        creditAccountId = accounts.find(a => a.account_type === 'Income')?.id;
+      } else {
+        creditAccountId = accounts.find(a => a.code === '1020')?.id; // MPesa/Bank
+      }
+
+      if (!creditAccountId) throw new Error("Offset account not found");
+
+      walletEntries.push({
+        customer_id: journal.customer_id,
+        tenant_id,
+        type: 'debit',
+        amount: parseFloat(journal.amount),
+        debit: parseFloat(journal.amount),
+        credit: 0,
+        description: journal.description,
+        narration: `Withdrawal/Charge: ${journal.description}`,
+        transaction_type: 'withdrawal',
+        billref: `JE-${entry.id}`
+      });
+    }
+
+    // Insert GL Lines
+    const journalEntryLines = [
+      {
+        journal_entry_id: entry.id,
+        account_id: debitAccountId,
+        debit: parseFloat(journal.amount),
+        credit: 0
+      },
+      {
+        journal_entry_id: entry.id,
+        account_id: creditAccountId,
+        debit: 0,
+        credit: parseFloat(journal.amount)
+      }
+    ];
+
+    const { error: linesError } = await supabaseAdmin
+      .from("journal_entry_lines")
+      .insert(journalEntryLines);
+
+    if (linesError) throw linesError;
+
+    // Insert Wallet Entries
+    if (walletEntries.length > 0) {
+      const { error: walletError } = await supabaseAdmin
+        .from("customer_wallets")
+        .insert(walletEntries);
+
+      if (walletError) throw new Error('Failed to update customer wallets: ' + walletError.message);
+    }
+
+    // Update Journal Status
     const { error: updateError } = await supabaseAdmin
       .from("journals")
       .update({
+        journal_entry_id: entry.id,
         status: 'approved',
         approved_by: req.user.id,
         approved_at: new Date().toISOString(),
         approval_note
       })
       .eq("id", id)
-      .eq("tenant_id", tenant_id)
-      .eq("status", "pending");
+      .eq("tenant_id", tenant_id);
 
-    if (updateError) {
-      const { data: journal } = await supabaseAdmin
-        .from("journals")
-        .select("status")
-        .eq("id", id)
-        .single();
-
-      if (journal?.status !== 'pending') {
-        return res.status(400).json({
-          success: false,
-          error: `Journal cannot be approved. Current status: ${journal?.status}`
-        });
-      }
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     res.json({
       success: true,
-      message: 'Journal approved successfully',
+      message: 'Journal approved and transactions posted successfully',
       journal_id: id
     });
+
   } catch (error) {
     console.error('Error approving journal:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to approve journal',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -462,10 +466,18 @@ JournalRouter.post("/:id/reject", verifyTenant, async (req, res) => {
     const { id } = req.params;
     const { tenant_id, rejection_reason } = req.body;
 
-    if (!rejection_reason) {
-      return res.status(400).json({ 
+    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
         success: false,
-        error: 'rejection_reason is required' 
+        error: 'Insufficient permissions'
+      });
+    }
+
+    if (!rejection_reason) {
+      return res.status(400).json({
+        success: false,
+        error: 'rejection_reason is required'
       });
     }
 
@@ -481,21 +493,7 @@ JournalRouter.post("/:id/reject", verifyTenant, async (req, res) => {
       .eq("tenant_id", tenant_id)
       .eq("status", "pending");
 
-    if (updateError) {
-      const { data: journal } = await supabaseAdmin
-        .from("journals")
-        .select("status")
-        .eq("id", id)
-        .single();
-
-      if (journal?.status !== 'pending') {
-        return res.status(400).json({
-          success: false,
-          error: `Journal cannot be rejected. Current status: ${journal?.status}`
-        });
-      }
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     res.json({
       success: true,
@@ -504,10 +502,10 @@ JournalRouter.post("/:id/reject", verifyTenant, async (req, res) => {
     });
   } catch (error) {
     console.error('Error rejecting journal:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to reject journal',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -535,35 +533,68 @@ JournalRouter.get("/", verifyTenant, async (req, res) => {
           mobile,
           business_name
         ),
-        creator:created_by(full_name),
-        approver:approved_by(full_name),
-        rejector:rejected_by(full_name)
+        recipient:recipient_id(
+          Firstname,
+          Middlename,
+          Surname,
+          mobile,
+          business_name
+        )
       `)
       .eq("tenant_id", tenant_id)
       .order("created_at", { ascending: false });
 
     if (error) throw error;
 
-    // Format customer names
+    // Manual join for user details
+    const userIds = new Set();
+    journals.forEach(j => {
+      if (j.created_by) userIds.add(j.created_by);
+      if (j.approved_by) userIds.add(j.approved_by);
+      if (j.rejected_by) userIds.add(j.rejected_by);
+    });
+
+    const { data: usersMap } = await supabaseAdmin
+      .from("users")
+      .select("id, full_name")
+      .in("id", Array.from(userIds));
+
+    const userLookup = {};
+    if (usersMap) {
+      usersMap.forEach(u => { userLookup[u.id] = u.full_name; });
+    }
+
     const formattedJournals = journals.map(journal => {
-      const customer = journal.customers;
-      let customerName = '';
-      
-      if (customer?.business_name) {
-        customerName = customer.business_name;
-      } else if (customer?.Firstname || customer?.Surname) {
-        customerName = `${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim();
-      } else if (journal.customer_id) {
-        customerName = `Customer ${journal.customer_id}`;
+      // Helper to format name
+      const formatName = (c) => {
+        if (!c) return '';
+        // Prioritize Firstname and Surname as requested
+        const nameParts = [c.Firstname, c.Surname].filter(Boolean);
+        if (nameParts.length > 0) return nameParts.join(' ');
+
+        return c.business_name || '';
+      };
+
+      let displayCustomerName = '';
+      const customerName = journal.customers ? formatName(journal.customers) : '';
+      const recipientName = journal.recipient ? formatName(journal.recipient) : '';
+
+      // Determine Display logic
+      if (journal.journal_type === 'transfer' && journal.recipient) {
+        displayCustomerName = `${customerName} ➔ ${recipientName}`;
+      } else if (customerName) {
+        displayCustomerName = customerName;
+      } else {
+        displayCustomerName = `Customer ${journal.customer_id}`;
       }
 
       return {
         ...journal,
-        customer_name: customerName,
-        customer_phone: customer?.mobile,
-        created_by_name: journal.creator?.full_name,
-        approved_by_name: journal.approver?.full_name,
-        rejected_by_name: journal.rejector?.full_name
+        customer_name: displayCustomerName,
+        customer_phone: journal.customers?.mobile,
+        created_by_name: userLookup[journal.created_by] || 'Unknown',
+        approved_by_name: userLookup[journal.approved_by] || '-',
+        rejected_by_name: userLookup[journal.rejected_by] || '-'
       };
     });
 
@@ -573,10 +604,10 @@ JournalRouter.get("/", verifyTenant, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching journals:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to fetch journals',
-      details: error.message 
+      details: error.message
     });
   }
 });
@@ -606,12 +637,17 @@ JournalRouter.get("/:id", verifyTenant, async (req, res) => {
           id_number,
           business_name
         ),
-        creator:created_by(full_name),
-        approver:approved_by(full_name),
-        rejector:rejected_by(full_name),
+        recipient:recipient_id(
+           Firstname,
+           Middlename,
+           Surname,
+           mobile,
+           id_number,
+           business_name
+        ),
         journal_entries:journal_entry_id(*,
           journal_entry_lines(*,
-            account:account_id(account_code, account_name)
+            account:account_id(code, account_name)
           )
         )
       `)
@@ -628,24 +664,41 @@ JournalRouter.get("/:id", verifyTenant, async (req, res) => {
       });
     }
 
-    // Format customer info
-    const customer = journal.customers;
-    let customerName = '';
-    
-    if (customer?.business_name) {
-      customerName = customer.business_name;
-    } else if (customer?.Firstname || customer?.Surname) {
-      customerName = `${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim();
+    // Manual fetch for user details
+    const userIds = new Set();
+    if (journal.created_by) userIds.add(journal.created_by);
+    if (journal.approved_by) userIds.add(journal.approved_by);
+    if (journal.rejected_by) userIds.add(journal.rejected_by);
+
+    const { data: usersMap } = await supabaseAdmin
+      .from("users")
+      .select("id, full_name")
+      .in("id", Array.from(userIds));
+
+    const userLookup = {};
+    if (usersMap) {
+      usersMap.forEach(u => { userLookup[u.id] = u.full_name; });
     }
+
+    const formatName = (c) => {
+      if (!c) return '';
+      // Prioritize Firstname and Surname as requested
+      const nameParts = [c.Firstname, c.Surname].filter(Boolean);
+      if (nameParts.length > 0) return nameParts.join(' ');
+
+      return c.business_name || '';
+    };
 
     const formattedJournal = {
       ...journal,
-      customer_name: customerName,
-      customer_phone: customer?.mobile,
-      customer_id_number: customer?.id_number,
-      created_by_name: journal.creator?.full_name,
-      approved_by_name: journal.approver?.full_name,
-      rejected_by_name: journal.rejector?.full_name
+      customer_name: formatName(journal.customers),
+      customer_phone: journal.customers?.mobile,
+      customer_id_number: journal.customers?.id_number,
+      recipient_name: formatName(journal.recipient),
+      recipient_phone: journal.recipient?.mobile,
+      created_by_name: userLookup[journal.created_by] || 'Unknown',
+      approved_by_name: userLookup[journal.approved_by] || '-',
+      rejected_by_name: userLookup[journal.rejected_by] || '-'
     };
 
     res.json({
@@ -654,10 +707,10 @@ JournalRouter.get("/:id", verifyTenant, async (req, res) => {
     });
   } catch (error) {
     console.error('Error fetching journal:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       error: 'Failed to fetch journal',
-      details: error.message 
+      details: error.message
     });
   }
 });

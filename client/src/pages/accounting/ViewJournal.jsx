@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, Send, Clock } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
+import { useToast } from "../../components/Toast";
+import Spinner from "../../components/Spinner";
 import { API_BASE_URL } from "../../../config";
 
 function ViewJournal() {
@@ -11,6 +13,7 @@ function ViewJournal() {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const { profile } = useAuth();
+  const toast = useToast();
 
   const fetchJournal = async () => {
     try {
@@ -26,7 +29,7 @@ function ViewJournal() {
       );
 
       const data = await response.json();
-      
+
       if (data.success) {
         setJournal(data.journal);
       } else {
@@ -48,24 +51,26 @@ function ViewJournal() {
   const handleAction = async (action) => {
     let url = '';
     let body = {};
-    let confirmMessage = '';
-    
+
+    // Check Permissions for Approval/Rejection
+    // Check Permissions for Approval/Rejection
+    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
+    if (!allowedRoles.includes(profile.role)) {
+      toast.error("You do not have permission to perform this action. Credit Analyst role required.");
+      return;
+    }
+
     switch (action) {
-      case 'post':
-        confirmMessage = "Are you sure you want to post this journal to accounting?";
-        url = `${API_BASE_URL}/api/journals/${id}/post`;
-        body = { tenant_id: profile?.tenant_id, posted_by: profile?.id };
-        break;
       case 'approve':
         const approvalNote = prompt("Enter approval note (optional):");
-        if (approvalNote === null) return; // User cancelled
+        if (approvalNote === null) return;
         url = `${API_BASE_URL}/api/journals/${id}/approve`;
         body = { tenant_id: profile?.tenant_id, approval_note: approvalNote };
         break;
       case 'reject':
         const rejectionReason = prompt("Enter rejection reason:");
         if (!rejectionReason) {
-          alert("Rejection reason is required");
+          toast.error("Rejection reason is required");
           return;
         }
         url = `${API_BASE_URL}/api/journals/${id}/reject`;
@@ -75,7 +80,7 @@ function ViewJournal() {
         return;
     }
 
-    if (action === 'post' && !window.confirm(confirmMessage)) {
+    if (action === 'approve' && !window.confirm("Approve and Post this journal? This will update wallets and GL.")) {
       return;
     }
 
@@ -92,16 +97,16 @@ function ViewJournal() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
-        alert(data.message);
-        fetchJournal(); // Refresh journal data
+        toast.success(data.message);
+        fetchJournal();
       } else {
-        alert(`Action failed: ${data.error}`);
+        toast.error(`Action failed: ${data.error}`);
       }
     } catch (error) {
       console.error(`Error ${action}ing journal:`, error);
-      alert(`Failed to ${action} journal`);
+      toast.error(`Failed to ${action} journal`);
     } finally {
       setActionLoading(false);
     }
@@ -111,10 +116,8 @@ function ViewJournal() {
     switch (status?.toLowerCase()) {
       case 'pending':
         return 'bg-yellow-100 text-yellow-800 border-yellow-200';
-      case 'posted':
-        return 'bg-green-100 text-green-800 border-green-200';
       case 'approved':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
+        return 'bg-green-100 text-green-800 border-green-200'; // Approved is finalized now
       case 'rejected':
         return 'bg-red-100 text-red-800 border-red-200';
       default:
@@ -124,25 +127,23 @@ function ViewJournal() {
 
   if (loading) {
     return (
-      <div className="p-6 bg-brand-surface min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[#586ab1] mx-auto"></div>
-          <p className="text-xs text-gray-500 mt-2">Loading journal details...</p>
-        </div>
+      <div className="flex justify-center items-center min-h-screen">
+        <Spinner />
       </div>
     );
   }
 
   if (!journal) {
     return (
-      <div className="p-6 bg-brand-surface min-h-screen">
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8 text-center">
-          <p className="text-xs text-gray-500">Journal not found</p>
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <div className="text-center">
+          <h2 className="text-xl font-semibold text-gray-700 mb-2">Journal not found</h2>
           <button
-            onClick={() => navigate("/journals")}
+            onClick={() => navigate("/accounting/journals")}
             className="mt-4 px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors mx-auto"
           >
-            <ArrowLeft size={14} /> Back to Journals
+            <ArrowLeft size={14} />
+            Back to Journals
           </button>
         </div>
       </div>
@@ -177,7 +178,7 @@ function ViewJournal() {
               Created on {formatDate(journal.created_at)}
             </p>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(journal.status)}`}>
               {journal.status.toUpperCase()}
@@ -190,36 +191,24 @@ function ViewJournal() {
           {journal.status === 'pending' && (
             <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Clock className="text-yellow-600" size={16} />
-                  <p className="text-xs font-medium text-yellow-800">
-                    This journal is pending. Choose an action:
+                <div>
+                  <h3 className="text-sm font-semibold text-gray-900">Pending Approval</h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Requires approval from a Credit Analyst to be posted to accounts.
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button
-                    onClick={() => handleAction('post')}
-                    disabled={actionLoading}
-                    className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    ) : (
-                      <Send size={12} />
-                    )}
-                    Post to Accounting
-                  </button>
-                  <button
                     onClick={() => handleAction('approve')}
                     disabled={actionLoading}
-                    className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {actionLoading ? (
                       <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
                     ) : (
                       <CheckCircle size={12} />
                     )}
-                    Approve
+                    Approve & Post
                   </button>
                   <button
                     onClick={() => handleAction('reject')}
@@ -263,15 +252,29 @@ function ViewJournal() {
               </div>
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Customer
+                  {journal.journal_type === 'transfer' ? 'Sender' : 'Customer'}
                 </label>
                 <p className="text-xs text-gray-900">
-                  {journal.customers?.full_name || "Unknown"}
+                  {journal.customer_name || "Unknown"}
                   {journal.customers?.account_number && (
                     <span className="text-gray-500 ml-2">(#{journal.customers.account_number})</span>
                   )}
                 </p>
               </div>
+              {/* Recipient for Transfer */}
+              {journal.journal_type === 'transfer' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">
+                    Recipient
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <ArrowRight size={12} className="text-gray-400" />
+                    <p className="text-xs text-gray-900">
+                      {journal.recipient_name || "Unknown"}
+                    </p>
+                  </div>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-500 mb-1">
                   Entry Date
@@ -296,25 +299,13 @@ function ViewJournal() {
               </p>
             </div>
 
-            {/* Reference Number */}
-            {journal.reference_number && (
-              <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-500 mb-1">
-                  Reference Number
-                </label>
-                <p className="text-xs text-gray-900 font-medium">
-                  {journal.reference_number}
-                </p>
-              </div>
-            )}
-
             {/* Created By */}
             <div>
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Created By
               </label>
               <p className="text-xs text-gray-900">
-                {journal.profiles?.full_name || "N/A"}
+                {journal.created_by_name || "N/A"}
               </p>
             </div>
 
@@ -336,7 +327,7 @@ function ViewJournal() {
                     Approved By
                   </label>
                   <p className="text-xs text-gray-900">
-                    {journal.approvers?.full_name || "N/A"}
+                    {journal.approved_by_name || "N/A"}
                   </p>
                 </div>
                 <div>
@@ -368,7 +359,7 @@ function ViewJournal() {
                     Rejected By
                   </label>
                   <p className="text-xs text-gray-900">
-                    {journal.rejectors?.full_name || "N/A"}
+                    {journal.rejected_by_name || "N/A"}
                   </p>
                 </div>
                 <div>
@@ -390,7 +381,7 @@ function ViewJournal() {
               </>
             )}
 
-            {/* Journal Entry Details (if posted) */}
+            {/* Account Entries */}
             {journal.journal_entry_id && journal.journal_entries && (
               <div className="col-span-2 mt-6">
                 <h3 className="text-xs font-semibold text-gray-700 mb-3 border-b pb-2">
@@ -405,7 +396,7 @@ function ViewJournal() {
                       {journal.journal_entry_id}
                     </p>
                   </div>
-                  
+
                   {journal.journal_entries?.journal_entry_lines?.length > 0 && (
                     <div>
                       <label className="block text-xs font-medium text-gray-500 mb-2">
@@ -425,7 +416,7 @@ function ViewJournal() {
                               <tr key={line.id} className="border-b border-gray-200">
                                 <td className="px-3 py-2">
                                   <div className="font-medium">{line.account?.account_name}</div>
-                                  <div className="text-gray-500 text-xs">{line.account?.account_code}</div>
+                                  <div className="text-gray-500 text-xs">{line.account?.code}</div>
                                 </td>
                                 <td className="px-3 py-2 text-right font-medium">
                                   {parseFloat(line.debit).toLocaleString('en-US', {
@@ -452,10 +443,10 @@ function ViewJournal() {
           </div>
         </div>
 
-        {/* Footer with Back Button */}
+        {/* Footer */}
         <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
           <button
-            onClick={() => navigate("/journals")}
+            onClick={() => navigate("/accounting/journals")}
             className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft size={14} /> Back to Journals

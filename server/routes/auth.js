@@ -1,9 +1,6 @@
 import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
-import { createClient } from '@supabase/supabase-js';
 import crypto from "crypto";
-import nodemailer from "nodemailer";
-import bcrypt from "bcryptjs";
 import { baseEmailTemplate, styledHighlightBox, infoBox } from "../utils/emailTemplates.js";
 import transporter from "../utils/mailer.js";
 
@@ -75,7 +72,7 @@ Authrouter.post("/login", async (req, res) => {
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationExpiresAt = addMinutesToNow(5); // 10 minutes from now
     const sessionToken = crypto.randomBytes(32).toString("hex");
-    const sessionExpiresAt = addMinutesToNow(3600); // 30 minutes from now
+    const sessionExpiresAt = addMinutesToNow(10080); // 7 days from now
 
     console.log(`Generated code for ${email}:`, {
       code: verificationCode,
@@ -91,9 +88,9 @@ Authrouter.post("/login", async (req, res) => {
       session_expires_at: sessionExpiresAt
     }).eq("id", user.id);
 
-    // Send code via email
+    // Send code via email   change it to the company mail in future
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Your Login Verification Code",
       text: `Your login code is ${verificationCode}. It expires in 10 minutes.`,
@@ -143,7 +140,7 @@ Authrouter.post("/resend-code", async (req, res) => {
 
     // Send new code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: user.email,
       subject: "Your New Verification Code",
       text: `Your new verification code is ${verificationCode}. It expires in 10 minutes.`,
@@ -206,7 +203,7 @@ Authrouter.post("/verify-code", async (req, res) => {
 
     // Generate NEW session
     const newSessionToken = crypto.randomBytes(32).toString("hex");
-    const sessionExpiresAt = addMinutesToNow(30);
+    const sessionExpiresAt = addMinutesToNow(10080);
 
     const { error: updateError } = await supabaseAdmin.from("users").update({
       verification_code: null,
@@ -275,7 +272,7 @@ Authrouter.post("/forgot-password", async (req, res) => {
 
     // Send reset code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Password Reset Code",
       text: `Your password reset code is ${resetCode}. It expires in 15 minutes.`,
@@ -329,7 +326,7 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
 
     // Send new reset code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Your New Password Reset Code",
       text: `Your new password reset code is ${resetCode}. It expires in 15 minutes.`,
@@ -421,7 +418,7 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     // Send confirmation email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Password Reset Successful",
       text: "Your password has been successfully reset. You can now login with your new password.",
@@ -665,7 +662,7 @@ Authrouter.post("/request-password-change-code", verifySession, async (req, res)
 
     // Send code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Password Change Verification Code",
       html: baseEmailTemplate("Password Change Verification", `
@@ -705,7 +702,7 @@ Authrouter.post("/resend-password-change-code", verifySession, async (req, res) 
 
     // Send new code via email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "New Password Change Code",
       html: baseEmailTemplate("New Verification Code", `
@@ -826,7 +823,7 @@ Authrouter.post("/verify-password-change-code", verifySession, async (req, res) 
 
     // Send confirmation email
     await transporter.sendMail({
-      from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasirilendingsoftware" <malobaamazing@gmail.com>',
       to: email,
       subject: "Password Changed Successfully",
       html: baseEmailTemplate("Security Alert: Password Changed", `
