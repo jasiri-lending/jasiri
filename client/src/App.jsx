@@ -114,6 +114,7 @@ import ViewDisbursedLoan from "./pages/loaning/ViewDisbursedLoan.jsx";
 import ViewLoansPendingDisbursement from "./pages/loaning/ViewLoansPendingDisbursement.jsx";
 import NewJournalEntry from "./pages/accounting/NewJournalEntry.jsx";
 import ViewJournal from "./pages/accounting/ViewJournal.jsx";
+import GeneralLedgerEntries from "./pages/accounting/GeneralLedgerEntries.jsx";
 import NewAccount from "./pages/accounting/NewAccount.jsx";
 import EditAccount from "./pages/accounting/EditAccount.jsx";
 import PendingBM from "./pages/registry/PendingBM.jsx";
@@ -337,6 +338,14 @@ function App() {
                       element={
                         <ProtectedRoute>
                           <ViewJournal userRole={role} />
+                        </ProtectedRoute>
+                      }
+                    />
+                    <Route
+                      path="/accounting/gl-entries"
+                      element={
+                        <ProtectedRoute>
+                          <GeneralLedgerEntries userRole={role} />
                         </ProtectedRoute>
                       }
                     />

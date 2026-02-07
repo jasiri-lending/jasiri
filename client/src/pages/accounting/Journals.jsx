@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X } from "lucide-react";
+import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X,FileSpreadsheet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/userAuth";
@@ -163,6 +163,12 @@ function Journals() {
             onClick={() => navigate("/journals/new")}
           >
             <Plus size={14} /> New Entry
+          </button>
+          <button
+            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-brand-primary border border-brand-primary hover:bg-brand-secondary/10 transition-colors ml-2"
+            onClick={() => navigate("/accounting/gl-entries")}
+          >
+            <FileSpreadsheet size={14} /> General Journal
           </button>
 
           <div className="relative">
