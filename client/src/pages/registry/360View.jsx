@@ -111,17 +111,6 @@ const SMSService = {
         .toString(36)
         .substr(2, 9)}`;
 
-      await this.logSMS(
-        formattedPhone,
-        message,
-        "sent",
-        shortcode,
-        undefined,
-        messageId,
-        0,
-        customerId
-      );
-
       return {
         success: true,
         message: "SMS sent successfully",
@@ -131,21 +120,6 @@ const SMSService = {
       };
     } catch (error) {
       console.error(" SMS sending error:", error);
-
-      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
-      if (formattedPhone) {
-        await this.logSMS(
-          formattedPhone,
-          message,
-          "failed",
-          shortcode,
-          error.message,
-          undefined,
-          undefined,
-          customerId,
-          null // tenantId will be handled within logSMS if called from sendSMS
-        );
-      }
 
       return {
         success: false,
@@ -600,8 +574,8 @@ const Customer360View = () => {
     return (
       <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="bg-white p-6">
+        <div className="bg-brand-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-gray-50 p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
               <div className="flex-shrink-0">
@@ -1249,8 +1223,8 @@ const Customer360View = () => {
               <td className="px-4 py-3 text-sm">
                 <span
                   className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.transaction_type === "credit"
-                      ? "bg-green-100 text-green-800"
-                      : "bg-red-100 text-red-800"
+                    ? "bg-green-100 text-green-800"
+                    : "bg-red-100 text-red-800"
                     }`}
                 >
                   {txn.transaction_type}
@@ -2566,12 +2540,12 @@ const Customer360View = () => {
   }
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-slate-50">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-brand-surface">
       {/* Header with Back Button */}
       <div className="mb-4 flex-shrink-0">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-bold uppercase tracking-widest text-brand-secondary hover:text-brand-primary transition-all duration-200 bg-white rounded-xl border border-brand-surface shadow-sm hover:shadow-md group"
+          className="flex items-center gap-2 px-4 py-2 text-xs font-bold  tracking-widest text-brand-secondary hover:text-brand-primary transition-all duration-200 bg-white rounded-xl border border-brand-surface shadow-sm hover:shadow-md group"
         >
           <ArrowLeftIcon className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
           Back to Customers
