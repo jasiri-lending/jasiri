@@ -33,7 +33,7 @@ export function useAuth() {
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
 
- 
+
 
   // Helper function to check if session has expired
   const isSessionExpired = () => {
@@ -43,7 +43,7 @@ export function useAuth() {
     const now = new Date();
     const expiryTime = new Date(sessionExpiresAt);
 
-   
+
 
     return expiryTime < now;
   };
@@ -57,7 +57,7 @@ export function useAuth() {
     const now = new Date().getTime();
     const timeUntilExpiry = expiryTime - now;
 
-   
+
 
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
@@ -169,7 +169,7 @@ export function useAuth() {
 
   // Fetch profile with correct region logic
   const fetchProfile = useCallback(async (userId) => {
- 
+
 
     if (isSessionExpired()) {
       logout();
@@ -195,25 +195,13 @@ export function useAuth() {
         return;
       }
 
-   
+
 
       // For superadmin and tenant admin, they don't need branch/region
       const isAdminUser = ["superadmin", "admin"].includes(userData.role);
 
       if (userData?.tenant_id) {
         await fetchTenantData(userData.tenant_id);
-
-        // DEBUG: Fetch and log all regions for this tenant as requested
-        const { data: tenantRegions, error: trError } = await supabase
-          .from('regions')
-          .select('*')
-          .eq('tenant_id', userData.tenant_id);
-
-        if (trError) {
-          console.error('Error fetching :', trError);
-        } else {
-          console.log(`[ Found ${tenantRegions?.length || 0} regions for tenant ${userData.tenant_id}:`, tenantRegions);
-        }
       }
 
       // For non-admin users, fetch profile with branch/region
@@ -237,7 +225,7 @@ export function useAuth() {
           console.warn("⚠️ [AUTH HOOK] Profile fetch error:", profileError);
         } else {
           profileData = profileResult;
-         
+
         }
 
         // Fetch branch data if branch_id exists
@@ -250,7 +238,7 @@ export function useAuth() {
             .maybeSingle();
 
           branchData = branch;
-       
+
 
           if (branchData) {
             branchName = branchData.name;
@@ -309,7 +297,7 @@ export function useAuth() {
         session_expires_at: userData?.session_expires_at || null
       };
 
-     
+
 
       setProfile(profileObj);
       setUser(userData); // Set user state so auth checks pass
@@ -390,12 +378,12 @@ export function useAuth() {
     };
   }, [fetchProfile, logout]);
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     const userId = user?.id || localStorage.getItem("userId");
     if (userId) {
       await fetchProfile(userId);
     }
-  };
+  }, [user?.id, fetchProfile]);
 
   return {
     user,

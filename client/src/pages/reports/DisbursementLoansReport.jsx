@@ -8,6 +8,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { useDisbursementStore } from "../../stores/DisbursementStore";
+import { useAuth } from "../../hooks/userAuth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -46,10 +47,13 @@ const DisbursementLoansReport = () => {
     fetchDisbursedLoans,
   } = useDisbursementStore();
 
-  // Fetch data on mount
+  const { tenant } = useAuth();
+
+  // Fetch data on mount - ONLY ONCE
   useEffect(() => {
     fetchDisbursedLoans();
-  }, [fetchDisbursedLoans]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty array = run only once on mount
 
   // Helper functions
   const formatCurrency = (amount) =>
@@ -183,6 +187,8 @@ const DisbursementLoansReport = () => {
     // Dropdown filters
     if (filters.branch)
       result = result.filter((i) => i.branch === filters.branch);
+    if (filters.region)
+      result = result.filter((i) => i.region === filters.region);
     if (filters.officer)
       result = result.filter((i) => i.loanOfficer === filters.officer);
     if (filters.product)
@@ -229,7 +235,7 @@ const DisbursementLoansReport = () => {
 
     const doc = new jsPDF({ orientation: "landscape" });
     doc.setFontSize(14);
-    doc.text("Mula Credit Ltd - Loan Disbursement Report", 14, 15);
+    doc.text(`${tenant?.company_name || "Company"} - Loan Disbursement Report`, 14, 15);
     doc.setFontSize(10);
     doc.text(`Generated on: ${getCurrentTimestamp()}`, 14, 22);
 
@@ -326,9 +332,10 @@ const DisbursementLoansReport = () => {
 
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Disbursement Report");
+    const companySlug = (tenant?.company_name || "Company").toLowerCase().replace(/ /g, '-');
     XLSX.writeFile(
       wb,
-      `loan-disbursement-report-${new Date().toISOString().split("T")[0]}.xlsx`
+      `${companySlug}-disbursement-report-${new Date().toISOString().split("T")[0]}.xlsx`
     );
   };
 
@@ -405,9 +412,8 @@ const DisbursementLoansReport = () => {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `loan-disbursement-report-${
-      new Date().toISOString().split("T")[0]
-    }.csv`;
+    const companySlug = (tenant?.company_name || "Company").toLowerCase().replace(/ /g, '-');
+    link.download = `${companySlug}-disbursement-report-${new Date().toISOString().split("T")[0]}.csv`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -442,7 +448,7 @@ const DisbursementLoansReport = () => {
             new Paragraph({
               children: [
                 new TextRun({
-                  text: "Mula Credit Ltd - Loan Disbursement Report",
+                  text: `${tenant?.company_name || "Company"} - Loan Disbursement Report`,
                   bold: true,
                   size: 28,
                 }),
@@ -510,21 +516,29 @@ const DisbursementLoansReport = () => {
   };
 
   // Dropdown options
-  const branches = [
+  const branches = useMemo(() => [
     ...new Set(
       disbursedLoans.map((i) => i.branch).filter((b) => b && b !== "N/A")
     ),
-  ];
-  const officers = [
+  ], [disbursedLoans]);
+
+  const officers = useMemo(() => [
     ...new Set(
       disbursedLoans.map((i) => i.loanOfficer).filter((o) => o && o !== "N/A")
     ),
-  ];
-  const products = [
+  ], [disbursedLoans]);
+
+  const products = useMemo(() => [
     ...new Set(
       disbursedLoans.map((i) => i.productName).filter((p) => p && p !== "N/A")
     ),
-  ];
+  ], [disbursedLoans]);
+
+  const regions = useMemo(() => [
+    ...new Set(
+      disbursedLoans.map((i) => i.region).filter((r) => r && r !== "N/A")
+    ),
+  ], [disbursedLoans]);
 
   const dateFilterOptions = [
     { value: "all", label: "All Time" },
@@ -544,7 +558,7 @@ const DisbursementLoansReport = () => {
   ];
 
   // Get grouped data for display
-  const groupedData = groupLoansForDisplay(filteredData);
+  const groupedData = useMemo(() => groupLoansForDisplay(filteredData), [filteredData]);
 
   // Calculate total rows for pagination
   let totalRows = 0;
@@ -598,6 +612,15 @@ const DisbursementLoansReport = () => {
 
   const currentData = getCurrentPageData();
 
+  // Calculate summary stats
+  const summaryStats = useMemo(() => {
+    const totalPayable = filteredData.reduce((sum, item) => sum + (item.disbursedAmount || 0), 0);
+    const totalPrincipal = filteredData.reduce((sum, item) => sum + (item.appliedLoanAmount || 0), 0);
+    const totalLoans = filteredData.length;
+
+    return { totalPayable, totalPrincipal, totalLoans };
+  }, [filteredData]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-8 text-center">
@@ -607,85 +630,111 @@ const DisbursementLoansReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
+
         {/* Header Section */}
-        <div className="bg-white rounded-xl mt-0 shadow-sm border border-gray-200 p-6">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1
-                className="text-sm font-semibold"
-                style={{ color: "#586ab1" }}
-              >
-                Disbursed Loan Report
-              </h1>
-             
+        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
+              ) : (
+                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
+                  {tenant?.company_name?.charAt(0) || "C"}
+                </div>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
+                <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
+                <h2 className="text-lg font-semibold text-white mt-1" >
+                  Disbursed Loans Report
+                </h2>
+              </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
-              {/* Filter Button */}
-              <button
-                onClick={toggleFilters}
-                className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all ${
-                  showFilters
-                    ? "text-white shadow-md"
-                    : "text-[#586] border-2 hover:bg-[#f0f1f8]"
-                }`}
-                style={{
-                  backgroundColor: showFilters ? "#586ab1" : "white",
-                  borderColor: "#f0f1f8",
-                }}
-              >
-                <Filter className="w-3 h-3" />
-                <span>Filters</span>
-              </button>
-
-              {/* Export Format + Button */}
-              <div className="flex gap-2 items-center">
-                {/* Select Export Format */}
-                <select
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  className="px-3 py-2 rounded-lg text-sm focus:outline-none"
-                  style={{
-                    border: "2px solid #586ab1",
-                    color: "#586ab1",
-                  }}
-                >
-                  {exportFormatOptions.map((option) => (
-                    <option key={option.value} value={option.value}>
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-
-                {/* Export Button */}
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-sm text-gray-500 text-right">
+                <p>Generated on:</p>
+                <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
+              </div>
+              <div className="flex gap-2 mt-2 flex-wrap justify-end">
+                {/* Search Input */}
+                <input
+                  type="text"
+                  value={filters.search}
+                  onChange={(e) => setFilters({ search: e.target.value })}
+                  placeholder="Search name, ID, or phone"
+                  className="border bg-gray-50 border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64"
+                />
                 <button
-                  onClick={handleExport}
-                  className="px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all"
-                  style={{
-                    backgroundColor: "#586ab1",
-                    color: "white",
-                  }}
+                  onClick={toggleFilters}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
+    ${showFilters
+                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    }`}
                 >
-                  <Download className="w-3 h-3" />
-                  <span>Export</span>
+                  <Filter className="w-4 h-4" />
+                  <span>Filters</span>
                 </button>
+
+
+
+                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
+                  >
+                    {exportFormatOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleExport}
+                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
+             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </button>
+
+                </div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* Summary Section */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-sm text-muted font-medium">Total Payable</p>
+            <p className="text-2xl font-bold mt-1 text-primary">{formatCurrency(summaryStats.totalPayable)}</p>
+          </div>
+          <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-sm text-muted font-medium">Total Principal</p>
+            <p className="text-2xl font-bold mt-1 text-accent">{formatCurrency(summaryStats.totalPrincipal)}</p>
+          </div>
+          <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-sm text-muted font-medium">Number of Loans</p>
+            <p className="text-2xl font-bold mt-1 text-gray-900">{summaryStats.totalLoans}</p>
+          </div>
+        </div>
+
         {/* Filter Section */}
         {showFilters && (
-          <div className="bg-white p-6 border border-gray-200 rounded-lg shadow-sm space-y-4">
+          <div className="bg-white p-6 border border-gray-200 rounded-xl shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2">
             <h3 className=" text-slate-600 text-sm">Filter Results</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 {dateFilterOptions.map((option) => (
                   <option key={option.value} value={option.value}>
@@ -702,7 +751,7 @@ const DisbursementLoansReport = () => {
                     onChange={(e) =>
                       setCustomDateRange(e.target.value, customEndDate)
                     }
-                    className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                   <input
                     type="date"
@@ -710,24 +759,29 @@ const DisbursementLoansReport = () => {
                     onChange={(e) =>
                       setCustomDateRange(customStartDate, e.target.value)
                     }
-                    className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                    className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                 </>
               )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <input
-                type="text"
-                value={filters.search}
-                onChange={(e) => setFilters({ search: e.target.value })}
-                placeholder="Search name, ID, or phone"
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              />
+              <select
+                value={filters.region}
+                onChange={(e) => setFilters({ region: e.target.value })}
+                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+              >
+                <option value="">All Regions</option>
+                {regions.map((r) => (
+                  <option key={r} value={r}>
+                    {r}
+                  </option>
+                ))}
+              </select>
               <select
                 value={filters.branch}
                 onChange={(e) => setFilters({ branch: e.target.value })}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Branches</option>
                 {branches.map((b) => (
@@ -739,9 +793,9 @@ const DisbursementLoansReport = () => {
               <select
                 value={filters.officer}
                 onChange={(e) => setFilters({ officer: e.target.value })}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
-                <option value="">All Officers</option>
+                <option value="">All Relationship Officers</option>
                 {officers.map((o) => (
                   <option key={o} value={o}>
                     {o}
@@ -751,7 +805,7 @@ const DisbursementLoansReport = () => {
               <select
                 value={filters.product}
                 onChange={(e) => setFilters({ product: e.target.value })}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Products</option>
                 {products.map((p) => (
@@ -763,22 +817,23 @@ const DisbursementLoansReport = () => {
             </div>
 
             {(filters.search ||
+              filters.region ||
               filters.branch ||
               filters.officer ||
               filters.product ||
               dateFilter !== "all") && (
-              <button
-                onClick={clearFilters}
-                className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
-              >
-                <X className="w-4 h-4" /> Clear Filters
-              </button>
-            )}
+                <button
+                  onClick={clearFilters}
+                  className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
+                >
+                  <X className="w-4 h-4" /> Clear Filters
+                </button>
+              )}
           </div>
         )}
 
         {/* Pagination Controls */}
-        <div className="flex justify-between items-center">
+        {/* <div className="flex justify-between items-center">
           <div className="text-sm text-gray-600">
             Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
             {Math.min(currentPage * itemsPerPage, totalRows)} of {totalRows}{" "}
@@ -805,130 +860,71 @@ const DisbursementLoansReport = () => {
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        </div>
+        </div> */}
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full border border-gray-300 text-sm text-left whitespace-nowrap">
-            <thead className="bg-gray-100">
-              <tr>
-                <th className="border p-2 text-center font-semibold text-gray-700">
-                  No.
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Branch Name
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Total Amount
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Loan Officer
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  RO Total Amount
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Customer Name
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Mobile Number
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  ID Number
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Mpesa Reference
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Loan Reference
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Applied Amount
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Disbursed Amount
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Interest Amount
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Business Name
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Business Type
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Product
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Next Payment Date
-                </th>
-                <th className="border p-2 font-semibold text-gray-700">
-                  Disbursement Date
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {currentData.length > 0 ? (
-                currentData.map((row, index) => (
-                  <tr key={`${row.id}-${index}`} className="hover:bg-gray-50">
-                    <td className="border p-2 text-center font-medium">
-                      {row.branchNumber}
-                    </td>
-                    <td className="border p-2 font-semibold">
-                      {row.isFirstInBranch ? row.branch : ""}
-                    </td>
-                    <td className="border p-2">
-                      {row.isFirstInBranch
-                        ? formatCurrency(row.branchTotalAmount)
-                        : ""}
-                    </td>
-                    <td className="border p-2">
-                      {row.isFirstInOfficer ? row.loanOfficer : ""}
-                    </td>
-                    <td className="border p-2">
-                      {row.isFirstInOfficer
-                        ? formatCurrency(row.roTotalAmount)
-                        : ""}
-                    </td>
-                    <td className="border p-2">{row.customerName}</td>
-                    <td className="border p-2">{row.mobile}</td>
-                    <td className="border p-2">{row.idNumber}</td>
-                    <td className="border p-2">
-                      {row.mpesaReference ||
-                        row.transactionId ||
-                        row.transaction_id ||
-                        "N/A"}
-                    </td>{" "}
-                    <td className="border p-2">{row.loanReferenceNumber}</td>
-                    <td className="border p-2">
-                      {formatCurrency(row.appliedLoanAmount)}
-                    </td>
-                    <td className="border p-2">
-                      {formatCurrency(row.disbursedAmount)}
-                    </td>
-                    <td className="border p-2">
-                      {formatCurrency(row.interestAmount)}
-                    </td>
-                    <td className="border p-2">{row.business_name}</td>
-                    <td className="border p-2">{row.business_type}</td>
-                    <td className="border p-2">{row.productName}</td>
-                    <td className="border p-2">{row.nextPaymentDate}</td>
-                    <td className="border p-2">{row.disbursementDate}</td>
-                  </tr>
-                ))
-              ) : (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-left">
+              <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
-                  <td
-                    colSpan="18"
-                    className="border p-4 text-center text-gray-500"
-                  >
-                    No disbursed loans found matching your filters
-                  </td>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">No.</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Branch Name</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Total Amount</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Loan Officer</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">RO Total</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Customer Name</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Mobile</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">ID Number</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Mpesa Ref</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Loan Ref</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap text-right">Applied</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap text-right">Disbursed</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap text-right">Interest</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Business</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Type</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Product</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Next Payment</th>
+                  <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Disbursement Date</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {currentData.length > 0 ? (
+                  currentData.map((row, index) => (
+                    <tr key={`${row.id}-${index}`} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 text-center text-gray-500">{row.branchNumber}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? row.branch : ""}</td>
+                      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? formatCurrency(row.branchTotalAmount) : ""}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? row.loanOfficer : ""}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? formatCurrency(row.roTotalAmount) : ""}</td>
+                      <td className="px-4 py-3 text-gray-900">{row.customerName}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.mobile}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.idNumber}</td>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.mpesaReference || row.transactionId || row.transaction_id || "N/A"}</td>
+                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.loanReferenceNumber}</td>
+                      <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCurrency(row.appliedLoanAmount)}</td>
+                      <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50 rounded-sm">{formatCurrency(row.disbursedAmount)}</td>
+                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(row.interestAmount)}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.business_name}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.business_type}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.productName}</td>
+                      <td className="px-4 py-3 text-gray-600">{row.nextPaymentDate}</td>
+                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{row.disbursementDate}</td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan="18" className="px-4 py-8 text-center text-gray-500 bg-gray-50">
+                      <div className="flex flex-col items-center justify-center">
+                        <Filter className="w-8 h-8 text-gray-300 mb-2" />
+                        <p>No disbursed loans found matching your filters</p>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {/* Pagination Controls - Bottom */}

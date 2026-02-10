@@ -19,6 +19,7 @@ import deleteUserRouter from "./routes/deleteUser.js";
 import loanProductsRouter from "./routes/loanProducts.js";
 import JournalRouter from "./routes/journals.js";
 import JournalEntryRouter from "./routes/journalEntries.js";
+import LoanDueRouter from "./routes/loanDue.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -95,6 +96,7 @@ app.use("/api/loan-products", loanProductsRouter);
 
 app.use("/api/journals", JournalRouter);
 app.use("/api/journal-entries", JournalEntryRouter);
+app.use("/api/loan-due", LoanDueRouter);
 
 // Create user endpoint
 app.post("/create-user", async (req, res) => {

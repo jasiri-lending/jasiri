@@ -5,7 +5,7 @@ import { useAuth } from "./userAuth";
 
 export function useTenant() {
   const { profile } = useAuth();
-  
+
   // Initialize from localStorage immediately
   const getInitialTenant = () => {
     try {
@@ -26,14 +26,10 @@ export function useTenant() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  console.log("🔍 [TENANT HOOK] Current state:");
-  console.log("- tenant:", tenant?.company_name || "null");
-  console.log("- profile?.tenant_id:", profile?.tenant_id || "null");
-  console.log("- loading:", loading);
+
 
   const fetchTenant = useCallback(async (tenantId) => {
     if (!tenantId) {
-      console.log("🔍 [TENANT HOOK] No tenantId, clearing tenant");
       setTenant(null);
       setLoading(false);
       return;
@@ -41,7 +37,6 @@ export function useTenant() {
 
     // If we already have the correct tenant, don't fetch again
     if (tenant?.id === tenantId) {
-      console.log("✅ [TENANT HOOK] Already have correct tenant:", tenant.company_name);
       setLoading(false);
       return;
     }
@@ -52,9 +47,8 @@ export function useTenant() {
       try {
         const parsedTenant = JSON.parse(savedTenant);
         const { _cachedAt, ...cleanTenant } = parsedTenant;
-        
+
         if (cleanTenant.id === tenantId) {
-          console.log("✅ [TENANT HOOK] Using cached tenant:", cleanTenant.company_name);
           setTenant(cleanTenant);
           setLoading(false);
           return;
@@ -66,10 +60,9 @@ export function useTenant() {
 
     // Fetch from database
     try {
-      console.log("🔍 [TENANT HOOK] Fetching tenant from database:", tenantId);
       setLoading(true);
       setError(null);
-      
+
       const { data, error: fetchError } = await supabase
         .from("tenants")
         .select("*")
@@ -82,11 +75,9 @@ export function useTenant() {
       }
 
       if (data) {
-        console.log("✅ [TENANT HOOK] Fetched tenant:", data.company_name);
         localStorage.setItem("tenant", JSON.stringify(data));
         setTenant(data);
       } else {
-        console.warn("⚠️ [TENANT HOOK] No tenant data returned");
         setTenant(null);
       }
     } catch (err) {
@@ -99,37 +90,32 @@ export function useTenant() {
   }, [tenant?.id]); // Only depend on tenant.id to prevent unnecessary refetches
 
   useEffect(() => {
-    console.log("🔍 [TENANT HOOK] useEffect triggered");
-    console.log("- profile:", profile?.email || "null");
-    console.log("- profile.tenant_id:", profile?.tenant_id || "null");
-    
     if (profile?.tenant_id) {
       fetchTenant(profile.tenant_id);
     } else {
-      console.log("⚠️ [TENANT HOOK] No tenant_id in profile, clearing tenant");
       setTenant(null);
       setLoading(false);
     }
   }, [profile?.tenant_id, fetchTenant]);
 
-  const refreshTenant = async () => {
+  const refreshTenant = useCallback(async () => {
     if (profile?.tenant_id) {
       localStorage.removeItem("tenant");
       setTenant(null);
       await fetchTenant(profile.tenant_id);
     }
-  };
+  }, [profile?.tenant_id, fetchTenant]);
 
-  const clearTenantCache = () => {
+  const clearTenantCache = useCallback(() => {
     localStorage.removeItem("tenant");
     setTenant(null);
-  };
+  }, []);
 
-  return { 
-    tenant, 
-    loading, 
-    error, 
-    refreshTenant, 
-    clearTenantCache 
+  return {
+    tenant,
+    loading,
+    error,
+    refreshTenant,
+    clearTenantCache
   };
 }

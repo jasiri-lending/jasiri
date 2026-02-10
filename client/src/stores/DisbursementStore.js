@@ -11,6 +11,7 @@ export const useDisbursementStore = create(
       filters: {
         search: "",
         branch: "",
+        region: "",
         officer: "",
         product: "",
       },
@@ -27,41 +28,42 @@ export const useDisbursementStore = create(
 
       // Actions
       setDisbursedLoans: (loans) => set({ disbursedLoans: loans }),
-      
+
       setFilters: (newFilters) => set((state) => ({
         filters: { ...state.filters, ...newFilters },
         currentPage: 1, // Reset to first page when filters change
       })),
-      
+
       setDateFilter: (filter) => set({ dateFilter: filter, currentPage: 1 }),
-      
+
       setCustomDateRange: (start, end) => set({
         customStartDate: start,
         customEndDate: end,
         currentPage: 1,
       }),
-      
+
       setExportFormat: (format) => set({ exportFormat: format }),
-      
+
       toggleFilters: () => set((state) => ({ showFilters: !state.showFilters })),
-      
+
       setLoading: (loading) => set({ loading }),
-      
+
       setCurrentPage: (page) => set({ currentPage: page }),
-      
+
       setSortConfig: (key) => set((state) => ({
         sortConfig: {
           key,
-          direction: state.sortConfig.key === key && state.sortConfig.direction === "asc" 
-            ? "desc" 
+          direction: state.sortConfig.key === key && state.sortConfig.direction === "asc"
+            ? "desc"
             : "asc",
         },
       })),
-      
+
       clearFilters: () => set({
         filters: {
           search: "",
           branch: "",
+          region: "",
           officer: "",
           product: "",
         },
@@ -79,13 +81,11 @@ export const useDisbursementStore = create(
 
         // Use cached data if available and not expired
         if (!forceRefresh && lastFetchTime && (now - lastFetchTime) < CACHE_DURATION) {
-          console.log('Using cached data');
           return;
         }
 
         try {
           set({ loading: true });
-          console.log('Fetching fresh data from Supabase...');
 
           const { data, error } = await supabase
             .from("loans")
@@ -99,7 +99,7 @@ export const useDisbursementStore = create(
               disbursed_at,
               repayment_state,
               status,
-              branch:branch_id(name),
+              branch:branch_id(name, region_id),
               loan_officer:booked_by(full_name),
               customer:customer_id(
                 id,
@@ -125,7 +125,32 @@ export const useDisbursementStore = create(
             .eq("status", "disbursed")
             .order("disbursed_at", { ascending: false });
 
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Supabase loans query error:', error);
+            throw error;
+          }
+
+
+
+          // Fetch all regions to map region_id -> region name
+          const regionIds = [...new Set(data.map(loan => loan.branch?.region_id).filter(Boolean))];
+          let regionMap = {};
+
+
+
+          if (regionIds.length > 0) {
+            const { data: regionsData, error: regionsError } = await supabase
+              .from('regions')
+              .select('id, name')
+              .in('id', regionIds);
+
+            if (!regionsError && regionsData) {
+              regionMap = regionsData.reduce((acc, region) => {
+                acc[region.id] = region.name;
+                return acc;
+              }, {});
+            }
+          }
 
           const formatted = data.map((loan) => {
             const customer = loan.customer || {};
@@ -145,9 +170,13 @@ export const useDisbursementStore = create(
               : null;
             const mpesaReference = mpesaTx?.transaction_id || "N/A";
 
+            // Get region name from the map using branch's region_id
+            const regionName = loan.branch?.region_id ? regionMap[loan.branch.region_id] || "N/A" : "N/A";
+
             return {
               id: loan.id,
               branch: loan.branch?.name || "N/A",
+              region: regionName,
               loanOfficer: loan.loan_officer?.full_name || "N/A",
               customerName: fullName,
               mobile: customer.mobile || "N/A",
@@ -210,10 +239,10 @@ export const useDisbursementStore = create(
             branchCounter++;
           }
 
-          set({ 
+          set({
             disbursedLoans: grouped,
             lastFetchTime: now,
-            loading: false 
+            loading: false
           });
         } catch (err) {
           console.error('Error fetching disbursed loans:', err);
@@ -234,7 +263,6 @@ export const useDisbursementStore = create(
         showFilters: state.showFilters,
         currentPage: state.currentPage,
         sortConfig: state.sortConfig,
-        disbursedLoans: state.disbursedLoans,
         lastFetchTime: state.lastFetchTime,
       }),
     }

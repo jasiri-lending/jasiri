@@ -1,30 +1,91 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { supabase } from "../../supabaseClient";
-import { Filter, Download, X, Calendar } from "lucide-react";
-import React from "react";
+import {
+  Filter,
+  Download,
+  X,
+  Calendar,
+  Printer,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  FileText,
+  RefreshCw
+} from "lucide-react";
+import { useAuth } from "../../hooks/userAuth";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+} from "docx";
+import { saveAs } from "file-saver";
 
 const LoanDueReport = () => {
+  const { tenant } = useAuth();
   const [dueLoans, setDueLoans] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [officers, setOfficers] = useState([]);
-  const [filters, setFilters] = useState({
-    officer: "",
-    branch: "",
-    customerQuery: "",
-    dateRange: "today",
-    customStartDate: "",
-    customEndDate: "",
-     installmentsDue: "",
+
+   const [filters, setFilters] = useState(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem("loan-due-filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return { ...parsed, search: "" };
+      }
+    }
+    return {
+      region: "",
+      branch: "",
+      officer: "",
+      search: "",
+      dateRange: "today",
+      customStartDate: "",
+      customEndDate: "",
+      installmentsDue: "",
+    };
   });
+
+  // Save filters to localStorage
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      localStorage.setItem("loan-due-filters", JSON.stringify({
+        ...filters,
+        search: "" // Don't save search
+      }));
+    }, 500); // Debounce by 500ms
+    
+    return () => clearTimeout(timeoutId);
+  }, [filters]);
+
+
+
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [exportFormat, setExportFormat] = useState("csv");
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   useEffect(() => {
-    const fetchBranches = async () => {
-      const { data, error } = await supabase.from("branches").select("id, name");
-      if (!error) setBranches(data || []);
+    const fetchBranchesAndRegions = async () => {
+      if (!tenant?.id) return;
+      const [branchesRes, regionsRes] = await Promise.all([
+        supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenant.id),
+        supabase.from("regions").select("id, name").eq("tenant_id", tenant.id)
+      ]);
+
+      if (!branchesRes.error) setBranches(branchesRes.data || []);
+      if (!regionsRes.error) setRegions(regionsRes.data || []);
     };
-    fetchBranches();
+    fetchBranchesAndRegions();
   }, []);
 
   const getDateRange = () => {
@@ -69,8 +130,7 @@ const LoanDueReport = () => {
   };
 
   useEffect(() => {
-    const fetchDueLoans = async () => {
-      setLoading(true);
+    const fetchDueLoans = async (forceRefresh = false) => {
       try {
         const { startDate, endDate } = getDateRange();
 
@@ -79,6 +139,24 @@ const LoanDueReport = () => {
           setLoading(false);
           return;
         }
+
+        const cacheKey = `loan-due-data-${filters.dateRange}-${startDate}-${endDate}`;
+
+        if (!forceRefresh) {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data: cachedData, timestamp } = JSON.parse(cached);
+            const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 hours
+            if (!isExpired) {
+              setDueLoans(cachedData);
+              const uniqueOfficers = [...new Set(cachedData.map((l) => l.officer))];
+              setOfficers(uniqueOfficers);
+              return;
+            }
+          }
+        }
+
+        setLoading(true);
 
         const { data, error } = await supabase
           .from("loans")
@@ -90,8 +168,9 @@ const LoanDueReport = () => {
             product_type,
             disbursed_at,
             branch_id,
-            branch:branch_id(name),
-            customer:customer_id(id, "Firstname", "Middlename", "Surname", mobile, id_number),
+            tenant_id,
+            branch:branch_id(name, region_id),
+            customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
             loan_officer:booked_by(full_name),
             installments:loan_installments(
               due_date,
@@ -104,13 +183,22 @@ const LoanDueReport = () => {
               interest_due
             )
           `)
+          .eq("tenant_id", tenant.id)
           .eq("status", "disbursed");
 
         if (error) throw error;
 
+        // Create a region map for easy lookups
+        const regionMap = regions.reduce((acc, r) => {
+          acc[r.id] = r.name;
+          return acc;
+        }, {});
+
         const processed = data
           .map((loan) => {
             const branch = loan.branch?.name || "N/A";
+            const regionId = loan.branch?.region_id;
+            const region = regionId ? regionMap[regionId] || "N/A" : "N/A";
             const officer = loan.loan_officer?.full_name || "N/A";
             const cust = loan.customer || {};
             const fullName = [cust.Firstname, cust.Middlename, cust.Surname].filter(Boolean).join(" ");
@@ -131,11 +219,12 @@ const LoanDueReport = () => {
             const principalDue = dueInRange.reduce((sum, i) => sum + Number(i.principal_due || i.principal_amount || 0), 0);
             const interestDue = dueInRange.reduce((sum, i) => sum + Number(i.interest_due || i.interest_amount || 0), 0);
             const numDueInstallments = dueInRange.length;
-            const totalPaid = loan.installments.reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
-            const unpaidAmount = loan.total_payable - totalPaid;
+            const totalPaid = (loan.installments || []).reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
+            const unpaidAmount = (loan.total_payable || 0) - totalPaid;
 
             return {
               branch,
+              region,
               officer,
               loanId: loan.id,
               customerName: fullName || "N/A",
@@ -158,6 +247,12 @@ const LoanDueReport = () => {
 
         setDueLoans(processed);
 
+        // Save to cache
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: processed,
+          timestamp: Date.now()
+        }));
+
         // Populate filter dropdowns
         const uniqueOfficers = [...new Set(processed.map((l) => l.officer))];
         setOfficers(uniqueOfficers);
@@ -169,60 +264,66 @@ const LoanDueReport = () => {
     };
 
     fetchDueLoans();
-  }, [filters.dateRange, filters.customStartDate, filters.customEndDate]);
+  }, [filters.dateRange, filters.customStartDate, filters.customEndDate, regions]);
 
-  const formatCurrency = (num) =>
+   const formatCurrency = useCallback((num) =>
     new Intl.NumberFormat("en-KE", {
       style: "currency",
       currency: "KES",
       minimumFractionDigits: 0,
-    }).format(num || 0);
+    }).format(num || 0), []);
 
 
 
-const filteredData = dueLoans.filter((l) => {
-  const { officer, branch, customerQuery, installmentsDue } = filters;
-  const query = customerQuery.toLowerCase();
-  return (
-    (!officer || l.officer === officer) &&
-    (!branch || l.branch === branch) &&
-    (!customerQuery ||
-      l.customerName.toLowerCase().includes(query) ||
-      l.mobile.includes(query) ||
-      l.idNumber.includes(query)) &&
-    (!installmentsDue || l.numDueInstallments === Number(installmentsDue))
-  );
-});
+
+  const filteredData = useMemo(() => {
+    return dueLoans.filter((l) => {
+      const { officer, branch, region, search, installmentsDue } = filters;
+      const query = search.toLowerCase();
+      return (
+        (!officer || l.officer === officer) &&
+        (!branch || l.branch === branch) &&
+        (!region || l.region === region) &&
+        (!search ||
+          l.customerName.toLowerCase().includes(query) ||
+          l.mobile.includes(query) ||
+          l.idNumber.includes(query)) &&
+        (!installmentsDue || l.numDueInstallments === Number(installmentsDue))
+      );
+    });
+  }, [dueLoans, filters]);
 
 
-  // Group by branch, then by officer
-  const grouped = filteredData.reduce((acc, loan) => {
-    if (!acc[loan.branch]) {
-      acc[loan.branch] = {
-        branch: loan.branch,
-        totalDue: 0,
-        totalPaid: 0,
-        totalUnpaid: 0,
-        count: 0,
-        officers: {},
-      };
-    }
+  // // Group by branch, then by officer
+  // const grouped = useMemo(() => {
+  //   return filteredData.reduce((acc, loan) => {
+  //     if (!acc[loan.branch]) {
+  //       acc[loan.branch] = {
+  //         branch: loan.branch,
+  //         totalDue: 0,
+  //         totalPaid: 0,
+  //         totalUnpaid: 0,
+  //         count: 0,
+  //         officers: {},
+  //       };
+  //     }
 
-    if (!acc[loan.branch].officers[loan.officer]) {
-      acc[loan.branch].officers[loan.officer] = {
-        officer: loan.officer,
-        loans: [],
-      };
-    }
+  //     if (!acc[loan.branch].officers[loan.officer]) {
+  //       acc[loan.branch].officers[loan.officer] = {
+  //         officer: loan.officer,
+  //         loans: [],
+  //       };
+  //     }
 
-    acc[loan.branch].totalDue += loan.totalDue;
-    acc[loan.branch].totalPaid += loan.totalPaid;
-    acc[loan.branch].totalUnpaid += loan.amountUnpaid;
-    acc[loan.branch].count += 1;
-    acc[loan.branch].officers[loan.officer].loans.push(loan);
+  //     acc[loan.branch].totalDue += loan.totalDue;
+  //     acc[loan.branch].totalPaid += loan.totalPaid;
+  //     acc[loan.branch].totalUnpaid += loan.amountUnpaid;
+  //     acc[loan.branch].count += 1;
+  //     acc[loan.branch].officers[loan.officer].loans.push(loan);
 
-    return acc;
-  }, {});
+  //     return acc;
+  //   }, {});
+  // }, [filteredData]);
 
   const getDateRangeLabel = () => {
     switch (filters.dateRange) {
@@ -243,378 +344,565 @@ const filteredData = dueLoans.filter((l) => {
     }
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      "No",
-      "Branch",
-      "Officer",
-      "Customer Name",
-      "Mobile",
-      "ID Number",
-      "Product Name",
-      "Product Type",
-      "# Installments",
-      "Disbursed Amount",
-      "Principal Due",
-      "Interest Due",
-      "Total Due",
-      "Total Paid",
-      "Unpaid Amount",
-      "Expected Date",
-      "Disbursed At",
+  const handleExport = () => {
+    switch (exportFormat) {
+      case "pdf":
+        exportToPDF();
+        break;
+      case "word":
+        exportToWord();
+        break;
+      case "excel":
+        exportToExcel();
+        break;
+      case "csv":
+      default:
+        exportToCSV();
+        break;
+    }
+  };
+
+  const exportToPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const companyName = tenant?.company_name || "Jasiri Capital";
+    const reportTitle = "Loan Due Report";
+
+    // Add Company Name and Title
+    doc.setFontSize(22);
+    doc.setTextColor(40, 40, 40);
+    doc.text(companyName, 14, 20);
+
+    doc.setFontSize(14);
+    doc.setTextColor(100, 100, 100);
+    doc.text(reportTitle, 14, 30);
+
+    doc.setFontSize(10);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 38);
+    doc.text(`Range: ${getDateRangeLabel()}`, 14, 43);
+
+    const tableHeaders = [
+      ["No", "Branch", "Officer", "Customer", "Mobile", "Product", "Inst.", "Disbursed", "Due", "Unpaid", "Due Date"]
     ];
 
-    let rowNum = 0;
-    const rows = [];
+    const tableData = filteredData.map((loan, idx) => [
+      idx + 1,
+      loan.branch,
+      loan.officer,
+      loan.customerName,
+      loan.mobile,
+      loan.productName,
+      loan.numDueInstallments,
+      formatCurrency(loan.disbursedAmount),
+      formatCurrency(loan.totalDue),
+      formatCurrency(loan.amountUnpaid),
+      loan.expectedDueDate
+    ]);
 
-    Object.values(grouped).forEach((branchGroup) => {
-      Object.values(branchGroup.officers).forEach((officerGroup) => {
-        officerGroup.loans.forEach((loan) => {
-          rowNum++;
-          rows.push([
-            rowNum,
-            loan.branch,
-            loan.officer,
-            loan.customerName,
-            loan.mobile,
-            loan.idNumber,
-            loan.productName,
-            loan.productType,
-            loan.numDueInstallments,
-            loan.disbursedAmount,
-            loan.principalDue,
-            loan.interestDue,
-            loan.totalDue,
-            loan.totalPaid,
-            loan.amountUnpaid,
-            loan.expectedDueDate,
-            loan.disbursementDate,
-          ]);
-        });
-      });
+    autoTable(doc, {
+      startY: 50,
+      head: tableHeaders,
+      body: tableData,
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [46, 94, 153], textColor: [255, 255, 255], fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      margin: { top: 50 },
     });
+
+    const companySlug = companyName.toLowerCase().replace(/ /g, '_');
+    const timestamp = new Date().toISOString().split("T")[0];
+    doc.save(`${companySlug}_due_loans_${timestamp}.pdf`);
+  };
+
+  const exportToExcel = () => {
+    const companyName = tenant?.company_name || "Jasiri Capital";
+    const data = filteredData.map((loan, idx) => ({
+      No: idx + 1,
+      Branch: loan.branch,
+      Region: loan.region,
+      Officer: loan.officer,
+      Customer: loan.customerName,
+      Mobile: loan.mobile,
+      "ID Number": loan.idNumber,
+      Product: loan.productName,
+      "Installments Due": loan.numDueInstallments,
+      "Disbursed Amount": loan.disbursedAmount,
+      "Principal Due": loan.principalDue,
+      "Interest Due": loan.interestDue,
+      "Total Due": loan.totalDue,
+      "Total Paid": loan.totalPaid,
+      "Unpaid Amount": loan.amountUnpaid,
+      "Due Date": loan.expectedDueDate,
+      "Disbursement Date": loan.disbursementDate,
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Loan Due Report");
+
+    const companySlug = companyName.toLowerCase().replace(/ /g, '_');
+    const timestamp = new Date().toISOString().split("T")[0];
+    XLSX.writeFile(wb, `${companySlug}_due_loans_${timestamp}.xlsx`);
+  };
+
+  const exportToWord = () => {
+    const companyName = tenant?.company_name || "Jasiri Capital";
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${companyName} - Loan Due Report`,
+                bold: true,
+                size: 32,
+              }),
+            ],
+          }),
+          new Paragraph({ text: `Generated: ${new Date().toLocaleString()}` }),
+          new Paragraph({ text: `Date Range: ${getDateRangeLabel()}` }),
+          new Paragraph({ text: "" }),
+          new Table({
+            rows: [
+              new TableRow({
+                children: ["No", "Branch", "Customer", "Due", "Due Date"].map(text =>
+                  new TableCell({ children: [new Paragraph({ text, bold: true })] })
+                ),
+              }),
+              ...filteredData.map((loan, idx) =>
+                new TableRow({
+                  children: [
+                    String(idx + 1),
+                    loan.branch,
+                    loan.customerName,
+                    formatCurrency(loan.totalDue),
+                    loan.expectedDueDate
+                  ].map(text => new TableCell({ children: [new Paragraph({ text })] }))
+                })
+              )
+            ]
+          })
+        ]
+      }]
+    });
+
+    Packer.toBlob(doc).then(blob => {
+      const companySlug = companyName.toLowerCase().replace(/ /g, '_');
+      const timestamp = new Date().toISOString().split("T")[0];
+      saveAs(blob, `${companySlug}_due_loans_${timestamp}.docx`);
+    });
+  };
+
+  const exportToCSV = () => {
+    const companyName = tenant?.company_name || "Jasiri Capital";
+    const headers = [
+      "No", "Branch", "Region", "Officer", "Customer Name", "Mobile", "ID Number",
+      "Product Name", "# Installments", "Disbursed Amount", "Principal Due",
+      "Interest Due", "Total Due", "Total Paid", "Unpaid Amount", "Due Date", "Disbursement Date"
+    ];
+
+    const rows = filteredData.map((loan, idx) => [
+      idx + 1, loan.branch, loan.region, loan.officer, loan.customerName, loan.mobile, loan.idNumber,
+      loan.productName, loan.numDueInstallments, loan.disbursedAmount, loan.principalDue,
+      loan.interestDue, loan.totalDue, loan.totalPaid, loan.amountUnpaid, loan.expectedDueDate, loan.disbursementDate
+    ]);
 
     const csvContent = [
       headers.join(","),
-      ...rows.map((row) => row.map((cell) => `"${cell}"`).join(",")),
+      ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(","))
     ].join("\n");
 
-    const blob = new Blob([csvContent], { type: "text/csv" });
-    const url = window.URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `loan-due-report-${getDateRangeLabel()}-${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
-    window.URL.revokeObjectURL(url);
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const companySlug = companyName.toLowerCase().replace(/ /g, '_');
+    const timestamp = new Date().toISOString().split("T")[0];
+    saveAs(blob, `${companySlug}_due_loans_${timestamp}.csv`);
   };
 
   // Calculate grand totals
-  const grandTotals = filteredData.reduce(
-    (acc, loan) => ({
-      totalDue: acc.totalDue + loan.totalDue,
-      totalPaid: acc.totalPaid + loan.totalPaid,
-      totalUnpaid: acc.totalUnpaid + loan.amountUnpaid,
-      principalDue: acc.principalDue + loan.principalDue,
-      interestDue: acc.interestDue + loan.interestDue,
-      disbursedAmount: acc.disbursedAmount + loan.disbursedAmount,
-    }),
-    {
-      totalDue: 0,
-      totalPaid: 0,
-      totalUnpaid: 0,
-      principalDue: 0,
-      interestDue: 0,
-      disbursedAmount: 0,
-    }
-  );
+  const grandTotals = useMemo(() => {
+    return filteredData.reduce(
+      (acc, loan) => ({
+        totalDue: acc.totalDue + loan.totalDue,
+        totalPaid: acc.totalPaid + loan.totalPaid,
+        totalUnpaid: acc.totalUnpaid + loan.amountUnpaid,
+        principalDue: acc.principalDue + loan.principalDue,
+        interestDue: acc.interestDue + loan.interestDue,
+        disbursedAmount: acc.disbursedAmount + loan.disbursedAmount,
+      }),
+      {
+        totalDue: 0,
+        totalPaid: 0,
+        totalUnpaid: 0,
+        principalDue: 0,
+        interestDue: 0,
+        disbursedAmount: 0,
+      }
+    );
+  }, [filteredData]);
+
+  // Pagination calculations
+  const { totalRows, totalPages } = useMemo(() => {
+    const total = filteredData.length;
+    return {
+      totalRows: total,
+      totalPages: Math.ceil(total / itemsPerPage),
+    };
+  }, [filteredData, itemsPerPage]);
+
+  // Get current page data
+  const currentData = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    return filteredData.slice(startIndex, startIndex + itemsPerPage);
+  }, [filteredData, currentPage, itemsPerPage]);
+
+
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-[1800px] mx-auto space-y-6">
+    <div className="min-h-screen bg-brand-surface p-6">
+      <div className="max-w-[1600px] mx-auto space-y-6">
+
         {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-sm font-semibold" style={{ color: "#586ab1" }}>Loan Due Report</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Viewing loans due: <span className="font-semibold text-blue-600">{getDateRangeLabel()}</span>
-              </p>
+        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
+              ) : (
+                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
+                  {tenant?.company_name?.charAt(0) || "C"}
+                </div>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-white leading-tight">{tenant?.company_name || "Jasiri Capital"}</h1>
+                <p className="text-sm text-white/80 font-medium">{tenant?.admin_email || "email@example.com"}</p>
+                <h2 className="text-lg font-semibold text-white mt-1">
+                  Loan Due Report
+                </h2>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all ${
-                  showFilters
-                    ? "bg-blue-300 text-white shadow-md"
-                    : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-                }`}
-              >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
-              </button>
-              <button
-                onClick={exportToCSV}
-                className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-md transition-all"
-              >
-                <Download className="w-4 h-4" />
-                <span>Export CSV</span>
-              </button>
+
+            <div className="flex flex-col items-end gap-2">
+              <div className="text-sm text-white/70 text-right">
+                <p>Generated on:</p>
+                <p className="font-medium text-white">{new Date().toLocaleString()}</p>
+              </div>
+              <div className="flex gap-2 mt-2 flex-wrap justify-end">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={filters.search}
+                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                    placeholder="Search name, ID, or phone"
+                    className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64"
+                  />
+                </div>
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
+                    ${showFilters
+                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Filters</span>
+                </button>
+
+                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="excel">Excel</option>
+                    <option value="word">Word</option>
+                    <option value="pdf">PDF</option>
+                  </select>
+                  <button
+                    onClick={handleExport}
+                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
+                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Filters Section */}
+        {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <h3 className="text font-semibold text-gray-900">Filter Options</h3>
-              {(filters.customerQuery || filters.officer || filters.branch) && (
-                <button
-                  onClick={() => setFilters((p) => ({ ...p, customerQuery: "", officer: "", branch: "" }))}
-                  className="text-red-600 text-sm flex items-center gap-1.5 hover:text-red-700 font-medium"
-                >
-                  <X className="w-4 h-4" />
-                  Clear All Filters
-                </button>
-              )}
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-in fade-in slide-in-from-top-2 duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                <Filter className="w-4 h-4 text-brand-primary" />
+                Report Filters
+              </h3>
+              <button
+                onClick={() => setFilters({
+                  region: "",
+                  branch: "",
+                  officer: "",
+                  search: "",
+                  dateRange: "today",
+                  customStartDate: "",
+                  customEndDate: "",
+                  installmentsDue: "",
+                })}
+                className="text-sm font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
+              >
+                <Printer className="w-4 h-4" />
+                Reset All Filters
+              </button>
             </div>
 
-            {/* Date Range Filter */}
-            <div className="space-y-3">
-              <label className="flex items-center text-sm font-semibold text-gray-700 gap-2">
-                <Calendar className="w-4 h-4 text-blue-600" />
-                Date Range
-              </label>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Region</label>
+                <select
+                  value={filters.region}
+                  onChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">All Regions</option>
+                  {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Branch</label>
+                <select
+                  value={filters.branch}
+                  onChange={(e) => setFilters(prev => ({ ...prev, branch: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">All Branches</option>
+                  {branches
+                    .filter(b => !filters.region || b.region_id === regions.find(r => r.name === filters.region)?.id)
+                    .map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                  }
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Relationship Officer</label>
+                <select
+                  value={filters.officer}
+                  onChange={(e) => setFilters(prev => ({ ...prev, officer: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">All Officers</option>
+                  {officers.map(o => <option key={o} value={o}>{o}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Due Range</label>
                 <select
                   value={filters.dateRange}
-                  onChange={(e) => setFilters((p) => ({ ...p, dateRange: e.target.value }))}
-                  className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                  onChange={(e) => setFilters(prev => ({ ...prev, dateRange: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none font-medium"
                 >
-                  <option value="today">Loans Due Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="quarter">This Quarter</option>
-                  <option value="year">This Year</option>
-                  <option value="custom">Custom Date Range</option>
+                  <option value="today">Due Today</option>
+                  <option value="week">Due This Week</option>
+                  <option value="month">Due This Month</option>
+                  <option value="quarter">Due This Quarter</option>
+                  <option value="year">Due This Year</option>
+                  <option value="custom">Custom Range</option>
                 </select>
+              </div>
 
-                {filters.dateRange === "custom" && (
-                  <>
-                    <input
-                      type="date"
-                      value={filters.customStartDate}
-                      onChange={(e) => setFilters((p) => ({ ...p, customStartDate: e.target.value }))}
-                      className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="Start Date"
-                    />
-                    <input
-                      type="date"
-                      value={filters.customEndDate}
-                      onChange={(e) => setFilters((p) => ({ ...p, customEndDate: e.target.value }))}
-                      className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                      placeholder="End Date"
-                    />
-                  </>
-                )}
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Installments Due</label>
+                <select
+                  value={filters.installmentsDue}
+                  onChange={(e) => setFilters(prev => ({ ...prev, installmentsDue: e.target.value }))}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                >
+                  <option value="">All</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map(n => <option key={n} value={n}>{n}</option>)}
+                </select>
               </div>
             </div>
 
-            {/* Other Filters */}
-            <div className="pt-4 border-t border-gray-200">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {filters.dateRange === "custom" && (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6 pt-6 border-t border-gray-100 lg:w-1/2">
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Search Customer</label>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Start Date</label>
                   <input
-                    type="text"
-                    placeholder="Name, mobile, or ID number"
-                    value={filters.customerQuery}
-                    onChange={(e) => setFilters((p) => ({ ...p, customerQuery: e.target.value }))}
-                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
+                    type="date"
+                    value={filters.customStartDate}
+                    onChange={(e) => setFilters(prev => ({ ...prev, customStartDate: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
                   />
                 </div>
                 <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Loan Officer</label>
-                  <select
-                    value={filters.officer}
-                    onChange={(e) => setFilters((p) => ({ ...p, officer: e.target.value }))}
-                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  >
-                    <option value="">All Officers</option>
-                    {officers.map((o) => (
-                      <option key={o} value={o}>
-                        {o}
-                      </option>
-                    ))}
-                  </select>
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">End Date</label>
+                  <input
+                    type="date"
+                    value={filters.customEndDate}
+                    onChange={(e) => setFilters(prev => ({ ...prev, customEndDate: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                  />
                 </div>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-700">Branch</label>
-                  <select
-                    value={filters.branch}
-                    onChange={(e) => setFilters((p) => ({ ...p, branch: e.target.value }))}
-                    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  >
-                    <option value="">All Branches</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="space-y-2">
-  <label className="text-sm font-medium text-gray-700">Installments Due</label>
-  <select
-    value={filters.installmentsDue}
-    onChange={(e) => setFilters((p) => ({ ...p, installmentsDue: e.target.value }))}
-    className="w-full border-2 border-gray-300 px-4 py-2.5 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-  >
-    <option value="">All</option>
-    {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
-      <option key={n} value={n}>{n}</option>
-    ))}
-  </select>
-</div>
-
               </div>
-            </div>
+            )}
           </div>
         )}
 
-        {/* Summary Stats */}
+        {/* Summary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="text-sm font-medium text-gray-600 mb-2">Total Loans Due</div>
-            <div className="text font-bold text-slate-600">{filteredData.length}</div>
+          <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+            <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 font-bold">
+              KES
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Total Amount Due</p>
+              <h3 className="text-2xl font-bold text-brand-primary">{formatCurrency(grandTotals.totalDue)}</h3>
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="text-sm font-medium text-gray-600 mb-2">Total Amount Due</div>
-            <div className=" font-bold text-red-600">{formatCurrency(grandTotals.totalDue)}</div>
+
+          <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0 font-bold">
+              KES
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Total Unpaid Balance</p>
+              <h3 className="text-2xl font-bold text-accent">{formatCurrency(grandTotals.totalUnpaid)}</h3>
+            </div>
           </div>
-          <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm">
-            <div className="text-sm font-medium text-gray-600 mb-2">Total Unpaid Balance</div>
-            <div className=" font-bold text-orange-600">{formatCurrency(grandTotals.totalUnpaid)}</div>
+
+          <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shrink-0 font-bold">
+              #
+            </div>
+            <div>
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Number of Loans</p>
+              <h3 className="text-2xl font-bold text-gray-900">{filteredData.length}</h3>
+            </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-  <table className="min-w-full">
-    {/* === Table Head === */}
-    <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
-      <tr>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">No</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Branch</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Total Due</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Officer</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Customer Name</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Mobile</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">ID Number</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Product Name</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Product Type</th>
-        <th className="px-4 py-4 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap"># Inst.</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Disbursed</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Principal Due</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Interest Due</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Paid</th>
-        <th className="px-4 py-4 text-right text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Unpaid</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Expected Date</th>
-        <th className="px-4 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">Disbursed At</th>
-      </tr>
-    </thead>
-
-    {/* === Table Body === */}
-    <tbody className="bg-white divide-y divide-gray-200">
-      {Object.entries(grouped).map(([branchName, branchGroup], branchIdx) => {
-        let rowNum = Object.entries(grouped)
-          .slice(0, branchIdx)
-          .reduce((sum, [, bg]) => sum + bg.count, 0);
-
-        return (
-          <React.Fragment key={branchName}>
-            {/* Officers and their loans */}
-            {Object.entries(branchGroup.officers).map(([officerName, officerGroup]) => (
-              <React.Fragment key={officerName}>
-                {officerGroup.loans.map((loan, loanIdx) => {
-                  rowNum++;
-                  return (
-                    <tr key={loan.loanId} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-sm text-gray-900 whitespace-nowrap">{rowNum}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                        {loanIdx === 0 ? loan.branch : ""}
+        {/* Table Section */}
+        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="min-w-full text-sm text-left">
+              <thead className="bg-slate-50 border-b border-slate-200">
+                <tr>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center w-12">No.</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Branch Name</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Relationship Officer</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Customer Details</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center whitespace-nowrap">Inst. Due</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Disbursed</th>
+                  <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap font-bold">Total Due</th>
+                  <th className="px-4 py-4 font-black text-accent uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Total Paid</th>
+                  <th className="px-4 py-4 font-black text-orange-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Unpaid Balance</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] whitespace-nowrap">Due Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {loading ? (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-8 text-center text-gray-500 font-medium">
+                      Fetching report data...
+                    </td>
+                  </tr>
+                ) : currentData.length === 0 ? (
+                  <tr>
+                    <td colSpan="11" className="px-4 py-12 text-center text-gray-400 font-medium">
+                      No matching records found
+                    </td>
+                  </tr>
+                ) : (
+                  currentData.map((loan, idx) => (
+                    <tr key={loan.loanId} className="group hover:bg-slate-50/50 transition-colors">
+                      <td className="px-4 py-4 text-center text-slate-400 font-medium">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
+                      <td className="px-4 py-4 font-bold text-slate-900">{loan.branch}</td>
+                      <td className="px-4 py-4 font-semibold text-slate-600">{loan.officer}</td>
+                      <td className="px-4 py-4">
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-900">{loan.customerName}</span>
+                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+                            {loan.idNumber} • {loan.mobile}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-right text-red-600 font-semibold whitespace-nowrap">
-                        {formatCurrency(loan.totalDue)}
+                      <td className="px-4 py-4 text-center">
+                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200">
+                          {loan.numDueInstallments}
+                        </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                        {loanIdx === 0 ? loan.officer : ""}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-900 font-medium whitespace-nowrap">
-                        {loan.customerName}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{loan.mobile}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{loan.idNumber}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{loan.productName}</td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{loan.productType}</td>
-                      <td className="px-4 py-3 text-sm text-center text-gray-900 whitespace-nowrap">
-                        {loan.numDueInstallments}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                        {formatCurrency(loan.disbursedAmount)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                        {formatCurrency(loan.principalDue)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-gray-900 whitespace-nowrap">
-                        {formatCurrency(loan.interestDue)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-green-600 font-semibold whitespace-nowrap">
-                        {formatCurrency(loan.totalPaid)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-right text-orange-600 font-semibold whitespace-nowrap">
-                        {formatCurrency(loan.amountUnpaid)}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                        {loan.expectedDueDate}
-                      </td>
-                      <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">
-                        {loan.disbursementDate}
-                      </td>
+                      <td className="px-4 py-4 text-right font-medium text-slate-900">{formatCurrency(loan.disbursedAmount)}</td>
+                      <td className="px-4 py-4 text-right font-black text-red-600 bg-red-50/30">{formatCurrency(loan.totalDue)}</td>
+                      <td className="px-4 py-4 text-right font-bold text-accent">{formatCurrency(loan.totalPaid)}</td>
+                      <td className="px-4 py-4 text-right font-black text-orange-600 bg-orange-50/30">{formatCurrency(loan.amountUnpaid)}</td>
+                      <td className="px-4 py-4 text-slate-600 font-medium">{loan.expectedDueDate}</td>
                     </tr>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-          </React.Fragment>
-        );
-      })}
+                  ))
+                )}
+              </tbody>
+              <tfoot className="bg-gray-50/50">
+                <tr className="border-t-2 border-gray-200">
+                  <td colSpan="6" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
+                  <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(grandTotals.disbursedAmount)}</td>
+                  <td className="px-4 py-4 text-right font-bold text-red-600 whitespace-nowrap">{formatCurrency(grandTotals.totalDue)}</td>
+                  <td className="px-4 py-4 text-right font-bold text-accent whitespace-nowrap">{formatCurrency(grandTotals.totalPaid)}</td>
+                  <td className="px-4 py-4 text-right font-bold text-orange-600 whitespace-nowrap">{formatCurrency(grandTotals.totalUnpaid)}</td>
+                  <td></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
 
-      {/* === Grand Totals Row === */}
-      <tr className=" text-white font-bold border-t-4 border-gray-400">
-        <td colSpan="2" className="px-4 py-4 text-right text-sm uppercase tracking-wider">
-          Totals:
-        </td>
-        <td className="px-4 py-4 text-right text-red-500 whitespace-nowrap">
-          {formatCurrency(grandTotals.totalDue)}
-        </td>
-        <td colSpan="10"></td>
-        <td className="px-4 py-4 text-right text-green-600 whitespace-nowrap">
-          {formatCurrency(grandTotals.totalPaid)}
-        </td>
-        <td className="px-4 py-4 text-right text-orange-500 whitespace-nowrap">
-          {formatCurrency(grandTotals.totalUnpaid)}
-        </td>
-        <td colSpan="2"></td>
-      </tr>
-    </tbody>
-  </table>
-</div>
-
+          {/* Pagination */}
+          {!loading && currentData.length > 0 && (
+            <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-sm text-gray-500">
+                Showing <span className="font-bold text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, totalRows)}</span> of{" "}
+                <span className="font-bold text-gray-900">{totalRows}</span> loans
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <div className="flex items-center gap-1">
+                  {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                    const pageNum = i + 1;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-9 h-9 rounded-lg border text-sm font-bold transition-all ${currentPage === pageNum ? "bg-brand-primary text-white border-brand-primary" : "bg-white text-gray-600 hover:border-brand-primary hover:text-brand-primary"}`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                  {totalPages > 5 && <span className="px-2 text-gray-400">...</span>}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 border rounded-lg hover:bg-white disabled:opacity-50 transition-colors"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
 };
 
-export default LoanDueReport;
+export default LoanDueReport; 

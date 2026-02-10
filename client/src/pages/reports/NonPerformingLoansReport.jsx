@@ -1,180 +1,379 @@
-import React, { useState, useEffect } from "react";
-import { Download, Filter, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search } from "lucide-react";
+ import  { useState, useEffect,  useMemo,useCallback } from "react";
+import { Download, Filter, X, ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Search, RefreshCw, FileText } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+} from "docx";
+import { saveAs } from "file-saver";
 
 const NonPerformingLoansReport = () => {
-  const [reports, setReports] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [branches, setBranches] = useState([]);
-  const [officers, setOfficers] = useState([]);
+  const { tenant, profile } = useAuth();
+  const [reports, setReports] = useState(() => {
+    const cached = localStorage.getItem("npl-report-data");
+    if (cached) {
+      try {
+        const { data, timestamp } = JSON.parse(cached);
+        const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000;
+        if (!isExpired) return data;
+      } catch (e) {
+        return [];
+      }
+    }
+    return [];
+  });
+  const [branches, setBranches] = useState(() => {
+    const cached = localStorage.getItem("npl-report-data-metadata");
+    return cached ? JSON.parse(cached).branches || [] : [];
+  });
+  const [regions, setRegions] = useState(() => {
+    const cached = localStorage.getItem("npl-report-data-metadata");
+    return cached ? JSON.parse(cached).regions || [] : [];
+  });
+  const [officers, setOfficers] = useState(() => {
+    const cached = localStorage.getItem("npl-report-data-metadata");
+    return cached ? JSON.parse(cached).officers || [] : [];
+  });
   const [loading, setLoading] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
   const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
-  const [filters, setFilters] = useState({
-    search: "",
-    branch: "",
-    loanOfficer: "",
-    status: "all",
+  const [dateFilter, setDateFilter] = useState("all");
+  const [customStartDate, setCustomStartDate] = useState("");
+  const [customEndDate, setCustomEndDate] = useState("");
+  const [exportFormat, setExportFormat] = useState("csv");
+  const [filters, setFilters] = useState(() => {
+    const saved = localStorage.getItem("npl-report-filters");
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return { ...parsed, search: "" };
+    }
+    return {
+      search: "",
+      branch: "",
+      region: "",
+      loanOfficer: "",
+      status: "all",
+      product: "",
+    };
   });
 
-  // Fetch branches
-  useEffect(() => {
-    const fetchBranches = async () => {
-      const { data, error } = await supabase.from("branches").select("id, name");
-      if (!error) setBranches(data);
-    };
-    fetchBranches();
-  }, []);
+  const formatCurrency = (num) =>
+    new Intl.NumberFormat("en-KE", {
+      style: "currency",
+      currency: "KES",
+      minimumFractionDigits: 0,
+    }).format(num || 0);
 
-  // Fetch data & compute metrics
+  const getCurrentTimestamp = () => {
+    const now = new Date();
+    return now.toLocaleString("en-KE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  };
+
+  const getDateRange = (filter) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    let start, end;
+
+    switch (filter) {
+      case "today":
+        start = new Date(today);
+        end = new Date(today);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "week":
+        start = new Date(today);
+        start.setDate(start.getDate() - start.getDay());
+        end = new Date(start);
+        end.setDate(end.getDate() + 6);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "month":
+        start = new Date(today.getFullYear(), today.getMonth(), 1);
+        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "quarter":
+        const currentQuarter = Math.floor(today.getMonth() / 3);
+        start = new Date(today.getFullYear(), currentQuarter * 3, 1);
+        end = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "year":
+        start = new Date(today.getFullYear(), 0, 1);
+        end = new Date(today.getFullYear(), 11, 31);
+        end.setHours(23, 59, 59, 999);
+        break;
+      case "custom":
+        start = customStartDate ? new Date(customStartDate) : new Date(0);
+        start.setHours(0, 0, 0, 0);
+        end = customEndDate ? new Date(customEndDate) : new Date();
+        end.setHours(23, 59, 59, 999);
+        break;
+      default:
+        return null;
+    }
+    return { start, end };
+  };
+
+  // Save filters to localStorage
   useEffect(() => {
-    const fetchNonPerformingLoans = async () => {
+    localStorage.setItem("npl-report-filters", JSON.stringify({ ...filters, dateFilter, customStartDate, customEndDate }));
+  }, [filters, dateFilter, customStartDate, customEndDate]);
+
+  // Fetch initial data (branches, regions, officers)
+  useEffect(() => {
+    const fetchInitialData = async () => {
+      if (!profile?.tenant_id) return;
+
+      // If we already have branches from cache/initializer, don't refetch unless forced
+      if (branches.length > 0) return;
+
       try {
-        setLoading(true);
-
-        const [loansRes, installmentsRes, paymentsRes, customersRes, usersRes, branchesRes] = await Promise.all([
-          supabase
-            .from("loans")
-            .select("id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment")
-            .in("repayment_state", ["overdue", "defaulted"]),
-          supabase.from("loan_installments").select("loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue"),
-          supabase.from("loan_payments").select("loan_id, paid_amount, paid_at"),
-          supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile"),
-          supabase.from("users").select("id, full_name"),
-          supabase.from("branches").select("id, name"),
+        const tenantId = profile.tenant_id;
+        const [branchesRes, regionsRes, usersRes] = await Promise.all([
+          supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId),
+          supabase.from("regions").select("id, name").eq("tenant_id", tenantId),
+          supabase.from("users").select("id, full_name").eq("role", "relationship_officer").eq("tenant_id", tenantId),
         ]);
 
-        if (loansRes.error || installmentsRes.error || paymentsRes.error || customersRes.error || usersRes.error || branchesRes.error) {
-          throw new Error("Error fetching one or more tables.");
-        }
+        if (branchesRes.error) throw branchesRes.error;
+        if (regionsRes.error) throw regionsRes.error;
+        if (usersRes.error) throw usersRes.error;
 
-        const loans = loansRes.data || [];
-        const installments = installmentsRes.data || [];
-        const payments = paymentsRes.data || [];
-        const customers = customersRes.data || [];
-        const users = usersRes.data || [];
-        const branchData = branchesRes.data || [];
+        const bData = branchesRes.data || [];
+        const rData = regionsRes.data || [];
+        const oData = usersRes.data || [];
 
-        // Process each non-performing loan
-        const nplReports = loans.map((loan) => {
-          const customer = customers.find((c) => c.id === loan.customer_id);
-          const loanOfficer = users.find((u) => u.id === loan.booked_by);
-          const branch = branchData.find((b) => b.id === loan.branch_id);
+        setBranches(bData);
+        setRegions(rData);
+        setOfficers(oData);
 
-          const fullName = customer ? [customer.Firstname, customer.Middlename, customer.Surname].filter(Boolean).join(" ") : "N/A";
+        // Save metadata to separate cache for NPL report
+        localStorage.setItem("npl-report-data-metadata", JSON.stringify({
+          branches: bData,
+          regions: rData,
+          officers: oData
+        }));
 
-          // Get all installments for this loan
-          const loanInstallments = installments.filter((i) => i.loan_id === loan.id);
-          
-          // Calculate totals
-          let totalPrincipalDue = 0;
-          let totalInterestDue = 0;
-          let principalPaid = 0;
-          let interestPaid = 0;
-          let arrearsAmount = 0;
-          let overdueDays = 0;
-          let nextPaymentDate = null;
-
-          loanInstallments.forEach((installment) => {
-            totalPrincipalDue += Number(installment.principal_amount) || 0;
-            totalInterestDue += Number(installment.interest_amount) || 0;
-
-            const paidAmount = Number(installment.paid_amount) || 0;
-            const dueAmount = Number(installment.due_amount) || 0;
-            
-            if (dueAmount > 0) {
-              const principalRatio = (Number(installment.principal_amount) || 0) / dueAmount;
-              const interestRatio = (Number(installment.interest_amount) || 0) / dueAmount;
-              
-              principalPaid += paidAmount * principalRatio;
-              interestPaid += paidAmount * interestRatio;
-            }
-
-            if (["overdue", "partial", "defaulted"].includes(installment.status)) {
-              arrearsAmount += (dueAmount - paidAmount);
-              overdueDays = Math.max(overdueDays, installment.days_overdue || 0);
-            }
-
-            if (["pending", "partial", "overdue"].includes(installment.status)) {
-              const dueDate = new Date(installment.due_date);
-              if (!nextPaymentDate || dueDate < nextPaymentDate) {
-                nextPaymentDate = dueDate;
-              }
-            }
-          });
-
-          let loanEndDate = null;
-          if (loan.disbursed_at && loan.duration_weeks) {
-            const startDate = new Date(loan.disbursed_at);
-            loanEndDate = new Date(startDate);
-            loanEndDate.setDate(startDate.getDate() + (loan.duration_weeks * 7));
-          }
-
-          return {
-            id: loan.id,
-            customer_name: fullName,
-            customer_id: customer?.id_number || "N/A",
-            mobile: customer?.mobile || "N/A",
-            branch: branch?.name || "N/A",
-            loan_officer: loanOfficer?.full_name || "N/A",
-            loan_product: loan.product_name || "N/A",
-            disbursement_amount: Number(loan.scored_amount) || 0,
-            installment_amount: Number(loan.weekly_payment) || 0,
-            total_principal_due: totalPrincipalDue,
-            total_interest_due: totalInterestDue,
-            principal_paid: principalPaid,
-            interest_paid: interestPaid,
-            arrears_amount: arrearsAmount,
-            overdue_days: overdueDays,
-            loan_start_date: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A",
-            next_payment_date: nextPaymentDate ? nextPaymentDate.toLocaleDateString() : "N/A",
-            loan_end_date: loanEndDate ? loanEndDate.toLocaleDateString() : "N/A",
-            repayment_state: loan.repayment_state,
-          };
-        });
-
-        setReports(nplReports);
-        setFiltered(nplReports);
-
-        // Extract unique officers
-        const uniqueOfficers = [...new Set(nplReports.map(r => r.loan_officer).filter(o => o !== "N/A"))];
-        setOfficers(uniqueOfficers);
       } catch (err) {
-        console.error("Error fetching non-performing loans:", err.message);
-      } finally {
-        setLoading(false);
+        console.error("Error fetching initial data:", err.message);
       }
     };
+    fetchInitialData();
+  }, [profile?.tenant_id, branches.length]);
 
-    fetchNonPerformingLoans();
-  }, []);
+  const fetchNonPerformingLoans = useCallback(async (forceRefresh = false) => {
+    if (!profile?.tenant_id) return;
+    const tenantId = profile.tenant_id;
+    const cacheKey = "npl-report-data";
 
-  // Filters and sorting
+    if (!forceRefresh) {
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        try {
+          const { data, timestamp } = JSON.parse(cached);
+          const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000;
+          if (!isExpired && reports.length > 0) return;
+          if (!isExpired) {
+            setReports(data);
+            return;
+          }
+        } catch (e) { }
+      }
+    }
+
+    setLoading(true);
+    try {
+      const [loansRes, installmentsRes, paymentsRes, customersRes, usersRes, branchesRes] = await Promise.all([
+        supabase
+          .from("loans")
+          .select("id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment")
+          .in("repayment_state", ["overdue", "defaulted"])
+          .eq("tenant_id", tenantId),
+        supabase.from("loan_installments").select("loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue").eq("tenant_id", tenantId),
+        supabase.from("loan_payments").select("loan_id, paid_amount, paid_at").eq("tenant_id", tenantId),
+        supabase.from("customers").select("id, Firstname, Middlename, Surname, id_number, mobile").eq("tenant_id", tenantId),
+        supabase.from("users").select("id, full_name").eq("role", "relationship_officer").eq("tenant_id", tenantId),
+        supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId),
+      ]);
+
+      if (loansRes.error) throw loansRes.error;
+      if (installmentsRes.error) throw installmentsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+      if (customersRes.error) throw customersRes.error;
+      if (usersRes.error) throw usersRes.error;
+      if (branchesRes.error) throw branchesRes.error;
+
+      const loans = loansRes.data || [];
+      const installmentsArr = installmentsRes.data || [];
+      const customers = customersRes.data || [];
+      const relationshipOfficers = usersRes.data || [];
+      const branchList = branchesRes.data || [];
+
+      const nplReports = loans.map((loan) => {
+        const customer = customers.find((c) => c.id === loan.customer_id);
+        const loanOfficer = relationshipOfficers.find((u) => u.id === loan.booked_by);
+        const branch = branchList.find((b) => b.id === loan.branch_id);
+
+        const fullName = customer ? [customer.Firstname, customer.Middlename, customer.Surname].filter(Boolean).join(" ") : "N/A";
+
+        const loanInstallments = installmentsArr.filter((i) => i.loan_id === loan.id);
+
+        let totalPrincipalDue = 0;
+        let totalInterestDue = 0;
+        let principalPaid = 0;
+        let interestPaid = 0;
+        let arrearsAmount = 0;
+        let overdueDays = 0;
+        let nextPaymentDate = null;
+
+        loanInstallments.forEach((installment) => {
+          totalPrincipalDue += Number(installment.principal_amount) || 0;
+          totalInterestDue += Number(installment.interest_amount) || 0;
+
+          const paidAmount = Number(installment.paid_amount) || 0;
+          const dueAmount = Number(installment.due_amount) || 0;
+
+          if (dueAmount > 0) {
+            const principalRatio = (Number(installment.principal_amount) || 0) / dueAmount;
+            const interestRatio = (Number(installment.interest_amount) || 0) / dueAmount;
+            principalPaid += paidAmount * principalRatio;
+            interestPaid += paidAmount * interestRatio;
+          }
+
+          if (["overdue", "partial", "defaulted"].includes(installment.status)) {
+            arrearsAmount += (dueAmount - paidAmount);
+            overdueDays = Math.max(overdueDays, installment.days_overdue || 0);
+          }
+
+          if (["pending", "partial", "overdue"].includes(installment.status)) {
+            const dueDate = new Date(installment.due_date);
+            if (!nextPaymentDate || dueDate < nextPaymentDate) {
+              nextPaymentDate = dueDate;
+            }
+          }
+        });
+
+        let loanEndDate = null;
+        if (loan.disbursed_at && loan.duration_weeks) {
+          const startDate = new Date(loan.disbursed_at);
+          loanEndDate = new Date(startDate);
+          loanEndDate.setDate(startDate.getDate() + (loan.duration_weeks * 7));
+        }
+
+        return {
+          id: loan.id,
+          customer_name: fullName,
+          customer_id: customer?.id_number || "N/A",
+          mobile: customer?.mobile || "N/A",
+          branch: branch?.name || "N/A",
+          branch_id: branch?.id || null,
+          region_id: branch?.region_id || null,
+          loan_officer: loanOfficer?.full_name || "N/A",
+          officer_id: loanOfficer?.id || null,
+          loan_product: loan.product_name || "N/A",
+          disbursement_amount: Number(loan.scored_amount) || 0,
+          installment_amount: Number(loan.weekly_payment) || 0,
+          total_principal_due: totalPrincipalDue,
+          total_interest_due: totalInterestDue,
+          principal_paid: principalPaid,
+          interest_paid: interestPaid,
+          arrears_amount: arrearsAmount,
+          overdue_days: overdueDays,
+          loan_start_date_raw: loan.disbursed_at,
+          loan_start_date: loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A",
+          next_payment_date: nextPaymentDate ? nextPaymentDate.toLocaleDateString() : "N/A",
+          loan_end_date: loanEndDate ? loanEndDate.toLocaleDateString() : "N/A",
+          repayment_state: loan.repayment_state,
+        };
+      });
+
+      setReports(nplReports);
+      localStorage.setItem(cacheKey, JSON.stringify({
+        data: nplReports,
+        timestamp: Date.now()
+      }));
+
+    } catch (err) {
+      console.error("Error fetching non-performing loans:", err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [profile?.tenant_id, reports.length]); // FIXED: Removed calculateArrearsAndOverdue dependency
+
   useEffect(() => {
+    fetchNonPerformingLoans();
+  }, [fetchNonPerformingLoans]);
+
+  const filteredData = useMemo(() => {
     let result = [...reports];
-    
+
     // Search filter
     if (filters.search) {
       const q = filters.search.toLowerCase();
       result = result.filter((r) =>
         r.customer_name.toLowerCase().includes(q) ||
-        r.mobile.includes(q) ||
-        r.customer_id.includes(q)
+        r.customer_id.toLowerCase().includes(q) ||
+        r.mobile.includes(q)
       );
     }
 
+    // Region filter
+    if (filters.region) {
+      result = result.filter((r) => r.region_id === filters.region);
+    }
+
+    // Branch filter
     if (filters.branch) {
-      result = result.filter((r) => r.branch === filters.branch);
+      result = result.filter((r) => r.branch_id === filters.branch);
     }
-    
+
+    // Loan officer filter
     if (filters.loanOfficer) {
-      result = result.filter((r) => r.loan_officer === filters.loanOfficer);
+      result = result.filter((r) => r.officer_id === filters.loanOfficer);
     }
-    
+
+    // Status filter
     if (filters.status !== "all") {
       result = result.filter((r) => r.repayment_state === filters.status);
+    }
+
+    // Product filter
+    if (filters.product) {
+      result = result.filter((r) => r.loan_product === filters.product);
+    }
+
+    // Date filter
+    if (dateFilter !== "all" && dateFilter !== "custom") {
+      const range = getDateRange(dateFilter);
+      if (range) {
+        result = result.filter((r) => {
+          const loanDate = new Date(r.loan_start_date_raw);
+          return loanDate >= range.start && loanDate <= range.end;
+        });
+      }
+    } else if (dateFilter === "custom") {
+      const range = getDateRange("custom");
+      if (range) {
+        result = result.filter((r) => {
+          const loanDate = new Date(r.loan_start_date_raw);
+          return loanDate >= range.start && loanDate <= range.end;
+        });
+      }
     }
 
     // Apply sorting
@@ -188,9 +387,12 @@ const NonPerformingLoansReport = () => {
       });
     }
 
-    setFiltered(result);
+    return result;
+  }, [filters, reports, sortConfig, dateFilter, customStartDate, customEndDate]);
+
+  useEffect(() => {
     setCurrentPage(1);
-  }, [filters, reports, sortConfig]);
+  }, [filters, dateFilter]);
 
   const handleSort = (key) =>
     setSortConfig((prev) => ({
@@ -198,18 +400,52 @@ const NonPerformingLoansReport = () => {
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
 
+  const getFilteredBranches = () => {
+    if (!filters.region) return branches;
+    return branches.filter(b => b.region_id === filters.region);
+  };
+
+  const getFilteredOfficers = () => {
+    if (filters.branch) {
+      const officersInBranch = reports
+        .filter(r => r.branch_id === filters.branch)
+        .map(r => ({ id: r.officer_id, full_name: r.loan_officer }));
+      return officersInBranch.filter((o, i, self) => i === self.findIndex(x => x.id === o.id));
+    }
+    if (filters.region) {
+      const officersInRegion = reports
+        .filter(r => r.region_id === filters.region)
+        .map(r => ({ id: r.officer_id, full_name: r.loan_officer }));
+      return officersInRegion.filter((o, i, self) => i === self.findIndex(x => x.id === o.id));
+    }
+    return officers;
+  };
+
+  const products = useMemo(() => [
+    ...new Set(reports.map(r => r.loan_product).filter(Boolean))
+  ], [reports]);
+
+  const dateFilterOptions = [
+    { value: "all", label: "All Time" },
+    { value: "today", label: "Today" },
+    { value: "week", label: "This Week" },
+    { value: "month", label: "This Month" },
+    { value: "quarter", label: "This Quarter" },
+    { value: "year", label: "This Year" },
+    { value: "custom", label: "Custom Range" },
+  ];
+
   const SortableHeader = ({ label, sortKey }) => (
     <th
       onClick={() => handleSort(sortKey)}
-      className="px-4 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap text-left text-sm"
+      className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:bg-slate-100/80 transition-all font-inter"
     >
       <div className="flex items-center gap-2">
         {label}
-        {sortConfig.key === sortKey && (
-          sortConfig.direction === "asc" ? 
-            <ChevronUp className="w-4 h-4" /> : 
-            <ChevronDown className="w-4 h-4" />
-        )}
+        <div className="flex flex-col">
+          <ChevronUp className={`w-3 h-3 -mb-1 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === 'asc' ? 'text-brand-primary' : 'text-slate-300'}`} />
+          <ChevronDown className={`w-3 h-3 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === 'desc' ? 'text-brand-primary' : 'text-slate-300'}`} />
+        </div>
       </div>
     </th>
   );
@@ -217,355 +453,602 @@ const NonPerformingLoansReport = () => {
   const handleFilterChange = (key, value) =>
     setFilters((prev) => ({ ...prev, [key]: value }));
 
-  const clearFilters = () =>
-    setFilters({ search: "", branch: "", loanOfficer: "", status: "all" });
-
-  const formatCurrency = (num) =>
-    new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(num || 0);
-
-  const exportToCSV = () => {
-    if (filtered.length === 0) {
-      alert("No data to export");
-      return;
-    }
-
-    const csv = [
-      [
-        "No",
-        "Customer Name",
-        "ID Number",
-        "Mobile",
-        "Branch",
-        "Loan Officer",
-        "Loan Product",
-        "Disbursement Amount",
-        "Installment Amount",
-        "Total Principal Due",
-        "Total Interest Due",
-        "Principal Paid",
-        "Interest Paid",
-        "Arrears Amount",
-        "Overdue Days",
-        "Loan Start Date",
-        "Next Payment Date",
-        "Loan End Date",
-        "Status",
-      ],
-      ...filtered.map((r, i) => [
-        i + 1,
-        `"${r.customer_name}"`,
-        r.customer_id,
-        r.mobile,
-        r.branch,
-        r.loan_officer,
-        r.loan_product,
-        r.disbursement_amount.toFixed(2),
-        r.installment_amount.toFixed(2),
-        r.total_principal_due.toFixed(2),
-        r.total_interest_due.toFixed(2),
-        r.principal_paid.toFixed(2),
-        r.interest_paid.toFixed(2),
-        r.arrears_amount.toFixed(2),
-        r.overdue_days,
-        r.loan_start_date,
-        r.next_payment_date,
-        r.loan_end_date,
-        r.repayment_state,
-      ]),
-    ]
-      .map((row) => row.join(","))
-      .join("\n");
-
-    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `non_performing_loans_${new Date().toISOString().split("T")[0]}.csv`;
-    a.click();
+  const clearFilters = () => {
+    setFilters({ search: "", branch: "", region: "", loanOfficer: "", status: "all", product: "" });
+    setDateFilter("all");
+    setCustomStartDate("");
+    setCustomEndDate("");
   };
 
-  // Pagination
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
+
+
+  const exportFormatOptions = [
+    { value: "csv", label: "CSV" },
+    { value: "excel", label: "Excel" },
+    { value: "pdf", label: "PDF" },
+    { value: "word", label: "Word" },
+  ];
+
+  const groupLoansForDisplay = (loans) => {
+    const branchTotals = {};
+    const officerTotals = {};
+
+    loans.forEach((loan) => {
+      const branchName = loan.branch || "Unknown Branch";
+      const officerName = loan.loan_officer || "Unknown Officer";
+
+      if (!branchTotals[branchName]) branchTotals[branchName] = 0;
+      branchTotals[branchName] += loan.arrears_amount || 0;
+
+      const officerKey = `${branchName}-${officerName}`;
+      if (!officerTotals[officerKey]) officerTotals[officerKey] = 0;
+      officerTotals[officerKey] += loan.arrears_amount || 0;
+    });
+
+    const groupedByBranch = {};
+    loans.forEach((loan) => {
+      const branchName = loan.branch || "Unknown Branch";
+      const officerName = loan.loan_officer || "Unknown Officer";
+
+      if (!groupedByBranch[branchName]) {
+        groupedByBranch[branchName] = {
+          branch: branchName,
+          totalAmount: branchTotals[branchName],
+          officers: {},
+        };
+      }
+
+      if (!groupedByBranch[branchName].officers[officerName]) {
+        const officerKey = `${branchName}-${officerName}`;
+        groupedByBranch[branchName].officers[officerName] = {
+          officer: officerName,
+          roTotalAmount: officerTotals[officerKey],
+          customers: [],
+        };
+      }
+      groupedByBranch[branchName].officers[officerName].customers.push(loan);
+    });
+    return groupedByBranch;
+  };
+
+  const handleExport = async () => {
+    if (filteredData.length === 0) return alert("No data to export");
+
+    const companyName = tenant?.company_name || "Company";
+    const companySlug = companyName.toLowerCase().replace(/ /g, "-");
+    const dateStr = new Date().toISOString().split("T")[0];
+
+    if (exportFormat === "csv") {
+      exportToCSV(companySlug, dateStr);
+    } else if (exportFormat === "excel") {
+      exportToExcel(companySlug, dateStr);
+    } else if (exportFormat === "pdf") {
+      exportToPDF(companyName, dateStr);
+    } else if (exportFormat === "word") {
+      exportToWord(companyName, dateStr);
+    }
+  };
+
+  const exportToPDF = (companyName, dateStr) => {
+    const doc = new jsPDF({ orientation: "landscape" });
+    doc.setFontSize(14);
+    doc.text(`${companyName} - Non-Performing Loans Report`, 14, 15);
+    doc.setFontSize(10);
+    doc.text(`Generated on: ${getCurrentTimestamp()}`, 14, 22);
+
+    const headers = [[
+      "No.", "Branch", "RO", "Customer", "ID Number", "Mobile", "Product",
+      "Disbursed", "Princ. Due", "Int. Due", "Arrears", "Days Overdue", "Status"
+    ]];
+
+    const groupedData = groupLoansForDisplay(filteredData);
+    const rows = [];
+    let branchNum = 1;
+
+    Object.values(groupedData).forEach((branch) => {
+      Object.values(branch.officers).forEach((officer) => {
+        officer.customers.forEach((cust, i) => {
+          rows.push([
+            i === 0 ? branchNum : "",
+            i === 0 ? branch.branch : "",
+            i === 0 ? officer.officer : "",
+            cust.customer_name,
+            cust.customer_id,
+            cust.mobile,
+            cust.loan_product,
+            formatCurrency(cust.disbursement_amount),
+            formatCurrency(cust.total_principal_due),
+            formatCurrency(cust.total_interest_due),
+            formatCurrency(cust.arrears_amount),
+            cust.overdue_days,
+            cust.repayment_state,
+          ]);
+        });
+      });
+      branchNum++;
+    });
+
+    autoTable(doc, { head: headers, body: rows, startY: 28, styles: { fontSize: 7 } });
+    doc.save(`${companyName.replace(/ /g, "_")}_NPL_Report_${dateStr}.pdf`);
+  };
+
+  const exportToExcel = (companySlug, dateStr) => {
+    const ws = XLSX.utils.json_to_sheet(filteredData.map((r, i) => ({
+      No: i + 1,
+      Customer: r.customer_name,
+      ID: r.customer_id,
+      Mobile: r.mobile,
+      Branch: r.branch,
+      Officer: r.loan_officer,
+      Product: r.loan_product,
+      Disbursed: r.disbursement_amount,
+      "Principal Due": r.total_principal_due,
+      "Interest Due": r.total_interest_due,
+      Arrears: r.arrears_amount,
+      Overdue: r.overdue_days,
+      Status: r.repayment_state
+    })));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "NPL Report");
+    XLSX.writeFile(wb, `${companySlug}-npl-report-${dateStr}.xlsx`);
+  };
+
+  const exportToWord = async (companyName, dateStr) => {
+    const tableRows = filteredData.map((r, i) => new TableRow({
+      children: [
+        new TableCell({ children: [new Paragraph(String(i + 1))] }),
+        new TableCell({ children: [new Paragraph(r.customer_name)] }),
+        new TableCell({ children: [new Paragraph(r.branch)] }),
+        new TableCell({ children: [new Paragraph(r.loan_officer)] }),
+        new TableCell({ children: [new Paragraph(formatCurrency(r.disbursement_amount))] }),
+        new TableCell({ children: [new Paragraph(formatCurrency(r.arrears_amount))] }),
+      ]
+    }));
+
+    const doc = new Document({
+      sections: [{
+        children: [
+          new Paragraph({ children: [new TextRun({ text: `${companyName} - NPL Report`, bold: true, size: 28 })] }),
+          new Table({
+            rows: [
+              new TableRow({
+                children: [
+                  new TableCell({ children: [new Paragraph("No")] }),
+                  new TableCell({ children: [new Paragraph("Customer")] }),
+                  new TableCell({ children: [new Paragraph("Branch")] }),
+                  new TableCell({ children: [new Paragraph("Officer")] }),
+                  new TableCell({ children: [new Paragraph("Disbursed")] }),
+                  new TableCell({ children: [new Paragraph("Arrears")] }),
+                ]
+              }),
+              ...tableRows
+            ]
+          }),
+        ]
+      }]
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(blob, `${companyName.replace(/ /g, "_")}_NPL_Report_${dateStr}.docx`);
+  };
+
+  const exportToCSV = (companySlug, dateStr) => {
+    const headers = [
+      "No.", "Branch", "Total Arrears", "Officer", "RO Total Arrears", "Customer", "ID", "Mobile",
+      "Product", "Disbursed", "Principal Due", "Interest Due", "Arrears", "Overdue Days", "Status"
+    ];
+
+    const groupedData = groupLoansForDisplay(filteredData);
+    let flattenedData = [];
+    let branchNumber = 1;
+
+    Object.values(groupedData).forEach((branch) => {
+      Object.values(branch.officers).forEach((officer) => {
+        officer.customers.forEach((customer, customerIndex) => {
+          flattenedData.push([
+            customerIndex === 0 ? branchNumber : "",
+            customerIndex === 0 ? branch.branch : "",
+            customerIndex === 0 ? formatCurrency(branch.totalAmount) : "",
+            customerIndex === 0 ? officer.officer : "",
+            customerIndex === 0 ? formatCurrency(officer.roTotalAmount) : "",
+            customer.customer_name,
+            customer.customer_id,
+            customer.mobile,
+            customer.loan_product,
+            formatCurrency(customer.disbursement_amount),
+            formatCurrency(customer.total_principal_due),
+            formatCurrency(customer.total_interest_due),
+            formatCurrency(customer.arrears_amount),
+            customer.overdue_days,
+            customer.repayment_state,
+          ]);
+        });
+      });
+      branchNumber++;
+    });
+
+    const csvContent = [
+      headers.join(","),
+      ...flattenedData.map(row => row.map(f => typeof f === "string" && f.includes(",") ? `"${f}"` : f).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${companySlug}-npl-report-${dateStr}.csv`;
+    link.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const totalPages = Math.ceil(filteredData.length / itemsPerPage);
   const startIdx = (currentPage - 1) * itemsPerPage;
   const endIdx = startIdx + itemsPerPage;
-  const currentData = filtered.slice(startIdx, endIdx);
+  const currentData = filteredData.slice(startIdx, endIdx);
 
-  // Totals
   const totals = {
-    arrearsAmount: filtered.reduce((sum, r) => sum + r.arrears_amount, 0),
-    disbursementAmount: filtered.reduce((sum, r) => sum + r.disbursement_amount, 0),
-    overdueCount: filtered.filter(r => r.repayment_state === "overdue").length,
+    arrearsAmount: filteredData.reduce((sum, r) => sum + r.arrears_amount, 0),
+    disbursementAmount: filteredData.reduce((sum, r) => sum + r.disbursement_amount, 0),
+    overdueCount: filteredData.filter(r => r.repayment_state === "overdue").length,
+    defaultedCount: filteredData.filter(r => r.repayment_state === "defaulted").length,
   };
 
   return (
-    <div className="space-y-6">
- 
-   {/* HEADER */}
-<div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 space-y-4">
-  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-    <div>
-      <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Non-Performing Loans Report</h1>
-      <p className="text-sm text-gray-600 mt-1">
-        Track and manage defaulted and overdue loans
-      </p>
-    </div>
-    <div className="flex flex-wrap gap-3">
-      <button
-        onClick={() => setShowFilters(!showFilters)}
-        className={`px-5 py-2.5 rounded-lg flex items-center gap-2 font-medium transition-all ${
-          showFilters
-            ? "bg-blue-600 text-white shadow-md"
-            : "bg-white text-gray-700 border-2 border-gray-300 hover:bg-gray-50 hover:border-gray-400"
-        }`}
-      >
-        <Filter className="w-4 h-4" />
-        <span>Filters</span>
-      </button>
-      <button
-        onClick={exportToCSV}
-        className="px-5 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-2 font-medium shadow-md transition-all"
-      >
-        <Download className="w-4 h-4" />
-        <span>Export CSV</span>
-      </button>
-    </div>
-  </div>
-</div>
-
-
-      {/* Filters */}
-      {showFilters && (
-        <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm space-y-4">
-          <h3 className="font-semibold text-gray-900">Filter Results</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="relative">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
+    <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
+      <div className="max-w-full mx-auto space-y-8">
+        {/* PREMIUM HEADER (Disbursement Style Alignment) */}
+        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="flex items-center gap-4">
+              {tenant?.logo_url ? (
+                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
+              ) : (
+                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
+                  {tenant?.company_name?.charAt(0) || "C"}
+                </div>
+              )}
+              <div>
+                <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
+                <p className="text-sm text-black font-medium">{tenant?.admin_email || "email@example.com"}</p>
+                <h2 className="text-lg font-semibold text-white mt-1">
+                  Non-Performing Loans Report
+                </h2>
               </div>
-              <input
-                type="text"
-                placeholder="Search by customer, ID, or mobile..."
-                value={filters.search}
-                onChange={(e) => handleFilterChange("search", e.target.value)}
-                className="block w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
             </div>
 
-            <select
-              value={filters.branch}
-              onChange={(e) => handleFilterChange("branch", e.target.value)}
-              className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Branches</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-
-            <select
-              value={filters.loanOfficer}
-              onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-              className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="">All Officers</option>
-              {officers.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
-
-            <select
-              value={filters.status}
-              onChange={(e) => handleFilterChange("status", e.target.value)}
-              className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="overdue">Overdue</option>
-              <option value="defaulted">Defaulted</option>
-            </select>
-          </div>
-          {(filters.search || filters.branch || filters.loanOfficer || filters.status !== "all") && (
-            <button
-              onClick={clearFilters}
-              className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
-            >
-              <X className="w-4 h-4" /> Clear Filters
-            </button>
-          )}
-        </div>
-      )}
-
-      {/* Data Summary
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total NPLs</p>
-          <p className="text-2xl font-bold text-red-600">{filtered.length}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Arrears</p>
-          <p className="text-2xl font-bold text-orange-600">{formatCurrency(totals.arrearsAmount)}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Overdue Loans</p>
-          <p className="text-2xl font-bold text-yellow-600">{totals.overdueCount}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg border border-gray-200">
-          <p className="text-gray-600 text-sm font-medium">Total Disbursed</p>
-          <p className="text-2xl font-bold text-blue-600">{formatCurrency(totals.disbursementAmount)}</p>
-        </div>
-      </div> */}
-
-      {/* Table */}
-      <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-        {loading ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">Loading non-performing loans data...</p>
-          </div>
-        ) : filtered.length === 0 ? (
-          <div className="p-8 text-center">
-            <p className="text-gray-500">No non-performing loans found.</p>
-          </div>
-        ) : (
-          <>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 text-sm">
-                  <tr>
-                    <th className="px-4 py-4 font-semibold text-slate-600 text-left whitespace-nowrap">#</th>
-                    <SortableHeader label="Customer Name" sortKey="customer_name" />
-                    <SortableHeader label="ID Number" sortKey="customer_id" />
-                    <SortableHeader label="Mobile" sortKey="mobile" />
-                    <SortableHeader label="Branch" sortKey="branch" />
-                    <SortableHeader label="Loan Officer" sortKey="loan_officer" />
-                    <SortableHeader label="Product" sortKey="loan_product" />
-                    <SortableHeader label="Disbursement Amt" sortKey="disbursement_amount" />
-                    <SortableHeader label="Principal Due" sortKey="total_principal_due" />
-                    <SortableHeader label="Interest Due" sortKey="total_interest_due" />
-                    <SortableHeader label="Principal Paid" sortKey="principal_paid" />
-                    <SortableHeader label="Interest Paid" sortKey="interest_paid" />
-                    <SortableHeader label="Arrears Amount" sortKey="arrears_amount" />
-                    <SortableHeader label="Overdue Days" sortKey="overdue_days" />
-                    <SortableHeader label="Loan Start" sortKey="loan_start_date" />
-                    <SortableHeader label="Next Payment" sortKey="next_payment_date" />
-                    <SortableHeader label="Loan End" sortKey="loan_end_date" />
-                    <SortableHeader label="Status" sortKey="repayment_state" />
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {currentData.map((r, i) => (
-                    <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-4 text-gray-900 font-medium whitespace-nowrap">{startIdx + i + 1}</td>
-                      <td className="px-4 py-4 text-gray-900 font-medium whitespace-nowrap">{r.customer_name}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.customer_id}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.mobile}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.branch}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.loan_officer}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.loan_product}</td>
-                      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(r.disbursement_amount)}</td>
-                      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(r.total_principal_due)}</td>
-                      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(r.total_interest_due)}</td>
-                      <td className="px-4 py-4 text-right text-green-700 font-semibold whitespace-nowrap">{formatCurrency(r.principal_paid)}</td>
-                      <td className="px-4 py-4 text-right text-green-700 font-semibold whitespace-nowrap">{formatCurrency(r.interest_paid)}</td>
-                      <td className="px-4 py-4 text-right text-red-700 font-semibold whitespace-nowrap">{formatCurrency(r.arrears_amount)}</td>
-                      <td className="px-4 py-4 text-center whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-full text-xs font-semibold ${
-                          r.overdue_days > 30 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-yellow-100 text-yellow-800'
-                        }`}>
-                          {r.overdue_days} days
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.loan_start_date}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.next_payment_date}</td>
-                      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{r.loan_end_date}</td>
-                      <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`px-2.5 py-1 rounded-full text-xs uppercase font-semibold ${
-                          r.repayment_state === 'defaulted' 
-                            ? 'bg-red-100 text-red-800' 
-                            : 'bg-orange-100 text-orange-800'
-                        }`}>
-                          {r.repayment_state}
-                        </span>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* PAGINATION */}
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-semibold">{startIdx + 1}</span> to{' '}
-                <span className="font-semibold">{Math.min(endIdx, filtered.length)}</span> of{' '}
-                <span className="font-semibold">{filtered.length}</span> loans
+            <div className="flex flex-col items-end gap-2 text-right">
+              <div className="text-sm text-gray-500">
+                <p>Generated on:</p>
+                <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
               </div>
-
-              <div className="flex items-center gap-2">
+              <div className="flex gap-2 mt-2 flex-wrap justify-end">
+                <input
+                  type="text"
+                  placeholder="Search name, ID, or phone"
+                  value={filters.search}
+                  onChange={(e) => handleFilterChange("search", e.target.value)}
+                  className="border bg-gray-50 border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm w-64"
+                />
                 <button
-                  onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                  disabled={currentPage === 1}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${
-                    currentPage === 1
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                  }`}
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
+                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                    : "text-white border-white/20 hover:bg-white/10"
+                    }`}
                 >
-                  <ChevronLeft className="w-4 h-4" />
-                  Previous
+                  <Filter className="w-4 h-4" />
+                  <span>Filters</span>
                 </button>
 
-                <div className="flex items-center gap-2">
-                  {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                    let pageNum;
-                    if (totalPages <= 5) {
-                      pageNum = i + 1;
-                    } else if (currentPage <= 3) {
-                      pageNum = i + 1;
-                    } else if (currentPage >= totalPages - 2) {
-                      pageNum = totalPages - 4 + i;
-                    } else {
-                      pageNum = currentPage - 2 + i;
-                    }
+                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
+                  >
+                    {exportFormatOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleExport}
+                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
 
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`px-3 py-2 rounded-lg transition-colors ${
-                          currentPage === pageNum
-                            ? 'bg-blue-600 text-white font-semibold'
-                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    );
-                  })}
+          {/* HIERARCHICAL FILTERS */}
+          {showFilters && (
+            <div className="mt-6 pt-6 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Date Range</label>
+                  <select
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    {dateFilterOptions.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                  </select>
                 </div>
 
+                {dateFilter === "custom" && (
+                  <>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Start Date</label>
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">End Date</label>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Region</label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => {
+                      handleFilterChange("region", e.target.value);
+                      handleFilterChange("branch", "");
+                      handleFilterChange("loanOfficer", "");
+                    }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Branch</label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => {
+                      handleFilterChange("branch", e.target.value);
+                      handleFilterChange("loanOfficer", "");
+                    }}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Branches</option>
+                    {getFilteredBranches().map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Officer</label>
+                  <select
+                    value={filters.loanOfficer}
+                    onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Officers</option>
+                    {getFilteredOfficers().map(o => <option key={o.id} value={o.id}>{o.full_name}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Product</label>
+                  <select
+                    value={filters.product}
+                    onChange={(e) => handleFilterChange("product", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Products</option>
+                    {products.map(p => <option key={p} value={p}>{p}</option>)}
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Status</label>
+                  <select
+                    value={filters.status}
+                    onChange={(e) => handleFilterChange("status", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="all">All States</option>
+                    <option value="overdue">Overdue</option>
+                    <option value="defaulted">Defaulted</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2">
                 <button
-                  onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                  disabled={currentPage === totalPages}
-                  className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${
-                    currentPage === totalPages
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                  }`}
+                  onClick={clearFilters}
+                  className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1.5 ml-1"
                 >
-                  Next
-                  <ChevronRight className="w-4 h-4" />
+                  <X className="w-4 h-4" />
+                  Clear All Filters
                 </button>
+                <p className="text-xs text-slate-400 font-medium">
+                  Showing {filteredData.length} matches
+                </p>
               </div>
             </div>
-          </>
-        )}
+          )}
+        </div>
+
+        {/* SUMMARY CARDS (Exact Disbursement Style) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-sm text-muted font-medium">Total Arrears</p>
+            <p className="text-2xl font-bold mt-1 text-primary">
+              {formatCurrency(totals.arrearsAmount)}
+            </p>
+          </div>
+
+          <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <p className="text-sm text-muted font-medium">Total Disbursed</p>
+            <p className="text-2xl font-bold mt-1 text-accent">
+              {formatCurrency(totals.disbursementAmount)}
+            </p>
+          </div>
+
+          <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted font-medium">Number of NPLs</p>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">LOANS</span>
+            </div>
+            <p className="text-2xl font-bold mt-1 text-gray-900">
+              {filteredData.length}
+            </p>
+          </div>
+
+          <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-gray-100">
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted font-medium">Defaulted Count</p>
+              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded animate-pulse">CRITICAL</span>
+            </div>
+            <p className="text-2xl font-bold mt-1 text-red-600">
+              {totals.defaultedCount}
+            </p>
+          </div>
+        </div>
+
+        {/* DATA TABLE */}
+        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+          {loading ? (
+            <div className="flex flex-col items-center justify-center p-24 space-y-4">
+              <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin"></div>
+              <p className="text-slate-500 font-bold animate-pulse">Analyzing loan performance...</p>
+            </div>
+          ) : filteredData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center p-24 text-center">
+              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
+                <Search className="w-10 h-10 text-slate-300" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900 mb-1">No NPLs Found</h3>
+              <p className="text-slate-500 max-w-xs">We couldn't find any non-performing loans matching your current filter criteria.</p>
+              <button onClick={clearFilters} className="mt-6 text-brand-primary font-bold hover:underline">
+                Clear all filters
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="overflow-x-auto min-h-[400px]">
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="bg-slate-50 border-b border-slate-200">
+                      <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest w-16">#</th>
+                      <SortableHeader label="Customer" sortKey="customer_name" />
+                      <SortableHeader label="Mobile" sortKey="mobile" />
+                      <SortableHeader label="Branch" sortKey="branch" />
+                      <SortableHeader label="Officer" sortKey="loan_officer" />
+                      <SortableHeader label="Product" sortKey="loan_product" />
+                      <SortableHeader label="Disbursed" sortKey="disbursement_amount" />
+                      <SortableHeader label="Principal Due" sortKey="total_principal_due" />
+                      <SortableHeader label="Interest Due" sortKey="total_interest_due" />
+                      <SortableHeader label="Principal Paid" sortKey="principal_paid" />
+                      <SortableHeader label="Interest Paid" sortKey="interest_paid" />
+                      <SortableHeader label="Arrears" sortKey="arrears_amount" />
+                      <SortableHeader label="Overdue" sortKey="overdue_days" />
+                      <SortableHeader label="Next Due" sortKey="next_payment_date" />
+                      <SortableHeader label="Status" sortKey="repayment_state" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-sm">
+                    {currentData.map((row, idx) => (
+                      <tr key={row.id} className="hover:bg-slate-50/50 transition-colors group">
+                        <td className="px-6 py-4 text-slate-400 font-medium">{startIdx + idx + 1}</td>
+                        <td className="px-6 py-4 font-bold text-slate-900 group-hover:text-brand-primary transition-colors whitespace-nowrap">
+                          {row.customer_name}
+                          <div className="text-[10px] text-slate-400 font-medium grayscale">{row.customer_id}</div>
+                        </td>
+                        <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">{row.mobile}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">{row.branch}</td>
+                        <td className="px-6 py-4 font-semibold text-brand-primary whitespace-nowrap">{row.loan_officer}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">{row.loan_product}</td>
+                        <td className="px-6 py-4 font-black text-slate-900 whitespace-nowrap bg-green-50/30">{formatCurrency(row.disbursement_amount)}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">{formatCurrency(row.total_principal_due)}</td>
+                        <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">{formatCurrency(row.total_interest_due)}</td>
+                        <td className="px-6 py-4 font-bold text-green-600 whitespace-nowrap">{formatCurrency(row.principal_paid)}</td>
+                        <td className="px-6 py-4 font-bold text-green-600 whitespace-nowrap">{formatCurrency(row.interest_paid)}</td>
+                        <td className="px-6 py-4 font-black text-red-600 whitespace-nowrap">{formatCurrency(row.arrears_amount)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-xs font-black tracking-tighter ${row.overdue_days > 30 ? 'bg-red-50 text-red-700' : 'bg-orange-50 text-orange-700'}`}>
+                            {row.overdue_days} DAYS
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 font-bold text-slate-600 whitespace-nowrap">{row.next_payment_date}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm border ${row.repayment_state === 'defaulted' ? 'bg-red-500 border-red-400 text-white' : 'bg-orange-100 border-orange-200 text-orange-700'}`}>
+                            {row.repayment_state}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* PAGINATION */}
+              <div className="bg-slate-50/50 px-6 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="text-sm font-medium text-slate-500">
+                  Showing <span className="font-bold text-slate-700">{startIdx + 1}</span> to{' '}
+                  <span className="font-bold text-slate-700">{Math.min(endIdx, filteredData.length)}</span> of{' '}
+                  <span className="font-bold text-slate-900">{filteredData.length}</span> entries
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                    <ChevronLeft className="w-5 h-5" />
+                  </button>
+                  <div className="flex items-center gap-1.5">
+                    {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
+                      let pageNum;
+                      if (totalPages <= 5) pageNum = i + 1;
+                      else if (currentPage <= 3) pageNum = i + 1;
+                      else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+                      else pageNum = currentPage - 2 + i;
+
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum ? 'bg-brand-primary text-white scale-105 shadow-brand-primary/20' : 'bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50'}`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <button
+                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
+                  >
+                    <ChevronRight className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
