@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Download,
   Printer,
@@ -6,9 +6,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  Search,
+  RefreshCw,
 } from "lucide-react";
-import { useDisbursementStore } from "../../stores/DisbursementStore";
-import { useAuth } from "../../hooks/userAuth";
+import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -22,55 +23,514 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import Spinner from "../../components/Spinner";
+
+// Memoized helper functions
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0,
+  }).format(amount || 0);
+
+const getCurrentTimestamp = () => {
+  const now = new Date();
+  return now.toLocaleString("en-KE", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  });
+};
+
+// SearchBox component
+const SearchBox = React.memo(({ value, onChange }) => {
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search name, ID, or phone"
+        className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64 text-gray-900"
+      />
+    </div>
+  );
+});
+
+SearchBox.displayName = 'SearchBox';
+
+
+const LoanTableRow = React.memo(({ row, index }) => {
+  return (
+    <tr key={`${row.id}-${index}`} className="hover:bg-gray-50 transition-colors">
+      <td className="px-4 py-3 text-center text-gray-500">{row.branchNumber}</td>
+      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? row.branch : ""}</td>
+      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? formatCurrency(row.branchTotalAmount) : ""}</td>
+      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? row.loanOfficer : ""}</td>
+      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? formatCurrency(row.roTotalAmount) : ""}</td>
+      <td className="px-4 py-3 text-gray-900">{row.customerName}</td>
+      <td className="px-4 py-3 text-gray-600">{row.mobile}</td>
+      <td className="px-4 py-3 text-gray-600">{row.idNumber}</td>
+      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.mpesaReference || "N/A"}</td>
+      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.loanReferenceNumber}</td>
+      <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCurrency(row.appliedLoanAmount)}</td>
+      <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50 rounded-sm">{formatCurrency(row.disbursedAmount)}</td>
+      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(row.interestAmount)}</td>
+      <td className="px-4 py-3 text-gray-600">{row.business_name}</td>
+      <td className="px-4 py-3 text-gray-600">{row.business_type}</td>
+      <td className="px-4 py-3 text-gray-600">{row.productName}</td>
+      <td className="px-4 py-3 text-gray-600">{row.nextPaymentDate}</td>
+      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{row.disbursementDate}</td>
+    </tr>
+  );
+});
+
+LoanTableRow.displayName = 'LoanTableRow';
 
 const DisbursementLoansReport = () => {
-  // Zustand store - destructure only what you need
-  const {
-    disbursedLoans,
-    filters,
-    dateFilter,
-    customStartDate,
-    customEndDate,
-    exportFormat,
-    showFilters,
-    loading,
-    currentPage,
-    itemsPerPage,
-    sortConfig,
-    setFilters,
-    setDateFilter,
-    setCustomDateRange,
-    setExportFormat,
-    toggleFilters,
-    setCurrentPage,
-    clearFilters,
-    fetchDisbursedLoans,
-  } = useDisbursementStore();
+  // Get tenant from localStorage ONCE
+  const [tenant] = useState(() => {
+    try {
+      const savedTenant = localStorage.getItem("tenant");
+      return savedTenant ? JSON.parse(savedTenant) : null;
+    } catch (e) {
+      console.error("Error loading tenant:", e);
+      return null;
+    }
+  });
 
-  const { tenant } = useAuth();
+  // State
+  const [rawLoans, setRawLoans] = useState([]);
+  const [loading, setLoading] = useState(true); // Start loading immediately
+  const [error, setError] = useState(null);
+  const [showFilters, setShowFilters] = useState(false);
+  const [exportFormat, setExportFormat] = useState("csv");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [sortConfig, setSortConfig] = useState({ key: null, direction: "asc" });
 
-  // Fetch data on mount - ONLY ONCE
+  // Filters state
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem("disbursement-filters");
+      return saved ? JSON.parse(saved) : {
+        search: "",
+        branch: "",
+        region: "",
+        officer: "",
+        product: "",
+        dateFilter: "all",
+        customStartDate: "",
+        customEndDate: "",
+      };
+    } catch (e) {
+      return {
+        search: "",
+        branch: "",
+        region: "",
+        officer: "",
+        product: "",
+        dateFilter: "all",
+        customStartDate: "",
+        customEndDate: "",
+      };
+    }
+  });
+
+  // Refs
+  const hasFetchedRef = useRef(false);
+  const tenantIdRef = useRef(tenant?.id);
+  const itemsPerPage = 10;
+
+  // Update tenantIdRef when tenant changes (if tenant loads asynchronously)
   useEffect(() => {
+    tenantIdRef.current = tenant?.id;
+  }, [tenant]);
+
+  // Save filters to localStorage (debounced)
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem("disbursement-filters", JSON.stringify(filters));
+      } catch (e) {
+        console.error("Failed to save filters:", e);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [filters]);
+
+  // ========== FETCH DATA – ONLY ONCE ==========
+  useEffect(() => {
+    let mounted = true;                     // ✅ track mount status
+    const tenantId = tenantIdRef.current;
+
+    // Safety timeout: force loading false after 15 seconds
+    const safetyTimeout = setTimeout(() => {
+      if (mounted && loading) {
+        console.warn("⚠️ Safety timeout – forcing loading false");
+        setLoading(false);
+        setError("Request timed out. Please try again.");
+      }
+    }, 15000);
+
+    // No tenant – cannot fetch
+    if (!tenantId) {
+      if (mounted) setLoading(false);
+      clearTimeout(safetyTimeout);
+      return;
+    }
+
+    // Already fetched – ensure loading is false
+    if (hasFetchedRef.current) {
+      if (mounted) setLoading(false);
+      clearTimeout(safetyTimeout);
+      return;
+    }
+
+    hasFetchedRef.current = true;
+
+    const fetchDisbursedLoans = async () => {
+      console.log("🔄 Starting data fetch for tenant:", tenantId);
+
+      try {
+        const cacheKey = `disbursement-raw-data-${tenantId}`;
+
+        // Try cache first
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
+            if (cacheAge < 5 * 60 * 1000) {
+              console.log("✅ Using cached data");
+              if (mounted) {
+                setRawLoans(data || []);
+                setLoading(false);           // ✅ stop loading
+              }
+              clearTimeout(safetyTimeout);
+              return;
+            } else {
+              console.log("⏰ Cache expired, fetching fresh data");
+            }
+          }
+        } catch (e) {
+          console.error("Cache read error:", e);
+        }
+
+        // Start loading (already true, but ensure it's set)
+        if (mounted) setLoading(true);
+
+        console.log("🌐 Fetching loans from database...");
+
+        // Fetch with timeout
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Request timeout')), 30000)
+        );
+
+        const fetchPromise = supabase
+          .from("loans")
+          .select(`
+            id,
+            scored_amount,
+            total_interest,
+            total_payable,
+            product_name,
+            product_type,
+            disbursed_at,
+            repayment_state,
+            status,
+            branch:branch_id(name, region_id),
+            loan_officer:booked_by(full_name),
+            customer:customer_id(
+              id,
+              Firstname,
+              Middlename,
+              Surname,
+              mobile,
+              id_number,
+              business_name,
+              business_type
+            ),
+            installments:loan_installments(
+              due_date,
+              status,
+              loan_id
+            ),
+            mpesa:mpesa_b2c_transactions(
+              transaction_id,
+              loan_id,
+              status
+            )
+          `)
+          .eq("status", "disbursed")
+          .eq("tenant_id", tenantId)
+          .order("disbursed_at", { ascending: false });
+
+        const { data: loansData, error: loansError } = await Promise.race([
+          fetchPromise,
+          timeoutPromise
+        ]);
+
+        if (loansError) throw loansError;
+
+        console.log("✅ Loans fetched:", loansData?.length || 0);
+
+        if (!mounted) {
+          console.log("Component unmounted, aborting");
+          return;
+        }
+
+        // Fetch regions
+        const regionIds = [...new Set(loansData.map(loan => loan.branch?.region_id).filter(Boolean))];
+        let regionMap = {};
+
+        if (regionIds.length > 0) {
+          console.log("🌐 Fetching regions...");
+          const { data: regionsData, error: regionsError } = await supabase
+            .from('regions')
+            .select('id, name')
+            .in('id', regionIds)
+            .eq('tenant_id', tenantId);
+
+          if (!regionsError && regionsData) {
+            regionMap = regionsData.reduce((acc, region) => {
+              acc[region.id] = region.name;
+              return acc;
+            }, {});
+            console.log("✅ Regions fetched:", Object.keys(regionMap).length);
+          }
+        }
+
+        if (!mounted) return;
+
+        // Format data
+        console.log("🔄 Formatting data...");
+        const formatted = loansData.map((loan) => {
+          const customer = loan.customer || {};
+          const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
+            .filter(Boolean)
+            .join(" ") || "N/A";
+
+          const pendingInstallment = Array.isArray(loan.installments)
+            ? loan.installments.find((inst) => inst.status === "pending")
+            : null;
+          const nextPaymentDate = pendingInstallment?.due_date
+            ? new Date(pendingInstallment.due_date).toLocaleDateString()
+            : "N/A";
+
+          const mpesaTx = Array.isArray(loan.mpesa) && loan.mpesa.length > 0
+            ? loan.mpesa.find((tx) => tx.status === "success")
+            : null;
+          const mpesaReference = mpesaTx?.transaction_id || "N/A";
+
+          const regionName = loan.branch?.region_id ? regionMap[loan.branch.region_id] || "N/A" : "N/A";
+
+          return {
+            id: loan.id,
+            branch: loan.branch?.name || "N/A",
+            region: regionName,
+            loanOfficer: loan.loan_officer?.full_name || "N/A",
+            customerName: fullName,
+            mobile: customer.mobile || "N/A",
+            idNumber: customer.id_number || "N/A",
+            mpesaReference,
+            loanNumber: `LN${String(loan.id).padStart(5, "0")}`,
+            loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
+            appliedLoanAmount: loan.scored_amount ?? 0,
+            disbursedAmount: loan.total_payable ?? 0,
+            interestAmount: loan.total_interest || 0,
+            business_name: customer.business_name || "N/A",
+            business_type: customer.business_type || "N/A",
+            productName: loan.product_name || loan.product_type || "N/A",
+            product_type: loan.product_type || "N/A",
+            nextPaymentDate,
+            disbursementDate: loan.disbursed_at
+              ? new Date(loan.disbursed_at).toLocaleDateString()
+              : "N/A",
+            rawDisbursementDate: loan.disbursed_at,
+            repaymentStatus: loan.repayment_state || "N/A",
+          };
+        });
+
+        console.log("✅ Data formatted:", formatted.length, "loans");
+
+        if (mounted) {
+          setRawLoans(formatted || []);
+          setLoading(false);                 // ✅ stop loading
+          setError(null);
+
+          // Cache the results
+          try {
+            localStorage.setItem(cacheKey, JSON.stringify({
+              data: formatted || [],
+              timestamp: Date.now()
+            }));
+            console.log("✅ Data cached successfully");
+          } catch (e) {
+            console.error("Cache write error:", e);
+          }
+        }
+
+      } catch (err) {
+        console.error(" Error fetching disbursed loans:", err);
+        if (mounted) {
+          setError(err.message || "Failed to load data");
+          setLoading(false);                 // ✅ stop loading even on error
+          setRawLoans([]);
+        }
+      } finally {
+        clearTimeout(safetyTimeout);
+      }
+    };
+
     fetchDisbursedLoans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Empty array = run only once on mount
 
-  // Helper functions
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(amount);
+    return () => {
+      mounted = false;
+      clearTimeout(safetyTimeout);
+    };
+  }, []); // ✅ empty dependency array – runs only once on mount
 
-  const getCurrentTimestamp = () => {
-    const now = new Date();
-    return now.toLocaleString("en-KE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
+ // Manual refresh function
+  const handleManualRefresh = async () => {
+    const tenantId = tenant?.id;
+    if (!tenantId || loading) return;
+
+    console.log("🔄 Manual refresh triggered");
+
+    try {
+      setLoading(true);
+      setError(null);
+      
+      const { data: loansData, error: loansError } = await supabase
+        .from("loans")
+        .select(`
+          id,
+          scored_amount,
+          total_interest,
+          total_payable,
+          product_name,
+          product_type,
+          disbursed_at,
+          repayment_state,
+          status,
+          branch:branch_id(name, region_id),
+          loan_officer:booked_by(full_name),
+          customer:customer_id(
+            id,
+            Firstname,
+            Middlename,
+            Surname,
+            mobile,
+            id_number,
+            business_name,
+            business_type
+          ),
+          installments:loan_installments(
+            due_date,
+            status,
+            loan_id
+          ),
+          mpesa:mpesa_b2c_transactions(
+            transaction_id,
+            loan_id,
+            status
+          )
+        `)
+        .eq("status", "disbursed")
+        .eq("tenant_id", tenantId)
+        .order("disbursed_at", { ascending: false });
+
+      if (loansError) throw loansError;
+
+      // Fetch regions
+      const regionIds = [...new Set(loansData.map(loan => loan.branch?.region_id).filter(Boolean))];
+      let regionMap = {};
+
+      if (regionIds.length > 0) {
+        const { data: regionsData, error: regionsError } = await supabase
+          .from('regions')
+          .select('id, name')
+          .in('id', regionIds)
+          .eq('tenant_id', tenantId);
+
+        if (!regionsError && regionsData) {
+          regionMap = regionsData.reduce((acc, region) => {
+            acc[region.id] = region.name;
+            return acc;
+          }, {});
+        }
+      }
+
+      const formatted = loansData.map((loan) => {
+        const customer = loan.customer || {};
+        const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
+          .filter(Boolean)
+          .join(" ") || "N/A";
+
+        const pendingInstallment = Array.isArray(loan.installments)
+          ? loan.installments.find((inst) => inst.status === "pending")
+          : null;
+        const nextPaymentDate = pendingInstallment?.due_date
+          ? new Date(pendingInstallment.due_date).toLocaleDateString()
+          : "N/A";
+
+        const mpesaTx = Array.isArray(loan.mpesa) && loan.mpesa.length > 0
+          ? loan.mpesa.find((tx) => tx.status === "success")
+          : null;
+        const mpesaReference = mpesaTx?.transaction_id || "N/A";
+
+        const regionName = loan.branch?.region_id ? regionMap[loan.branch.region_id] || "N/A" : "N/A";
+
+        return {
+          id: loan.id,
+          branch: loan.branch?.name || "N/A",
+          region: regionName,
+          loanOfficer: loan.loan_officer?.full_name || "N/A",
+          customerName: fullName,
+          mobile: customer.mobile || "N/A",
+          idNumber: customer.id_number || "N/A",
+          mpesaReference,
+          loanNumber: `LN${String(loan.id).padStart(5, "0")}`,
+          loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
+          appliedLoanAmount: loan.scored_amount ?? 0,
+          disbursedAmount: loan.total_payable ?? 0,
+          interestAmount: loan.total_interest || 0,
+          business_name: customer.business_name || "N/A",
+          business_type: customer.business_type || "N/A",
+          productName: loan.product_name || loan.product_type || "N/A",
+          product_type: loan.product_type || "N/A",
+          nextPaymentDate,
+          disbursementDate: loan.disbursed_at
+            ? new Date(loan.disbursed_at).toLocaleDateString()
+            : "N/A",
+          rawDisbursementDate: loan.disbursed_at,
+          repaymentStatus: loan.repayment_state || "N/A",
+        };
+      });
+
+      setRawLoans(formatted || []);
+      
+      const cacheKey = `disbursement-raw-data-${tenantId}`;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ 
+          data: formatted || [], 
+          timestamp: Date.now() 
+        }));
+      } catch (e) {
+        console.error("Cache write error:", e);
+      }
+
+      console.log("✅ Manual refresh complete");
+      
+    } catch (err) {
+      console.error("❌ Error refreshing disbursed loans:", err);
+      setError(err.message || "Failed to refresh data");
+    } finally {
+      setLoading(false);
+    }
   };
 
+  // Get date range
   const getDateRange = (filter) => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -106,9 +566,9 @@ const DisbursementLoansReport = () => {
         end.setHours(23, 59, 59, 999);
         break;
       case "custom":
-        start = customStartDate ? new Date(customStartDate) : new Date(0);
+        start = filters.customStartDate ? new Date(filters.customStartDate) : new Date(0);
         start.setHours(0, 0, 0, 0);
-        end = customEndDate ? new Date(customEndDate) : new Date();
+        end = filters.customEndDate ? new Date(filters.customEndDate) : new Date();
         end.setHours(23, 59, 59, 999);
         break;
       default:
@@ -117,6 +577,7 @@ const DisbursementLoansReport = () => {
     return { start, end };
   };
 
+  // Group loans for display
   const groupLoansForDisplay = (loans) => {
     const branchTotals = {};
     const officerTotals = {};
@@ -154,18 +615,16 @@ const DisbursementLoansReport = () => {
         };
       }
 
-      groupedByBranch[loan.branch].officers[loan.loanOfficer].customers.push(
-        loan
-      );
+      groupedByBranch[loan.branch].officers[loan.loanOfficer].customers.push(loan);
     });
 
     return groupedByBranch;
   };
 
-  // Filtered and sorted data - using useMemo for performance
+  // Process and filter data
   const filteredData = useMemo(() => {
-    let result = [...disbursedLoans];
-    const q = filters.search.toLowerCase();
+    let result = [...rawLoans];
+    const q = (filters.search || "").toLowerCase();
 
     // Text search
     if (filters.search) {
@@ -185,25 +644,19 @@ const DisbursementLoansReport = () => {
     }
 
     // Dropdown filters
-    if (filters.branch)
-      result = result.filter((i) => i.branch === filters.branch);
-    if (filters.region)
-      result = result.filter((i) => i.region === filters.region);
-    if (filters.officer)
-      result = result.filter((i) => i.loanOfficer === filters.officer);
-    if (filters.product)
-      result = result.filter((i) => i.productName === filters.product);
+    if (filters.branch) result = result.filter((i) => i.branch === filters.branch);
+    if (filters.region) result = result.filter((i) => i.region === filters.region);
+    if (filters.officer) result = result.filter((i) => i.loanOfficer === filters.officer);
+    if (filters.product) result = result.filter((i) => i.productName === filters.product);
 
     // Date filter
-    if (dateFilter !== "all") {
-      const range = getDateRange(dateFilter);
+    if (filters.dateFilter !== "all") {
+      const range = getDateRange(filters.dateFilter);
       if (range) {
         result = result.filter((i) => {
           if (!i.rawDisbursementDate) return false;
           const disbursementDate = new Date(i.rawDisbursementDate);
-          return (
-            disbursementDate >= range.start && disbursementDate <= range.end
-          );
+          return disbursementDate >= range.start && disbursementDate <= range.end;
         });
       }
     }
@@ -220,14 +673,121 @@ const DisbursementLoansReport = () => {
     }
 
     return result;
-  }, [
-    disbursedLoans,
-    filters,
-    sortConfig,
-    dateFilter,
-    customStartDate,
-    customEndDate,
-  ]);
+  }, [rawLoans, filters, sortConfig]);
+
+  // Get grouped data for display
+  const groupedData = useMemo(() => groupLoansForDisplay(filteredData), [filteredData]);
+
+  // Get dropdown options from data
+  const branches = useMemo(() => [
+    ...new Set(rawLoans.map((i) => i.branch).filter((b) => b && b !== "N/A")),
+  ], [rawLoans]);
+
+  const officers = useMemo(() => [
+    ...new Set(rawLoans.map((i) => i.loanOfficer).filter((o) => o && o !== "N/A")),
+  ], [rawLoans]);
+
+  const products = useMemo(() => [
+    ...new Set(rawLoans.map((i) => i.productName).filter((p) => p && p !== "N/A")),
+  ], [rawLoans]);
+
+  const regions = useMemo(() => [
+    ...new Set(rawLoans.map((i) => i.region).filter((r) => r && r !== "N/A")),
+  ], [rawLoans]);
+
+  // Date filter options
+  const dateFilterOptions = [
+    { value: "all", label: "All Time" },
+    { value: "today", label: "Today" },
+    { value: "week", label: "This Week" },
+    { value: "month", label: "This Month" },
+    { value: "quarter", label: "This Quarter" },
+    { value: "year", label: "This Year" },
+    { value: "custom", label: "Custom Range" },
+  ];
+
+  const exportFormatOptions = [
+    { value: "csv", label: "CSV" },
+    { value: "excel", label: "Excel" },
+    { value: "word", label: "Word" },
+    { value: "pdf", label: "PDF" },
+  ];
+
+  // Calculate total rows for pagination
+  const { totalRows, totalPages, currentData } = useMemo(() => {
+    let allRows = [];
+    let globalIndex = 0;
+    let branchNumber = 1;
+
+    Object.values(groupedData).forEach((branch) => {
+      let isFirstOfficerInBranch = true;
+
+      Object.values(branch.officers).forEach((officer) => {
+        officer.customers.forEach((customer, customerIndex) => {
+          globalIndex++;
+
+          if (
+            globalIndex > (currentPage - 1) * itemsPerPage &&
+            globalIndex <= currentPage * itemsPerPage
+          ) {
+            allRows.push({
+              ...customer,
+              branch: branch.branch,
+              branchTotalAmount: branch.totalAmount,
+              loanOfficer: officer.officer,
+              roTotalAmount: officer.roTotalAmount,
+              branchNumber: customerIndex === 0 && isFirstOfficerInBranch ? branchNumber : "",
+              isFirstInBranch: customerIndex === 0 && isFirstOfficerInBranch,
+              isFirstInOfficer: customerIndex === 0,
+            });
+          }
+        });
+        isFirstOfficerInBranch = false;
+      });
+      branchNumber++;
+    });
+
+    const totalRows = globalIndex;
+    const totalPages = Math.ceil(totalRows / itemsPerPage);
+
+    return { totalRows, totalPages, currentData: allRows };
+  }, [groupedData, currentPage]);
+
+  // Calculate summary stats
+  const summaryStats = useMemo(() => {
+    const totalPayable = filteredData.reduce((sum, item) => sum + (item.disbursedAmount || 0), 0);
+    const totalPrincipal = filteredData.reduce((sum, item) => sum + (item.appliedLoanAmount || 0), 0);
+    const totalLoans = filteredData.length;
+
+    return { totalPayable, totalPrincipal, totalLoans };
+  }, [filteredData]);
+
+  // Handle filter changes
+  const handleFilterChange = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }));
+    setCurrentPage(1);
+  };
+
+  // Handle search change
+  const handleSearchChange = (val) => {
+    setFilters(prev => ({ ...prev, search: val }));
+    setCurrentPage(1);
+  };
+
+  // Clear all filters
+  const clearFilters = () => {
+    setFilters({
+      search: "",
+      branch: "",
+      region: "",
+      officer: "",
+      product: "",
+      dateFilter: "all",
+      customStartDate: "",
+      customEndDate: "",
+    });
+    setCurrentPage(1);
+  };
 
   // Export functions
   const exportToPDF = () => {
@@ -515,127 +1075,73 @@ const DisbursementLoansReport = () => {
     }
   };
 
-  // Dropdown options
-  const branches = useMemo(() => [
-    ...new Set(
-      disbursedLoans.map((i) => i.branch).filter((b) => b && b !== "N/A")
-    ),
-  ], [disbursedLoans]);
-
-  const officers = useMemo(() => [
-    ...new Set(
-      disbursedLoans.map((i) => i.loanOfficer).filter((o) => o && o !== "N/A")
-    ),
-  ], [disbursedLoans]);
-
-  const products = useMemo(() => [
-    ...new Set(
-      disbursedLoans.map((i) => i.productName).filter((p) => p && p !== "N/A")
-    ),
-  ], [disbursedLoans]);
-
-  const regions = useMemo(() => [
-    ...new Set(
-      disbursedLoans.map((i) => i.region).filter((r) => r && r !== "N/A")
-    ),
-  ], [disbursedLoans]);
-
-  const dateFilterOptions = [
-    { value: "all", label: "All Time" },
-    { value: "today", label: "Today" },
-    { value: "week", label: "This Week" },
-    { value: "month", label: "This Month" },
-    { value: "quarter", label: "This Quarter" },
-    { value: "year", label: "This Year" },
-    { value: "custom", label: "Custom Range" },
-  ];
-
-  const exportFormatOptions = [
-    { value: "csv", label: "CSV" },
-    { value: "excel", label: "Excel" },
-    { value: "word", label: "Word" },
-    { value: "pdf", label: "PDF" },
-  ];
-
-  // Get grouped data for display
-  const groupedData = useMemo(() => groupLoansForDisplay(filteredData), [filteredData]);
-
-  // Calculate total rows for pagination
-  let totalRows = 0;
-  Object.values(groupedData).forEach((branch) => {
-    Object.values(branch.officers).forEach((officer) => {
-      totalRows += officer.customers.length;
-    });
-  });
-
-  const totalPages = Math.ceil(totalRows / itemsPerPage);
-
-  // Get current page data
-  const getCurrentPageData = () => {
-    const allRows = [];
-    let globalIndex = 0;
-    let branchNumber = 1;
-
-    Object.values(groupedData).forEach((branch) => {
-      let isFirstOfficerInBranch = true;
-
-      Object.values(branch.officers).forEach((officer) => {
-        officer.customers.forEach((customer, customerIndex) => {
-          globalIndex++;
-
-          if (
-            globalIndex > (currentPage - 1) * itemsPerPage &&
-            globalIndex <= currentPage * itemsPerPage
-          ) {
-            allRows.push({
-              ...customer,
-              branch: branch.branch,
-              branchTotalAmount: branch.totalAmount,
-              loanOfficer: officer.officer,
-              roTotalAmount: officer.roTotalAmount,
-              branchNumber:
-                customerIndex === 0 && isFirstOfficerInBranch
-                  ? branchNumber
-                  : "",
-              isFirstInBranch: customerIndex === 0 && isFirstOfficerInBranch,
-              isFirstInOfficer: customerIndex === 0,
-            });
-          }
-        });
-        isFirstOfficerInBranch = false;
-      });
-      branchNumber++;
-    });
-
-    return allRows;
-  };
-
-  const currentData = getCurrentPageData();
-
-  // Calculate summary stats
-  const summaryStats = useMemo(() => {
-    const totalPayable = filteredData.reduce((sum, item) => sum + (item.disbursedAmount || 0), 0);
-    const totalPrincipal = filteredData.reduce((sum, item) => sum + (item.appliedLoanAmount || 0), 0);
-    const totalLoans = filteredData.length;
-
-    return { totalPayable, totalPrincipal, totalLoans };
-  }, [filteredData]);
-
-  if (loading) {
+  // ✅ Show loading state with custom Spinner
+  if (loading && rawLoans.length === 0) {
     return (
-      <div className="min-h-screen bg-gray-50 p-8 text-center">
-        <p className="text-gray-500">Fetching disbursed loans...</p>
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading Disbursement Report..." />
       </div>
     );
   }
 
+  // ✅ Show error state with retry option
+  if (error && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <X className="w-16 h-16 mx-auto mb-2" />
+            <p className="text-lg font-semibold">Failed to load report</p>
+            <p className="text-sm text-gray-600 mt-2">{error}</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+  // At the bottom, the loading check now uses a single `loading` state
+  if (loading && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading Disbursement Report..." />
+      </div>
+    );
+  }
+
+  // Error state 
+   if (error && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <X className="w-16 h-16 mx-auto mb-2" />
+            <p className="text-lg font-semibold">Failed to load report</p>
+            <p className="text-sm text-gray-600 mt-2">{error}</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+
   return (
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
-
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
               {tenant?.logo_url ? (
@@ -648,7 +1154,7 @@ const DisbursementLoansReport = () => {
               <div>
                 <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
                 <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
-                <h2 className="text-lg font-semibold text-white mt-1" >
+                <h2 className="text-lg font-semibold text-white mt-1">
                   Disbursed Loans Report
                 </h2>
               </div>
@@ -660,18 +1166,12 @@ const DisbursementLoansReport = () => {
                 <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
               </div>
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                {/* Search Input */}
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => setFilters({ search: e.target.value })}
-                  placeholder="Search name, ID, or phone"
-                  className="border bg-gray-50 border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64"
-                />
+                <SearchBox value={filters.search} onChange={handleSearchChange} />
+              
                 <button
-                  onClick={toggleFilters}
+                  onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-    ${showFilters
+                    ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
                       : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
                     }`}
@@ -680,7 +1180,7 @@ const DisbursementLoansReport = () => {
                   <span>Filters</span>
                 </button>
 
-
+            
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select
@@ -697,12 +1197,11 @@ const DisbursementLoansReport = () => {
                   <button
                     onClick={handleExport}
                     className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
-             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Export
                   </button>
-
                 </div>
               </div>
             </div>
@@ -727,13 +1226,13 @@ const DisbursementLoansReport = () => {
 
         {/* Filter Section */}
         {showFilters && (
-          <div className="bg-white p-6 border border-gray-200 rounded-xl shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2">
-            <h3 className=" text-slate-600 text-sm">Filter Results</h3>
+          <div className="bg-white p-6 border border-gray-200 rounded-xl shadow-sm space-y-4">
+            <h3 className="text-slate-600 text-sm">Filter Results</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                value={filters.dateFilter}
+                onChange={(e) => handleFilterChange("dateFilter", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 {dateFilterOptions.map((option) => (
@@ -743,22 +1242,18 @@ const DisbursementLoansReport = () => {
                 ))}
               </select>
 
-              {dateFilter === "custom" && (
+              {filters.dateFilter === "custom" && (
                 <>
                   <input
                     type="date"
-                    value={customStartDate}
-                    onChange={(e) =>
-                      setCustomDateRange(e.target.value, customEndDate)
-                    }
+                    value={filters.customStartDate}
+                    onChange={(e) => handleFilterChange("customStartDate", e.target.value)}
                     className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                   <input
                     type="date"
-                    value={customEndDate}
-                    onChange={(e) =>
-                      setCustomDateRange(customStartDate, e.target.value)
-                    }
+                    value={filters.customEndDate}
+                    onChange={(e) => handleFilterChange("customEndDate", e.target.value)}
                     className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                 </>
@@ -768,7 +1263,7 @@ const DisbursementLoansReport = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <select
                 value={filters.region}
-                onChange={(e) => setFilters({ region: e.target.value })}
+                onChange={(e) => handleFilterChange("region", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Regions</option>
@@ -780,7 +1275,7 @@ const DisbursementLoansReport = () => {
               </select>
               <select
                 value={filters.branch}
-                onChange={(e) => setFilters({ branch: e.target.value })}
+                onChange={(e) => handleFilterChange("branch", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Branches</option>
@@ -792,7 +1287,7 @@ const DisbursementLoansReport = () => {
               </select>
               <select
                 value={filters.officer}
-                onChange={(e) => setFilters({ officer: e.target.value })}
+                onChange={(e) => handleFilterChange("officer", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Relationship Officers</option>
@@ -804,7 +1299,7 @@ const DisbursementLoansReport = () => {
               </select>
               <select
                 value={filters.product}
-                onChange={(e) => setFilters({ product: e.target.value })}
+                onChange={(e) => handleFilterChange("product", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Products</option>
@@ -821,7 +1316,7 @@ const DisbursementLoansReport = () => {
               filters.branch ||
               filters.officer ||
               filters.product ||
-              dateFilter !== "all") && (
+              filters.dateFilter !== "all") && (
                 <button
                   onClick={clearFilters}
                   className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
@@ -831,36 +1326,6 @@ const DisbursementLoansReport = () => {
               )}
           </div>
         )}
-
-        {/* Pagination Controls */}
-        {/* <div className="flex justify-between items-center">
-          <div className="text-sm text-gray-600">
-            Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-            {Math.min(currentPage * itemsPerPage, totalRows)} of {totalRows}{" "}
-            entries
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
-              disabled={currentPage === 1}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
-            >
-              <ChevronLeft className="w-4 h-4" />
-            </button>
-            <span className="px-3 py-1 text-sm">
-              Page {currentPage} of {totalPages}
-            </span>
-            <button
-              onClick={() =>
-                setCurrentPage(Math.min(currentPage + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
-            >
-              <ChevronRight className="w-4 h-4" />
-            </button>
-          </div>
-        </div> */}
 
         {/* Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
@@ -889,30 +1354,15 @@ const DisbursementLoansReport = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
-                {currentData.length > 0 ? (
-                  currentData.map((row, index) => (
-                    <tr key={`${row.id}-${index}`} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 text-center text-gray-500">{row.branchNumber}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? row.branch : ""}</td>
-                      <td className="px-4 py-3 font-medium text-gray-900">{row.isFirstInBranch ? formatCurrency(row.branchTotalAmount) : ""}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? row.loanOfficer : ""}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.isFirstInOfficer ? formatCurrency(row.roTotalAmount) : ""}</td>
-                      <td className="px-4 py-3 text-gray-900">{row.customerName}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.mobile}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.idNumber}</td>
-                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.mpesaReference || row.transactionId || row.transaction_id || "N/A"}</td>
-                      <td className="px-4 py-3 text-gray-600 font-mono text-xs">{row.loanReferenceNumber}</td>
-                      <td className="px-4 py-3 text-right font-medium text-gray-900">{formatCurrency(row.appliedLoanAmount)}</td>
-                      <td className="px-4 py-3 text-right font-bold text-green-600 bg-green-50 rounded-sm">{formatCurrency(row.disbursedAmount)}</td>
-                      <td className="px-4 py-3 text-right text-gray-600">{formatCurrency(row.interestAmount)}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.business_name}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.business_type}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.productName}</td>
-                      <td className="px-4 py-3 text-gray-600">{row.nextPaymentDate}</td>
-                      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{row.disbursementDate}</td>
-                    </tr>
-                  ))
-                ) : (
+                {loading ? (
+                  <tr>
+                    <td colSpan="18" className="px-4 py-8 text-center text-gray-500">
+                      <div className="flex justify-center">
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      </div>
+                    </td>
+                  </tr>
+                ) : currentData.length === 0 ? (
                   <tr>
                     <td colSpan="18" className="px-4 py-8 text-center text-gray-500 bg-gray-50">
                       <div className="flex flex-col items-center justify-center">
@@ -921,6 +1371,10 @@ const DisbursementLoansReport = () => {
                       </div>
                     </td>
                   </tr>
+                ) : (
+                  currentData.map((row, index) => (
+                    <LoanTableRow key={`${row.id}-${index}`} row={row} index={index} />
+                  ))
                 )}
               </tbody>
             </table>
@@ -928,7 +1382,7 @@ const DisbursementLoansReport = () => {
         </div>
 
         {/* Pagination Controls - Bottom */}
-        {totalPages > 1 && (
+        {!loading && totalPages > 1 && (
           <div className="flex justify-between items-center">
             <div className="text-sm text-gray-600">
               Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
@@ -947,9 +1401,7 @@ const DisbursementLoansReport = () => {
                 Page {currentPage} of {totalPages}
               </span>
               <button
-                onClick={() =>
-                  setCurrentPage(Math.min(currentPage + 1, totalPages))
-                }
+                onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
                 disabled={currentPage === totalPages}
                 className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
               >

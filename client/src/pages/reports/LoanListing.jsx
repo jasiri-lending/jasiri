@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import {
   Download,
   Filter,
@@ -9,10 +9,8 @@ import {
   ChevronDown,
   Search,
   RefreshCw,
-  Printer,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { useAuth } from "../../hooks/userAuth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -26,134 +24,553 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+
+// ========== Memoized Helper Components ==========
+
+const SearchBox = React.memo(({ value, onChange }) => (
+  <div className="relative">
+    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder="Search name, ID, or phone"
+      className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64 text-gray-900"
+    />
+  </div>
+));
+SearchBox.displayName = "SearchBox";
+
+const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
+  return (
+    <th
+      onClick={() => onSort(sortKey)}
+      className="px-4 py-3 font-semibold text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap text-left text-xs tracking-wider border-b"
+    >
+      <div className="flex items-center justify-between">
+        <span className="font-medium">{label}</span>
+        {sortConfig.key === sortKey &&
+          (sortConfig.direction === "asc" ? (
+            <ChevronUp className="w-3 h-3" />
+          ) : (
+            <ChevronDown className="w-3 h-3" />
+          ))}
+      </div>
+    </th>
+  );
+});
+SortableHeader.displayName = "SortableHeader";
+
+const StatusBadge = React.memo(({ status }) => {
+  const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
+  let classes = "";
+
+  switch (status?.toLowerCase()) {
+    case "disbursed":
+    case "completed":
+    case "paid":
+    case "current":
+      classes = `${baseClasses} bg-emerald-100 text-emerald-800 border border-emerald-200`;
+      break;
+    case "approved":
+      classes = `${baseClasses} bg-blue-100 text-blue-800 border border-blue-200`;
+      break;
+    case "pending":
+    case "ca_review":
+    case "processing":
+      classes = `${baseClasses} bg-amber-100 text-amber-800 border border-amber-200`;
+      break;
+    case "rejected":
+    case "defaulted":
+    case "overdue":
+      classes = `${baseClasses} bg-red-100 text-red-800 border border-red-200`;
+      break;
+    default:
+      classes = `${baseClasses} bg-gray-100 text-gray-800 border border-gray-200`;
+  }
+
+  return <span className={classes}>{status?.replace(/_/g, " ")}</span>;
+});
+StatusBadge.displayName = "StatusBadge";
+
+const LoanTableRow = React.memo(({ loan, index, startIdx, formatCurrency, formatDate }) => {
+  return (
+    <tr className="hover:bg-gray-50">
+      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{startIdx + index + 1}</td>
+      <td className="px-4 py-3 text-xs text-gray-700 font-medium min-w-[150px] max-w-xs break-words">
+        {loan.customer_name}
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.customer_id}</td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap w-36">{loan.mobile}</td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.branch}</td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.loan_officer}</td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.loan_product}</td>
+      <td className="px-4 py-3 text-center whitespace-nowrap">
+        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
+          {loan.product_type}
+        </span>
+      </td>
+      <td className="px-4 py-3 text-right text-xs font-semibold text-gray-900 whitespace-nowrap">
+        {formatCurrency(loan.applied_amount)}
+      </td>
+      <td className="px-4 py-3 text-right text-xs font-semibold text-green-700 whitespace-nowrap">
+        {formatCurrency(loan.disbursed_amount)}
+      </td>
+      <td className="px-4 py-3 text-right text-xs font-semibold text-gray-900 whitespace-nowrap">
+        {formatCurrency(loan.total_payable)}
+      </td>
+      <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
+        {formatCurrency(loan.total_repaid)}
+      </td>
+      <td className="px-4 py-3 text-right text-xs text-gray-700 whitespace-nowrap">
+        {formatCurrency(loan.weekly_payment)}
+      </td>
+      <td className="px-4 py-3 text-center text-xs text-gray-700 whitespace-nowrap">
+        {loan.duration_weeks} weeks
+      </td>
+      <td className="px-4 py-3 text-center text-xs text-gray-700 whitespace-nowrap">
+        {loan.interest_rate.toFixed(2)}%
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+        {formatDate(loan.booked_date)}
+      </td>
+      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
+        {loan.disbursed_date ? formatDate(loan.disbursed_date) : "Pending"}
+      </td>
+      <td className="px-4 py-3 whitespace-nowrap">
+        <StatusBadge status={loan.status} />
+      </td>
+      <td className="px-4 py-3 whitespace-nowrap">
+        <StatusBadge status={loan.repayment_state} />
+      </td>
+    </tr>
+  );
+});
+LoanTableRow.displayName = "LoanTableRow";
+
+// ========== Main Component ==========
 
 const LoanListing = () => {
-  const { tenant } = useAuth();
+  // ✅ Get tenant from localStorage ONCE
+  const [tenant] = useState(() => {
+    try {
+      const savedTenant = localStorage.getItem("tenant");
+      return savedTenant ? JSON.parse(savedTenant) : null;
+    } catch (e) {
+      console.error("Error loading tenant:", e);
+      return null;
+    }
+  });
 
-  const [loans, setLoans] = useState([]);
-  const [filtered, setFiltered] = useState([]);
+  // ========== State ==========
+  const [rawLoans, setRawLoans] = useState([]);
   const [branches, setBranches] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [productTypes, setProductTypes] = useState([]);
   const [statusTypes, setStatusTypes] = useState([]);
   const [repaymentStates, setRepaymentStates] = useState([]);
-  const [regions, setRegions] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null); // ✅ Add error state
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(50);
   const [sortConfig, setSortConfig] = useState({ key: "booked_date", direction: "desc" });
   const [exportFormat, setExportFormat] = useState("csv");
-  const [dateFilter, setDateFilter] = useState("all");
-  const [customStartDate, setCustomStartDate] = useState("");
-  const [customEndDate, setCustomEndDate] = useState("");
 
-  const [filters, setFilters] = useState({
-    search: "",
-    region: "",
-    branch: "",
-    loanOfficer: "",
-    productType: "all",
-    status: "all",
-    repaymentState: "all",
+  const itemsPerPage = 50;
+
+  // ========== Combined Filters State (persisted) ==========
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem("loan-listing-filters");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        return {
+          search: parsed.search || "",
+          region: parsed.region || "",
+          branch: parsed.branch || "",
+          loanOfficer: parsed.loanOfficer || "",
+          productType: parsed.productType || "all",
+          status: parsed.status || "all",
+          repaymentState: parsed.repaymentState || "all",
+          dateFilter: parsed.dateFilter || "all",
+          customStartDate: parsed.customStartDate || "",
+          customEndDate: parsed.customEndDate || "",
+        };
+      }
+    } catch (e) {}
+    return {
+      search: "",
+      region: "",
+      branch: "",
+      loanOfficer: "",
+      productType: "all",
+      status: "all",
+      repaymentState: "all",
+      dateFilter: "all",
+      customStartDate: "",
+      customEndDate: "",
+    };
   });
 
-  // Get current timestamp for reports
-  const getCurrentTimestamp = useCallback(() => {
-    const now = new Date();
-    return now.toLocaleString("en-KE", {
-      dateStyle: "medium",
-      timeStyle: "short",
-    });
-  }, []);
+  // ========== Refs ==========
+  const hasFetchedLoansRef = useRef(false);
+  const hasFetchedBranchesRef = useRef(false);
+  const isMountedRef = useRef(true); // ✅ Track mount state
 
-  // Date range helper function
-  const getDateRange = useCallback((filter) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    let start, end;
-
-    switch (filter) {
-      case "today":
-        start = new Date(today);
-        end = new Date(today);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "week":
-        start = new Date(today);
-        start.setDate(start.getDate() - start.getDay());
-        end = new Date(start);
-        end.setDate(end.getDate() + 6);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "month":
-        start = new Date(today.getFullYear(), today.getMonth(), 1);
-        end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "quarter":
-        const currentQuarter = Math.floor(today.getMonth() / 3);
-        start = new Date(today.getFullYear(), currentQuarter * 3, 1);
-        end = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "year":
-        start = new Date(today.getFullYear(), 0, 1);
-        end = new Date(today.getFullYear(), 11, 31);
-        end.setHours(23, 59, 59, 999);
-        break;
-      case "custom":
-        start = customStartDate ? new Date(customStartDate) : new Date(0);
-        start.setHours(0, 0, 0, 0);
-        end = customEndDate ? new Date(customEndDate) : new Date();
-        end.setHours(23, 59, 59, 999);
-        break;
-      default:
-        return null;
-    }
-    return { start, end };
-  }, [customStartDate, customEndDate]);
-
-  // Fetch branches with regions
+  // ========== Debounced Save Filters ==========
   useEffect(() => {
-    const fetchBranches = async () => {
-      if (!tenant?.id) return;
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem("loan-listing-filters", JSON.stringify(filters));
+      } catch (e) {
+        console.error("Failed to save filters:", e);
+      }
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [filters]);
 
-      const { data, error } = await supabase
-        .from("branches")
-        .select(`
-          id, 
-          name, 
-          region_id,
-          regions (
-            name
-          )
-        `)
-        .eq("tenant_id", tenant.id)
-        .order("name");
+  // ========== FIXED: Fetch Branches and Regions (ONCE) ==========
+  useEffect(() => {
+    const tenantId = tenant?.id;
+    
+    // Early return if no tenant or already fetched
+    if (!tenantId || hasFetchedBranchesRef.current) {
+      console.log("⏭️ Skipping branches fetch - tenantId:", tenantId, "hasFetched:", hasFetchedBranchesRef.current);
+      return;
+    }
 
-      if (!error && data) {
-        // Flatten the data to match expected structure
-        const flattenedBranches = data.map(b => ({
+    // Mark as fetched IMMEDIATELY
+    hasFetchedBranchesRef.current = true;
+    isMountedRef.current = true;
+
+    const fetchBranchesAndRegions = async () => {
+      console.log("🔄 Fetching branches and regions for tenant:", tenantId);
+      
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Branches fetch timeout')), 15000)
+        );
+
+        const fetchPromise = supabase
+          .from("branches")
+          .select(`
+            id,
+            name,
+            region_id,
+            regions (
+              name
+            )
+          `)
+          .eq("tenant_id", tenantId)
+          .order("name");
+
+        const { data, error } = await Promise.race([fetchPromise, timeoutPromise]);
+
+        if (error) throw error;
+
+        if (!isMountedRef.current) {
+          console.log("🧹 Component unmounted during branches fetch");
+          return;
+        }
+
+        const flattened = data.map(b => ({
           ...b,
           region: b.regions?.name || "N/A"
         }));
-        setBranches(flattenedBranches);
-        // Extract unique regions
-        const uniqueRegions = [...new Set(flattenedBranches.map(b => b.region).filter(r => r && r !== "N/A"))];
+        
+        setBranches(flattened);
+        
+        const uniqueRegions = [...new Set(flattened.map(b => b.region).filter(r => r && r !== "N/A"))];
         setRegions(uniqueRegions);
+        
+        console.log("✅ Branches loaded:", flattened.length);
+        console.log("✅ Regions loaded:", uniqueRegions.length);
+      } catch (err) {
+        console.error("❌ Error fetching branches/regions:", err);
+        // Non-critical error - continue without branches/regions
       }
     };
-    fetchBranches();
+
+    fetchBranchesAndRegions();
+
+    return () => { 
+      isMountedRef.current = false; 
+    };
   }, [tenant?.id]);
 
-  const fetchAllLoans = useCallback(async (isRefresh = false) => {
-    try {
-      if (!tenant?.id) return;
-      isRefresh ? setRefreshing(true) : setLoading(true);
+  // ========== FIXED: Fetch All Loans (ONCE with Caching) ==========
+  useEffect(() => {
+    const tenantId = tenant?.id;
+    
+    // Early return if no tenant or already fetched
+    if (!tenantId || hasFetchedLoansRef.current) {
+      console.log("⏭️ Skipping loans fetch - tenantId:", tenantId, "hasFetched:", hasFetchedLoansRef.current);
+      return;
+    }
 
-      const { data, error } = await supabase
+    // Mark as fetched IMMEDIATELY to prevent duplicate calls
+    hasFetchedLoansRef.current = true;
+    isMountedRef.current = true;
+
+    const fetchAllLoans = async () => {
+      console.log("🔄 Starting loans fetch for tenant:", tenantId);
+      
+      try {
+        const cacheKey = `loan-listing-raw-data-${tenantId}`;
+
+        // Try cache first
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
+            
+            if (cacheAge < 24 * 60 * 60 * 1000) { // 24 hours cache
+              console.log("✅ Using cached loan listings data");
+              if (isMountedRef.current) {
+                setRawLoans(data.loans || []);
+                setOfficers(data.officers || []);
+                setProductTypes(data.productTypes || []);
+                setStatusTypes(data.statusTypes || []);
+                setRepaymentStates(data.repaymentStates || []);
+                setLoading(false);
+              }
+              return;
+            } else {
+              console.log("⏰ Cache expired, fetching fresh data");
+            }
+          }
+        } catch (e) {
+          console.error("Cache read error:", e);
+        }
+
+        // Set loading state
+        if (isMountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
+
+        console.log("🌐 Fetching loans from database...");
+
+        // Fetch with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 45000)
+        );
+
+        const fetchPromise = supabase
+          .from("loans")
+          .select(`
+            id,
+            customer_id,
+            branch_id,
+            booked_by,
+            product_name,
+            product_type,
+            status,
+            repayment_state,
+            total_payable,
+            duration_weeks,
+            interest_rate,
+            disbursed_at,
+            booked_at,
+            processing_fee,
+            registration_fee,
+            weekly_payment,
+            approved_by_bm,
+            approved_by_bm_at,
+            approved_by_rm,
+            approved_by_rm_at,
+            bm_decision,
+            rm_decision,
+            scored_amount,
+            prequalified_amount,
+            customers (
+              id,
+              Firstname,
+              Middlename,
+              Surname,
+              id_number,
+              mobile
+            ),
+            branches (
+              id,
+              name,
+              regions (
+                name
+              )
+            ),
+            booked_by_user:users!loans_created_by_fkey (id, full_name),
+            bm_user:users!loans_approved_by_bm_fkey (id, full_name),
+            rm_user:users!loans_approved_by_rm_fkey (id, full_name),
+            loan_installments (
+              loan_id,
+              paid_amount,
+              due_amount,
+              status
+            )
+          `)
+          .eq("tenant_id", tenantId)
+          .order("booked_at", { ascending: false });
+
+        const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]);
+
+        if (fetchError) throw fetchError;
+
+        console.log("✅ Loans fetched:", data?.length || 0);
+
+        if (!isMountedRef.current) {
+          console.log("🧹 Component unmounted during fetch");
+          return;
+        }
+
+        const loansData = data || [];
+
+        console.log("🔄 Processing loans data...");
+
+        const processedLoans = loansData.map((loan) => {
+          const customer = loan.customers;
+          const branch = loan.branches;
+          const loanOfficer = loan.booked_by_user;
+          const branchManager = loan.bm_user;
+          const regionManager = loan.rm_user;
+
+          const loanInstallments = loan.loan_installments || [];
+          const totalRepaid = loanInstallments.reduce((sum, inst) => sum + (Number(inst.paid_amount) || 0), 0);
+          const totalDue = loanInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
+          const overdueInstallments = loanInstallments.filter(
+            (inst) => inst.status === 'overdue' || inst.status === 'defaulted'
+          ).length;
+
+          const customerName = customer
+            ? `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim()
+            : "N/A";
+
+          const prequalifiedAmount = Number(loan.prequalified_amount) || 0;
+          const disbursedAmount = Number(loan.scored_amount) || 0;
+
+          const bookedDate = loan.booked_at ? new Date(loan.booked_at) : null;
+          const disbursedDate = loan.disbursed_at ? new Date(loan.disbursed_at) : null;
+          const bmApprovedDate = loan.approved_by_bm_at ? new Date(loan.approved_by_bm_at) : null;
+          const rmApprovedDate = loan.approved_by_rm_at ? new Date(loan.approved_by_rm_at) : null;
+
+          const now = new Date();
+          const daysSinceBooking = bookedDate ? Math.floor((now - bookedDate) / (1000 * 60 * 60 * 24)) : 0;
+          const daysSinceDisbursement = disbursedDate ? Math.floor((now - disbursedDate) / (1000 * 60 * 60 * 24)) : null;
+          const daysSinceBMApproval = bmApprovedDate ? Math.floor((now - bmApprovedDate) / (1000 * 60 * 60 * 24)) : null;
+          const daysSinceRMApproval = rmApprovedDate ? Math.floor((now - rmApprovedDate) / (1000 * 60 * 60 * 24)) : null;
+
+          return {
+            id: loan.id,
+            customer_name: customerName,
+            customer_id: customer?.id_number || "N/A",
+            mobile: customer?.mobile || "N/A",
+            branch: branch?.name || "N/A",
+            region: branch?.regions?.name || "N/A",
+            loan_officer: loanOfficer?.full_name || "N/A",
+            branch_manager: branchManager?.full_name || "N/A",
+            region_manager: regionManager?.full_name || "N/A",
+            loan_product: loan.product_name || "N/A",
+            product_type: loan.product_type || "N/A",
+            applied_amount: prequalifiedAmount,
+            disbursed_amount: disbursedAmount,
+            total_repaid: totalRepaid,
+            total_payable: Number(loan.total_payable) || 0,
+            weekly_payment: Number(loan.weekly_payment) || 0,
+            duration_weeks: loan.duration_weeks || 0,
+            interest_rate: Number(loan.interest_rate) || 0,
+            booked_date: loan.booked_at,
+            disbursed_date: loan.disbursed_at,
+            status: loan.status || "N/A",
+            repayment_state: loan.repayment_state || "N/A",
+            total_due: totalDue,
+            overdue_installments: overdueInstallments,
+            total_installments: loanInstallments.length,
+            processing_fee: Number(loan.processing_fee) || 0,
+            registration_fee: Number(loan.registration_fee) || 0,
+            net_disbursement: disbursedAmount - (Number(loan.processing_fee) || 0) - (Number(loan.registration_fee) || 0),
+            bm_approved_date: loan.approved_by_bm_at,
+            rm_approved_date: loan.approved_by_rm_at,
+            days_since_booking: daysSinceBooking,
+            days_since_disbursement: daysSinceDisbursement,
+            days_since_bm_approval: daysSinceBMApproval,
+            days_since_rm_approval: daysSinceRMApproval,
+            bm_decision: loan.bm_decision || "N/A",
+            rm_decision: loan.rm_decision || "N/A",
+            raw_booked_date: loan.booked_at,
+          };
+        });
+
+        console.log("✅ Loans processed:", processedLoans.length);
+
+        // Generate unique filter options
+        const uniqueOfficers = [...new Set(processedLoans.map(r => r.loan_officer).filter(o => o !== "N/A"))];
+        const uniqueProductTypes = [...new Set(processedLoans.map(r => r.product_type).filter(Boolean))];
+        const uniqueStatusTypes = [...new Set(processedLoans.map(r => r.status).filter(Boolean))];
+        const uniqueRepaymentStates = [...new Set(processedLoans.map(r => r.repayment_state).filter(Boolean))];
+
+        const cacheData = {
+          loans: processedLoans,
+          officers: uniqueOfficers,
+          productTypes: uniqueProductTypes,
+          statusTypes: uniqueStatusTypes,
+          repaymentStates: uniqueRepaymentStates,
+        };
+
+        if (isMountedRef.current) {
+          setRawLoans(processedLoans);
+          setOfficers(uniqueOfficers);
+          setProductTypes(uniqueProductTypes);
+          setStatusTypes(uniqueStatusTypes);
+          setRepaymentStates(uniqueRepaymentStates);
+          setLoading(false);
+          setError(null);
+
+          try {
+            localStorage.setItem(
+              cacheKey,
+              JSON.stringify({
+                data: cacheData,
+                timestamp: Date.now(),
+              })
+            );
+            console.log("✅ Data cached successfully");
+          } catch (e) {
+            console.error("Cache write error:", e);
+          }
+        }
+      } catch (err) {
+        console.error("❌ Error fetching loan listings:", err);
+        if (isMountedRef.current) {
+          setError(err.message || "Failed to load loan listings");
+          setLoading(false);
+          setRawLoans([]); // ✅ Set empty array on error
+        }
+      }
+    };
+
+    fetchAllLoans();
+
+    // Cleanup function
+    return () => {
+      console.log("🧹 Cleanup: Component unmounting");
+      isMountedRef.current = false;
+    };
+  }, [tenant?.id]);
+
+  // ========== Manual Refresh ==========
+  const handleManualRefresh = useCallback(async () => {
+    const tenantId = tenant?.id;
+    if (!tenantId || loading) return;
+
+    console.log("🔄 Manual refresh triggered");
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
         .from("loans")
         .select(`
           id,
@@ -181,16 +598,16 @@ const LoanListing = () => {
           scored_amount,
           prequalified_amount,
           customers (
-            id, 
-            Firstname, 
-            Middlename, 
-            Surname, 
-            id_number, 
+            id,
+            Firstname,
+            Middlename,
+            Surname,
+            id_number,
             mobile
           ),
           branches (
-            id, 
-            name, 
+            id,
+            name,
             regions (
               name
             )
@@ -199,19 +616,16 @@ const LoanListing = () => {
           bm_user:users!loans_approved_by_bm_fkey (id, full_name),
           rm_user:users!loans_approved_by_rm_fkey (id, full_name),
           loan_installments (
-            loan_id, 
-            paid_amount, 
-            due_amount, 
+            loan_id,
+            paid_amount,
+            due_amount,
             status
           )
         `)
-        .eq("tenant_id", tenant.id)
+        .eq("tenant_id", tenantId)
         .order("booked_at", { ascending: false });
 
-      if (error) {
-        console.error("Fetch errors:", error);
-        throw new Error("Error fetching loan data.");
-      }
+      if (fetchError) throw fetchError;
 
       const loansData = data || [];
 
@@ -222,7 +636,6 @@ const LoanListing = () => {
         const branchManager = loan.bm_user;
         const regionManager = loan.rm_user;
 
-        // Calculate totals from loan_installments
         const loanInstallments = loan.loan_installments || [];
         const totalRepaid = loanInstallments.reduce((sum, inst) => sum + (Number(inst.paid_amount) || 0), 0);
         const totalDue = loanInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
@@ -237,7 +650,6 @@ const LoanListing = () => {
         const prequalifiedAmount = Number(loan.prequalified_amount) || 0;
         const disbursedAmount = Number(loan.scored_amount) || 0;
 
-        // Calculate days difference
         const bookedDate = loan.booked_at ? new Date(loan.booked_at) : null;
         const disbursedDate = loan.disbursed_at ? new Date(loan.disbursed_at) : null;
         const bmApprovedDate = loan.approved_by_bm_at ? new Date(loan.approved_by_bm_at) : null;
@@ -290,41 +702,102 @@ const LoanListing = () => {
         };
       });
 
-      setLoans(processedLoans);
-      setFiltered(processedLoans);
+      const uniqueOfficers = [...new Set(processedLoans.map(r => r.loan_officer).filter(o => o !== "N/A"))];
+      const uniqueProductTypes = [...new Set(processedLoans.map(r => r.product_type).filter(Boolean))];
+      const uniqueStatusTypes = [...new Set(processedLoans.map(r => r.status).filter(Boolean))];
+      const uniqueRepaymentStates = [...new Set(processedLoans.map(r => r.repayment_state).filter(Boolean))];
 
-      // Generate unique filter options
-      const uniqueOfficers = [...new Set(processedLoans.map((r) => r.loan_officer).filter((o) => o !== "N/A"))];
-      const uniqueProductTypes = [...new Set(processedLoans.map((r) => r.product_type).filter(Boolean))];
-      const uniqueStatusTypes = [...new Set(processedLoans.map((r) => r.status).filter(Boolean))];
-      const uniqueRepaymentStates = [...new Set(processedLoans.map((r) => r.repayment_state).filter(Boolean))];
-
+      setRawLoans(processedLoans);
       setOfficers(uniqueOfficers);
       setProductTypes(uniqueProductTypes);
       setStatusTypes(uniqueStatusTypes);
       setRepaymentStates(uniqueRepaymentStates);
+
+      const cacheKey = `loan-listing-raw-data-${tenantId}`;
+      try {
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            data: {
+              loans: processedLoans,
+              officers: uniqueOfficers,
+              productTypes: uniqueProductTypes,
+              statusTypes: uniqueStatusTypes,
+              repaymentStates: uniqueRepaymentStates,
+            },
+            timestamp: Date.now(),
+          })
+        );
+      } catch (e) {
+        console.error("Cache write error:", e);
+      }
+
+      console.log("✅ Manual refresh complete");
     } catch (err) {
-      console.error("Error fetching loan listings:", err.message);
+      console.error("❌ Error refreshing loan listings:", err);
+      setError(err.message || "Failed to refresh data");
     } finally {
       setLoading(false);
-      setRefreshing(false);
     }
-  }, [tenant?.id]);
+  }, [loading, tenant?.id]);
 
-  useEffect(() => {
-    fetchAllLoans();
-  }, [fetchAllLoans]);
+  // ========== Helper: Get Date Range ==========
+  const getDateRange = useCallback(
+    (filter) => {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      let start, end;
 
-  // Filtering logic with date filter
-  useEffect(() => {
-    if (loading) return;
+      switch (filter) {
+        case "today":
+          start = new Date(today);
+          end = new Date(today);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case "week":
+          start = new Date(today);
+          start.setDate(start.getDate() - start.getDay());
+          end = new Date(start);
+          end.setDate(end.getDate() + 6);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case "month":
+          start = new Date(today.getFullYear(), today.getMonth(), 1);
+          end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case "quarter":
+          const currentQuarter = Math.floor(today.getMonth() / 3);
+          start = new Date(today.getFullYear(), currentQuarter * 3, 1);
+          end = new Date(today.getFullYear(), (currentQuarter + 1) * 3, 0);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case "year":
+          start = new Date(today.getFullYear(), 0, 1);
+          end = new Date(today.getFullYear(), 11, 31);
+          end.setHours(23, 59, 59, 999);
+          break;
+        case "custom":
+          start = filters.customStartDate ? new Date(filters.customStartDate) : new Date(0);
+          start.setHours(0, 0, 0, 0);
+          end = filters.customEndDate ? new Date(filters.customEndDate) : new Date();
+          end.setHours(23, 59, 59, 999);
+          break;
+        default:
+          return null;
+      }
+      return { start, end };
+    },
+    [filters.customStartDate, filters.customEndDate]
+  );
 
-    let result = [...loans];
-    const { search, region, branch, loanOfficer, productType, status, repaymentState } = filters;
+  // ========== Filtered Data ==========
+  const filteredData = useMemo(() => {
+    let result = [...rawLoans];
+    const q = filters.search.toLowerCase();
 
     // Text search
-    if (search) {
-      const q = search.toLowerCase();
+    if (filters.search) {
       result = result.filter(
         (r) =>
           r.customer_name.toLowerCase().includes(q) ||
@@ -334,40 +807,38 @@ const LoanListing = () => {
     }
 
     // Region filter
-    if (region) {
-      result = result.filter((r) => r.region === region);
+    if (filters.region) {
+      result = result.filter((r) => r.region === filters.region);
     }
 
     // Branch filter
-    if (branch) {
-      result = result.filter((r) => r.branch === branch);
+    if (filters.branch) {
+      result = result.filter((r) => r.branch === filters.branch);
     }
 
     // Loan officer filter
-    if (loanOfficer) {
-      result = result.filter((r) => r.loan_officer === loanOfficer);
+    if (filters.loanOfficer) {
+      result = result.filter((r) => r.loan_officer === filters.loanOfficer);
     }
 
     // Product type filter
-    if (productType !== "all") {
-      result = result.filter((r) => r.product_type === productType);
+    if (filters.productType !== "all") {
+      result = result.filter((r) => r.product_type === filters.productType);
     }
 
     // Status filter
-    if (status !== "all") {
-      result = result.filter((r) => r.status === status);
+    if (filters.status !== "all") {
+      result = result.filter((r) => r.status === filters.status);
     }
 
     // Repayment state filter
-    if (repaymentState !== "all") {
-      result = result.filter(
-        (r) => r.repayment_state === repaymentState
-      );
+    if (filters.repaymentState !== "all") {
+      result = result.filter((r) => r.repayment_state === filters.repaymentState);
     }
 
     // Date filter
-    if (dateFilter !== "all") {
-      const range = getDateRange(dateFilter);
+    if (filters.dateFilter !== "all") {
+      const range = getDateRange(filters.dateFilter);
       if (range) {
         result = result.filter((loan) => {
           if (!loan.raw_booked_date) return false;
@@ -386,7 +857,7 @@ const LoanListing = () => {
         if (aVal === null || aVal === undefined) return 1;
         if (bVal === null || bVal === undefined) return -1;
 
-        if (typeof aVal === 'string' && typeof bVal === 'string') {
+        if (typeof aVal === "string" && typeof bVal === "string") {
           return sortConfig.direction === "asc"
             ? aVal.localeCompare(bVal)
             : bVal.localeCompare(aVal);
@@ -398,39 +869,92 @@ const LoanListing = () => {
       });
     }
 
-    setFiltered(result);
-    setCurrentPage(1);
-  }, [filters, loans, sortConfig, loading, dateFilter, getDateRange]);
+    return result;
+  }, [rawLoans, filters, sortConfig, getDateRange]);
 
-  // Sorting handler
-  const handleSort = (key) => {
+  // ========== Summary Statistics ==========
+  const stats = useMemo(() => {
+    const totalLoans = filteredData.length;
+
+    const disbursedLoans = filteredData.filter((r) => r.status.toLowerCase() === "disbursed");
+
+    const totalPrincipal = disbursedLoans.reduce((sum, r) => sum + (r.disbursed_amount || 0), 0);
+    const totalPayable = disbursedLoans.reduce((sum, r) => sum + (r.total_payable || 0), 0);
+    const totalRepaid = disbursedLoans.reduce((sum, r) => sum + (r.total_repaid || 0), 0);
+    const totalDue = disbursedLoans.reduce((sum, r) => sum + (r.total_due || 0), 0);
+    const totalOutstanding = totalPayable - totalRepaid;
+    const activeLoans = disbursedLoans.length;
+    const overdueLoans = disbursedLoans.filter(
+      (r) =>
+        r.repayment_state.toLowerCase() === "overdue" ||
+        r.repayment_state.toLowerCase() === "defaulted"
+    ).length;
+
+    return {
+      totalLoans,
+      totalPrincipal,
+      totalPayable,
+      totalRepaid,
+      totalDue,
+      totalOutstanding,
+      activeLoans,
+      overdueLoans,
+    };
+  }, [filteredData]);
+
+  // ========== Pagination ==========
+  const pagination = useMemo(() => {
+    const totalRows = filteredData.length;
+    const totalPages = Math.ceil(totalRows / itemsPerPage);
+    const startIdx = (currentPage - 1) * itemsPerPage;
+    const endIdx = Math.min(startIdx + itemsPerPage, totalRows);
+    const currentData = filteredData.slice(startIdx, endIdx);
+    return { totalRows, totalPages, startIdx, endIdx, currentData };
+  }, [filteredData, currentPage]);
+
+  // ========== Filtered Branches / Officers for Dropdowns ==========
+  const filteredBranches = useMemo(() => {
+    if (!filters.region) return branches;
+    return branches.filter((b) => b.region === filters.region);
+  }, [branches, filters.region]);
+
+  const filteredOfficers = useMemo(() => {
+    if (filters.branch) {
+      return officers.filter((o) =>
+        rawLoans.some((r) => r.branch === filters.branch && r.loan_officer === o)
+      );
+    }
+    if (filters.region) {
+      return officers.filter((o) =>
+        rawLoans.some(
+          (r) => r.region === filters.region && r.loan_officer === o
+        )
+      );
+    }
+    return officers;
+  }, [officers, filters.branch, filters.region, rawLoans]);
+
+  // ========== Handlers ==========
+  const handleSort = useCallback((key) => {
     setSortConfig((prev) => ({
       key,
       direction: prev.key === key && prev.direction === "asc" ? "desc" : "asc",
     }));
-  };
+  }, []);
 
-  // Sortable Header Component
-  const SortableHeader = useCallback(({ label, sortKey }) => (
-    <th
-      onClick={() => handleSort(sortKey)}
-      className="px-4 py-3 font-semibold text-gray-700 cursor-pointer hover:bg-gray-50 whitespace-nowrap text-left text-xs tracking-wider border-b"
-    >
-      <div className="flex items-center justify-between">
-        <span className="font-medium">{label}</span>
-        {sortConfig.key === sortKey &&
-          (sortConfig.direction === "asc" ? (
-            <ChevronUp className="w-3 h-3" />
-          ) : (
-            <ChevronDown className="w-3 h-3" />
-          ))}
-      </div>
-    </th>
-  ), [sortConfig, handleSort]);
-
-  // Filter handlers
   const handleFilterChange = useCallback((key, value) => {
-    setFilters((prev) => ({ ...prev, [key]: value }));
+    setFilters((prev) => {
+      const newFilters = { ...prev, [key]: value };
+      if (key === "region") {
+        newFilters.branch = "";
+        newFilters.loanOfficer = "";
+      }
+      if (key === "branch") {
+        newFilters.loanOfficer = "";
+      }
+      return newFilters;
+    });
+    setCurrentPage(1);
   }, []);
 
   const clearFilters = useCallback(() => {
@@ -442,13 +966,14 @@ const LoanListing = () => {
       productType: "all",
       status: "all",
       repaymentState: "all",
+      dateFilter: "all",
+      customStartDate: "",
+      customEndDate: "",
     });
-    setDateFilter("all");
-    setCustomStartDate("");
-    setCustomEndDate("");
+    setCurrentPage(1);
   }, []);
 
-  // Currency formatter
+  // ========== Formatting Helpers ==========
   const formatCurrency = useCallback((num) => {
     return new Intl.NumberFormat("en-KE", {
       style: "currency",
@@ -457,50 +982,24 @@ const LoanListing = () => {
     }).format(num || 0);
   }, []);
 
-  // Date formatter
   const formatDate = useCallback((dateString) => {
     if (!dateString) return "N/A";
     return new Date(dateString).toLocaleDateString("en-KE", {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
   }, []);
 
-  // Calculate summary statistics
-  const stats = useMemo(() => {
-    const totalLoans = filtered.length;
+  const getCurrentTimestamp = useCallback(() => {
+    const now = new Date();
+    return now.toLocaleString("en-KE", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
+  }, []);
 
-    // Only 'disbursed' loans contribute to totals
-    const disbursedLoans = filtered.filter(r => r.status.toLowerCase() === 'disbursed');
-
-    const totalPrincipal = disbursedLoans.reduce((sum, r) => sum + (r.disbursed_amount || 0), 0);
-    const totalPayable = disbursedLoans.reduce((sum, r) => sum + (r.total_payable || 0), 0);
-    const totalRepaid = disbursedLoans.reduce((sum, r) => sum + (r.total_repaid || 0), 0);
-    const totalDue = disbursedLoans.reduce((sum, r) => sum + (r.total_due || 0), 0);
-    const totalOutstanding = totalPayable - totalRepaid;
-
-    // Count by status
-    const activeLoans = disbursedLoans.length;
-
-    const overdueLoans = disbursedLoans.filter(r =>
-      r.repayment_state.toLowerCase() === 'overdue' ||
-      r.repayment_state.toLowerCase() === 'defaulted'
-    ).length;
-
-    return {
-      totalLoans,
-      totalPrincipal,
-      totalPayable,
-      totalRepaid,
-      totalDue,
-      totalOutstanding,
-      activeLoans,
-      overdueLoans
-    };
-  }, [filtered]);
-
-  // Export functions
+  // ========== Export Functions (keeping implementations the same) ==========
   const exportToPDF = useCallback(() => {
     const doc = new jsPDF({ orientation: "landscape", format: "a4", unit: "pt" });
     const companyName = tenant?.company_name || "Jasiri";
@@ -531,7 +1030,7 @@ const LoanListing = () => {
           "Repayment",
         ],
       ],
-      body: filtered.map((r, i) => [
+      body: filteredData.map((r, i) => [
         i + 1,
         r.customer_name,
         r.customer_id,
@@ -554,10 +1053,6 @@ const LoanListing = () => {
         r.repayment_state,
       ]),
       didDrawPage: (data) => {
-        // Company Logo or Placeholder
-        if (tenant?.logo_url) {
-          // doc.addImage(tenant.logo_url, 'PNG', data.settings.margin.left, 20, 50, 50);
-        }
         doc.setFontSize(18);
         doc.setTextColor(40);
         doc.text(companyName, data.settings.margin.left, 40);
@@ -565,7 +1060,7 @@ const LoanListing = () => {
         doc.text(reportTitle, data.settings.margin.left, 60);
         doc.setFontSize(10);
         doc.text(
-          `Generated on: ${getCurrentTimestamp()} | Total Loans: ${filtered.length}`,
+          `Generated on: ${getCurrentTimestamp()} | Total Loans: ${filteredData.length}`,
           data.settings.margin.left,
           80
         );
@@ -576,18 +1071,20 @@ const LoanListing = () => {
       headStyles: { fillColor: [46, 94, 153], textColor: [255, 255, 255] },
     });
 
-    const fileName = `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]}.pdf`;
+    const fileName = `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
+      new Date().toISOString().split("T")[0]
+    }.pdf`;
     doc.save(fileName);
-  }, [filtered, tenant, getCurrentTimestamp, formatCurrency, formatDate]);
+  }, [filteredData, tenant, formatCurrency, formatDate, getCurrentTimestamp]);
 
   const exportToExcel = useCallback(() => {
-    if (filtered.length === 0) {
+    if (filteredData.length === 0) {
       alert("No data to export");
       return;
     }
 
     const ws = XLSX.utils.json_to_sheet(
-      filtered.map((r, index) => ({
+      filteredData.map((r, index) => ({
         No: index + 1,
         "Customer Name": r.customer_name,
         "ID Number": r.customer_id,
@@ -616,12 +1113,14 @@ const LoanListing = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Loan Listing");
     XLSX.writeFile(
       wb,
-      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]}.xlsx`
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
+        new Date().toISOString().split("T")[0]
+      }.xlsx`
     );
-  }, [filtered, tenant, formatDate]);
+  }, [filteredData, tenant, formatDate]);
 
   const exportToCSV = useCallback(() => {
-    if (filtered.length === 0) {
+    if (filteredData.length === 0) {
       alert("No data to export");
       return;
     }
@@ -649,7 +1148,7 @@ const LoanListing = () => {
       "Repayment State",
     ];
 
-    const rows = filtered.map((r, i) => [
+    const rows = filteredData.map((r, i) => [
       i + 1,
       r.customer_name,
       r.customer_id,
@@ -674,37 +1173,47 @@ const LoanListing = () => {
 
     const csv = [
       headers.join(","),
-      ...rows.map(row => row.map(field =>
-        typeof field === "string" && field.includes(",") ? `"${field}"` : field
-      ).join(","))
+      ...rows.map((row) =>
+        row
+          .map((field) =>
+            typeof field === "string" && field.includes(",") ? `"${field}"` : field
+          )
+          .join(",")
+      ),
     ].join("\n");
 
     const companyName = tenant?.company_name || "Jasiri";
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    saveAs(blob, `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]}.csv`);
-  }, [filtered, tenant, formatDate]);
+    saveAs(
+      blob,
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
+        new Date().toISOString().split("T")[0]
+      }.csv`
+    );
+  }, [filteredData, tenant, formatDate]);
 
-  const exportToWord = async () => {
-    if (filtered.length === 0) {
+  const exportToWord = useCallback(async () => {
+    if (filteredData.length === 0) {
       alert("No data to export");
       return;
     }
 
-    const rows = filtered.map((r, i) =>
-      new TableRow({
-        children: [
-          new TableCell({ children: [new Paragraph(String(i + 1))] }),
-          new TableCell({ children: [new Paragraph(r.customer_name)] }),
-          new TableCell({ children: [new Paragraph(r.customer_id)] }),
-          new TableCell({ children: [new Paragraph(r.mobile)] }),
-          new TableCell({ children: [new Paragraph(r.branch)] }),
-          new TableCell({ children: [new Paragraph(r.loan_officer)] }),
-          new TableCell({ children: [new Paragraph(r.loan_product)] }),
-          new TableCell({ children: [new Paragraph(formatCurrency(r.disbursed_amount))] }),
-          new TableCell({ children: [new Paragraph(formatCurrency(r.total_payable))] }),
-          new TableCell({ children: [new Paragraph(r.status)] }),
-        ],
-      })
+    const rows = filteredData.slice(0, 50).map(
+      (r, i) =>
+        new TableRow({
+          children: [
+            new TableCell({ children: [new Paragraph(String(i + 1))] }),
+            new TableCell({ children: [new Paragraph(r.customer_name)] }),
+            new TableCell({ children: [new Paragraph(r.customer_id)] }),
+            new TableCell({ children: [new Paragraph(r.mobile)] }),
+            new TableCell({ children: [new Paragraph(r.branch)] }),
+            new TableCell({ children: [new Paragraph(r.loan_officer)] }),
+            new TableCell({ children: [new Paragraph(r.loan_product)] }),
+            new TableCell({ children: [new Paragraph(formatCurrency(r.disbursed_amount))] }),
+            new TableCell({ children: [new Paragraph(formatCurrency(r.total_payable))] }),
+            new TableCell({ children: [new Paragraph(r.status)] }),
+          ],
+        })
     );
 
     const doc = new Document({
@@ -733,7 +1242,7 @@ const LoanListing = () => {
             new Paragraph({
               children: [
                 new TextRun({
-                  text: `Total Loans: ${filtered.length}`,
+                  text: `Total Loans: ${filteredData.length}`,
                   size: 22,
                 }),
               ],
@@ -772,11 +1281,18 @@ const LoanListing = () => {
     const companyName = tenant?.company_name || "Jasiri";
     saveAs(
       blob,
-      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]}.docx`
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
+        new Date().toISOString().split("T")[0]
+      }.docx`
     );
-  };
+  }, [filteredData, tenant, formatCurrency, getCurrentTimestamp]);
 
-  const handleExport = () => {
+  const handleExport = useCallback(() => {
+    if (filteredData.length === 0) {
+      alert("No data to export");
+      return;
+    }
+
     switch (exportFormat) {
       case "pdf":
         exportToPDF();
@@ -792,40 +1308,9 @@ const LoanListing = () => {
         exportToCSV();
         break;
     }
-  };
+  }, [exportFormat, filteredData, exportToPDF, exportToWord, exportToExcel, exportToCSV]);
 
-  // Status badge component
-  const getStatusBadge = useCallback((status) => {
-    const baseClasses = "inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium";
-
-    switch (status?.toLowerCase()) {
-      case "disbursed":
-      case "completed":
-      case "paid":
-      case "current":
-        return `${baseClasses} bg-emerald-100 text-emerald-800 border border-emerald-200`;
-      case "approved":
-        return `${baseClasses} bg-blue-100 text-blue-800 border border-blue-200`;
-      case "pending":
-      case "ca_review":
-      case "processing":
-        return `${baseClasses} bg-amber-100 text-amber-800 border border-amber-200`;
-      case "rejected":
-      case "defaulted":
-      case "overdue":
-        return `${baseClasses} bg-red-100 text-red-800 border border-red-200`;
-      default:
-        return `${baseClasses} bg-gray-100 text-gray-800 border border-gray-200`;
-    }
-  }, []);
-
-  // Pagination calculations
-  const totalPages = Math.ceil(filtered.length / itemsPerPage);
-  const startIdx = (currentPage - 1) * itemsPerPage;
-  const endIdx = Math.min(startIdx + itemsPerPage, filtered.length);
-  const currentData = filtered.slice(startIdx, endIdx);
-
-  // Date filter options
+  // ========== Options ==========
   const dateFilterOptions = [
     { value: "all", label: "All Time" },
     { value: "today", label: "Today" },
@@ -836,7 +1321,6 @@ const LoanListing = () => {
     { value: "custom", label: "Custom Range" },
   ];
 
-  // Export format options
   const exportFormatOptions = [
     { value: "csv", label: "CSV" },
     { value: "excel", label: "Excel" },
@@ -844,15 +1328,50 @@ const LoanListing = () => {
     { value: "pdf", label: "PDF" },
   ];
 
+  //  Show loading state with custom Spinner
+  if (loading && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading Loan Listing Report..." />
+      </div>
+    );
+  }
+
+  // Show error state with retry option
+  if (error && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <X className="w-16 h-16 mx-auto mb-2" />
+            <p className="text-lg font-semibold">Failed to load report</p>
+            <p className="text-sm text-gray-600 mt-2">{error}</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
-        {/* Header Section - Matching loan disbursement report */}
+        {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
               {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
+                <img
+                  src={tenant.logo_url}
+                  alt=" Logo"
+                  className="h-16 w-auto object-contain"
+                />
               ) : (
                 <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
                   {tenant?.company_name?.charAt(0) || "C"}
@@ -860,7 +1379,6 @@ const LoanListing = () => {
               )}
               <div>
                 <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
-                <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Complete Loan Listing Report
                 </h2>
@@ -868,35 +1386,29 @@ const LoanListing = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-gray-500 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
-              </div>
+             
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                {/* Search Input */}
-                <input
-                  type="text"
-                  value={filters.search}
-                  onChange={(e) => handleFilterChange("search", e.target.value)}
-                  placeholder="Search name, ID, or phone"
-                  className="border bg-gray-50 border-gray-300 px-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64"
-                />
+                <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
+
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-                    ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    ${
+                      showFilters
+                        ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                        : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
-                  {Object.values(filters).some(val => val && val !== "all") && (
+                  {Object.values(filters).some((val) => val && val !== "all") && (
                     <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-1.5 py-0.5 rounded-full">
                       Active
                     </span>
                   )}
                 </button>
+
+              
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select
@@ -913,7 +1425,7 @@ const LoanListing = () => {
                   <button
                     onClick={handleExport}
                     className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
-                      hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Export
@@ -924,7 +1436,7 @@ const LoanListing = () => {
           </div>
         </div>
 
-        {/* Summary Section - Matching loan disbursement report colors */}
+        {/* Summary Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
             <p className="text-sm text-muted font-medium">Total Loans</p>
@@ -948,15 +1460,15 @@ const LoanListing = () => {
           </div>
         </div>
 
-        {/* Filter Section - Matching loan disbursement report */}
+        {/* Filter Section */}
         {showFilters && (
           <div className="bg-white p-6 border border-gray-200 rounded-xl shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2">
             <h3 className="text-slate-600 text-sm">Filter Results</h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
+                value={filters.dateFilter}
+                onChange={(e) => handleFilterChange("dateFilter", e.target.value)}
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 {dateFilterOptions.map((option) => (
@@ -966,18 +1478,18 @@ const LoanListing = () => {
                 ))}
               </select>
 
-              {dateFilter === "custom" && (
+              {filters.dateFilter === "custom" && (
                 <>
                   <input
                     type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    value={filters.customStartDate}
+                    onChange={(e) => handleFilterChange("customStartDate", e.target.value)}
                     className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                   <input
                     type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    value={filters.customEndDate}
+                    onChange={(e) => handleFilterChange("customEndDate", e.target.value)}
                     className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
                   />
                 </>
@@ -1004,7 +1516,7 @@ const LoanListing = () => {
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Branches</option>
-                {branches.map((b) => (
+                {filteredBranches.map((b) => (
                   <option key={b.id} value={b.name}>
                     {b.name}
                   </option>
@@ -1017,7 +1529,7 @@ const LoanListing = () => {
                 className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
               >
                 <option value="">All Relationship Officers</option>
-                {officers.map((officer) => (
+                {filteredOfficers.map((officer) => (
                   <option key={officer} value={officer}>
                     {officer}
                   </option>
@@ -1064,44 +1576,49 @@ const LoanListing = () => {
               </select>
             </div>
 
-            {(filters.search || filters.region || filters.branch || filters.loanOfficer ||
-              filters.productType !== "all" || filters.status !== "all" || filters.repaymentState !== "all" ||
-              dateFilter !== "all") && (
-                <button
-                  onClick={clearFilters}
-                  className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
-                >
-                  <X className="w-4 h-4" /> Clear Filters
-                </button>
-              )}
+            {(filters.search ||
+              filters.region ||
+              filters.branch ||
+              filters.loanOfficer ||
+              filters.productType !== "all" ||
+              filters.status !== "all" ||
+              filters.repaymentState !== "all" ||
+              filters.dateFilter !== "all") && (
+              <button
+                onClick={clearFilters}
+                className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
+              >
+                <X className="w-4 h-4" /> Clear Filters
+              </button>
+            )}
           </div>
         )}
 
-        {/* Table - Keeping original design but with matching container styling */}
+        {/* Table */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm text-left">
               <thead className="bg-gray-100 border-b border-gray-200">
                 <tr>
                   <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">#</th>
-                  <SortableHeader label="Customer Name" sortKey="customer_name" />
-                  <SortableHeader label="ID Number" sortKey="customer_id" />
-                  <SortableHeader label="Mobile" sortKey="mobile" />
-                  <SortableHeader label="Branch" sortKey="branch" />
-                  <SortableHeader label="Loan Officer" sortKey="loan_officer" />
-                  <SortableHeader label="Product" sortKey="loan_product" />
-                  <SortableHeader label="Type" sortKey="product_type" />
-                  <SortableHeader label="Prequalified Amount" sortKey="applied_amount" />
-                  <SortableHeader label="Disbursed Amount" sortKey="disbursed_amount" />
-                  <SortableHeader label="Total Payable" sortKey="total_payable" />
-                  <SortableHeader label="Total Repaid" sortKey="total_repaid" />
-                  <SortableHeader label="Weekly Payment" sortKey="weekly_payment" />
-                  <SortableHeader label="Duration" sortKey="duration_weeks" />
-                  <SortableHeader label="Interest" sortKey="interest_rate" />
-                  <SortableHeader label="Booked Date" sortKey="booked_date" />
-                  <SortableHeader label="Disbursed Date" sortKey="disbursed_date" />
-                  <SortableHeader label="Status" sortKey="status" />
-                  <SortableHeader label="Repayment State" sortKey="repayment_state" />
+                  <SortableHeader label="Customer Name" sortKey="customer_name" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="ID Number" sortKey="customer_id" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Mobile" sortKey="mobile" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Loan Officer" sortKey="loan_officer" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Product" sortKey="loan_product" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Type" sortKey="product_type" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Prequalified Amount" sortKey="applied_amount" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Disbursed Amount" sortKey="disbursed_amount" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Total Payable" sortKey="total_payable" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Total Repaid" sortKey="total_repaid" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Weekly Payment" sortKey="weekly_payment" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Duration" sortKey="duration_weeks" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Interest" sortKey="interest_rate" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Booked Date" sortKey="booked_date" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Disbursed Date" sortKey="disbursed_date" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Repayment State" sortKey="repayment_state" sortConfig={sortConfig} onSort={handleSort} />
                 </tr>
               </thead>
 
@@ -1115,116 +1632,40 @@ const LoanListing = () => {
                       <p className="text-sm text-gray-500 mt-2">Loading loan listings...</p>
                     </td>
                   </tr>
-                ) : currentData.length === 0 ? (
+                ) : pagination.currentData.length === 0 ? (
                   <tr>
                     <td colSpan={19} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center justify-center">
                         <Search className="w-12 h-12 text-gray-400 mb-3" />
                         <p className="text-sm text-gray-500">No loans found</p>
-                        {(filters.search || filters.region || filters.branch || filters.loanOfficer ||
-                          filters.productType !== "all" || filters.status !== "all" || filters.repaymentState !== "all" ||
-                          dateFilter !== "all") && (
-                            <button
-                              onClick={clearFilters}
-                              className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-                            >
-                              Clear filters to see all loans
-                            </button>
-                          )}
+                        {(filters.search ||
+                          filters.region ||
+                          filters.branch ||
+                          filters.loanOfficer ||
+                          filters.productType !== "all" ||
+                          filters.status !== "all" ||
+                          filters.repaymentState !== "all" ||
+                          filters.dateFilter !== "all") && (
+                          <button
+                            onClick={clearFilters}
+                            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                          >
+                            Clear filters to see all loans
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  currentData.map((loan, i) => (
-                    <tr key={loan.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{startIdx + i + 1}</td>
-
-                      {/* Customer Name */}
-                      <td className="px-4 py-3 text-xs text-gray-700 font-medium min-w-[150px] max-w-xs break-words">
-                        {loan.customer_name}
-                      </td>
-
-                      {/* ID Number */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.customer_id}</td>
-
-                      {/* Mobile */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap w-36">{loan.mobile}</td>
-
-                      {/* Branch */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.branch}</td>
-
-                      {/* Loan Officer */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.loan_officer}</td>
-
-                      {/* Product */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{loan.loan_product}</td>
-
-                      {/* Type */}
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span className="px-2 py-1 bg-purple-100 text-purple-800 rounded text-xs font-semibold">
-                          {loan.product_type}
-                        </span>
-                      </td>
-
-                      {/* Prequalified Amount */}
-                      <td className="px-4 py-3 text-right text-xs font-semibold text-gray-900 whitespace-nowrap">
-                        {formatCurrency(loan.applied_amount)}
-                      </td>
-
-                      {/* Disbursed Amount */}
-                      <td className="px-4 py-3 text-right text-xs font-semibold text-green-700 whitespace-nowrap">
-                        {formatCurrency(loan.disbursed_amount)}
-                      </td>
-
-                      {/* Total Payable */}
-                      <td className="px-4 py-3 text-right text-xs font-semibold text-gray-900 whitespace-nowrap">
-                        {formatCurrency(loan.total_payable)}
-                      </td>
-
-                      {/* Total Repaid */}
-                      <td className="px-4 py-3 text-right text-xs font-semibold text-emerald-700 whitespace-nowrap">
-                        {formatCurrency(loan.total_repaid)}
-                      </td>
-
-                      {/* Weekly Payment */}
-                      <td className="px-4 py-3 text-right text-xs text-gray-700 whitespace-nowrap">
-                        {formatCurrency(loan.weekly_payment)}
-                      </td>
-
-                      {/* Duration */}
-                      <td className="px-4 py-3 text-center text-xs text-gray-700 whitespace-nowrap">
-                        {loan.duration_weeks} weeks
-                      </td>
-
-                      {/* Interest */}
-                      <td className="px-4 py-3 text-center text-xs text-gray-700 whitespace-nowrap">
-                        {loan.interest_rate.toFixed(2)}%
-                      </td>
-
-                      {/* Booked Date */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
-                        {formatDate(loan.booked_date)}
-                      </td>
-
-                      {/* Disbursed Date */}
-                      <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">
-                        {loan.disbursed_date ? formatDate(loan.disbursed_date) : "Pending"}
-                      </td>
-
-                      {/* Status */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={getStatusBadge(loan.status)}>
-                          {loan.status.replace(/_/g, " ")}
-                        </span>
-                      </td>
-
-                      {/* Repayment State */}
-                      <td className="px-4 py-3 whitespace-nowrap">
-                        <span className={getStatusBadge(loan.repayment_state)}>
-                          {loan.repayment_state.replace(/_/g, " ")}
-                        </span>
-                      </td>
-                    </tr>
+                  pagination.currentData.map((loan, i) => (
+                    <LoanTableRow
+                      key={loan.id}
+                      loan={loan}
+                      index={i}
+                      startIdx={pagination.startIdx}
+                      formatCurrency={formatCurrency}
+                      formatDate={formatDate}
+                    />
                   ))
                 )}
               </tbody>
@@ -1232,7 +1673,7 @@ const LoanListing = () => {
               <tfoot className="bg-gray-50 border-t border-gray-200">
                 <tr>
                   <td colSpan="8" className="px-4 py-3 text-right text-xs font-semibold text-gray-700 whitespace-nowrap">
-                    Totals ({filtered.length} loans):
+                    Totals ({filteredData.length} loans):
                   </td>
                   <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-right">
                     {formatCurrency(stats.totalPrincipal)}
@@ -1250,27 +1691,27 @@ const LoanListing = () => {
           </div>
 
           {/* Pagination */}
-          {filtered.length > itemsPerPage && (
+          {pagination.totalPages > 1 && (
             <div className="flex justify-between items-center px-4 py-3 bg-white border-t border-gray-200">
               <div className="text-sm text-gray-600">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, filtered.length)} of {filtered.length}{" "}
+                Showing {pagination.startIdx + 1} to{" "}
+                {Math.min(pagination.endIdx, pagination.totalRows)} of {pagination.totalRows}{" "}
                 entries
               </div>
               <div className="flex gap-2">
                 <button
-                  onClick={() => setCurrentPage(Math.max(currentPage - 1, 1))}
+                  onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
                   disabled={currentPage === 1}
                   className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
                 <span className="px-3 py-1 text-sm">
-                  Page {currentPage} of {totalPages}
+                  Page {currentPage} of {pagination.totalPages}
                 </span>
                 <button
-                  onClick={() => setCurrentPage(Math.min(currentPage + 1, totalPages))}
-                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage((prev) => Math.min(prev + 1, pagination.totalPages))}
+                  disabled={currentPage === pagination.totalPages}
                   className="px-3 py-1 border border-gray-300 rounded disabled:opacity-50"
                 >
                   <ChevronRight className="w-4 h-4" />

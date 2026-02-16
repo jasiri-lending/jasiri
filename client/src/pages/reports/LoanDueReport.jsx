@@ -1,18 +1,15 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useMemo, useRef } from "react";
 import { supabase } from "../../supabaseClient";
 import {
   Filter,
   Download,
-  X,
-  Calendar,
-  Printer,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
+  Printer,
   Search,
-  FileText,
-  RefreshCw
+  X
 } from "lucide-react";
-import { useAuth } from "../../hooks/userAuth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -26,68 +23,399 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+
+// Memoized helper functions
+const formatCurrency = (num) =>
+  new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0,
+  }).format(num || 0);
+
+// Separate component for table rows to prevent re-renders
+const LoanTableRow = React.memo(({ loan, index, currentPage, itemsPerPage }) => {
+  return (
+    <tr className="group hover:bg-slate-50/50 transition-colors">
+      <td className="px-4 py-4 text-center text-slate-400 font-medium whitespace-nowrap">
+        {(currentPage - 1) * itemsPerPage + index + 1}
+      </td>
+      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">{loan.branch}</td>
+      <td className="px-4 py-4 font-semibold text-slate-600 whitespace-nowrap">{loan.officer}</td>
+      <td className="px-4 py-4 whitespace-nowrap">
+        <div className="flex flex-col">
+          <span className="font-bold text-slate-900 whitespace-nowrap">{loan.customerName}</span>
+          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
+            {loan.idNumber} • {loan.mobile}
+          </span>
+        </div>
+      </td>
+      <td className="px-4 py-4 text-center">
+        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200 whitespace-nowrap">
+          {loan.numDueInstallments}
+        </span>
+      </td>
+      <td className="px-4 py-4 text-right font-medium text-slate-900 whitespace-nowrap">
+        {formatCurrency(loan.disbursedAmount)}
+      </td>
+      <td className="px-4 py-4 text-right font-black text-red-600 bg-red-50/30 whitespace-nowrap">
+        {formatCurrency(loan.totalDue)}
+      </td>
+      <td className="px-4 py-4 text-right font-bold text-accent whitespace-nowrap">
+        {formatCurrency(loan.totalPaid)}
+      </td>
+      <td className="px-4 py-4 text-right font-black text-orange-600 bg-orange-50/30 whitespace-nowrap">
+        {formatCurrency(loan.amountUnpaid)}
+      </td>
+      <td className="px-4 py-4 text-slate-600 font-medium whitespace-nowrap">{loan.expectedDueDate}</td>
+    </tr>
+  );
+});
+
+LoanTableRow.displayName = 'LoanTableRow';
+
+// Inline SearchBox component
+const SearchBox = React.memo(({ value, onChange }) => {
+  return (
+    <div className="relative">
+      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+      <input
+        type="text"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Search name, ID, or phone"
+        className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64 text-gray-900"
+      />
+    </div>
+  );
+});
+
+SearchBox.displayName = 'SearchBox';
 
 const LoanDueReport = () => {
-  const { tenant } = useAuth();
-  const [dueLoans, setDueLoans] = useState([]);
+  // ✅ Get tenant from localStorage ONCE - no hook dependencies
+  const [tenant] = useState(() => {
+    try {
+      const savedTenant = localStorage.getItem("tenant");
+      return savedTenant ? JSON.parse(savedTenant) : null;
+    } catch (e) {
+      console.error("Error loading tenant:", e);
+      return null;
+    }
+  });
+
+  // State
+  const [rawLoans, setRawLoans] = useState([]);
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
   const [officers, setOfficers] = useState([]);
-
-   const [filters, setFilters] = useState(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem("loan-due-filters");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        return { ...parsed, search: "" };
-      }
-    }
-    return {
-      region: "",
-      branch: "",
-      officer: "",
-      search: "",
-      dateRange: "today",
-      customStartDate: "",
-      customEndDate: "",
-      installmentsDue: "",
-    };
-  });
-
-  // Save filters to localStorage
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      localStorage.setItem("loan-due-filters", JSON.stringify({
-        ...filters,
-        search: "" // Don't save search
-      }));
-    }, 500); // Debounce by 500ms
-    
-    return () => clearTimeout(timeoutId);
-  }, [filters]);
-
-
-
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null); // ✅ Add error state
   const [showFilters, setShowFilters] = useState(false);
   const [exportFormat, setExportFormat] = useState("csv");
   const [currentPage, setCurrentPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  
+  const [filters, setFilters] = useState(() => {
+    try {
+      const saved = localStorage.getItem("loan-due-filters");
+      return saved ? JSON.parse(saved) : {
+        region: "",
+        branch: "",
+        officer: "",
+        dateRange: "today",
+        customStartDate: "",
+        customEndDate: "",
+        installmentsDue: "",
+      };
+    } catch (e) {
+      return {
+        region: "",
+        branch: "",
+        officer: "",
+        dateRange: "today",
+        customStartDate: "",
+        customEndDate: "",
+        installmentsDue: "",
+      };
+    }
+  });
+
+  // Refs
+  const hasFetchedLoansRef = useRef(false);
+  const hasFetchedMetadataRef = useRef(false);
+  const isMountedRef = useRef(true); // ✅ Track mount state
   const itemsPerPage = 10;
 
+  // Save filters to localStorage (debounced)
   useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      try {
+        localStorage.setItem("loan-due-filters", JSON.stringify(filters));
+      } catch (e) {
+        console.error("Failed to save filters:", e);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [filters]);
+
+  // ✅ FIXED: Fetch branches and regions - ONLY ONCE with proper cleanup
+  useEffect(() => {
+    const tenantId = tenant?.id;
+    
+    // Early return if no tenant or already fetched
+    if (!tenantId || hasFetchedMetadataRef.current) {
+      console.log("⏭️ Skipping metadata fetch - tenantId:", tenantId, "hasFetched:", hasFetchedMetadataRef.current);
+      return;
+    }
+
+    // Mark as fetched IMMEDIATELY
+    hasFetchedMetadataRef.current = true;
+    isMountedRef.current = true;
+    
     const fetchBranchesAndRegions = async () => {
-      if (!tenant?.id) return;
-      const [branchesRes, regionsRes] = await Promise.all([
-        supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenant.id),
-        supabase.from("regions").select("id, name").eq("tenant_id", tenant.id)
-      ]);
+      console.log("🔄 Fetching branches and regions for tenant:", tenantId);
+      
+      try {
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Metadata fetch timeout')), 15000)
+        );
 
-      if (!branchesRes.error) setBranches(branchesRes.data || []);
-      if (!regionsRes.error) setRegions(regionsRes.data || []);
+        const fetchPromise = Promise.all([
+          supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId),
+          supabase.from("regions").select("id, name").eq("tenant_id", tenantId)
+        ]);
+
+        const [branchesRes, regionsRes] = await Promise.race([fetchPromise, timeoutPromise]);
+
+        if (!isMountedRef.current) {
+          console.log("🧹 Component unmounted during metadata fetch");
+          return;
+        }
+
+        if (!branchesRes.error && branchesRes.data) {
+          setBranches(branchesRes.data);
+          console.log("✅ Branches loaded:", branchesRes.data.length);
+        }
+        
+        if (!regionsRes.error && regionsRes.data) {
+          setRegions(regionsRes.data);
+          console.log("✅ Regions loaded:", regionsRes.data.length);
+        }
+      } catch (error) {
+        console.error("❌ Error fetching branches/regions:", error);
+        if (isMountedRef.current) {
+          // Non-critical error - don't block the UI
+          console.warn("⚠️ Continuing without metadata");
+        }
+      }
     };
+    
     fetchBranchesAndRegions();
-  }, []);
+    
+    return () => { 
+      isMountedRef.current = false; 
+    };
+  }, [tenant?.id]);
 
+  // ✅ FIXED: Fetch loans data - ONLY ONCE with proper cleanup and error handling
+  useEffect(() => {
+    const tenantId = tenant?.id;
+    
+    // Early return if no tenant or already fetched
+    if (!tenantId || hasFetchedLoansRef.current) {
+      console.log("⏭️ Skipping loans fetch - tenantId:", tenantId, "hasFetched:", hasFetchedLoansRef.current);
+      return;
+    }
+
+    // Mark as fetched IMMEDIATELY to prevent duplicate calls
+    hasFetchedLoansRef.current = true;
+    isMountedRef.current = true;
+
+    const fetchLoans = async () => {
+      console.log("🔄 Starting loans fetch for tenant:", tenantId);
+      
+      try {
+        const cacheKey = `loan-due-raw-data-${tenantId}`;
+
+        // Try cache first
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
+            
+            if (cacheAge < 4 * 60 * 60 * 1000) { // 4 hours cache
+              console.log("✅ Using cached loans data");
+              if (isMountedRef.current) {
+                setRawLoans(data || []);
+                setLoading(false);
+              }
+              return;
+            } else {
+              console.log("⏰ Cache expired, fetching fresh data");
+            }
+          }
+        } catch (e) {
+          console.error("Cache read error:", e);
+        }
+
+        // Set loading state
+        if (isMountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
+
+        console.log("🌐 Fetching loans from database...");
+        
+        // Fetch with timeout
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Request timeout')), 30000)
+        );
+        
+        const fetchPromise = supabase
+          .from("loans")
+          .select(`
+            id,
+            scored_amount,
+            total_payable,
+            product_name,
+            product_type,
+            disbursed_at,
+            branch_id,
+            tenant_id,
+            status,
+            branch:branch_id(name, region_id),
+            customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
+            loan_officer:booked_by(full_name),
+            installments:loan_installments(
+              due_date,
+              due_amount,
+              paid_amount,
+              status,
+              principal_amount,
+              interest_amount,
+              principal_due,
+              interest_due
+            )
+          `)
+          .eq("tenant_id", tenantId)
+          .eq("status", "disbursed");
+
+        const { data, error: fetchError } = await Promise.race([
+          fetchPromise,
+          timeoutPromise
+        ]);
+
+        if (fetchError) throw fetchError;
+
+        console.log("✅ Loans fetched:", data?.length || 0);
+
+        if (!isMountedRef.current) {
+          console.log("🧹 Component unmounted after fetch");
+          return;
+        }
+
+        setRawLoans(data || []);
+        setLoading(false);
+        setError(null);
+        
+        // Cache the results
+        try {
+          localStorage.setItem(cacheKey, JSON.stringify({ 
+            data: data || [], 
+            timestamp: Date.now() 
+          }));
+          console.log("✅ Data cached successfully");
+        } catch (e) {
+          console.error("Cache write error:", e);
+        }
+        
+      } catch (err) {
+        console.error("❌ Error fetching loans:", err);
+        if (isMountedRef.current) {
+          setError(err.message || "Failed to load loan data");
+          setLoading(false);
+          setRawLoans([]); // ✅ Set empty array on error
+        }
+      }
+    };
+
+    fetchLoans();
+
+    // Cleanup function
+    return () => {
+      console.log("🧹 Cleanup: Component unmounting");
+      isMountedRef.current = false;
+    };
+  }, [tenant?.id]);
+
+  //  Manual refresh function
+  const handleManualRefresh = async () => {
+    const tenantId = tenant?.id;
+    if (!tenantId || loading) return;
+
+    console.log("🔄 Manual refresh triggered");
+
+    try {
+      setLoading(true);
+      setError(null);
+
+      const { data, error: fetchError } = await supabase
+        .from("loans")
+        .select(`
+          id,
+          scored_amount,
+          total_payable,
+          product_name,
+          product_type,
+          disbursed_at,
+          branch_id,
+          tenant_id,
+          status,
+          branch:branch_id(name, region_id),
+          customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
+          loan_officer:booked_by(full_name),
+          installments:loan_installments(
+            due_date,
+            due_amount,
+            paid_amount,
+            status,
+            principal_amount,
+            interest_amount,
+            principal_due,
+            interest_due
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .eq("status", "disbursed");
+
+      if (fetchError) throw fetchError;
+
+      setRawLoans(data || []);
+      
+      const cacheKey = `loan-due-raw-data-${tenantId}`;
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({ 
+          data: data || [], 
+          timestamp: Date.now() 
+        }));
+      } catch (e) {
+        console.error("Cache write error:", e);
+      }
+
+      console.log("✅ Manual refresh complete");
+      
+    } catch (err) {
+      console.error("❌ Error refreshing loans:", err);
+      setError(err.message || "Failed to refresh data");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Get date range
   const getDateRange = () => {
     const today = new Date();
     let startDate, endDate;
@@ -129,252 +457,117 @@ const LoanDueReport = () => {
     return { startDate, endDate };
   };
 
-  useEffect(() => {
-    const fetchDueLoans = async (forceRefresh = false) => {
-      try {
-        const { startDate, endDate } = getDateRange();
+  // Process and filter data
+  const filteredData = useMemo(() => {
+    const { startDate, endDate } = getDateRange();
+    const localRegionMap = regions.reduce((acc, r) => {
+      acc[r.id] = r.name;
+      return acc;
+    }, {});
 
-        if (filters.dateRange === "custom" && (!startDate || !endDate)) {
-          setDueLoans([]);
-          setLoading(false);
-          return;
-        }
+    const query = (searchQuery || "").toLowerCase().trim();
 
-        const cacheKey = `loan-due-data-${filters.dateRange}-${startDate}-${endDate}`;
+    return rawLoans
+      .map((loan) => {
+        const branchName = loan.branch?.name || "N/A";
+        const regionId = loan.branch?.region_id;
+        const regionName = regionId ? localRegionMap[regionId] || "N/A" : "N/A";
+        const officerName = loan.loan_officer?.full_name || "N/A";
+        const cust = loan.customer || {};
+        const fullName = [cust.Firstname, cust.Middlename, cust.Surname].filter(Boolean).join(" ");
 
-        if (!forceRefresh) {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const { data: cachedData, timestamp } = JSON.parse(cached);
-            const isExpired = Date.now() - timestamp > 24 * 60 * 60 * 1000; // 24 hours
-            if (!isExpired) {
-              setDueLoans(cachedData);
-              const uniqueOfficers = [...new Set(cachedData.map((l) => l.officer))];
-              setOfficers(uniqueOfficers);
-              return;
-            }
+        const dueInRange = (loan.installments || []).filter((i) => {
+          const dueDate = i.due_date?.split("T")[0];
+          return (
+            dueDate >= startDate &&
+            dueDate <= endDate &&
+            ["pending", "partial"].includes(i.status)
+          );
+        });
+
+        if (dueInRange.length === 0) return null;
+
+        const totalDueInRange = dueInRange.reduce((sum, i) => sum + Number(i.due_amount || 0), 0);
+        const principalDueVal = dueInRange.reduce((sum, i) => sum + Number(i.principal_due || i.principal_amount || 0), 0);
+        const interestDueVal = dueInRange.reduce((sum, i) => sum + Number(i.interest_due || i.interest_amount || 0), 0);
+        const numDueInstallments = dueInRange.length;
+        const totalPaid = (loan.installments || []).reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
+
+        const row = {
+          branch: branchName,
+          region: regionName,
+          officer: officerName,
+          loanId: loan.id,
+          customerName: fullName || "N/A",
+          mobile: cust.mobile || "N/A",
+          idNumber: cust.id_number || "N/A",
+          productName: loan.product_name || "N/A",
+          productType: loan.product_type || "N/A",
+          numDueInstallments,
+          disbursedAmount: loan.scored_amount || 0,
+          principalDue: principalDueVal,
+          interestDue: interestDueVal,
+          totalDue: totalDueInRange,
+          totalPaid,
+          amountUnpaid: (loan.total_payable || 0) - totalPaid,
+          disbursementDate: loan.disbursed_at?.split("T")[0] || "N/A",
+          expectedDueDate: dueInRange[0]?.due_date?.split("T")[0] || "N/A",
+        };
+
+        // Apply filters
+        const { officer, branch, region, installmentsDue } = filters;
+
+        if (officer && row.officer !== officer) return null;
+        if (branch && row.branch !== branch) return null;
+        if (region && row.region !== region) return null;
+        if (installmentsDue && row.numDueInstallments !== Number(installmentsDue)) return null;
+        
+        // Safe string checking
+        if (query) {
+          const customerNameMatch = String(row.customerName || "").toLowerCase().includes(query);
+          const mobileMatch = String(row.mobile || "").includes(query);
+          const idNumberMatch = String(row.idNumber || "").includes(query);
+          
+          if (!customerNameMatch && !mobileMatch && !idNumberMatch) {
+            return null;
           }
         }
 
-        setLoading(true);
+        return row;
+      })
+      .filter(Boolean);
+  }, [rawLoans, filters, regions, searchQuery]);
 
-        const { data, error } = await supabase
-          .from("loans")
-          .select(`
-            id,
-            scored_amount,
-            total_payable,
-            product_name,
-            product_type,
-            disbursed_at,
-            branch_id,
-            tenant_id,
-            branch:branch_id(name, region_id),
-            customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
-            loan_officer:booked_by(full_name),
-            installments:loan_installments(
-              due_date,
-              due_amount,
-              paid_amount,
-              status,
-              principal_amount,
-              interest_amount,
-              principal_due,
-              interest_due
-            )
-          `)
-          .eq("tenant_id", tenant.id)
-          .eq("status", "disbursed");
-
-        if (error) throw error;
-
-        // Create a region map for easy lookups
-        const regionMap = regions.reduce((acc, r) => {
-          acc[r.id] = r.name;
-          return acc;
-        }, {});
-
-        const processed = data
-          .map((loan) => {
-            const branch = loan.branch?.name || "N/A";
-            const regionId = loan.branch?.region_id;
-            const region = regionId ? regionMap[regionId] || "N/A" : "N/A";
-            const officer = loan.loan_officer?.full_name || "N/A";
-            const cust = loan.customer || {};
-            const fullName = [cust.Firstname, cust.Middlename, cust.Surname].filter(Boolean).join(" ");
-
-            // Filter installments within date range
-            const dueInRange = (loan.installments || []).filter((i) => {
-              const dueDate = i.due_date?.split("T")[0];
-              return (
-                dueDate >= startDate &&
-                dueDate <= endDate &&
-                ["pending", "partial"].includes(i.status)
-              );
-            });
-
-            if (dueInRange.length === 0) return null;
-
-            const totalDueInRange = dueInRange.reduce((sum, i) => sum + Number(i.due_amount || 0), 0);
-            const principalDue = dueInRange.reduce((sum, i) => sum + Number(i.principal_due || i.principal_amount || 0), 0);
-            const interestDue = dueInRange.reduce((sum, i) => sum + Number(i.interest_due || i.interest_amount || 0), 0);
-            const numDueInstallments = dueInRange.length;
-            const totalPaid = (loan.installments || []).reduce((sum, i) => sum + Number(i.paid_amount || 0), 0);
-            const unpaidAmount = (loan.total_payable || 0) - totalPaid;
-
-            return {
-              branch,
-              region,
-              officer,
-              loanId: loan.id,
-              customerName: fullName || "N/A",
-              mobile: cust.mobile || "N/A",
-              idNumber: cust.id_number || "N/A",
-              productName: loan.product_name || "N/A",
-              productType: loan.product_type || "N/A",
-              numDueInstallments,
-              disbursedAmount: loan.scored_amount || 0,
-              principalDue,
-              interestDue,
-              totalDue: totalDueInRange,
-              totalPaid,
-              amountUnpaid: unpaidAmount,
-              disbursementDate: loan.disbursed_at?.split("T")[0] || "N/A",
-              expectedDueDate: dueInRange[0]?.due_date?.split("T")[0] || "N/A",
-            };
-          })
-          .filter(Boolean);
-
-        setDueLoans(processed);
-
-        // Save to cache
-        localStorage.setItem(cacheKey, JSON.stringify({
-          data: processed,
-          timestamp: Date.now()
-        }));
-
-        // Populate filter dropdowns
-        const uniqueOfficers = [...new Set(processed.map((l) => l.officer))];
-        setOfficers(uniqueOfficers);
-      } catch (err) {
-        console.error("Error fetching due loans:", err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchDueLoans();
-  }, [filters.dateRange, filters.customStartDate, filters.customEndDate, regions]);
-
-   const formatCurrency = useCallback((num) =>
-    new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(num || 0), []);
-
-
-
-
-  const filteredData = useMemo(() => {
-    return dueLoans.filter((l) => {
-      const { officer, branch, region, search, installmentsDue } = filters;
-      const query = search.toLowerCase();
-      return (
-        (!officer || l.officer === officer) &&
-        (!branch || l.branch === branch) &&
-        (!region || l.region === region) &&
-        (!search ||
-          l.customerName.toLowerCase().includes(query) ||
-          l.mobile.includes(query) ||
-          l.idNumber.includes(query)) &&
-        (!installmentsDue || l.numDueInstallments === Number(installmentsDue))
-      );
-    });
-  }, [dueLoans, filters]);
-
-
-  // // Group by branch, then by officer
-  // const grouped = useMemo(() => {
-  //   return filteredData.reduce((acc, loan) => {
-  //     if (!acc[loan.branch]) {
-  //       acc[loan.branch] = {
-  //         branch: loan.branch,
-  //         totalDue: 0,
-  //         totalPaid: 0,
-  //         totalUnpaid: 0,
-  //         count: 0,
-  //         officers: {},
-  //       };
-  //     }
-
-  //     if (!acc[loan.branch].officers[loan.officer]) {
-  //       acc[loan.branch].officers[loan.officer] = {
-  //         officer: loan.officer,
-  //         loans: [],
-  //       };
-  //     }
-
-  //     acc[loan.branch].totalDue += loan.totalDue;
-  //     acc[loan.branch].totalPaid += loan.totalPaid;
-  //     acc[loan.branch].totalUnpaid += loan.amountUnpaid;
-  //     acc[loan.branch].count += 1;
-  //     acc[loan.branch].officers[loan.officer].loans.push(loan);
-
-  //     return acc;
-  //   }, {});
-  // }, [filteredData]);
+  // Update officers list
+  useEffect(() => {
+    const uniqueOfficers = [...new Set(filteredData.map((l) => l.officer))];
+    setOfficers(uniqueOfficers);
+  }, [filteredData]);
 
   const getDateRangeLabel = () => {
     switch (filters.dateRange) {
-      case "today":
-        return "Today";
-      case "week":
-        return "This Week";
-      case "month":
-        return "This Month";
-      case "quarter":
-        return "This Quarter";
-      case "year":
-        return "This Year";
-      case "custom":
-        return "Custom Range";
-      default:
-        return "Today";
+      case "today": return "Today";
+      case "week": return "This Week";
+      case "month": return "This Month";
+      case "quarter": return "This Quarter";
+      case "year": return "This Year";
+      case "custom": return "Custom Range";
+      default: return "Today";
     }
   };
 
-  const handleExport = () => {
-    switch (exportFormat) {
-      case "pdf":
-        exportToPDF();
-        break;
-      case "word":
-        exportToWord();
-        break;
-      case "excel":
-        exportToExcel();
-        break;
-      case "csv":
-      default:
-        exportToCSV();
-        break;
-    }
-  };
-
+  // Export functions (keeping same as before)
   const exportToPDF = () => {
     const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
     const companyName = tenant?.company_name || "Jasiri Capital";
-    const reportTitle = "Loan Due Report";
 
-    // Add Company Name and Title
     doc.setFontSize(22);
     doc.setTextColor(40, 40, 40);
     doc.text(companyName, 14, 20);
 
     doc.setFontSize(14);
     doc.setTextColor(100, 100, 100);
-    doc.text(reportTitle, 14, 30);
+    doc.text("Loan Due Report", 14, 30);
 
     doc.setFontSize(10);
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 38);
@@ -517,6 +710,16 @@ const LoanDueReport = () => {
     saveAs(blob, `${companySlug}_due_loans_${timestamp}.csv`);
   };
 
+  const handleExport = () => {
+    switch (exportFormat) {
+      case "pdf": exportToPDF(); break;
+      case "word": exportToWord(); break;
+      case "excel": exportToExcel(); break;
+      case "csv":
+      default: exportToCSV(); break;
+    }
+  };
+
   // Calculate grand totals
   const grandTotals = useMemo(() => {
     return filteredData.reduce(
@@ -539,22 +742,65 @@ const LoanDueReport = () => {
     );
   }, [filteredData]);
 
-  // Pagination calculations
-  const { totalRows, totalPages } = useMemo(() => {
+  // Pagination
+  const { totalRows, totalPages, currentData } = useMemo(() => {
     const total = filteredData.length;
-    return {
-      totalRows: total,
-      totalPages: Math.ceil(total / itemsPerPage),
-    };
-  }, [filteredData, itemsPerPage]);
-
-  // Get current page data
-  const currentData = useMemo(() => {
+    const totalPages = Math.ceil(total / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredData.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredData, currentPage, itemsPerPage]);
+    const currentData = filteredData.slice(startIndex, startIndex + itemsPerPage);
+    
+    return { totalRows: total, totalPages, currentData };
+  }, [filteredData, currentPage]);
 
+  const handleSearchChange = (val) => {
+    setSearchQuery(val);
+    setCurrentPage(1);
+  };
 
+  const handleResetFilters = () => {
+    setFilters({
+      region: "",
+      branch: "",
+      officer: "",
+      dateRange: "today",
+      customStartDate: "",
+      customEndDate: "",
+      installmentsDue: "",
+    });
+    setSearchQuery("");
+    setCurrentPage(1);
+  };
+
+  // ✅ Show loading state with custom Spinner
+  if (loading && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading Loan Due Report..." />
+      </div>
+    );
+  }
+
+  // ✅ Show error state with retry option
+  if (error && rawLoans.length === 0) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="text-center">
+          <div className="text-red-600 mb-4">
+            <X className="w-16 h-16 mx-auto mb-2" />
+            <p className="text-lg font-semibold">Failed to load report</p>
+            <p className="text-sm text-gray-600 mt-2">{error}</p>
+          </div>
+          <button
+            onClick={handleManualRefresh}
+            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-2 mx-auto"
+          >
+            <RefreshCw className="w-4 h-4" />
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-brand-surface p-6">
@@ -586,16 +832,11 @@ const LoanDueReport = () => {
                 <p className="font-medium text-white">{new Date().toLocaleString()}</p>
               </div>
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                  <input
-                    type="text"
-                    value={filters.search}
-                    onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
-                    placeholder="Search name, ID, or phone"
-                    className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64"
-                  />
-                </div>
+                <SearchBox
+                  value={searchQuery}
+                  onChange={handleSearchChange}
+                />
+              
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
@@ -607,6 +848,8 @@ const LoanDueReport = () => {
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
                 </button>
+
+              
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select
@@ -635,26 +878,17 @@ const LoanDueReport = () => {
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-gray-900 flex items-center gap-2">
                 <Filter className="w-4 h-4 text-brand-primary" />
                 Report Filters
               </h3>
               <button
-                onClick={() => setFilters({
-                  region: "",
-                  branch: "",
-                  officer: "",
-                  search: "",
-                  dateRange: "today",
-                  customStartDate: "",
-                  customEndDate: "",
-                  installmentsDue: "",
-                })}
+                onClick={handleResetFilters}
                 className="text-sm font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
               >
-                <Printer className="w-4 h-4" />
+                <X className="w-4 h-4" />
                 Reset All Filters
               </button>
             </div>
@@ -792,12 +1026,12 @@ const LoanDueReport = () => {
             <table className="min-w-full text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center w-12">No.</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Branch Name</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Relationship Officer</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px]">Customer Details</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center whitespace-nowrap">Inst. Due</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Disbursed</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px] text-center w-12">No.</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Branch Name</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">RO</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Customer Details</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] text-center whitespace-nowrap">Inst. Due</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase  text-[11px] text-right whitespace-nowrap">Disbursed</th>
                   <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap font-bold">Total Due</th>
                   <th className="px-4 py-4 font-black text-accent uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Total Paid</th>
                   <th className="px-4 py-4 font-black text-orange-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Unpaid Balance</th>
@@ -807,47 +1041,33 @@ const LoanDueReport = () => {
               <tbody className="divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan="11" className="px-4 py-8 text-center text-gray-500 font-medium">
-                      Fetching report data...
+                    <td colSpan="10" className="px-4 py-8 text-center text-gray-500">
+                      <div className="flex justify-center">
+                        <RefreshCw className="w-5 h-5 animate-spin" />
+                      </div>
                     </td>
                   </tr>
                 ) : currentData.length === 0 ? (
                   <tr>
-                    <td colSpan="11" className="px-4 py-12 text-center text-gray-400 font-medium">
+                    <td colSpan="10" className="px-4 py-12 text-center text-gray-400 font-medium">
                       No matching records found
                     </td>
                   </tr>
                 ) : (
                   currentData.map((loan, idx) => (
-                    <tr key={loan.loanId} className="group hover:bg-slate-50/50 transition-colors">
-                      <td className="px-4 py-4 text-center text-slate-400 font-medium">{(currentPage - 1) * itemsPerPage + idx + 1}</td>
-                      <td className="px-4 py-4 font-bold text-slate-900">{loan.branch}</td>
-                      <td className="px-4 py-4 font-semibold text-slate-600">{loan.officer}</td>
-                      <td className="px-4 py-4">
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-900">{loan.customerName}</span>
-                          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
-                            {loan.idNumber} • {loan.mobile}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-4 text-center">
-                        <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200">
-                          {loan.numDueInstallments}
-                        </span>
-                      </td>
-                      <td className="px-4 py-4 text-right font-medium text-slate-900">{formatCurrency(loan.disbursedAmount)}</td>
-                      <td className="px-4 py-4 text-right font-black text-red-600 bg-red-50/30">{formatCurrency(loan.totalDue)}</td>
-                      <td className="px-4 py-4 text-right font-bold text-accent">{formatCurrency(loan.totalPaid)}</td>
-                      <td className="px-4 py-4 text-right font-black text-orange-600 bg-orange-50/30">{formatCurrency(loan.amountUnpaid)}</td>
-                      <td className="px-4 py-4 text-slate-600 font-medium">{loan.expectedDueDate}</td>
-                    </tr>
+                    <LoanTableRow
+                      key={loan.loanId}
+                      loan={loan}
+                      index={idx}
+                      currentPage={currentPage}
+                      itemsPerPage={itemsPerPage}
+                    />
                   ))
                 )}
               </tbody>
               <tfoot className="bg-gray-50/50">
                 <tr className="border-t-2 border-gray-200">
-                  <td colSpan="6" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
+                  <td colSpan="5" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
                   <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(grandTotals.disbursedAmount)}</td>
                   <td className="px-4 py-4 text-right font-bold text-red-600 whitespace-nowrap">{formatCurrency(grandTotals.totalDue)}</td>
                   <td className="px-4 py-4 text-right font-bold text-accent whitespace-nowrap">{formatCurrency(grandTotals.totalPaid)}</td>
@@ -905,4 +1125,4 @@ const LoanDueReport = () => {
   );
 };
 
-export default LoanDueReport; 
+export default LoanDueReport;
