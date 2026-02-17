@@ -59,7 +59,6 @@ const SearchBox = React.memo(({ value, onChange }) => {
 
 SearchBox.displayName = 'SearchBox';
 
-
 const LoanTableRow = React.memo(({ row, index }) => {
   return (
     <tr key={`${row.id}-${index}`} className="hover:bg-gray-50 transition-colors">
@@ -137,7 +136,6 @@ const DisbursementLoansReport = () => {
   });
 
   // Refs
-  const hasFetchedRef = useRef(false);
   const tenantIdRef = useRef(tenant?.id);
   const itemsPerPage = 10;
 
@@ -159,238 +157,175 @@ const DisbursementLoansReport = () => {
   }, [filters]);
 
   // ========== FETCH DATA – ONLY ONCE ==========
-  useEffect(() => {
-    let mounted = true;                     // ✅ track mount status
-    const tenantId = tenantIdRef.current;
+useEffect(() => {
+  if (!tenant?.id) {
+    setLoading(false);
+    return;
+  }
 
-    // Safety timeout: force loading false after 15 seconds
-    const safetyTimeout = setTimeout(() => {
-      if (mounted && loading) {
-        console.warn("⚠️ Safety timeout – forcing loading false");
-        setLoading(false);
-        setError("Request timed out. Please try again.");
-      }
-    }, 15000);
+  const controller = new AbortController();
+  const tenantId = tenant.id;
+  const cacheKey = `disbursement-raw-data-${tenantId}`;
 
-    // No tenant – cannot fetch
-    if (!tenantId) {
-      if (mounted) setLoading(false);
-      clearTimeout(safetyTimeout);
-      return;
-    }
+  const fetchDisbursedLoans = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-    // Already fetched – ensure loading is false
-    if (hasFetchedRef.current) {
-      if (mounted) setLoading(false);
-      clearTimeout(safetyTimeout);
-      return;
-    }
+      // 🔹 Try cache first (5 minutes)
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const isFresh = Date.now() - timestamp < 5 * 60 * 1000;
 
-    hasFetchedRef.current = true;
-
-    const fetchDisbursedLoans = async () => {
-      console.log("🔄 Starting data fetch for tenant:", tenantId);
-
-      try {
-        const cacheKey = `disbursement-raw-data-${tenantId}`;
-
-        // Try cache first
-        try {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            const cacheAge = Date.now() - timestamp;
-            if (cacheAge < 5 * 60 * 1000) {
-              console.log("✅ Using cached data");
-              if (mounted) {
-                setRawLoans(data || []);
-                setLoading(false);           // ✅ stop loading
-              }
-              clearTimeout(safetyTimeout);
-              return;
-            } else {
-              console.log("⏰ Cache expired, fetching fresh data");
-            }
-          }
-        } catch (e) {
-          console.error("Cache read error:", e);
-        }
-
-        // Start loading (already true, but ensure it's set)
-        if (mounted) setLoading(true);
-
-        console.log("🌐 Fetching loans from database...");
-
-        // Fetch with timeout
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Request timeout')), 30000)
-        );
-
-        const fetchPromise = supabase
-          .from("loans")
-          .select(`
-            id,
-            scored_amount,
-            total_interest,
-            total_payable,
-            product_name,
-            product_type,
-            disbursed_at,
-            repayment_state,
-            status,
-            branch:branch_id(name, region_id),
-            loan_officer:booked_by(full_name),
-            customer:customer_id(
-              id,
-              Firstname,
-              Middlename,
-              Surname,
-              mobile,
-              id_number,
-              business_name,
-              business_type
-            ),
-            installments:loan_installments(
-              due_date,
-              status,
-              loan_id
-            ),
-            mpesa:mpesa_b2c_transactions(
-              transaction_id,
-              loan_id,
-              status
-            )
-          `)
-          .eq("status", "disbursed")
-          .eq("tenant_id", tenantId)
-          .order("disbursed_at", { ascending: false });
-
-        const { data: loansData, error: loansError } = await Promise.race([
-          fetchPromise,
-          timeoutPromise
-        ]);
-
-        if (loansError) throw loansError;
-
-        console.log("✅ Loans fetched:", loansData?.length || 0);
-
-        if (!mounted) {
-          console.log("Component unmounted, aborting");
+        if (isFresh) {
+          setRawLoans(data || []);
+          setLoading(false);
           return;
         }
+      }
 
-        // Fetch regions
-        const regionIds = [...new Set(loansData.map(loan => loan.branch?.region_id).filter(Boolean))];
-        let regionMap = {};
+      // 🔹 Fetch loans
+      const { data: loansData, error: loansError } = await supabase
+        .from("loans")
+        .select(`
+          id,
+          scored_amount,
+          total_interest,
+          total_payable,
+          product_name,
+          product_type,
+          disbursed_at,
+          repayment_state,
+          status,
+          branch:branch_id(name, region_id),
+          loan_officer:booked_by(full_name),
+          customer:customer_id(
+            id,
+            Firstname,
+            Middlename,
+            Surname,
+            mobile,
+            id_number,
+            business_name,
+            business_type
+          ),
+          installments:loan_installments(
+            due_date,
+            status,
+            loan_id
+          ),
+          mpesa:mpesa_b2c_transactions(
+            transaction_id,
+            loan_id,
+            status
+          )
+        `)
+        .eq("status", "disbursed")
+        .eq("tenant_id", tenantId)
+        .order("disbursed_at", { ascending: false })
+        .abortSignal(controller.signal);
 
-        if (regionIds.length > 0) {
-          console.log("🌐 Fetching regions...");
-          const { data: regionsData, error: regionsError } = await supabase
-            .from('regions')
-            .select('id, name')
-            .in('id', regionIds)
-            .eq('tenant_id', tenantId);
+      if (loansError) throw loansError;
 
-          if (!regionsError && regionsData) {
-            regionMap = regionsData.reduce((acc, region) => {
-              acc[region.id] = region.name;
-              return acc;
-            }, {});
-            console.log("✅ Regions fetched:", Object.keys(regionMap).length);
-          }
+      // 🔹 Fetch regions
+      const regionIds = [
+        ...new Set(
+          loansData.map((loan) => loan.branch?.region_id).filter(Boolean)
+        ),
+      ];
+
+      let regionMap = {};
+
+      if (regionIds.length > 0) {
+        const { data: regionsData } = await supabase
+          .from("regions")
+          .select("id, name")
+          .in("id", regionIds)
+          .eq("tenant_id", tenantId)
+          .abortSignal(controller.signal);
+
+        if (regionsData) {
+          regionMap = regionsData.reduce((acc, r) => {
+            acc[r.id] = r.name;
+            return acc;
+          }, {});
         }
+      }
 
-        if (!mounted) return;
-
-        // Format data
-        console.log("🔄 Formatting data...");
-        const formatted = loansData.map((loan) => {
-          const customer = loan.customer || {};
-          const fullName = [customer.Firstname, customer.Middlename, customer.Surname]
+      // 🔹 Format data
+      const formatted = loansData.map((loan) => {
+        const customer = loan.customer || {};
+        const fullName =
+          [customer.Firstname, customer.Middlename, customer.Surname]
             .filter(Boolean)
             .join(" ") || "N/A";
 
-          const pendingInstallment = Array.isArray(loan.installments)
-            ? loan.installments.find((inst) => inst.status === "pending")
-            : null;
-          const nextPaymentDate = pendingInstallment?.due_date
+        const pendingInstallment = Array.isArray(loan.installments)
+          ? loan.installments.find((i) => i.status === "pending")
+          : null;
+
+        const mpesaTx =
+          Array.isArray(loan.mpesa) &&
+          loan.mpesa.find((tx) => tx.status === "success");
+
+        return {
+          id: loan.id,
+          branch: loan.branch?.name || "N/A",
+          region: regionMap[loan.branch?.region_id] || "N/A",
+          loanOfficer: loan.loan_officer?.full_name || "N/A",
+          customerName: fullName,
+          mobile: customer.mobile || "N/A",
+          idNumber: customer.id_number || "N/A",
+          mpesaReference: mpesaTx?.transaction_id || "N/A",
+          loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
+          appliedLoanAmount: loan.scored_amount ?? 0,
+          disbursedAmount: loan.total_payable ?? 0,
+          interestAmount: loan.total_interest || 0,
+          business_name: customer.business_name || "N/A",
+          business_type: customer.business_type || "N/A",
+          productName: loan.product_name || loan.product_type || "N/A",
+          product_type: loan.product_type || "N/A",
+          nextPaymentDate: pendingInstallment?.due_date
             ? new Date(pendingInstallment.due_date).toLocaleDateString()
-            : "N/A";
+            : "N/A",
+          disbursementDate: loan.disbursed_at
+            ? new Date(loan.disbursed_at).toLocaleDateString()
+            : "N/A",
+          rawDisbursementDate: loan.disbursed_at,
+          repaymentStatus: loan.repayment_state || "N/A",
+        };
+      });
 
-          const mpesaTx = Array.isArray(loan.mpesa) && loan.mpesa.length > 0
-            ? loan.mpesa.find((tx) => tx.status === "success")
-            : null;
-          const mpesaReference = mpesaTx?.transaction_id || "N/A";
+      // 🔹 Update state
+      setRawLoans(formatted);
+      setLoading(false);
 
-          const regionName = loan.branch?.region_id ? regionMap[loan.branch.region_id] || "N/A" : "N/A";
+      // 🔹 Cache result
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data: formatted,
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err) {
+      if (err.name === "AbortError") return;
 
-          return {
-            id: loan.id,
-            branch: loan.branch?.name || "N/A",
-            region: regionName,
-            loanOfficer: loan.loan_officer?.full_name || "N/A",
-            customerName: fullName,
-            mobile: customer.mobile || "N/A",
-            idNumber: customer.id_number || "N/A",
-            mpesaReference,
-            loanNumber: `LN${String(loan.id).padStart(5, "0")}`,
-            loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
-            appliedLoanAmount: loan.scored_amount ?? 0,
-            disbursedAmount: loan.total_payable ?? 0,
-            interestAmount: loan.total_interest || 0,
-            business_name: customer.business_name || "N/A",
-            business_type: customer.business_type || "N/A",
-            productName: loan.product_name || loan.product_type || "N/A",
-            product_type: loan.product_type || "N/A",
-            nextPaymentDate,
-            disbursementDate: loan.disbursed_at
-              ? new Date(loan.disbursed_at).toLocaleDateString()
-              : "N/A",
-            rawDisbursementDate: loan.disbursed_at,
-            repaymentStatus: loan.repayment_state || "N/A",
-          };
-        });
+      console.error("Fetch error:", err);
+      setError(err.message || "Failed to load data");
+      setLoading(false);
+    }
+  };
 
-        console.log("✅ Data formatted:", formatted.length, "loans");
+  fetchDisbursedLoans();
 
-        if (mounted) {
-          setRawLoans(formatted || []);
-          setLoading(false);                 // ✅ stop loading
-          setError(null);
+  return () => {
+    controller.abort();
+  };
+}, [tenant?.id]);
 
-          // Cache the results
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-              data: formatted || [],
-              timestamp: Date.now()
-            }));
-            console.log("✅ Data cached successfully");
-          } catch (e) {
-            console.error("Cache write error:", e);
-          }
-        }
-
-      } catch (err) {
-        console.error(" Error fetching disbursed loans:", err);
-        if (mounted) {
-          setError(err.message || "Failed to load data");
-          setLoading(false);                 // ✅ stop loading even on error
-          setRawLoans([]);
-        }
-      } finally {
-        clearTimeout(safetyTimeout);
-      }
-    };
-
-    fetchDisbursedLoans();
-
-    return () => {
-      mounted = false;
-      clearTimeout(safetyTimeout);
-    };
-  }, []); // ✅ empty dependency array – runs only once on mount
-
- // Manual refresh function
+  // Manual refresh function
   const handleManualRefresh = async () => {
     const tenantId = tenant?.id;
     if (!tenantId || loading) return;
@@ -789,7 +724,7 @@ const DisbursementLoansReport = () => {
     setCurrentPage(1);
   };
 
-  // Export functions
+  // Export functions (unchanged)
   const exportToPDF = () => {
     if (filteredData.length === 0) return alert("No data to export");
 
@@ -1075,7 +1010,7 @@ const DisbursementLoansReport = () => {
     }
   };
 
-  // ✅ Show loading state with custom Spinner
+  // ✅ Show loading state with custom Spinner (only once)
   if (loading && rawLoans.length === 0) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
@@ -1084,7 +1019,7 @@ const DisbursementLoansReport = () => {
     );
   }
 
-  // ✅ Show error state with retry option
+  // ✅ Show error state with retry option (only once)
   if (error && rawLoans.length === 0) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
@@ -1105,37 +1040,6 @@ const DisbursementLoansReport = () => {
       </div>
     );
   }
-  // At the bottom, the loading check now uses a single `loading` state
-  if (loading && rawLoans.length === 0) {
-    return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <Spinner text="Loading Disbursement Report..." />
-      </div>
-    );
-  }
-
-  // Error state 
-   if (error && rawLoans.length === 0) {
-    return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <div className="text-center">
-          <div className="text-red-600 mb-4">
-            <X className="w-16 h-16 mx-auto mb-2" />
-            <p className="text-lg font-semibold">Failed to load report</p>
-            <p className="text-sm text-gray-600 mt-2">{error}</p>
-          </div>
-          <button
-            onClick={handleManualRefresh}
-            className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary transition-colors flex items-center gap-2 mx-auto"
-          >
-            <RefreshCw className="w-4 h-4" />
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
 
   return (
     <div className="min-h-screen bg-brand-surface p-6">
@@ -1144,16 +1048,8 @@ const DisbursementLoansReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
               <div>
-                <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
-                <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Disbursed Loans Report
                 </h2>
@@ -1161,13 +1057,8 @@ const DisbursementLoansReport = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-gray-500 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
-              </div>
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={handleSearchChange} />
-              
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
@@ -1179,8 +1070,6 @@ const DisbursementLoansReport = () => {
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
                 </button>
-
-            
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select

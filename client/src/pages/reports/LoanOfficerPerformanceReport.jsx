@@ -707,16 +707,9 @@ const LoanOfficerPerformanceReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+            
               <div>
-                <h1 className="text-lg font-bold text-white uppercase">{tenant?.company_name || "Company Name"}</h1>
-                <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Officer Performance Report
                 </h2>
@@ -724,10 +717,7 @@ const LoanOfficerPerformanceReport = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-gray-500 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-gray-900">{new Date().toLocaleString()}</p>
-              </div>
+             
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
                 <button

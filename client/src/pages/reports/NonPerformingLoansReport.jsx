@@ -52,7 +52,7 @@ const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
   return (
     <th
       onClick={() => onSort(sortKey)}
-      className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest cursor-pointer hover:bg-slate-100/80 transition-all font-inter"
+      className="px-6 py-4 text-[11px] font-black text-slate-500 tracking-widest cursor-pointer hover:bg-slate-100/80 transition-all font-inter whitespace-nowrap"
     >
       <div className="flex items-center gap-2">
         {label}
@@ -89,9 +89,9 @@ const NPLTableRow = React.memo(({ row, index, startIdx, formatCurrency }) => {
       <td className="px-6 py-4 text-slate-400 font-medium">{startIdx + index + 1}</td>
       <td className="px-6 py-4 font-bold text-slate-900 group-hover:text-brand-primary transition-colors whitespace-nowrap">
         {row.customer_name}
-        <div className="text-[10px] text-slate-400 font-medium grayscale">
-          {row.customer_id}
-        </div>
+      </td>
+      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+        {row.customer_id}
       </td>
       <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
         {row.mobile}
@@ -315,9 +315,7 @@ const NonPerformingLoansReport = () => {
 
   // ========== Refs ==========
   const abortControllerRef = useRef(null);
-  const hasFetchedRef = useRef(false);
   const tenantIdRef = useRef(tenant?.id);
-  const lastFetchParamsRef = useRef({ tenantId: null });
 
   // ========== Debounced Save Filters ==========
   useEffect(() => {
@@ -614,13 +612,13 @@ useEffect(() => {
   const filteredData = useMemo(() => {
     let result = [...rawNPLs];
 
-    // Search filter
+    // Search filter - FIXED: Convert customer_id to string before calling toLowerCase()
     if (filters.search) {
       const q = filters.search.toLowerCase();
       result = result.filter(
         (r) =>
           r.customer_name.toLowerCase().includes(q) ||
-          r.customer_id.toLowerCase().includes(q) ||
+          String(r.customer_id).toLowerCase().includes(q) ||
           r.mobile.includes(q)
       );
     }
@@ -1068,24 +1066,12 @@ useEffect(() => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img
-                  src={tenant.logo_url}
-                  alt="Company Logo"
-                  className="h-16 w-auto object-contain"
-                />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+             
               <div>
-                <h1 className="text-2xl font-bold text-white">
+                <h1 className="text-sm font-bold text-stone-600">
                   {tenant?.company_name || "Company Name"}
                 </h1>
-                <p className="text-sm text-black font-medium">
-                  {tenant?.admin_email || "email@example.com"}
-                </p>
+               
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Non-Performing Loans Report
                 </h2>
@@ -1093,10 +1079,7 @@ useEffect(() => {
             </div>
 
             <div className="flex flex-col items-end gap-2 text-right">
-              <div className="text-sm text-gray-500">
-                <p>Generated on:</p>
-                <p className="font-medium text-gray-900">{getCurrentTimestamp()}</p>
-              </div>
+          
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox
                   value={filters.search}
@@ -1144,7 +1127,7 @@ useEffect(() => {
             <div className="mt-6 pt-6 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Date Range
                   </label>
                   <select
@@ -1163,7 +1146,7 @@ useEffect(() => {
                 {filters.dateFilter === "custom" && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                      <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                         Start Date
                       </label>
                       <input
@@ -1176,7 +1159,7 @@ useEffect(() => {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                      <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                         End Date
                       </label>
                       <input
@@ -1194,7 +1177,7 @@ useEffect(() => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Region
                   </label>
                   <select
@@ -1216,7 +1199,7 @@ useEffect(() => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Branch
                   </label>
                   <select
@@ -1237,7 +1220,7 @@ useEffect(() => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Officer
                   </label>
                   <select
@@ -1257,7 +1240,7 @@ useEffect(() => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Product
                   </label>
                   <select
@@ -1275,7 +1258,7 @@ useEffect(() => {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
                     Status
                   </label>
                   <select
@@ -1377,16 +1360,22 @@ useEffect(() => {
             </div>
           ) : (
             <>
-              <div className="overflow-x-auto min-h-[400px]">
+              <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-6 py-4 text-[11px] font-black text-slate-500 uppercase tracking-widest w-16">
+                      <th className="px-6 py-4 text-[11px] font-black text-slate-500 tracking-widest whitespace-nowrap w-16">
                         #
                       </th>
                       <SortableHeader
                         label="Customer"
                         sortKey="customer_name"
+                        sortConfig={sortConfig}
+                        onSort={handleSort}
+                      />
+                      <SortableHeader
+                        label="ID Number"
+                        sortKey="customer_id"
                         sortConfig={sortConfig}
                         onSort={handleSort}
                       />

@@ -195,7 +195,7 @@ const OutstandingLoanBalanceReport = () => {
           customEndDate: parsed.customEndDate || "",
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       region: "",
@@ -256,7 +256,7 @@ const OutstandingLoanBalanceReport = () => {
   // ========== FIXED: Fetch All Data (ONCE with Caching) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
-    
+
     // Early return if no tenant or already fetched
     if (!tenantId || hasFetchedRef.current) {
       console.log("⏭️ Skipping fetch - tenantId:", tenantId, "hasFetched:", hasFetchedRef.current);
@@ -269,7 +269,7 @@ const OutstandingLoanBalanceReport = () => {
 
     const fetchAllData = async () => {
       console.log("🔄 Starting outstanding loans data fetch for tenant:", tenantId);
-      
+
       try {
         const cacheKey = `outstanding-balance-raw-data-${tenantId}`;
 
@@ -279,7 +279,7 @@ const OutstandingLoanBalanceReport = () => {
           if (cached) {
             const { data, timestamp } = JSON.parse(cached);
             const cacheAge = Date.now() - timestamp;
-            
+
             if (cacheAge < 24 * 60 * 60 * 1000) { // 24 hours cache
               console.log("✅ Using cached outstanding loans data");
               if (isMountedRef.current) {
@@ -307,7 +307,7 @@ const OutstandingLoanBalanceReport = () => {
         console.log("🌐 Fetching all tables from database...");
 
         // Fetch with timeout
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 45000)
         );
 
@@ -346,7 +346,7 @@ const OutstandingLoanBalanceReport = () => {
         ]);
 
         const results = await Promise.race([fetchPromise, timeoutPromise]);
-        
+
         const [
           loansRes,
           installmentsRes,
@@ -450,9 +450,9 @@ const OutstandingLoanBalanceReport = () => {
             loan_end_date:
               loan.duration_weeks && loan.disbursed_at
                 ? new Date(
-                    new Date(loan.disbursed_at).getTime() +
-                      loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
-                  ).toLocaleDateString()
+                  new Date(loan.disbursed_at).getTime() +
+                  loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
+                ).toLocaleDateString()
                 : "N/A",
             repayment_state: loan.repayment_state,
             status: loan.status,
@@ -652,9 +652,9 @@ const OutstandingLoanBalanceReport = () => {
           loan_end_date:
             loan.duration_weeks && loan.disbursed_at
               ? new Date(
-                  new Date(loan.disbursed_at).getTime() +
-                    loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
-                ).toLocaleDateString()
+                new Date(loan.disbursed_at).getTime() +
+                loan.duration_weeks * 7 * 24 * 60 * 60 * 1000
+              ).toLocaleDateString()
               : "N/A",
           repayment_state: loan.repayment_state,
           status: loan.status,
@@ -769,8 +769,8 @@ const OutstandingLoanBalanceReport = () => {
       result = result.filter(
         (r) =>
           r.customer_name.toLowerCase().includes(q) ||
-          r.mobile.includes(q) ||
-          r.customer_id.includes(q)
+          String(r.mobile).includes(q) ||
+          String(r.customer_id).includes(q)
       );
     }
 
@@ -1137,22 +1137,13 @@ const OutstandingLoanBalanceReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img
-                  src={tenant.logo_url}
-                  alt="Company Logo"
-                  className="h-12 w-auto object-contain"
-                />
-              ) : (
-                <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-lg">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+
+
               <div>
-                <h1 className="text-xl font-bold text-white leading-tight">
-                  {tenant?.company_name || "Jasiri Capital"}
+                <h1 className="text-sm font-bold text-stone-700 leading-tight">
+                  {tenant?.company_name || "Jasiri "}
                 </h1>
-                <h2 className="text-sm font-semibold text-white/90">OLB Report</h2>
+                <h2 className="text-lg font-semibold text-white/90">OLB Report</h2>
               </div>
             </div>
 
@@ -1162,22 +1153,13 @@ const OutstandingLoanBalanceReport = () => {
                 value={filters.search}
                 onChange={(val) => handleFilterChange("search", val)}
               />
-              <button
-                onClick={handleManualRefresh}
-                disabled={loading}
-                className="px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white disabled:opacity-50 disabled:cursor-not-allowed"
-                title="Refresh Data"
-              >
-                <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-                <span>Refresh</span>
-              </button>
+
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                  showFilters
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
                     ? "bg-accent text-white border-transparent"
                     : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span>Filters</span>
@@ -1568,11 +1550,10 @@ const OutstandingLoanBalanceReport = () => {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${
-                              currentPage === pageNum
+                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
                                 ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
                                 : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
-                            }`}
+                              }`}
                           >
                             {pageNum}
                           </button>

@@ -42,14 +42,18 @@ const LoanTableRow = React.memo(({ loan, index, currentPage, itemsPerPage }) => 
       </td>
       <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">{loan.branch}</td>
       <td className="px-4 py-4 font-semibold text-slate-600 whitespace-nowrap">{loan.officer}</td>
-      <td className="px-4 py-4 whitespace-nowrap">
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-900 whitespace-nowrap">{loan.customerName}</span>
-          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap">
-            {loan.idNumber} • {loan.mobile}
-          </span>
-        </div>
-      </td>
+   <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
+  {loan.customerName}
+</td>
+
+<td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+  {loan.idNumber}
+</td>
+
+<td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+  {loan.mobile}
+</td>
+
       <td className="px-4 py-4 text-center">
         <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200 whitespace-nowrap">
           {loan.numDueInstallments}
@@ -141,10 +145,7 @@ const LoanDueReport = () => {
     }
   });
 
-  // Refs
-  const hasFetchedLoansRef = useRef(false);
-  const hasFetchedMetadataRef = useRef(false);
-  const isMountedRef = useRef(true); // ✅ Track mount state
+ // ✅ Track mount state
   const itemsPerPage = 10;
 
   // Save filters to localStorage (debounced)
@@ -161,195 +162,130 @@ const LoanDueReport = () => {
   }, [filters]);
 
   // ✅ FIXED: Fetch branches and regions - ONLY ONCE with proper cleanup
-  useEffect(() => {
-    const tenantId = tenant?.id;
-    
-    // Early return if no tenant or already fetched
-    if (!tenantId || hasFetchedMetadataRef.current) {
-      console.log("⏭️ Skipping metadata fetch - tenantId:", tenantId, "hasFetched:", hasFetchedMetadataRef.current);
-      return;
+ useEffect(() => {
+  if (!tenant?.id) return;
+
+  const controller = new AbortController();
+  const tenantId = tenant.id;
+
+  const fetchMetadata = async () => {
+    try {
+      const { data: branchesData, error: branchesError } = await supabase
+        .from("branches")
+        .select("id, name, region_id")
+        .eq("tenant_id", tenantId)
+        .abortSignal(controller.signal);
+
+      if (branchesError) throw branchesError;
+
+      const { data: regionsData, error: regionsError } = await supabase
+        .from("regions")
+        .select("id, name")
+        .eq("tenant_id", tenantId)
+        .abortSignal(controller.signal);
+
+      if (regionsError) throw regionsError;
+
+      setBranches(branchesData || []);
+      setRegions(regionsData || []);
+    } catch (err) {
+      if (err.name === "AbortError") return;
+      console.error("Metadata fetch error:", err);
     }
+  };
 
-    // Mark as fetched IMMEDIATELY
-    hasFetchedMetadataRef.current = true;
-    isMountedRef.current = true;
-    
-    const fetchBranchesAndRegions = async () => {
-      console.log("🔄 Fetching branches and regions for tenant:", tenantId);
-      
-      try {
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Metadata fetch timeout')), 15000)
-        );
+  fetchMetadata();
 
-        const fetchPromise = Promise.all([
-          supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId),
-          supabase.from("regions").select("id, name").eq("tenant_id", tenantId)
-        ]);
+  return () => {
+    controller.abort();
+  };
+}, [tenant?.id]);
 
-        const [branchesRes, regionsRes] = await Promise.race([fetchPromise, timeoutPromise]);
-
-        if (!isMountedRef.current) {
-          console.log("🧹 Component unmounted during metadata fetch");
-          return;
-        }
-
-        if (!branchesRes.error && branchesRes.data) {
-          setBranches(branchesRes.data);
-          console.log("✅ Branches loaded:", branchesRes.data.length);
-        }
-        
-        if (!regionsRes.error && regionsRes.data) {
-          setRegions(regionsRes.data);
-          console.log("✅ Regions loaded:", regionsRes.data.length);
-        }
-      } catch (error) {
-        console.error("❌ Error fetching branches/regions:", error);
-        if (isMountedRef.current) {
-          // Non-critical error - don't block the UI
-          console.warn("⚠️ Continuing without metadata");
-        }
-      }
-    };
-    
-    fetchBranchesAndRegions();
-    
-    return () => { 
-      isMountedRef.current = false; 
-    };
-  }, [tenant?.id]);
 
   // ✅ FIXED: Fetch loans data - ONLY ONCE with proper cleanup and error handling
-  useEffect(() => {
-    const tenantId = tenant?.id;
-    
-    // Early return if no tenant or already fetched
-    if (!tenantId || hasFetchedLoansRef.current) {
-      console.log("⏭️ Skipping loans fetch - tenantId:", tenantId, "hasFetched:", hasFetchedLoansRef.current);
-      return;
-    }
+useEffect(() => {
+  if (!tenant?.id) return;
 
-    // Mark as fetched IMMEDIATELY to prevent duplicate calls
-    hasFetchedLoansRef.current = true;
-    isMountedRef.current = true;
+  const controller = new AbortController();
+  const tenantId = tenant.id;
 
-    const fetchLoans = async () => {
-      console.log("🔄 Starting loans fetch for tenant:", tenantId);
-      
-      try {
-        const cacheKey = `loan-due-raw-data-${tenantId}`;
+  const fetchLoans = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Try cache first
-        try {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            const cacheAge = Date.now() - timestamp;
-            
-            if (cacheAge < 4 * 60 * 60 * 1000) { // 4 hours cache
-              console.log("✅ Using cached loans data");
-              if (isMountedRef.current) {
-                setRawLoans(data || []);
-                setLoading(false);
-              }
-              return;
-            } else {
-              console.log("⏰ Cache expired, fetching fresh data");
-            }
-          }
-        } catch (e) {
-          console.error("Cache read error:", e);
-        }
+      const cacheKey = `loan-due-raw-data-${tenantId}`;
 
-        // Set loading state
-        if (isMountedRef.current) {
-          setLoading(true);
-          setError(null);
-        }
+      // ✅ Check cache first (4 hours)
+      const cached = localStorage.getItem(cacheKey);
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached);
+        const isFresh = Date.now() - timestamp < 4 * 60 * 60 * 1000;
 
-        console.log("🌐 Fetching loans from database...");
-        
-        // Fetch with timeout
-        const timeoutPromise = new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Request timeout')), 30000)
-        );
-        
-        const fetchPromise = supabase
-          .from("loans")
-          .select(`
-            id,
-            scored_amount,
-            total_payable,
-            product_name,
-            product_type,
-            disbursed_at,
-            branch_id,
-            tenant_id,
-            status,
-            branch:branch_id(name, region_id),
-            customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
-            loan_officer:booked_by(full_name),
-            installments:loan_installments(
-              due_date,
-              due_amount,
-              paid_amount,
-              status,
-              principal_amount,
-              interest_amount,
-              principal_due,
-              interest_due
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .eq("status", "disbursed");
-
-        const { data, error: fetchError } = await Promise.race([
-          fetchPromise,
-          timeoutPromise
-        ]);
-
-        if (fetchError) throw fetchError;
-
-        console.log("✅ Loans fetched:", data?.length || 0);
-
-        if (!isMountedRef.current) {
-          console.log("🧹 Component unmounted after fetch");
+        if (isFresh) {
+          setRawLoans(data || []);
+          setLoading(false);
           return;
         }
-
-        setRawLoans(data || []);
-        setLoading(false);
-        setError(null);
-        
-        // Cache the results
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify({ 
-            data: data || [], 
-            timestamp: Date.now() 
-          }));
-          console.log("✅ Data cached successfully");
-        } catch (e) {
-          console.error("Cache write error:", e);
-        }
-        
-      } catch (err) {
-        console.error("❌ Error fetching loans:", err);
-        if (isMountedRef.current) {
-          setError(err.message || "Failed to load loan data");
-          setLoading(false);
-          setRawLoans([]); // ✅ Set empty array on error
-        }
       }
-    };
 
-    fetchLoans();
+      const { data, error } = await supabase
+        .from("loans")
+        .select(`
+          id,
+          scored_amount,
+          total_payable,
+          product_name,
+          product_type,
+          disbursed_at,
+          branch_id,
+          tenant_id,
+          status,
+          branch:branch_id(name, region_id),
+          customer:customer_id(id, Firstname, Middlename, Surname, mobile, id_number),
+          loan_officer:booked_by(full_name),
+          installments:loan_installments(
+            due_date,
+            due_amount,
+            paid_amount,
+            status,
+            principal_amount,
+            interest_amount,
+            principal_due,
+            interest_due
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .eq("status", "disbursed")
+        .abortSignal(controller.signal);
 
-    // Cleanup function
-    return () => {
-      console.log("🧹 Cleanup: Component unmounting");
-      isMountedRef.current = false;
-    };
-  }, [tenant?.id]);
+      if (error) throw error;
+
+      setRawLoans(data || []);
+      setLoading(false);
+
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          data: data || [],
+          timestamp: Date.now(),
+        })
+      );
+    } catch (err) {
+      if (err.name === "AbortError") return;
+
+      console.error("Loans fetch error:", err);
+      setError(err.message || "Failed to load loans");
+      setLoading(false);
+    }
+  };
+
+  fetchLoans();
+
+  return () => {
+    controller.abort();
+  };
+}, [tenant?.id]);
 
   //  Manual refresh function
   const handleManualRefresh = async () => {
@@ -810,16 +746,9 @@ const LoanDueReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+          
               <div>
-                <h1 className="text-2xl font-bold text-white leading-tight">{tenant?.company_name || "Jasiri Capital"}</h1>
-                <p className="text-sm text-white/80 font-medium">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600 leading-tight">{tenant?.company_name || "Jasiri Capital"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Loan Due Report
                 </h2>
@@ -827,10 +756,7 @@ const LoanDueReport = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-white/70 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-white">{new Date().toLocaleString()}</p>
-              </div>
+            
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox
                   value={searchQuery}
@@ -1029,7 +955,9 @@ const LoanDueReport = () => {
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px] text-center w-12">No.</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Branch Name</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">RO</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Customer Details</th>
+  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Customer Name</th>
+    <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">ID Number</th>
+    <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Phone</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] text-center whitespace-nowrap">Inst. Due</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase  text-[11px] text-right whitespace-nowrap">Disbursed</th>
                   <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap font-bold">Total Due</th>
@@ -1067,7 +995,7 @@ const LoanDueReport = () => {
               </tbody>
               <tfoot className="bg-gray-50/50">
                 <tr className="border-t-2 border-gray-200">
-                  <td colSpan="5" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
+                  <td colSpan="7" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
                   <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(grandTotals.disbursedAmount)}</td>
                   <td className="px-4 py-4 text-right font-bold text-red-600 whitespace-nowrap">{formatCurrency(grandTotals.totalDue)}</td>
                   <td className="px-4 py-4 text-right font-bold text-accent whitespace-nowrap">{formatCurrency(grandTotals.totalPaid)}</td>

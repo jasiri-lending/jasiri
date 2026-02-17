@@ -646,48 +646,33 @@ const OutstandingLoanBalanceReportEOM = () => {
   const startIdx = (currentPage - 1) * itemsPerPage;
   const endIdx = startIdx + itemsPerPage;
 
-  // const totalOutstanding = allLoans.reduce((s, r) => s + (r.outstanding_balance || 0), 0);
-  // const totalPaid = allLoans.reduce((s, r) => s + (r.total_amount_paid || 0), 0);
-  // const totalArrears = allLoans.reduce((s, r) => s + (r.arrears_amount || 0), 0);
+  
 
   const cutoffDate = getCutoffDate();
 
   return (
     <div className="min-h-screen bg-brand-surface pb-12">
       {/* HEADER SECTION */}
-      <div className="bg-brand-secondary border-b border-gray-200 shadow-sm relative z-20">
+      <div className="bg-brand-secondary border-b border-gray-200 shadow-sm relative z-20 rounded-lg mx-4 mt-4">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <div className="w-14 h-14 bg-white p-2 rounded-xl shadow-md border border-gray-100 flex items-center justify-center overflow-hidden transition-transform hover:rotate-3">
-                  <img src={tenant.logo_url} alt="Logo" className="max-w-full max-h-full object-contain" />
-                </div>
-              ) : (
-                <div className="w-14 h-14 bg-brand-secondary rounded-xl flex items-center justify-center shadow-lg transition-transform hover:-rotate-3">
-                  <FileText className="w-7 h-7 text-white" />
-                </div>
-              )}
+            
+            
               <div>
-                <h1 className="text-lg font-black text-white tracking-tight flex items-center gap-2">
+                <h1 className="text-sm font-black text-stone-600 tracking-tight flex items-center gap-2">
                   {tenant?.company_name || "Jasiri"}
 
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-                  <p className="text-sm font-bold text-white">OLB at EOM</p>
-                  <div className="flex items-center gap-1.5 text-xs text-blue-100 font-medium bg-white/10 px-2 py-0.5 rounded-md border border-white/20">
-                    <Clock className="w-3.5 h-3.5" />
-                    <span>Snapshot: <span className="text-white font-bold">{cutoffDate.toLocaleDateString('en-GB')}</span></span>
-                  </div>
+                  <p className="text-lg font-bold text-white">OLB at EOM</p>
+                
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-1">
-              <div className="text-[10px] text-blue-100 uppercase tracking-wider font-bold text-right opacity-80">
-                <p>Generated on:</p>
-                <p className="text-sm font-bold text-white tracking-tight">{new Date().toLocaleString()}</p>
-              </div>
+           
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -987,9 +972,9 @@ const OutstandingLoanBalanceReportEOM = () => {
 
             <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
               <div className="text-sm text-gray-600">
-                Showing <span className="font-semibold">{startIdx + 1}</span> to{' '}
-                <span className="font-semibold">{Math.min(endIdx, allLoans.length)}</span> of{' '}
-                <span className="font-semibold">{allLoans.length}</span> loans
+                Showing <span className="font-normal">{startIdx + 1}</span> to{' '}
+                <span className="font-normal">{Math.min(endIdx, allLoans.length)}</span> of{' '}
+                <span className="font-normal">{allLoans.length}</span> loans
               </div>
 
               <button
@@ -1011,7 +996,7 @@ const OutstandingLoanBalanceReportEOM = () => {
                       {i > 0 && arr[i - 1] !== p - 1 && <span className="text-gray-400 px-1">...</span>}
                       <button
                         onClick={() => setCurrentPage(p)}
-                        className={`w-10 h-10 rounded-lg font-bold transition-all ${currentPage === p
+                        className={`w-7 h-7 rounded-lg font-normal transition-all ${currentPage === p
                           ? "bg-accent text-white shadow-lg scale-105"
                           : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-300"
                           }`}

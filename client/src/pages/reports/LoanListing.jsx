@@ -199,7 +199,7 @@ const LoanListing = () => {
           customEndDate: parsed.customEndDate || "",
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       region: "",
@@ -234,7 +234,7 @@ const LoanListing = () => {
   // ========== FIXED: Fetch Branches and Regions (ONCE) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
-    
+
     // Early return if no tenant or already fetched
     if (!tenantId || hasFetchedBranchesRef.current) {
       console.log("⏭️ Skipping branches fetch - tenantId:", tenantId, "hasFetched:", hasFetchedBranchesRef.current);
@@ -247,9 +247,9 @@ const LoanListing = () => {
 
     const fetchBranchesAndRegions = async () => {
       console.log("🔄 Fetching branches and regions for tenant:", tenantId);
-      
+
       try {
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Branches fetch timeout')), 15000)
         );
 
@@ -279,12 +279,12 @@ const LoanListing = () => {
           ...b,
           region: b.regions?.name || "N/A"
         }));
-        
+
         setBranches(flattened);
-        
+
         const uniqueRegions = [...new Set(flattened.map(b => b.region).filter(r => r && r !== "N/A"))];
         setRegions(uniqueRegions);
-        
+
         console.log("✅ Branches loaded:", flattened.length);
         console.log("✅ Regions loaded:", uniqueRegions.length);
       } catch (err) {
@@ -295,15 +295,15 @@ const LoanListing = () => {
 
     fetchBranchesAndRegions();
 
-    return () => { 
-      isMountedRef.current = false; 
+    return () => {
+      isMountedRef.current = false;
     };
   }, [tenant?.id]);
 
   // ========== FIXED: Fetch All Loans (ONCE with Caching) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
-    
+
     // Early return if no tenant or already fetched
     if (!tenantId || hasFetchedLoansRef.current) {
       console.log("⏭️ Skipping loans fetch - tenantId:", tenantId, "hasFetched:", hasFetchedLoansRef.current);
@@ -316,7 +316,7 @@ const LoanListing = () => {
 
     const fetchAllLoans = async () => {
       console.log("🔄 Starting loans fetch for tenant:", tenantId);
-      
+
       try {
         const cacheKey = `loan-listing-raw-data-${tenantId}`;
 
@@ -326,7 +326,7 @@ const LoanListing = () => {
           if (cached) {
             const { data, timestamp } = JSON.parse(cached);
             const cacheAge = Date.now() - timestamp;
-            
+
             if (cacheAge < 24 * 60 * 60 * 1000) { // 24 hours cache
               console.log("✅ Using cached loan listings data");
               if (isMountedRef.current) {
@@ -355,7 +355,7 @@ const LoanListing = () => {
         console.log("🌐 Fetching loans from database...");
 
         // Fetch with timeout
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 45000)
         );
 
@@ -801,8 +801,8 @@ const LoanListing = () => {
       result = result.filter(
         (r) =>
           r.customer_name.toLowerCase().includes(q) ||
-          r.mobile.includes(q) ||
-          r.customer_id.includes(q)
+          String(r.mobile).includes(q) ||
+          String(r.customer_id).includes(q)
       );
     }
 
@@ -1071,9 +1071,8 @@ const LoanListing = () => {
       headStyles: { fillColor: [46, 94, 153], textColor: [255, 255, 255] },
     });
 
-    const fileName = `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
-      new Date().toISOString().split("T")[0]
-    }.pdf`;
+    const fileName = `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]
+      }.pdf`;
     doc.save(fileName);
   }, [filteredData, tenant, formatCurrency, formatDate, getCurrentTimestamp]);
 
@@ -1113,8 +1112,7 @@ const LoanListing = () => {
     XLSX.utils.book_append_sheet(wb, ws, "Loan Listing");
     XLSX.writeFile(
       wb,
-      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
-        new Date().toISOString().split("T")[0]
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]
       }.xlsx`
     );
   }, [filteredData, tenant, formatDate]);
@@ -1186,8 +1184,7 @@ const LoanListing = () => {
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
     saveAs(
       blob,
-      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
-        new Date().toISOString().split("T")[0]
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]
       }.csv`
     );
   }, [filteredData, tenant, formatDate]);
@@ -1281,8 +1278,7 @@ const LoanListing = () => {
     const companyName = tenant?.company_name || "Jasiri";
     saveAs(
       blob,
-      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${
-        new Date().toISOString().split("T")[0]
+      `${companyName.toLowerCase().replace(/ /g, "_")}_loans_${new Date().toISOString().split("T")[0]
       }.docx`
     );
   }, [filteredData, tenant, formatCurrency, getCurrentTimestamp]);
@@ -1366,19 +1362,11 @@ const LoanListing = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img
-                  src={tenant.logo_url}
-                  alt=" Logo"
-                  className="h-16 w-auto object-contain"
-                />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+
+
+
               <div>
-                <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Company Name"}</h1>
+                <h1 className="text-sm font-bold text-stone-600">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Complete Loan Listing Report
                 </h2>
@@ -1386,17 +1374,16 @@ const LoanListing = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-             
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
 
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-                    ${
-                      showFilters
-                        ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                        : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    ${showFilters
+                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
@@ -1408,7 +1395,7 @@ const LoanListing = () => {
                   )}
                 </button>
 
-              
+
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select
@@ -1584,13 +1571,13 @@ const LoanListing = () => {
               filters.status !== "all" ||
               filters.repaymentState !== "all" ||
               filters.dateFilter !== "all") && (
-              <button
-                onClick={clearFilters}
-                className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
-              >
-                <X className="w-4 h-4" /> Clear Filters
-              </button>
-            )}
+                <button
+                  onClick={clearFilters}
+                  className="text-red-600 text-sm font-medium flex items-center gap-1 mt-2 hover:text-red-700"
+                >
+                  <X className="w-4 h-4" /> Clear Filters
+                </button>
+              )}
           </div>
         )}
 
@@ -1646,13 +1633,13 @@ const LoanListing = () => {
                           filters.status !== "all" ||
                           filters.repaymentState !== "all" ||
                           filters.dateFilter !== "all") && (
-                          <button
-                            onClick={clearFilters}
-                            className="mt-2 text-xs text-blue-600 hover:text-blue-800"
-                          >
-                            Clear filters to see all loans
-                          </button>
-                        )}
+                            <button
+                              onClick={clearFilters}
+                              className="mt-2 text-xs text-blue-600 hover:text-blue-800"
+                            >
+                              Clear filters to see all loans
+                            </button>
+                          )}
                       </div>
                     </td>
                   </tr>

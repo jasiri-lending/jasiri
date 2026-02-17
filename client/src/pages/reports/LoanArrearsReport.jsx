@@ -47,59 +47,74 @@ const ArrearsTableRow = React.memo(({ row, index, currentPage, itemsPerPage }) =
   const badgeColor = overdueDays > 30
     ? "bg-red-100 text-red-700 border-red-200"
     : overdueDays > 7
-    ? "bg-orange-100 text-orange-700 border-orange-200"
-    : "bg-yellow-100 text-yellow-700 border-yellow-200";
-
+      ? "bg-orange-100 text-orange-700 border-orange-200"
+      : "bg-yellow-100 text-yellow-700 border-yellow-200";
   return (
-    <tr className="group hover:bg-slate-50/50 transition-colors">
+    <tr className="hover:bg-slate-50 transition-colors">
       <td className="px-4 py-4 text-center text-slate-400 font-medium whitespace-nowrap">
         {(currentPage - 1) * itemsPerPage + index + 1}
       </td>
-      <td className="px-4 py-4">
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-900 whitespace-nowrap">{row.customer_name}</span>
-          <span className="text-[11px] text-slate-400 font-medium whitespace-nowrap underline decoration-slate-200">
-            {row.id_number} • {row.phone}
-          </span>
-        </div>
+
+      <td className="px-4 py-4 font-bold text-slate-600 whitespace-nowrap">
+        {row.customer_name}
       </td>
-      <td className="px-4 py-4 whitespace-nowrap">
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-700">{row.branch_name}</span>
-          <span className="text-[11px] font-semibold text-accent uppercase tracking-wider">{row.loan_officer}</span>
-        </div>
+
+      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+        {row.id_number}
       </td>
-      <td className="px-4 py-4 whitespace-nowrap">
-        <div className="flex flex-col">
-          <span className="font-bold text-slate-800">{row.loan_product}</span>
-          <span className="text-[11px] text-slate-400">ID: {row.id}</span>
-        </div>
+
+      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+        {row.phone}
       </td>
-      <td className="px-4 py-4 text-right font-medium text-slate-500 whitespace-nowrap">
-        {formatKES(parseFloat(row.disbursed_amount))}
+
+      <td className="px-4 py-4 text-slate-600 font-semibold whitespace-nowrap">
+        {row.branch_name}
       </td>
-      <td className="px-4 py-4 text-right font-bold text-orange-600/80 whitespace-nowrap">
-        {formatKES(parseFloat(row.principal_due))}
+
+      <td className="px-4 py-4 text-accent font-semibold whitespace-nowrap">
+        {row.loan_officer}
       </td>
-      <td className="px-4 py-4 text-right font-bold text-blue-600/80 whitespace-nowrap">
-        {formatKES(parseFloat(row.interest_due))}
+
+      <td className="px-4 py-4 text-slate-600 font-medium whitespace-nowrap">
+        {row.loan_id}
       </td>
-      <td className="px-4 py-4 text-right font-black text-red-600 bg-red-50/20 whitespace-nowrap">
-        {formatKES(parseFloat(row.arrears_amount))}
+
+      <td className="px-4 py-4 text-slate-600 font-semibold whitespace-nowrap">
+        {row.loan_product}
       </td>
+
+      <td className="px-4 py-4 text-right text-slate-600 whitespace-nowrap">
+        {formatKES(row.disbursed_amount)}
+      </td>
+
+      <td className="px-4 py-4 text-right font-bold text-orange-600 whitespace-nowrap">
+        {formatKES(row.principal_due)}
+      </td>
+
+      <td className="px-4 py-4 text-right font-bold text-blue-600 whitespace-nowrap">
+        {formatKES(row.interest_due)}
+      </td>
+
+      <td className="px-4 py-4 text-right font-black text-red-600 whitespace-nowrap">
+        {formatKES(row.arrears_amount)}
+      </td>
+
       <td className="px-4 py-4 text-center whitespace-nowrap">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${badgeColor}`}>
-          {row.overdue_days} DAYS
+        <span className={`px-2 py-1 rounded text-xs font-bold border ${badgeColor}`}>
+          {row.overdue_days} Days
         </span>
       </td>
-      <td className="px-4 py-4 whitespace-nowrap">
-        <div className="flex flex-col items-start gap-1">
-          <span className="text-[10px] font-bold text-slate-400 uppercase">Ends: {row.loan_end_date}</span>
-          <span className="text-[10px] font-bold text-accent">Next: {row.next_payment}</span>
-        </div>
+
+      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+        {row.loan_end_date}
+      </td>
+
+      <td className="px-4 py-4 text-accent font-semibold whitespace-nowrap">
+        {row.next_payment}
       </td>
     </tr>
   );
+
 });
 ArrearsTableRow.displayName = "ArrearsTableRow";
 
@@ -313,7 +328,7 @@ const LoanArrearsReport = () => {
           maxDays: parsed.maxDays || "",
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       branch: "",
@@ -348,21 +363,21 @@ const LoanArrearsReport = () => {
 
   // ========== FIXED: Fetch Data (ONCE with caching) ==========
   useEffect(() => {
-     isMountedRef.current = true;
+    isMountedRef.current = true;
     const tenantId = tenant?.id;
-    
-  // Skip if no tenant or already fetched
-  if (!tenantId || hasFetchedRef.current) {
-    console.log("⏭️ Skipping arrears fetch - tenantId:", tenantId, "hasFetched:", hasFetchedRef.current);
-    return;
-  }
+
+    // Skip if no tenant or already fetched
+    if (!tenantId || hasFetchedRef.current) {
+      console.log("⏭️ Skipping arrears fetch - tenantId:", tenantId, "hasFetched:", hasFetchedRef.current);
+      return;
+    }
 
     // Mark as fetched IMMEDIATELY to prevent duplicate calls
     hasFetchedRef.current = true;
 
     const fetchData = async () => {
       console.log("🔄 Starting arrears data fetch for tenant:", tenantId);
-      
+
       try {
         const cacheKey = `loan-arrears-raw-data-${tenantId}`;
 
@@ -372,7 +387,7 @@ const LoanArrearsReport = () => {
           if (cached) {
             const { data, timestamp } = JSON.parse(cached);
             const cacheAge = Date.now() - timestamp;
-            
+
             if (cacheAge < 5 * 60 * 1000) { // 5 minutes cache
               console.log("✅ Using cached arrears data");
               if (isMountedRef.current) {
@@ -400,7 +415,7 @@ const LoanArrearsReport = () => {
         console.log("🌐 Fetching loans with installments from database...");
 
         // Fetch with timeout
-        const timeoutPromise = new Promise((_, reject) => 
+        const timeoutPromise = new Promise((_, reject) =>
           setTimeout(() => reject(new Error('Request timeout')), 30000)
         );
 
@@ -594,8 +609,8 @@ const LoanArrearsReport = () => {
     if (q) {
       result = result.filter(r =>
         r.customer_name.toLowerCase().includes(q) ||
-        (r.phone || "").includes(q) ||
-        (r.id_number || "").includes(q) ||
+        String(r.phone || "").includes(q) ||
+        String(r.id_number || "").includes(q) ||
         (r.loan_product || "").toLowerCase().includes(q) ||
         r.loan_id.toString().includes(q)
       );
@@ -792,16 +807,11 @@ const LoanArrearsReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+
+
+
               <div>
-                <h1 className="text-2xl font-bold text-white leading-tight">{tenant?.company_name || "Jasiri Capital"}</h1>
-                <p className="text-sm text-white/80 font-medium">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600 leading-tight">{tenant?.company_name || "Jasiri"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Loan Arrears Report
                 </h2>
@@ -809,24 +819,13 @@ const LoanArrearsReport = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-white/70 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-white">{getCurrentTimestamp()}</p>
-              </div>
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox
                   value={filters.search}
                   onChange={(val) => handleFilterChange("search", val)}
                 />
-                <button
-                  onClick={handleManualRefresh}
-                  disabled={loading}
-                  className="px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border text-white border-white/20 hover:bg-white/10 disabled:opacity-50 disabled:cursor-not-allowed"
-                  title="Refresh Data"
-                >
-                  <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-                  <span>Refresh</span>
-                </button>
+
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
@@ -979,18 +978,30 @@ const LoanArrearsReport = () => {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-50 border-b border-slate-200 shadow-sm">
                     <tr>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center w-12">No.</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-left">Customer Details</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-left">Branch / Officer</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-left">Loan Info</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-right">Disbursed</th>
-                      <th className="px-4 py-4 font-black text-orange-600 uppercase tracking-wider text-[11px] text-right">Principal Due</th>
-                      <th className="px-4 py-4 font-black text-blue-600 uppercase tracking-wider text-[11px] text-right">Interest Due</th>
-                      <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right">Arrears</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-center">Days</th>
-                      <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] text-left">Schedule</th>
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase w-12">No.</th>
+
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Customer Name</th>
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">ID Number</th>
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Phone</th>
+
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Branch</th>
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Loan Officer</th>
+
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Loan ID</th>
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Loan Product</th>
+
+                      <th className="px-4 py-4 text-right text-[11px] font-bold uppercase whitespace-nowrap">Disbursed</th>
+                      <th className="px-4 py-4 text-right text-[11px] font-bold text-orange-600 uppercase whitespace-nowrap">Principal Due</th>
+                      <th className="px-4 py-4 text-right text-[11px] font-bold text-blue-600 uppercase whitespace-nowrap">Interest Due</th>
+                      <th className="px-4 py-4 text-right text-[11px] font-bold text-red-600 uppercase whitespace-nowrap">Arrears</th>
+
+                      <th className="px-4 py-4 text-center text-[11px] font-bold uppercase whitespace-nowrap">Days</th>
+
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Loan End Date</th>
+                      <th className="px-4 py-4 text-left text-[11px] font-bold uppercase whitespace-nowrap">Next Payment</th>
                     </tr>
                   </thead>
+
                   <tbody className="divide-y divide-slate-100">
                     {pagination.currentData.map((row, idx) => (
                       <ArrearsTableRow

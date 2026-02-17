@@ -35,8 +35,8 @@ const CustomerTableRow = React.memo(({ customer, index, currentPage, itemsPerPag
     customer.approvalStatus.toLowerCase() === "approved"
       ? "bg-green-100 text-green-700"
       : customer.approvalStatus.toLowerCase() === "pending"
-      ? "bg-yellow-100 text-yellow-700"
-      : "bg-red-100 text-red-700";
+        ? "bg-yellow-100 text-yellow-700"
+        : "bg-red-100 text-red-700";
 
   return (
     <tr key={customer.id} className="hover:bg-gray-50/50 transition-colors">
@@ -138,7 +138,7 @@ const CustomerListing = () => {
         const parsed = JSON.parse(saved);
         return { ...parsed, search: "" }; // Don't persist search
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       region: "",
       branch: "",
@@ -173,10 +173,10 @@ const CustomerListing = () => {
     return () => clearTimeout(timeoutId);
   }, [filters]);
 
-  // Fetch branches and regions (only once)
+  // Fetch branches and regions
   useEffect(() => {
-    const tenantId = tenantIdRef.current;
-    if (!tenantId || branches.length > 0) return;
+    const tenantId = tenant?.id;
+    if (!tenantId) return;
 
     let mounted = true;
 
@@ -201,12 +201,12 @@ const CustomerListing = () => {
     return () => {
       mounted = false;
     };
-  }, []); // empty deps – runs once on mount
+  }, [tenant?.id]);
 
-  // ========== Fetch customers (only once, with safety timeout) ==========
+  // ========== Fetch customers (with safety timeout) ==========
   useEffect(() => {
     let mounted = true;
-    const tenantId = tenantIdRef.current;
+    const tenantId = tenant?.id;
 
     // Safety timeout: if fetch hangs, force loading false after 15 seconds
     const safetyTimeout = setTimeout(() => {
@@ -223,8 +223,9 @@ const CustomerListing = () => {
       return;
     }
 
-    // Already fetched – just ensure loading is false
-    if (hasFetchedRef.current) {
+    // Already fetched – skip if data already exists to avoid extra calls on re-mount if state is persisted elsewhere (though here it's local state)
+    // However, since we depend on tenant?.id, it will only rerun if tenant changes.
+    if (hasFetchedRef.current && rawCustomers.length > 0) {
       if (mounted) setLoading(false);
       clearTimeout(safetyTimeout);
       return;
@@ -318,7 +319,7 @@ const CustomerListing = () => {
       mounted = false;
       clearTimeout(safetyTimeout);
     };
-  }, []); // empty deps – runs only once on mount
+  }, [tenant?.id]); // depend on tenant?.id
 
   // ========== Filtering and Sorting ==========
   const filteredData = useMemo(() => {
@@ -661,35 +662,24 @@ const CustomerListing = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+
               <div>
-                <h1 className="text-lg font-bold text-white uppercase">{tenant?.company_name || "Company Name"}</h1>
-                <p className="text-sm text-black">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">Customer Listing Report</h2>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-2">
-              <div className="text-sm text-gray-500 text-right">
-                <p>Generated on:</p>
-                <p className="font-medium text-gray-900">{new Date().toLocaleString()}</p>
-              </div>
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={handleSearchChange} />
 
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                    showFilters
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
                       : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
-                  }`}
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
@@ -1007,11 +997,10 @@ const CustomerListing = () => {
                       <button
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
-                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all shadow-sm ${
-                          currentPage === pageNum
+                        className={`w-8 h-8 rounded-lg text-xs font-bold transition-all shadow-sm ${currentPage === pageNum
                             ? "bg-brand-primary text-white"
                             : "bg-white text-gray-600 border border-gray-200 hover:border-brand-primary hover:text-brand-primary"
-                        }`}
+                          }`}
                       >
                         {pageNum}
                       </button>

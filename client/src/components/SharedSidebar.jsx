@@ -126,14 +126,14 @@ const SharedSidebar = () => {
       dashboardChildren.push(
         { name: "Admin Dashboard", href: "/dashboard/admin", icon: Home },
         { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
-        { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
+        // { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
         { name: "General Analysis", href: "/dashboard/general-analysis", icon: PieChart },
         { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign }
       );
     } else {
       dashboardChildren.push(
         { name: "Main Dashboard", href: "/dashboard", icon: Home },
-        { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
+        // { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
         { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
 
         { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
@@ -408,10 +408,7 @@ const SharedSidebar = () => {
         icon: BarChart3,
         children: [
           { name: "All Reports", href: "/reports/all", icon: FileText },
-          { name: "Financial Reports", href: "/reports/financial", icon: DollarSign },
-          { name: "Performance Reports", href: "/reports/performance", icon: TrendingUp },
-          { name: "Audit Reports", href: "/reports/audit", icon: Eye },
-          { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
+                   { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
         ],
       },
     ];

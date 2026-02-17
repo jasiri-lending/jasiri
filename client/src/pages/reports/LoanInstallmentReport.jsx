@@ -704,26 +704,18 @@ const LoanInstallmentReport = () => {
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img src={tenant.logo_url} alt="Company Logo" className="h-16 w-auto object-contain" />
-              ) : (
-                <div className="h-16 w-16 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-xl">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+              
+             
+              
               <div>
-                <h1 className="text-2xl font-bold text-white">{tenant?.company_name || "Jasiri Capital"}</h1>
-                <p className="text-sm text-white/80">{tenant?.admin_email || "email@example.com"}</p>
+                <h1 className="text-sm font-bold text-stone-600">{tenant?.company_name || "Jasiri "}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Loan Installment Report
                 </h2>
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 text-white">
-              <div className="text-sm text-right text-white/70">
-                <p>Generated on:</p>
-                <p className="font-medium text-white">{new Date().toLocaleString()}</p>
-              </div>
+             
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />

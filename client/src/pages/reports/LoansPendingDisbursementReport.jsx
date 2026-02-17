@@ -148,7 +148,7 @@ const PendingDisbursementReport = () => {
           customEndDate: parsed.customEndDate || "",
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       region: "",
@@ -179,30 +179,30 @@ const PendingDisbursementReport = () => {
   }, [filters]);
 
   // ========== Fetch All Data (ONCE with Caching) ==========
-useEffect(() => {
-  const tenantId = tenant?.id;
+  useEffect(() => {
+    const tenantId = tenant?.id;
 
-  if (!tenantId) {
-    setIsInitialLoad(false);
-    return;
-  }
+    if (!tenantId) {
+      setIsInitialLoad(false);
+      return;
+    }
 
-  let mounted = true;
+    let mounted = true;
 
-  const fetchAllData = async () => {
-    try {
-      setLoading(true);
+    const fetchAllData = async () => {
+      try {
+        setLoading(true);
 
-      const [
-        loansRes,
-        customersRes,
-        usersRes,
-        branchesRes,
-        regionsRes,
-      ] = await Promise.all([
-        supabase
-          .from("loans")
-          .select(`
+        const [
+          loansRes,
+          customersRes,
+          usersRes,
+          branchesRes,
+          regionsRes,
+        ] = await Promise.all([
+          supabase
+            .from("loans")
+            .select(`
             id,
             customer_id,
             booked_by,
@@ -220,123 +220,122 @@ useEffect(() => {
             booked_at,
             status
           `)
-          .eq("status", "ca_review")
-          .eq("tenant_id", tenantId),
+            .eq("status", "ca_review")
+            .eq("tenant_id", tenantId),
 
-        supabase
-          .from("customers")
-          .select("id, Firstname, Middlename, Surname, id_number, mobile")
-          .eq("tenant_id", tenantId),
+          supabase
+            .from("customers")
+            .select("id, Firstname, Middlename, Surname, id_number, mobile")
+            .eq("tenant_id", tenantId),
 
-        supabase
-          .from("users")
-          .select("id, full_name, role")
-          .eq("tenant_id", tenantId)
-          .eq("role", "relationship_officer"),
+          supabase
+            .from("users")
+            .select("id, full_name, role")
+            .eq("tenant_id", tenantId)
+            .eq("role", "relationship_officer"),
 
-        supabase
-          .from("branches")
-          .select("id, name, region_id")
-          .eq("tenant_id", tenantId),
+          supabase
+            .from("branches")
+            .select("id, name, region_id")
+            .eq("tenant_id", tenantId),
 
-        supabase
-          .from("regions")
-          .select("id, name")
-          .eq("tenant_id", tenantId),
-      ]);
+          supabase
+            .from("regions")
+            .select("id, name")
+            .eq("tenant_id", tenantId),
+        ]);
 
-      if (
-        loansRes.error ||
-        customersRes.error ||
-        usersRes.error ||
-        branchesRes.error ||
-        regionsRes.error
-      ) {
-        throw (
+        if (
           loansRes.error ||
           customersRes.error ||
           usersRes.error ||
           branchesRes.error ||
           regionsRes.error
+        ) {
+          throw (
+            loansRes.error ||
+            customersRes.error ||
+            usersRes.error ||
+            branchesRes.error ||
+            regionsRes.error
+          );
+        }
+
+        if (!mounted) return;
+
+        const loans = loansRes.data || [];
+        const customers = customersRes.data || [];
+        const officers = usersRes.data || [];
+        const branchList = branchesRes.data || [];
+        const regionList = regionsRes.data || [];
+
+        // Create lookup maps
+        const customerMap = Object.fromEntries(
+          customers.map((c) => [c.id, c])
         );
+
+        const officerMap = Object.fromEntries(
+          officers.map((o) => [o.id, o])
+        );
+
+        const branchMap = Object.fromEntries(
+          branchList.map((b) => [b.id, b])
+        );
+
+        const regionMap = Object.fromEntries(
+          regionList.map((r) => [r.id, r])
+        );
+
+        const mapped = loans.map((loan) => {
+          const customer = customerMap[loan.customer_id] || {};
+          const officer = officerMap[loan.booked_by] || {};
+          const branch = branchMap[loan.branch_id] || {};
+          const region = regionMap[loan.region_id] || {};
+
+          const net =
+            (loan.scored_amount || 0) -
+            (loan.processing_fee || 0) -
+            (loan.registration_fee || 0);
+
+          return {
+            ...loan,
+            customer_name: `${customer.Firstname || ""} ${customer.Middlename || ""
+              } ${customer.Surname || ""}`.trim(),
+            customer_id_num: customer.id_number || "",
+            mobile: customer.mobile || "",
+            officer_name: officer.full_name || "N/A",
+            branch_name: branch.name || "N/A",
+            region_name: region.name || "N/A",
+            booked_at_date: loan.booked_at
+              ? new Date(loan.booked_at)
+              : null,
+            net_disbursement: net,
+          };
+        });
+
+        const products = [...new Set(mapped.map((m) => m.product_name))];
+
+        setRawReports(mapped);
+        setRegions(regionList);
+        setBranches(branchList);
+        setAllOfficers(officers);
+        setAllProducts(products);
+      } catch (err) {
+        console.error("Error fetching pending disbursements:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setIsInitialLoad(false);
+        }
       }
+    };
 
-      if (!mounted) return;
+    fetchAllData();
 
-      const loans = loansRes.data || [];
-      const customers = customersRes.data || [];
-      const officers = usersRes.data || [];
-      const branchList = branchesRes.data || [];
-      const regionList = regionsRes.data || [];
-
-      // Create lookup maps
-      const customerMap = Object.fromEntries(
-        customers.map((c) => [c.id, c])
-      );
-
-      const officerMap = Object.fromEntries(
-        officers.map((o) => [o.id, o])
-      );
-
-      const branchMap = Object.fromEntries(
-        branchList.map((b) => [b.id, b])
-      );
-
-      const regionMap = Object.fromEntries(
-        regionList.map((r) => [r.id, r])
-      );
-
-      const mapped = loans.map((loan) => {
-        const customer = customerMap[loan.customer_id] || {};
-        const officer = officerMap[loan.booked_by] || {};
-        const branch = branchMap[loan.branch_id] || {};
-        const region = regionMap[loan.region_id] || {};
-
-        const net =
-          (loan.scored_amount || 0) -
-          (loan.processing_fee || 0) -
-          (loan.registration_fee || 0);
-
-        return {
-          ...loan,
-          customer_name: `${customer.Firstname || ""} ${
-            customer.Middlename || ""
-          } ${customer.Surname || ""}`.trim(),
-          customer_id_num: customer.id_number || "",
-          mobile: customer.mobile || "",
-          officer_name: officer.full_name || "N/A",
-          branch_name: branch.name || "N/A",
-          region_name: region.name || "N/A",
-          booked_at_date: loan.booked_at
-            ? new Date(loan.booked_at)
-            : null,
-          net_disbursement: net,
-        };
-      });
-
-      const products = [...new Set(mapped.map((m) => m.product_name))];
-
-      setRawReports(mapped);
-      setRegions(regionList);
-      setBranches(branchList);
-      setAllOfficers(officers);
-      setAllProducts(products);
-    } catch (err) {
-      console.error("Error fetching pending disbursements:", err);
-    } finally {
-      if (mounted) {
-        setLoading(false);
-        setIsInitialLoad(false);
-      }
-    }
-  };
-
-  fetchAllData();
-
-  return () => {
-    mounted = false;
-  };
-}, [tenant?.id]);
+    return () => {
+      mounted = false;
+    };
+  }, [tenant?.id]);
 
 
 
@@ -401,8 +400,8 @@ useEffect(() => {
     if (filters.search) {
       result = result.filter((i) =>
         i.customer_name.toLowerCase().includes(q) ||
-        i.mobile.includes(q) ||
-        i.customer_id_num.includes(q)
+        String(i.mobile).includes(q) ||
+        String(i.customer_id_num).includes(q)
       );
     }
 
@@ -434,7 +433,7 @@ useEffect(() => {
         }
 
         if (sortConfig.key.includes('date') && aVal instanceof Date && bVal instanceof Date) {
-          return sortConfig.direction === "asc" 
+          return sortConfig.direction === "asc"
             ? aVal.getTime() - bVal.getTime()
             : bVal.getTime() - aVal.getTime();
         }
@@ -449,69 +448,69 @@ useEffect(() => {
   }, [rawReports, filters, sortConfig, getDateRange]);
 
   // ========== Grouped Data for Display ==========
-const displayData = useMemo(() => {
-  const grouped = {};
-  let branchCounter = 0;
+  const displayData = useMemo(() => {
+    const grouped = {};
+    let branchCounter = 0;
 
-  filteredData.forEach((item) => {
-    if (!grouped[item.branch_name]) {
-      grouped[item.branch_name] = {
-        officers: {},
-        total: 0,
-      };
-    }
+    filteredData.forEach((item) => {
+      if (!grouped[item.branch_name]) {
+        grouped[item.branch_name] = {
+          officers: {},
+          total: 0,
+        };
+      }
 
-    if (!grouped[item.branch_name].officers[item.officer_name]) {
-      grouped[item.branch_name].officers[item.officer_name] = {
-        loans: [],
-        total: 0,
-      };
-    }
+      if (!grouped[item.branch_name].officers[item.officer_name]) {
+        grouped[item.branch_name].officers[item.officer_name] = {
+          loans: [],
+          total: 0,
+        };
+      }
 
-    grouped[item.branch_name].officers[item.officer_name].loans.push(item);
-    grouped[item.branch_name].officers[item.officer_name].total +=
-      item.net_disbursement;
+      grouped[item.branch_name].officers[item.officer_name].loans.push(item);
+      grouped[item.branch_name].officers[item.officer_name].total +=
+        item.net_disbursement;
 
-    grouped[item.branch_name].total += item.net_disbursement;
-  });
-
-  const result = [];
-
-  Object.keys(grouped)
-    .sort()
-    .forEach((branchName) => {
-      branchCounter++;
-      const branchObj = grouped[branchName];
-      const branchLoansCount = Object.values(branchObj.officers).reduce(
-        (sum, o) => sum + o.loans.length,
-        0
-      );
-
-      Object.keys(branchObj.officers)
-        .sort()
-        .forEach((officerName) => {
-          const officerObj = branchObj.officers[officerName];
-          const officerLoansCount = officerObj.loans.length;
-
-          officerObj.loans.forEach((loan, index) => {
-            result.push({
-              ...loan,
-              branchNumber: branchCounter,
-              branchName: branchName,
-              officerName: officerName,
-              branchTotalAmount: branchObj.total,
-              roTotalAmount: officerObj.total,
-              isFirstInBranch: index === 0,
-              isFirstInOfficer: index === 0,
-              branchRowSpan: branchLoansCount,
-              officerRowSpan: officerLoansCount,
-            });
-          });
-        });
+      grouped[item.branch_name].total += item.net_disbursement;
     });
 
-  return result;
-}, [filteredData]);
+    const result = [];
+
+    Object.keys(grouped)
+      .sort()
+      .forEach((branchName) => {
+        branchCounter++;
+        const branchObj = grouped[branchName];
+        const branchLoansCount = Object.values(branchObj.officers).reduce(
+          (sum, o) => sum + o.loans.length,
+          0
+        );
+
+        Object.keys(branchObj.officers)
+          .sort()
+          .forEach((officerName) => {
+            const officerObj = branchObj.officers[officerName];
+            const officerLoansCount = officerObj.loans.length;
+
+            officerObj.loans.forEach((loan, index) => {
+              result.push({
+                ...loan,
+                branchNumber: branchCounter,
+                branchName: branchName,
+                officerName: officerName,
+                branchTotalAmount: branchObj.total,
+                roTotalAmount: officerObj.total,
+                isFirstInBranch: index === 0,
+                isFirstInOfficer: index === 0,
+                branchRowSpan: branchLoansCount,
+                officerRowSpan: officerLoansCount,
+              });
+            });
+          });
+      });
+
+    return result;
+  }, [filteredData]);
 
 
   // ========== Summary Statistics ==========
@@ -750,22 +749,12 @@ const displayData = useMemo(() => {
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              {tenant?.logo_url ? (
-                <img
-                  src={tenant.logo_url}
-                  alt="Company Logo"
-                  className="h-12 w-auto object-contain"
-                />
-              ) : (
-                <div className="h-12 w-12 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400 font-bold text-lg">
-                  {tenant?.company_name?.charAt(0) || "C"}
-                </div>
-              )}
+
               <div>
-                <h1 className="text-xl font-bold text-white leading-tight">
-                  {tenant?.company_name || "Jasiri Capital"}
+                <h1 className="text-sm font-bold text-stone-600 leading-tight">
+                  {tenant?.company_name || "Jasiri "}
                 </h1>
-                <h2 className="text-sm font-semibold text-white/90">
+                <h2 className="text-lg font-semibold text-white/90">
                   Pending Disbursement Report
                 </h2>
               </div>
@@ -777,14 +766,13 @@ const displayData = useMemo(() => {
                 value={filters.search}
                 onChange={(val) => handleFilterChange("search", val)}
               />
-           
+
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                  showFilters
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
                     ? "bg-accent text-white border-transparent"
                     : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-                }`}
+                  }`}
               >
                 <Filter className="w-4 h-4" />
                 <span>Filters</span>
@@ -1071,7 +1059,7 @@ const displayData = useMemo(() => {
                     {pagination.currentData.map((row, idx) => {
                       const isFirstInBranch = row.isFirstInBranch;
                       const isFirstInOfficer = row.isFirstInOfficer;
-                                           const branchRowSpan = displayData.filter(d => d.branchName === row.branchName).length;
+                      const branchRowSpan = displayData.filter(d => d.branchName === row.branchName).length;
                       const officerRowSpan = displayData.filter(d => d.branchName === row.branchName && d.officerName === row.officerName).length;
 
                       return (
@@ -1111,11 +1099,10 @@ const displayData = useMemo(() => {
                         <button
                           key={i}
                           onClick={() => setCurrentPage(i + 1)}
-                          className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${
-                            currentPage === i + 1
+                          className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${currentPage === i + 1
                               ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20 scale-110"
                               : "bg-white text-slate-400 hover:text-slate-600 border border-slate-100"
-                          }`}
+                            }`}
                         >
                           {i + 1}
                         </button>
