@@ -2,11 +2,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { exportToCSV } from '../../utils/exportUtils';
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 import { Loader2 } from 'lucide-react';
-// import { useAuth } from '../../hooks/userAuth.js';
+import { useAuth } from '../../hooks/userAuth.js';
 
 const PTPReports = () => {
-  // const () = useAuth();
+  const { profile } = useAuth();
   const [filters, setFilters] = useState({
     startDate: '',
     endDate: '',
@@ -14,7 +15,7 @@ const PTPReports = () => {
     officer: 'all',
     branch: 'all'
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -24,9 +25,11 @@ const PTPReports = () => {
   const itemsPerPage = 10;
 
   useEffect(() => {
-    loadStaticData();
-    generateReport();
-  }, []);
+    if (profile?.tenant_id) {
+      loadStaticData();
+      generateReport();
+    }
+  }, [profile]);
 
   const loadStaticData = async () => {
     try {
@@ -34,8 +37,9 @@ const PTPReports = () => {
       const { data: branchData, error: branchError } = await supabase
         .from('branches')
         .select('id, name')
+        .eq('tenant_id', profile?.tenant_id)
         .order('name');
-      
+
       if (branchError) throw branchError;
       setBranches(branchData || []);
 
@@ -43,8 +47,9 @@ const PTPReports = () => {
       const { data: officerData, error: officerError } = await supabase
         .from('users')
         .select('id, full_name')
+        .eq('tenant_id', profile?.tenant_id)
         .order('full_name');
-      
+
       if (officerError) throw officerError;
       setOfficers(officerData || []);
     } catch (error) {
@@ -83,7 +88,8 @@ const PTPReports = () => {
             id,
             full_name
           )
-        `);
+        `)
+        .eq('tenant_id', profile?.tenant_id);
 
       // Apply filters
       if (filters.startDate) {
@@ -110,10 +116,11 @@ const PTPReports = () => {
         const { data: branchCustomers, error: bcError } = await supabase
           .from('customers')
           .select('id')
-          .eq('branch_id', filters.branch);
-        
+          .eq('branch_id', filters.branch)
+          .eq('tenant_id', profile?.tenant_id);
+
         if (bcError) throw bcError;
-        
+
         const branchCustomerIds = branchCustomers.map(c => c.id);
         filteredPtps = filteredPtps.filter(ptp => branchCustomerIds.includes(ptp.customer_id));
       }
@@ -123,7 +130,7 @@ const PTPReports = () => {
       const keptPromises = filteredPtps.filter(ptp => ptp.status === 'kept').length;
       const brokenPromises = filteredPtps.filter(ptp => ptp.status === 'broken').length;
       const pendingPromises = filteredPtps.filter(ptp => ptp.status === 'pending').length;
-      
+
       const summary = {
         totalPromises,
         keptPromises,
@@ -138,7 +145,7 @@ const PTPReports = () => {
       // Transform data for display
       const transformedPtps = filteredPtps.map(ptp => ({
         id: ptp.id,
-        customer_name: ptp.customers 
+        customer_name: ptp.customers
           ? `${ptp.customers.Firstname} ${ptp.customers.Middlename || ''} ${ptp.customers.Surname}`.trim()
           : 'Unknown',
         customer_mobile: ptp.customers?.mobile || 'N/A',
@@ -181,7 +188,7 @@ const PTPReports = () => {
     try {
       const { error } = await supabase
         .from('promise_to_pay')
-        .update({ 
+        .update({
           status: newStatus,
           updated_at: new Date().toISOString()
         })
@@ -191,7 +198,7 @@ const PTPReports = () => {
 
       // Refresh report data
       generateReport();
-      
+
     } catch (error) {
       console.error('Error updating PTP status:', error);
       alert('Failed to update PTP status: ' + error.message);
@@ -200,7 +207,7 @@ const PTPReports = () => {
 
   const handleExport = () => {
     if (!reportData?.ptps) return;
-    
+
     const csvData = reportData.ptps.map(ptp => ({
       'PTP ID': ptp.id,
       'Customer Name': ptp.customer_name,
@@ -214,7 +221,7 @@ const PTPReports = () => {
       'Remarks': ptp.remarks,
       'Created Date': new Date(ptp.created_at).toLocaleDateString('en-GB')
     }));
-    
+
     exportToCSV(csvData, `ptp-reports-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -241,7 +248,7 @@ const PTPReports = () => {
       broken: { color: 'bg-red-100 text-red-800', label: 'Broken' },
       pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pending' }
     };
-    
+
     const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', label: status };
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.color}`}>
@@ -253,11 +260,11 @@ const PTPReports = () => {
   // Sort and paginate PTP data
   const sortedPtps = React.useMemo(() => {
     if (!reportData?.ptps) return [];
-    
+
     const sorted = [...reportData.ptps].sort((a, b) => {
       const aVal = a[sortConfig.key];
       const bVal = b[sortConfig.key];
-      
+
       if (aVal < bVal) {
         return sortConfig.direction === 'asc' ? -1 : 1;
       }
@@ -266,7 +273,7 @@ const PTPReports = () => {
       }
       return 0;
     });
-    
+
     return sorted;
   }, [reportData?.ptps, sortConfig]);
 
@@ -399,8 +406,8 @@ const PTPReports = () => {
       </div> */}
 
       {loading && !reportData ? (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-12 w-12 animate-spin text-blue-600" />
+        <div className="py-20">
+          <Spinner text="Generating promise to pay report..." />
         </div>
       ) : reportData && (
         <>
@@ -483,22 +490,22 @@ const PTPReports = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-sm  text-slate-600">Promise to Pay Details</h3>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Customer Name
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Mobile
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Loan ID
                     </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('promised_amount')}
                     >
                       Promised Amount
@@ -506,8 +513,8 @@ const PTPReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
+                    <th
+                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('promised_date')}
                     >
                       Promise Date
@@ -515,16 +522,16 @@ const PTPReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Status
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Officer
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Remarks
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Actions
                     </th>
                   </tr>

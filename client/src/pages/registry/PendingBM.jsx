@@ -22,7 +22,7 @@ import Spinner from "../../components/Spinner";
 const PendingBM = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  
+
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -31,23 +31,23 @@ const PendingBM = () => {
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   const hasFetchedData = useRef(false);
-  
+
   // Fetch pending customers with related data
   const fetchData = async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from("customers")
         .select(`
@@ -67,6 +67,7 @@ const PendingBM = () => {
             role
           )
         `)
+        .eq("tenant_id", profile?.tenant_id)
         .eq("status", "bm_review")
         .neq("form_status", "draft")
         .order("created_at", { ascending: false });
@@ -83,13 +84,8 @@ const PendingBM = () => {
         return;
       }
 
-      // Filter by tenant_id
-      const filteredByTenant = data?.filter(customer => {
-        return customer.users?.tenant_id === profile?.tenant_id;
-      }) || [];
-
       // Apply role-based filtering
-      let roleFilteredCustomers = filteredByTenant;
+      let roleFilteredCustomers = data || [];
 
       if (profile?.role === 'regional_manager' && profile.region_id) {
         roleFilteredCustomers = roleFilteredCustomers.filter(
@@ -116,7 +112,7 @@ const PendingBM = () => {
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
         setRegions(regionsResult.data || []);
-        
+
         const enrichedROs = (roResult.data || []).map(ro => {
           const roCustomer = roleFilteredCustomers.find(c => c.created_by === ro.id);
           return {
@@ -125,7 +121,7 @@ const PendingBM = () => {
             region_id: roCustomer?.region_id
           };
         });
-        
+
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
       } else if (profile?.role === 'regional_manager') {
@@ -142,7 +138,7 @@ const PendingBM = () => {
 
           setAllBranches(branchesResult.data || []);
           setBranches(branchesResult.data || []);
-          
+
           const enrichedROs = (roResult.data || []).map(ro => {
             const roCustomer = roleFilteredCustomers.find(c => c.created_by === ro.id);
             return {
@@ -151,7 +147,7 @@ const PendingBM = () => {
               region_id: roCustomer?.region_id
             };
           }).filter(ro => ro.region_id?.toString() === profile.region_id);
-          
+
           setAllRelationshipOfficers(enrichedROs);
           setRelationshipOfficers(enrichedROs);
         }
@@ -205,7 +201,7 @@ const PendingBM = () => {
     setSelectedRegion("");
     setSelectedRO("");
     setCurrentPage(1);
-    
+
     if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
       setBranches(allBranches);
       setRelationshipOfficers(allRelationshipOfficers);
@@ -220,13 +216,13 @@ const PendingBM = () => {
     setSelectedRegion(regionId);
     setSelectedBranch("");
     setSelectedRO("");
-    
+
     if (regionId) {
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
       );
@@ -241,7 +237,7 @@ const PendingBM = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO("");
-    
+
     if (branchId) {
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.branch_id?.toString() === branchId
@@ -301,40 +297,40 @@ const PendingBM = () => {
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       for (let i = 1; i <= totalPages; i++) {
         pageNumbers.push(i);
       }
     } else {
       pageNumbers.push(1);
-      
+
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
+
       if (currentPage <= 2) {
         endPage = 4;
       }
-      
+
       if (currentPage >= totalPages - 1) {
         startPage = totalPages - 3;
       }
-      
+
       if (startPage > 2) {
         pageNumbers.push('...');
       }
-      
+
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i);
       }
-      
+
       if (endPage < totalPages - 1) {
         pageNumbers.push('...');
       }
-      
+
       pageNumbers.push(totalPages);
     }
-    
+
     return pageNumbers;
   };
 
@@ -388,7 +384,7 @@ const PendingBM = () => {
             Registry / Pending BM Review
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{filteredCustomers.length}</span> pending customers
         </div>
       </div>
@@ -615,10 +611,10 @@ const PendingBM = () => {
               {currentCustomers.map((customer, index) => {
                 const fullName = getFullName(customer);
                 const statusColor = getStatusColor();
-                
+
                 return (
-                  <tr 
-                    key={customer.id} 
+                  <tr
+                    key={customer.id}
                     className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                   >
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
@@ -631,8 +627,8 @@ const PendingBM = () => {
                       {customer.id_number || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                      {customer.prequalifiedAmount ? 
-                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                      {customer.prequalifiedAmount ?
+                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
@@ -647,9 +643,9 @@ const PendingBM = () => {
                       {customer.regions?.name || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
+                      <span
                         className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                        style={{ 
+                        style={{
                           backgroundColor: statusColor,
                           color: 'white'
                         }}
@@ -666,11 +662,11 @@ const PendingBM = () => {
                         >
                           <EyeIcon className="h-4 w-4" />
                         </button>
-                        
+
                         {(profile?.role === 'branch_manager') && (
                           <button
                             onClick={() => handleVerify(customer.id)}
-                            className="px-3 py-1.5 text-xs  text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow" style={{backgroundColor:"#586ab1"}}
+                            className="px-3 py-1.5 text-xs  text-white rounded-lg transition-all duration-200 shadow-sm hover:shadow" style={{ backgroundColor: "#586ab1" }}
                           >
                             Verify
                           </button>
@@ -692,7 +688,7 @@ const PendingBM = () => {
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending customers found</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion || selectedRO 
+              {searchTerm || selectedBranch || selectedRegion || selectedRO
                 ? "Try adjusting your search or filters"
                 : "No customers pending BM review"}
             </p>
@@ -722,7 +718,7 @@ const PendingBM = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -732,7 +728,7 @@ const PendingBM = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -744,18 +740,17 @@ const PendingBM = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
                               ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                               : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -765,7 +760,7 @@ const PendingBM = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

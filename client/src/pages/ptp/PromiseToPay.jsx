@@ -93,13 +93,13 @@ const PromiseToPayList = ({ loanId }) => {
           <table className="min-w-full text-sm">
             <thead className="bg-gray-50">
               <tr>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Date</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Amount</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Customer ID</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Officer ID</th>
-                <th className="px-4 py-3 text-left font-semibold text-gray-700">Remarks</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-center font-semibold text-gray-700">Actions</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Amount</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Customer ID</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Officer ID</th>
+                <th className="px-4 py-3 text-left font-semibold text-gray-700 whitespace-nowrap">Remarks</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                <th className="px-4 py-3 text-center font-semibold text-gray-700 whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">

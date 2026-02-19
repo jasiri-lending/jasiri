@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../hooks/userAuth";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -17,6 +18,7 @@ import {
 import { toast } from "react-toastify";
 
 const DisbursedLoansAdmin = () => {
+  const { profile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -27,8 +29,10 @@ const DisbursedLoansAdmin = () => {
   const [repaymentHistory, setRepaymentHistory] = useState([]);
 
   useEffect(() => {
-    fetchDisbursedLoans();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchDisbursedLoans();
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (selectedLoan) {
@@ -46,6 +50,7 @@ const DisbursedLoansAdmin = () => {
           customers (*)
         `)
         .eq('status', 'disbursed')
+        .eq('tenant_id', profile?.tenant_id)
         .order('disbursed_at', { ascending: false });
 
       if (error) throw error;
@@ -69,6 +74,7 @@ const DisbursedLoansAdmin = () => {
           customers (*)
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -108,10 +114,10 @@ const DisbursedLoansAdmin = () => {
 
       setLoanDetails(loanData);
       setCustomer(loanData.customers);
-      
+
       // Build approval trail
       const trail = [];
-      
+
       // RO who booked the loan
       if (loanData.booked_by && usersData[loanData.booked_by]) {
         trail.push({
@@ -193,9 +199,9 @@ const DisbursedLoansAdmin = () => {
     for (let week = 1; week <= duration; week++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(startDate.getDate() + (week * 7));
-      
+
       // Check if this payment has been made
-      const paymentRecord = repaymentHistory.find(repayment => 
+      const paymentRecord = repaymentHistory.find(repayment =>
         new Date(repayment.due_date).toDateString() === dueDate.toDateString()
       );
 
@@ -212,7 +218,7 @@ const DisbursedLoansAdmin = () => {
         paid_date: paymentRecord ? paymentRecord.payment_date : null
       });
     }
-    
+
     setRepaymentSchedule(schedule);
   };
 
@@ -315,9 +321,8 @@ const DisbursedLoansAdmin = () => {
                   {loans.map((loan) => (
                     <div
                       key={loan.id}
-                      className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-indigo-50 transition-colors ${
-                        selectedLoan?.id === loan.id ? 'bg-indigo-100 border-l-4 border-l-indigo-500' : ''
-                      }`}
+                      className={`p-4 border-b border-gray-200 cursor-pointer hover:bg-indigo-50 transition-colors ${selectedLoan?.id === loan.id ? 'bg-indigo-100 border-l-4 border-l-indigo-500' : ''
+                        }`}
                       onClick={() => setSelectedLoan(loan)}
                     >
                       <div className="flex justify-between items-start mb-2">
@@ -480,11 +485,10 @@ const DisbursedLoansAdmin = () => {
                     <div className="space-y-4">
                       {approvalTrail.map((step, index) => (
                         <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
-                          <div className={`w-3 h-3 rounded-full mt-2 ${
-                            step.decision === 'approved' ? 'bg-green-500' : 
-                            step.decision === 'rejected' ? 'bg-red-500' : 
-                            step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
-                          }`}></div>
+                          <div className={`w-3 h-3 rounded-full mt-2 ${step.decision === 'approved' ? 'bg-green-500' :
+                              step.decision === 'rejected' ? 'bg-red-500' :
+                                step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
+                            }`}></div>
                           <div className="flex-1">
                             <div className="flex justify-between items-center">
                               <span className="font-semibold text-gray-900">{step.role}</span>
@@ -495,9 +499,8 @@ const DisbursedLoansAdmin = () => {
                             <p className="text-gray-700">{step.name}</p>
                             {step.branch && <p className="text-sm text-gray-600">Branch: {step.branch}</p>}
                             {step.decision && (
-                              <p className={`text-sm font-medium ${
-                                step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
-                              }`}>
+                              <p className={`text-sm font-medium ${step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
+                                }`}>
                                 Decision: {step.decision.toUpperCase()}
                               </p>
                             )}

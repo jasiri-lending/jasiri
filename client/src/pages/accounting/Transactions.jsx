@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 import { Search, Eye, CheckCircle, Archive, Calendar, DollarSign, Phone, User, FileText } from 'lucide-react';
 
 // Transaction Details Modal
@@ -112,13 +112,16 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
 
 // Successful Transactions Component
 const SuccessfulTransactions = ({ onViewDetails }) => {
+  const { profile } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchSuccessfulTransactions();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchSuccessfulTransactions();
+    }
+  }, [profile?.tenant_id]);
 
   const fetchSuccessfulTransactions = async () => {
     try {
@@ -127,6 +130,7 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
         .from('mpesa_c2b_transactions')
         .select('*')
         .eq('status', 'applied')
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -245,12 +249,15 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
 
 // Suspense Transactions Component
 const SuspenseTransactions = ({ onReconcile, onArchive }) => {
+  const { profile } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSuspenseTransactions();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchSuspenseTransactions();
+    }
+  }, [profile?.tenant_id]);
 
   const fetchSuspenseTransactions = async () => {
     try {
@@ -259,6 +266,7 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
         .from('suspense_transactions')
         .select('*')
         .eq('status', 'suspense')
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -285,90 +293,90 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
           <p className="mt-4 text-gray-600">Loading suspense transactions...</p>
         </div>
       ) : (
-       <div className="overflow-x-auto">
-  <table className="min-w-full border-collapse">
-    <thead>
-      <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-        {[
-          "First Name",
-          "Phone Number",
-          "Amount",
-          "M-Pesa Code",
-          "Status",
-          "Created Date",
-          "Actions",
-        ].map((heading) => (
-          <th
-            key={heading}
-            className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap"
-          >
-            {heading}
-          </th>
-        ))}
-      </tr>
-    </thead>
-    <tbody>
-      {transactions.map((transaction) => (
-        <tr
-          key={transaction.id}
-          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-        >
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.payer_name || "N/A"}
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.phone_number}
-          </td>
-          <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
-            KSh {parseFloat(transaction.amount).toLocaleString()}
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-            {transaction.transaction_id}
-          </td>
-          <td className="px-4 py-3 whitespace-nowrap">
-            <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-              Suspense
-            </span>
-          </td>
-          <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-            {new Date(transaction.created_at).toLocaleString("en-GB", {
-              day: "2-digit",
-              month: "short",
-              year: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </td>
-          <td className="px-4 py-3 whitespace-nowrap">
-            <div className="flex gap-2">
-              <button
-                onClick={() => onReconcile(transaction)}
-                className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}
-              >
-                <CheckCircle className="w-4 h-4" />
-                Reconcile
-              </button>
-              <button
-                onClick={() => onArchive(transaction)}
-                className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-xl transition-all duration-300 hover:bg-gray-700"
-              >
-                <Archive className="w-4 h-4" />
-                Archive
-              </button>
-            </div>
-          </td>
-        </tr>
-      ))}
-    </tbody>
-  </table>
+        <div className="overflow-x-auto">
+          <table className="min-w-full border-collapse">
+            <thead>
+              <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
+                {[
+                  "First Name",
+                  "Phone Number",
+                  "Amount",
+                  "M-Pesa Code",
+                  "Status",
+                  "Created Date",
+                  "Actions",
+                ].map((heading) => (
+                  <th
+                    key={heading}
+                    className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap"
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {transactions.map((transaction) => (
+                <tr
+                  key={transaction.id}
+                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                >
+                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
+                    {transaction.payer_name || "N/A"}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
+                    {transaction.phone_number}
+                  </td>
+                  <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
+                    KSh {parseFloat(transaction.amount).toLocaleString()}
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
+                    {transaction.transaction_id}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                      Suspense
+                    </span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                    {new Date(transaction.created_at).toLocaleString("en-GB", {
+                      day: "2-digit",
+                      month: "short",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </td>
+                  <td className="px-4 py-3 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => onReconcile(transaction)}
+                        className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
+                        style={{ backgroundColor: "#586ab1" }}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Reconcile
+                      </button>
+                      <button
+                        onClick={() => onArchive(transaction)}
+                        className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-xl transition-all duration-300 hover:bg-gray-700"
+                      >
+                        <Archive className="w-4 h-4" />
+                        Archive
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
 
-  {transactions.length === 0 && (
-    <div className="text-center py-12 text-gray-500">
-      No suspense transactions found
-    </div>
-  )}
-</div>
+          {transactions.length === 0 && (
+            <div className="text-center py-12 text-gray-500">
+              No suspense transactions found
+            </div>
+          )}
+        </div>
 
       )}
     </div>
@@ -377,6 +385,7 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
 
 // Main Transactions Component
 function Transactions() {
+  const { profile } = useAuth();
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [activeTab, setActiveTab] = useState('successful');
 
@@ -391,10 +400,11 @@ function Transactions() {
         const { error } = await supabase
           .from('suspense_transactions')
           .update({ status: 'reconciled' })
-          .eq('id', transaction.id);
+          .eq('id', transaction.id)
+          .eq('tenant_id', profile?.tenant_id);
 
         if (error) throw error;
-        
+
         alert('Transaction reconciled successfully');
         window.location.reload();
       } catch (error) {
@@ -410,10 +420,11 @@ function Transactions() {
         const { error } = await supabase
           .from('suspense_transactions')
           .update({ status: 'archived' })
-          .eq('id', transaction.id);
+          .eq('id', transaction.id)
+          .eq('tenant_id', profile?.tenant_id);
 
         if (error) throw error;
-        
+
         alert('Transaction archived successfully');
         window.location.reload();
       } catch (error) {
@@ -434,22 +445,20 @@ function Transactions() {
         <div className="flex gap-4 mb-6">
           <button
             onClick={() => setActiveTab('successful')}
-            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${
-              activeTab === 'successful'
+            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${activeTab === 'successful'
                 ? 'text-white shadow-lg'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
+              }`}
             style={activeTab === 'successful' ? { backgroundColor: "#586ab1" } : {}}
           >
             Successful
           </button>
           <button
             onClick={() => setActiveTab('suspense')}
-            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${
-              activeTab === 'suspense'
+            className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${activeTab === 'suspense'
                 ? 'text-white shadow-lg'
                 : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
-            }`}
+              }`}
             style={activeTab === 'suspense' ? { backgroundColor: "#586ab1" } : {}}
           >
             Suspense
@@ -459,11 +468,11 @@ function Transactions() {
         {activeTab === 'successful' && (
           <SuccessfulTransactions onViewDetails={handleViewDetails} />
         )}
-        
+
         {activeTab === 'suspense' && (
-          <SuspenseTransactions 
-            onReconcile={handleReconcile} 
-            onArchive={handleArchive} 
+          <SuspenseTransactions
+            onReconcile={handleReconcile}
+            onArchive={handleArchive}
           />
         )}
 

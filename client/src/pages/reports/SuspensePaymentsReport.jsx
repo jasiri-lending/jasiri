@@ -1,8 +1,10 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
-import { Loader2 } from "lucide-react";
+import Spinner from "../../components/Spinner";
+import { useAuth } from "../../hooks/userAuth";
 
 const SuspensePaymentsReport = () => {
+  const { profile } = useAuth();
   const [payments, setPayments] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [search, setSearch] = useState("");
@@ -11,6 +13,7 @@ const SuspensePaymentsReport = () => {
   // Fetch suspense payments
   useEffect(() => {
     const fetchSuspensePayments = async () => {
+      if (!profile?.tenant_id) return;
       try {
         setLoading(true);
 
@@ -35,6 +38,7 @@ const SuspensePaymentsReport = () => {
             )
           `)
           .is("loan_id", null)
+          .eq("tenant_id", profile?.tenant_id)
           .order("TransTime", { ascending: false });
 
         if (error) throw error;
@@ -69,7 +73,7 @@ const SuspensePaymentsReport = () => {
     };
 
     fetchSuspensePayments();
-  }, []);
+  }, [profile]);
 
   // Search filtering
   useEffect(() => {
@@ -99,8 +103,8 @@ const SuspensePaymentsReport = () => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-8 text-gray-500">
-          <Loader2 className="animate-spin mr-2" /> Loading suspense payments...
+        <div className="flex items-center justify-center py-8">
+          <Spinner text="Loading suspense payments..." />
         </div>
       ) : filtered.length > 0 ? (
         <div className="overflow-x-auto">
@@ -129,11 +133,10 @@ const SuspensePaymentsReport = () => {
                   </td>
                   <td className="px-4 py-2 border">{item.phoneNumber}</td>
                   <td
-                    className={`px-4 py-2 border text-center font-medium ${
-                      item.status?.toLowerCase().includes("pending")
-                        ? "text-yellow-600"
-                        : "text-green-600"
-                    }`}
+                    className={`px-4 py-2 border text-center font-medium ${item.status?.toLowerCase().includes("pending")
+                      ? "text-yellow-600"
+                      : "text-green-600"
+                      }`}
                   >
                     {item.status}
                   </td>

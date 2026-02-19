@@ -1,85 +1,80 @@
-// c2b.js
 import express from "express";
-import axios from "axios";
 import { createClient } from "@supabase/supabase-js";
-import { getMpesaToken } from "./mpesa.js";
+import { getTenantMpesaToken } from "./mpesa.js";
 
 const c2b = express.Router();
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Fetch tenant MPESA config helper
-async function getTenantConfig(tenantId) {
-  const { data, error } = await supabaseAdmin
-    .from("tenant_mpesa_config")
-    .select("*")
-    .eq("tenant_id", tenantId)
-    .single();
-
-  if (error) throw new Error("Tenant MPESA config not found");
-  return data;
-}
-
-// Validation URL
+// Validation endpoint
 c2b.post("/c2b/validation", (req, res) => {
   return res.json({ ResultCode: 0, ResultDesc: "Validation Passed" });
 });
 
-// C2B Confirmation
+// C2B Confirmation endpoint
 c2b.post("/c2b/confirmation", async (req, res) => {
   try {
     const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
     const { TransID, TransAmount, MSISDN, BillRefNumber, FirstName } = body;
+
     if (!TransID || !MSISDN || !TransAmount || !BillRefNumber)
       throw new Error("Missing required transaction fields");
 
+    // Normalize MSISDN
     const localNumber = MSISDN.replace(/^254/, "0");
 
-    // Find customer to identify tenant
+    // Find customer & tenant
     const { data: customer } = await supabaseAdmin
       .from("customers")
       .select("id, tenant_id")
       .in("mobile", [MSISDN, localNumber])
       .maybeSingle();
 
-    let tenantId = customer?.tenant_id;
-
-    if (!tenantId) {
-      console.log("Customer not found, moving to suspense");
+    if (!customer) {
+      // Move to suspense if customer not found
       await supabaseAdmin.from("suspense_transactions").insert([
         {
-          payer_name: FirstName?.trim() || "Unknown",
+          payer_name: FirstName || "Unknown",
           phone_number: MSISDN,
           amount: TransAmount,
           transaction_id: TransID,
           status: "suspense",
           reason: "Customer not found",
-        },
+        }
       ]);
       return res.json({ ResultCode: 0, ResultDesc: "Moved to suspense" });
     }
 
-const token = await getMpesaToken(getTenantConfig(tenantId));
+    const tenantId = customer.tenant_id;
+
+    // Get tenant token
+    const tenantConfig = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .single()
+      .then(r => {
+        if (r.error || !r.data) throw new Error("Tenant MPESA config not found");
+        return r.data;
+      });
+
+    const token = await getTenantMpesaToken(tenantConfig);
 
     // Log transaction
     await supabaseAdmin.from("mpesa_c2b_transactions").insert([
       {
+        tenant_id: tenantId,
+        customer_id: customer.id,
         transaction_id: TransID,
         phone_number: MSISDN,
         amount: TransAmount,
         raw_payload: body,
         status: "pending",
-        customer_id: customer?.id,
-        tenant_id: tenantId,
         billref: BillRefNumber,
-        firstname: FirstName?.trim(),
-      },
+        firstname: FirstName
+      }
     ]);
 
-    // Here you can implement **repayment allocation logic** as per your B2C code
-    // For simplicity, mark transaction applied
+    // TODO: Apply repayment allocation logic here per tenant
     await supabaseAdmin
       .from("mpesa_c2b_transactions")
       .update({ status: "applied" })

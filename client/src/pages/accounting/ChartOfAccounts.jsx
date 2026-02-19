@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { Plus, Edit2, Trash2, X, Save } from "lucide-react";
+import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 
 const TABS = ["Asset", "Liability", "Equity", "Income", "Expense"];
@@ -11,13 +12,16 @@ export default function ChartOfAccounts() {
   const [accounts, setAccounts] = useState([]);
   const [editingAccount, setEditingAccount] = useState(null); // Account being edited
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const { profile } = useAuth();
   const navigate = useNavigate();
   const { success, error: toastError, warning } = useToast();
 
   const fetchAccounts = async () => {
+    if (!profile?.tenant_id) return;
     const { data, error } = await supabase
       .from("chart_of_accounts")
       .select("*")
+      .eq("tenant_id", profile.tenant_id)
       .ilike("account_type", activeTab)
       .order("created_at", { ascending: false });
 
@@ -32,7 +36,11 @@ export default function ChartOfAccounts() {
   const deleteAccount = async (id) => {
     if (!window.confirm("Are you sure you want to delete this account?")) return;
 
-    const { error } = await supabase.from("chart_of_accounts").delete().eq("id", id);
+    const { error } = await supabase
+      .from("chart_of_accounts")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", profile?.tenant_id);
 
     if (error) {
       toastError("Failed to delete account.");
@@ -57,7 +65,8 @@ export default function ChartOfAccounts() {
       const { error } = await supabase
         .from("chart_of_accounts")
         .update(updatedData)
-        .eq("id", editingAccount.id);
+        .eq("id", editingAccount.id)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (error) throw error;
 

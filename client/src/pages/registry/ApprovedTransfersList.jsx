@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
 import Spinner from '../../components/Spinner.jsx';
 
-const ApprovedTransfersList = ({  onExecute }) => {
+const ApprovedTransfersList = ({ onExecute }) => {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [executingTransfer, setExecutingTransfer] = useState(null);
@@ -48,6 +48,7 @@ const ApprovedTransfersList = ({  onExecute }) => {
           )
         `)
         .eq('status', 'approved')
+        .eq('tenant_id', currentUser?.tenant_id)
         .order('updated_at', { ascending: true });
 
       if (error) throw error;
@@ -112,7 +113,7 @@ const ApprovedTransfersList = ({  onExecute }) => {
       {transfers.map(transfer => {
         const initiationLog = transfer.workflow_logs?.find(log => log.action === 'initiated');
         const approvalLog = transfer.workflow_logs?.find(log => log.action === 'approved');
-        
+
         return (
           <div key={transfer.id} className="border border-green-200 rounded-lg p-6 bg-green-50 shadow-sm">
             <div className="flex justify-between items-start mb-6">

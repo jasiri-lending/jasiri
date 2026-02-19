@@ -32,7 +32,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner";
 
 const CustomerVerification = () => {
-  const { customerId } = useParams(); 
+  const { customerId } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const { profile } = useAuth();
@@ -102,19 +102,13 @@ const CustomerVerification = () => {
   }, [verificationData.finalDecision]);
 
   useEffect(() => {
-    console.log("useEffect check - customerId:", customerId, "userRole:", userRole);
+    console.log("useEffect check - customerId:", customerId, "userRole:", userRole, "tenant_id:", profile?.tenant_id);
 
-    if (customerId && userRole !== undefined) {
-      console.log("Both conditions met, fetching customer details");
+    if (customerId && userRole !== undefined && profile?.tenant_id) {
+      console.log("Conditions met, fetching customer details");
       fetchCustomerDetails();
-    } else {
-      console.log("Waiting for:", {
-        hasCustomerId: !!customerId,
-        hasUserRole: userRole !== undefined,
-        userRoleValue: userRole,
-      });
     }
-  }, [customerId, userRole]);
+  }, [customerId, userRole, profile?.tenant_id]);
 
   const fetchCustomerDetails = async () => {
     try {
@@ -126,6 +120,7 @@ const CustomerVerification = () => {
         .from("customers")
         .select("*")
         .eq("id", customerId)
+        .eq("tenant_id", profile?.tenant_id)
         .single();
 
       if (customerError) throw customerError;
@@ -145,8 +140,9 @@ const CustomerVerification = () => {
           .from("spouse")
           .select("*")
           .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id)
           .single();
-        
+
         if (!spouseError && spouseData) {
           setSpouseInfo(spouseData);
         }
@@ -156,7 +152,8 @@ const CustomerVerification = () => {
       const { data: businessData, error: businessError } = await supabase
         .from("business_images")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (!businessError) setBusinessImages(businessData || []);
 
       // Fetch loan details
@@ -164,6 +161,7 @@ const CustomerVerification = () => {
         .from("loans")
         .select("*")
         .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id)
         .single();
       if (!loanError && loanData) {
         setLoanDetails(loanData);
@@ -173,7 +171,8 @@ const CustomerVerification = () => {
       const { data: guarantorsData, error: guarantorsError } = await supabase
         .from("guarantors")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (!guarantorsError && guarantorsData) {
         setGuarantors(guarantorsData);
         setVerificationData((prev) => ({
@@ -190,7 +189,8 @@ const CustomerVerification = () => {
       const { data: nokData, error: nokError } = await supabase
         .from("next_of_kin")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (!nokError) setNextOfKinInfo(nokData || []);
 
       // Fetch borrower security items and images
@@ -198,7 +198,8 @@ const CustomerVerification = () => {
         await supabase
           .from("security_items")
           .select("*")
-          .eq("customer_id", customerId);
+          .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id);
 
       if (!securityItemsError && securityItemsData) {
         const { data: securityImagesData, error: securityImagesError } =
@@ -231,7 +232,8 @@ const CustomerVerification = () => {
         const { data: gSecurityData, error: gSecurityError } = await supabase
           .from("guarantor_security")
           .select("*")
-          .in("guarantor_id", guarantorIds);
+          .in("guarantor_id", guarantorIds)
+          .eq("tenant_id", profile?.tenant_id);
 
         if (!gSecurityError && gSecurityData) {
           const { data: gSecurityImagesData, error: gSecurityImagesError } =
@@ -262,7 +264,8 @@ const CustomerVerification = () => {
       const { data: documentsData, error: documentsError } = await supabase
         .from("documents")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (!documentsError && documentsData) {
         const docsWithUrls = documentsData.map((doc) => {
           if (doc.document_url) {
@@ -276,77 +279,80 @@ const CustomerVerification = () => {
         setDocumentImages(docsWithUrls);
       }
 
-    // CA-specific: Fetch BM score, CSO comment, and CSO decision
-    // CA-specific: Fetch BM score, CSO comment, and CSO decision
-if (userRole === "credit_analyst_officer") {
-  console.log("Entered CA-specific fetch block");
+      // CA-specific: Fetch BM score, CSO comment, and CSO decision
+      // CA-specific: Fetch BM score, CSO comment, and CSO decision
+      if (userRole === "credit_analyst_officer") {
+        console.log("Entered CA-specific fetch block");
 
-  // Fetch latest BM row (has scored_amount)
-  const { data: bmRow } = await supabase
-    .from("customer_verifications")
-    .select("*")
-    .eq("customer_id", Number(customerId))
-    .not("branch_manager_loan_scored_amount", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+        // Fetch latest BM row (has scored_amount)
+        const { data: bmRow } = await supabase
+          .from("customer_verifications")
+          .select("*")
+          .eq("customer_id", Number(customerId))
+          .eq("tenant_id", profile?.tenant_id)
+          .not("branch_manager_loan_scored_amount", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-  // Fetch latest verification (for fields_to_amend only)
-  const { data: latestVerification } = await supabase
-    .from("customer_verifications")
-    .select("fields_to_amend")
-    .eq("customer_id", customerId)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+        // Fetch latest verification (for fields_to_amend only)
+        const { data: latestVerification } = await supabase
+          .from("customer_verifications")
+          .select("fields_to_amend")
+          .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-  // ⛔ DO NOT PREFILL ANYTHING FOR CA  
-  // Force clean inputs but include guarantors array
-  setVerificationData({
-    customer: { idVerified: false, phoneVerified: false, comment: "" },
-    business: { verified: false, comment: "" },
-    security: { verified: false, comment: "" },
-    guarantorSecurity: { verified: false, comment: "" },
-    nextOfKin: { verified: false, comment: "" },
-    document: { verified: false, comment: "" },
-    loan: { scoredAmount: 0, comment: "" }, // Changed from "" to 0
-    guarantors: guarantors.map(() => ({ // ADD THIS LINE - initialize guarantors array
-      idVerified: false,
-      phoneVerified: false,
-      comment: ""
-    })),
-    finalDecision: "pending",
-    overallComment: ""
-  });
+        // ⛔ DO NOT PREFILL ANYTHING FOR CA  
+        // Force clean inputs but include guarantors array
+        setVerificationData({
+          customer: { idVerified: false, phoneVerified: false, comment: "" },
+          business: { verified: false, comment: "" },
+          security: { verified: false, comment: "" },
+          guarantorSecurity: { verified: false, comment: "" },
+          nextOfKin: { verified: false, comment: "" },
+          document: { verified: false, comment: "" },
+          loan: { scoredAmount: 0, comment: "" }, // Changed from "" to 0
+          guarantors: guarantors.map(() => ({ // ADD THIS LINE - initialize guarantors array
+            idVerified: false,
+            phoneVerified: false,
+            comment: ""
+          })),
+          finalDecision: "pending",
+          overallComment: ""
+        });
 
-  const parsedFields = (latestVerification?.fields_to_amend || []).map(item => {
-    if (typeof item === "object") {
-      return {
-        section: item.section || "",
-        component: item.component || "",
-        fields: Array.isArray(item.fields) ? item.fields : []
-      };
-    }
-    return { section: "", component: "", fields: [item] };
-  });
+        const parsedFields = (latestVerification?.fields_to_amend || []).map(item => {
+          if (typeof item === "object") {
+            return {
+              section: item.section || "",
+              component: item.component || "",
+              fields: Array.isArray(item.fields) ? item.fields : []
+            };
+          }
+          return { section: "", component: "", fields: [item] };
+        });
 
-  setFieldsToAmend(parsedFields);
+        setFieldsToAmend(parsedFields);
 
-  // Fetch latest CO (CSO) row
-  const { data: csoRow } = await supabase
-    .from("customer_verifications")
-    .select("*")
-    .eq("customer_id", Number(customerId))
-    .not("co_loan_comment", "is", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
+        // Fetch latest CO (CSO) row
+        const { data: csoRow } = await supabase
+          .from("customer_verifications")
+          .select("*")
+          .eq("customer_id", Number(customerId))
+          .eq("tenant_id", profile?.tenant_id)
+          .not("co_loan_comment", "is", null)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
 
-  // BM and CO info (readonly)
-  setBmScoredAmount(bmRow?.branch_manager_loan_scored_amount || 0);
-  setCsoComment(csoRow?.co_loan_comment || "");
-  setCsoDecision(csoRow?.co_final_decision || "");
-}
+        // BM and CO info (readonly)
+        setBmScoredAmount(bmRow?.branch_manager_loan_scored_amount || 0);
+        setCsoComment(csoRow?.co_loan_comment || "");
+        setCsoDecision(csoRow?.co_final_decision || "");
+      }
     } catch (error) {
       console.error("Error fetching customer details:", error);
       toast.error("Error loading customer details");
@@ -432,26 +438,26 @@ if (userRole === "credit_analyst_officer") {
     });
 
     // Guarantors separately
-  (verificationData.guarantors || []).forEach((g, idx) => {
-  const fields = [];
+    (verificationData.guarantors || []).forEach((g, idx) => {
+      const fields = [];
 
-  Object.entries(g).forEach(([key, value]) => {
-    if (typeof value === "boolean" && !value) {
-      fields.push(`${key.replace(/_/g, " ")}: Not Verified`);
-    } 
-    else if (typeof value === "string" && !value.trim()) {
-      fields.push(`${key.replace(/_/g, " ")}: Empty`);
-    } 
-    else if (typeof value === "number" && value <= 0) {
-      fields.push(`${key.replace(/_/g, " ")}: ${value}`);
-    } 
-    else if (typeof value === "object" && value !== null) {
-      Object.entries(value).forEach(([k, v]) => {
-        if (!v) fields.push(`${key} - ${k}: ${v || "Empty"}`);
+      Object.entries(g).forEach(([key, value]) => {
+        if (typeof value === "boolean" && !value) {
+          fields.push(`${key.replace(/_/g, " ")}: Not Verified`);
+        }
+        else if (typeof value === "string" && !value.trim()) {
+          fields.push(`${key.replace(/_/g, " ")}: Empty`);
+        }
+        else if (typeof value === "number" && value <= 0) {
+          fields.push(`${key.replace(/_/g, " ")}: ${value}`);
+        }
+        else if (typeof value === "object" && value !== null) {
+          Object.entries(value).forEach(([k, v]) => {
+            if (!v) fields.push(`${key} - ${k}: ${v || "Empty"}`);
+          });
+        }
       });
-    }
-  });
-});
+    });
 
     setFieldsToAmend(newFields);
   }, [verificationData]);
@@ -485,6 +491,7 @@ if (userRole === "credit_analyst_officer") {
       // Prepare base data
       const baseData = {
         customer_id: Number(customerId),
+        tenant_id: profile?.tenant_id,
 
         // Customer verification
         [`${userRole}_customer_id_verified`]:
@@ -591,7 +598,8 @@ if (userRole === "credit_analyst_officer") {
         const { error: statusError } = await supabase
           .from("customers")
           .update({ status: newStatus })
-          .eq("id", customerId);
+          .eq("id", customerId)
+          .eq("tenant_id", profile?.tenant_id);
         if (statusError) throw statusError;
       }
 
@@ -622,7 +630,8 @@ if (userRole === "credit_analyst_officer") {
 
       const draftData = {
         customer_id: Number(customerId),
-        
+        tenant_id: profile?.tenant_id,
+
         [`${userRole}_customer_id_verified`]: verificationData.customer.idVerified,
         [`${userRole}_customer_phone_verified`]: verificationData.customer.phoneVerified,
         [`${userRole}_customer_comment`]: verificationData.customer.comment,
@@ -669,6 +678,7 @@ if (userRole === "credit_analyst_officer") {
         .from("customer_verifications")
         .select("id")
         .eq("customer_id", Number(customerId))
+        .eq("tenant_id", profile?.tenant_id)
         .eq("is_draft", true)
         .maybeSingle();
 
@@ -688,7 +698,8 @@ if (userRole === "credit_analyst_officer") {
       const { error: statusError } = await supabase
         .from("customers")
         .update({ form_status: 'draft' })
-        .eq("id", customerId);
+        .eq("id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (statusError) throw statusError;
 
       toast.success("Draft saved successfully!");
@@ -712,18 +723,16 @@ if (userRole === "credit_analyst_officer") {
         className="absolute opacity-0 w-0 h-0"
       />
       <div
-        className={`relative w-14 h-7 bg-gray-300 rounded-full transition-colors duration-200 ${
-          checked
+        className={`relative w-14 h-7 bg-gray-300 rounded-full transition-colors duration-200 ${checked
             ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
             : "hover:bg-gray-400"
-        }`}
+          }`}
       >
         <div
-          className={`absolute top-0.5 left-0.5 bg-white border rounded-full w-6 h-6 transition-transform duration-200 shadow-md ${
-            checked
+          className={`absolute top-0.5 left-0.5 bg-white border rounded-full w-6 h-6 transition-transform duration-200 shadow-md ${checked
               ? "transform translate-x-7 shadow-emerald-200"
               : "shadow-gray-300"
-          }`}
+            }`}
         >
           {checked && (
             <CheckCircleIcon className="h-4 w-4 text-emerald-500 m-0.5" />
@@ -731,11 +740,10 @@ if (userRole === "credit_analyst_officer") {
         </div>
       </div>
       <span
-        className={`ml-3 text-sm font-medium transition-colors ${
-          checked
+        className={`ml-3 text-sm font-medium transition-colors ${checked
             ? "text-emerald-700"
             : "text-gray-700 group-hover:text-gray-900"
-        }`}
+          }`}
       >
         {checked ? "Verified" : label}
       </span>
@@ -972,7 +980,7 @@ if (userRole === "credit_analyst_officer") {
             <div className="border-b border-gray-200 pb-6 mb-8">
               <h2 className="text-lg font-semibold text-slate-600 flex items-center">
                 <UserCircleIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                Customer Verification 
+                Customer Verification
               </h2>
               <p className="text-gray-600 mt-2">
                 Verify customer identity and contact information
@@ -1269,12 +1277,12 @@ if (userRole === "credit_analyst_officer") {
                   <p className="font-semibold text-gray-900">
                     {customer.year_established
                       ? new Date(
-                          customer.year_established
-                        ).toLocaleDateString("en-US", {
-                          day: "2-digit",
-                          month: "long",
-                          year: "numeric",
-                        })
+                        customer.year_established
+                      ).toLocaleDateString("en-US", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })
                       : "Not provided"}
                   </p>
                 </div>
@@ -1305,8 +1313,8 @@ if (userRole === "credit_analyst_officer") {
                 <MapPinIcon className="h-6 w-6 text-red-600" />
                 Business Location Map
               </h3>
-              <BusinessMap 
-                lat={customer.business_lat} 
+              <BusinessMap
+                lat={customer.business_lat}
                 lng={customer.business_lng}
                 businessName={customer.business_name}
               />
@@ -1598,95 +1606,95 @@ if (userRole === "credit_analyst_officer") {
                       />
                     </div>
 
-{/* Verification Controls */}
-<div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
-  <h3 className="text-lg font-semibold text-gray-900 mb-6">Verification Status</h3>
+                    {/* Verification Controls */}
+                    <div className="bg-gradient-to-r from-blue-50 to-indigo-50 p-8 rounded-2xl border border-blue-100">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-6">Verification Status</h3>
 
-  <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
-    {/* ID Verification */}
-    <div className="bg-white p-6 rounded-xl shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center">
-          <IdentificationIcon className="h-5 w-5 text-indigo-600 mr-2" />
-          <span className="font-medium text-gray-900">ID Verification</span>
-        </div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+                        {/* ID Verification */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center">
+                              <IdentificationIcon className="h-5 w-5 text-indigo-600 mr-2" />
+                              <span className="font-medium text-gray-900">ID Verification</span>
+                            </div>
 
-        <ToggleSwitch
-          // SAFE ACCESS
-          checked={verificationData.guarantors?.[index]?.idVerified || false}
-          onChange={(e) =>
-            handleVerificationChange(
-              "idVerified",
-              e.target.checked,
-              "guarantors",
-              index
-            )
-          }
-          label="Verify ID"
-        />
-      </div>
-    </div>
+                            <ToggleSwitch
+                              // SAFE ACCESS
+                              checked={verificationData.guarantors?.[index]?.idVerified || false}
+                              onChange={(e) =>
+                                handleVerificationChange(
+                                  "idVerified",
+                                  e.target.checked,
+                                  "guarantors",
+                                  index
+                                )
+                              }
+                              label="Verify ID"
+                            />
+                          </div>
+                        </div>
 
-    {/* Phone Verification */}
-    <div className="bg-white p-6 rounded-xl shadow-sm">
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-3">
-          <p className="inline-block bg-green-50 text-green-700 px-4 py-2 rounded-lg font-semibold shadow-sm flex items-center justify-center">
-            <PhoneIcon className="h-5 w-5 text-green-600" />
-          </p>
-          <span className="font-medium text-gray-900">Phone Verification</span>
-        </div>
+                        {/* Phone Verification */}
+                        <div className="bg-white p-6 rounded-xl shadow-sm">
+                          <div className="flex items-center justify-between mb-4">
+                            <div className="flex items-center gap-3">
+                              <p className="inline-block bg-green-50 text-green-700 px-4 py-2 rounded-lg font-semibold shadow-sm flex items-center justify-center">
+                                <PhoneIcon className="h-5 w-5 text-green-600" />
+                              </p>
+                              <span className="font-medium text-gray-900">Phone Verification</span>
+                            </div>
 
-        <ToggleSwitch
-          // SAFE ACCESS
-          checked={verificationData.guarantors?.[index]?.phoneVerified || false}
-          onChange={(e) =>
-            handleVerificationChange(
-              "phoneVerified",
-              e.target.checked,
-              "guarantors",
-              index
-            )
-          }
-          label="Verify Phone"
-        />
-      </div>
-    </div>
-  </div>
+                            <ToggleSwitch
+                              // SAFE ACCESS
+                              checked={verificationData.guarantors?.[index]?.phoneVerified || false}
+                              onChange={(e) =>
+                                handleVerificationChange(
+                                  "phoneVerified",
+                                  e.target.checked,
+                                  "guarantors",
+                                  index
+                                )
+                              }
+                              label="Verify Phone"
+                            />
+                          </div>
+                        </div>
+                      </div>
 
-  {/* Comments */}
-  <div>
-    <label className="block text-sm font-semibold text-gray-800 mb-3">
-      {userRole === "branch_manager"
-        ? "Manager Comments"
-        : "Verification Comments"}
-    </label>
+                      {/* Comments */}
+                      <div>
+                        <label className="block text-sm font-semibold text-gray-800 mb-3">
+                          {userRole === "branch_manager"
+                            ? "Manager Comments"
+                            : "Verification Comments"}
+                        </label>
 
-    <textarea
-      // SAFE ACCESS
-      value={verificationData.guarantors?.[index]?.comment || ""}
-      onChange={(e) =>
-        handleVerificationChange(
-          "comment",
-          e.target.value,
-          "guarantors",
-          index
-        )
-      }
-      placeholder={
-        userRole === "bm"
-          ? "Add instructions for the relationship officer (e.g., 'Please verify phone number', 'Update guarantor address', etc.)"
-          : "Add comments about guarantor verification, ID validation, contact details accuracy, etc."
-      }
-      className="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
-      rows={4}
-      required
-    />
-  </div>
-</div>
+                        <textarea
+                          // SAFE ACCESS
+                          value={verificationData.guarantors?.[index]?.comment || ""}
+                          onChange={(e) =>
+                            handleVerificationChange(
+                              "comment",
+                              e.target.value,
+                              "guarantors",
+                              index
+                            )
+                          }
+                          placeholder={
+                            userRole === "bm"
+                              ? "Add instructions for the relationship officer (e.g., 'Please verify phone number', 'Update guarantor address', etc.)"
+                              : "Add comments about guarantor verification, ID validation, contact details accuracy, etc."
+                          }
+                          className="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                          rows={4}
+                          required
+                        />
+                      </div>
+                    </div>
 
 
-                    
+
                   </div>
                 ))}
               </div>
@@ -1758,9 +1766,8 @@ if (userRole === "credit_analyst_officer") {
                             <img
                               key={i}
                               src={imgUrl}
-                              alt={`${item.item || "Security Item"} - Image ${
-                                i + 1
-                              }`}
+                              alt={`${item.item || "Security Item"} - Image ${i + 1
+                                }`}
                               className="w-full h-40 object-cover rounded-lg shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                               onError={(e) =>
                                 (e.currentTarget.style.display = "none")
@@ -1768,9 +1775,8 @@ if (userRole === "credit_analyst_officer") {
                               onClick={() =>
                                 setSelectedImage({
                                   url: imgUrl,
-                                  title: `${
-                                    item.item || "Security Item"
-                                  } - Image ${i + 1}`,
+                                  title: `${item.item || "Security Item"
+                                    } - Image ${i + 1}`,
                                 })
                               }
                             />
@@ -1897,10 +1903,9 @@ if (userRole === "credit_analyst_officer") {
                               <img
                                 key={i}
                                 src={imgUrl}
-                                alt={`${
-                                  item.item ||
+                                alt={`${item.item ||
                                   `Guarantor Security ${index + 1}`
-                                } - Image ${i + 1}`}
+                                  } - Image ${i + 1}`}
                                 className="w-full h-40 object-cover rounded-lg shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                                 onError={(e) =>
                                   (e.currentTarget.style.display = "none")
@@ -1908,10 +1913,9 @@ if (userRole === "credit_analyst_officer") {
                                 onClick={() =>
                                   setSelectedImage({
                                     url: imgUrl,
-                                    title: `${
-                                      item.item ||
+                                    title: `${item.item ||
                                       `Guarantor Security ${index + 1}`
-                                    } - Image ${i + 1}`,
+                                      } - Image ${i + 1}`,
                                   })
                                 }
                               />
@@ -1926,7 +1930,7 @@ if (userRole === "credit_analyst_officer") {
                             Type
                           </span>
                           <span className="text-sm font-semibold text-gray-900">
-                            {item.type|| "N/A"}
+                            {item.type || "N/A"}
                           </span>
                         </div>
                         {item.description && (
@@ -2028,9 +2032,8 @@ if (userRole === "credit_analyst_officer") {
                       <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
                         <DetailRow
                           label="Full Name"
-                          value={`${nok.Firstname || ""} ${
-                            nok.middlename || ""
-                          } ${nok.surname || ""}`}
+                          value={`${nok.Firstname || ""} ${nok.middlename || ""
+                            } ${nok.surname || ""}`}
                         />
                         <DetailRow label="ID Number" value={nok.id_number} />
                         <DetailRow label="Mobile" value={nok.mobile} />
@@ -2048,9 +2051,9 @@ if (userRole === "credit_analyst_officer") {
                       <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
                         <DetailRow label="County" value={nok.county} />
                         <DetailRow label="City/Town" value={nok.city_town} />
-                        <DetailRow 
-                          label="Employment Status" 
-                          value={nok.employment_status} 
+                        <DetailRow
+                          label="Employment Status"
+                          value={nok.employment_status}
                         />
                       </div>
                     </div>
@@ -2413,31 +2416,31 @@ if (userRole === "credit_analyst_officer") {
                           KES
                         </span>
 
-                       <input
-  type="number"
-  value={verificationData.loan.scoredAmount || ""}
-  onChange={(e) => {
-    const value = parseFloat(e.target.value) || 0;
-    const prequalified = customer?.prequalifiedAmount || 0;
+                        <input
+                          type="number"
+                          value={verificationData.loan.scoredAmount || ""}
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            const prequalified = customer?.prequalifiedAmount || 0;
 
-    if (value > prequalified) {
-      toast.warning(
-        "The amount cannot exceed the prequalified amount of KES " +
-          prequalified.toLocaleString("en-US")
-      );
+                            if (value > prequalified) {
+                              toast.warning(
+                                "The amount cannot exceed the prequalified amount of KES " +
+                                prequalified.toLocaleString("en-US")
+                              );
 
-      // Reset to zero
-      handleVerificationChange("scoredAmount", 0, "loan");
-      return;
-    }
+                              // Reset to zero
+                              handleVerificationChange("scoredAmount", 0, "loan");
+                              return;
+                            }
 
-    handleVerificationChange("scoredAmount", value, "loan");
-  }}
-  max={customer?.prequalifiedAmount || undefined}
-  className="text-xl font-bold text-emerald-700 bg-white border-2 border-emerald-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-full"
-  placeholder="Enter amount"
-  required
-/>
+                            handleVerificationChange("scoredAmount", value, "loan");
+                          }}
+                          max={customer?.prequalifiedAmount || undefined}
+                          className="text-xl font-bold text-emerald-700 bg-white border-2 border-emerald-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-full"
+                          placeholder="Enter amount"
+                          required
+                        />
 
                       </div>
                       <p className="text-sm text-emerald-600">
@@ -2573,21 +2576,21 @@ if (userRole === "credit_analyst_officer") {
                         <input
                           type="number"
                           value={verificationData.loan.scoredAmount || ""}
-                        onChange={(e) => {
-  const value = parseFloat(e.target.value) || 0;
-  const prequalified = customer?.prequalifiedAmount || 0;
+                          onChange={(e) => {
+                            const value = parseFloat(e.target.value) || 0;
+                            const prequalified = customer?.prequalifiedAmount || 0;
 
-  if (value > prequalified) {
-    toast.warning("Scored amount cannot exceed the prequalified amount");
+                            if (value > prequalified) {
+                              toast.warning("Scored amount cannot exceed the prequalified amount");
 
-    // Reset input back to 0
-    handleVerificationChange("scoredAmount", 0, "loan");
+                              // Reset input back to 0
+                              handleVerificationChange("scoredAmount", 0, "loan");
 
-    return;
-  }
+                              return;
+                            }
 
-  handleVerificationChange("scoredAmount", value, "loan");
-}}
+                            handleVerificationChange("scoredAmount", value, "loan");
+                          }}
 
                           max={customer?.prequalifiedAmount || undefined}
                           className="text-xl font-bold text-emerald-700 bg-white border-2 border-emerald-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 w-full"
@@ -2770,19 +2773,17 @@ if (userRole === "credit_analyst_officer") {
                         <button
                           key={value}
                           type="button"
-                          className={`flex items-center w-full p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                            isSelected
+                          className={`flex items-center w-full p-4 rounded-xl border-2 cursor-pointer transition-all ${isSelected
                               ? `${currentColor.bg} ${currentColor.border} ${currentColor.text}`
                               : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
-                          }`}
+                            }`}
                           onClick={() =>
                             handleVerificationChange("finalDecision", value)
                           }
                         >
                           <Icon
-                            className={`h-6 w-6 mr-3 ${
-                              isSelected ? currentColor.icon : "text-gray-400"
-                            }`}
+                            className={`h-6 w-6 mr-3 ${isSelected ? currentColor.icon : "text-gray-400"
+                              }`}
                           />
                           <span className="font-medium">{label}</span>
                         </button>
@@ -2907,9 +2908,8 @@ if (userRole === "credit_analyst_officer") {
                             {label}:
                           </span>
                           <span
-                            className={`flex items-center text-sm font-semibold ${
-                              verified ? "text-emerald-600" : "text-red-600"
-                            }`}
+                            className={`flex items-center text-sm font-semibold ${verified ? "text-emerald-600" : "text-red-600"
+                              }`}
                           >
                             {verified ? (
                               <CheckCircleIcon className="h-4 w-4 mr-1" />
@@ -2972,28 +2972,26 @@ if (userRole === "credit_analyst_officer") {
 
         {/* Progress Steps */}
         <div className="bg-white rounded-lg shadow-lg p-8 mb-8 border border-indigo-100">
-          <div className="flex items-center justify-between overflow-x-auto"> 
+          <div className="flex items-center justify-between overflow-x-auto">
             {steps.map(({ num, label, icon: Icon }) => (
-              <div key={num} className="flex flex-col items-center flex-shrink-0"> 
+              <div key={num} className="flex flex-col items-center flex-shrink-0">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                    step === num
+                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step === num
                       ? "border-brand-primary bg-brand-primary text-white shadow-lg shadow-indigo-200 scale-110"
                       : step > num
-                      ? "border-accent bg-accent text-white shadow-md"
-                      : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
-                  }`}
+                        ? "border-accent bg-accent text-white shadow-md"
+                        : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
+                    }`}
                 >
                   <Icon className="h-6 w-6" />
                 </div>
                 <span
-                  className={`text-sm mt-3 font-medium transition-colors ${
-                    step === num
+                  className={`text-sm mt-3 font-medium transition-colors ${step === num
                       ? "text-indigo-700"
                       : step > num
-                      ? "text-emerald-700"
-                      : "text-gray-600"
-                  }`}
+                        ? "text-emerald-700"
+                        : "text-gray-600"
+                    }`}
                 >
                   {label}
                 </span>
@@ -3013,16 +3011,15 @@ if (userRole === "credit_analyst_officer") {
             <button
               onClick={() => setStep(step - 1)}
               disabled={step === 1}
-              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${
-                step === 1
+              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${step === 1
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md"
-              }`}
+                }`}
             >
               <ChevronLeftIcon className="h-5 w-5 mr-2" />
               Previous
             </button>
-            
+
             {step < 8 && <SaveDraftButton />}
           </div>
 
@@ -3051,11 +3048,10 @@ if (userRole === "credit_analyst_officer") {
                   }
                 }}
                 disabled={loading}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                  loading
+                className={`px-6 py-3 rounded-xl font-medium transition-all ${loading
                     ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                     : "bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg"
-                }`}
+                  }`}
               >
                 {loading ? (
                   <div className="flex items-center">

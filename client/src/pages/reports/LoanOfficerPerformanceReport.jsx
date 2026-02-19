@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
 
@@ -45,12 +46,7 @@ const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => (
 ));
 SortableHeader.displayName = 'SortableHeader';
 
-const Spinner = ({ text }) => (
-  <div className="flex flex-col items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    {text && <p className="mt-4 text-gray-600">{text}</p>}
-  </div>
-);
+// Local Spinner removed
 
 const OfficerTableRow = React.memo(({ officer, index, startIdx }) => {
   const formatCurrency = (num) =>
@@ -124,7 +120,7 @@ const LoanOfficerPerformanceReport = () => {
         const parsed = JSON.parse(saved);
         return { ...parsed, search: "" }; // Don't persist search
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       branch: "",
@@ -704,10 +700,10 @@ const LoanOfficerPerformanceReport = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-            
+
               <div>
                 <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
@@ -717,7 +713,7 @@ const LoanOfficerPerformanceReport = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-             
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
                 <button
@@ -914,11 +910,10 @@ const LoanOfficerPerformanceReport = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
-                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${
-                        currentPage === 1
+                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === 1
                           ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                      }`}
+                        }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
                       Previous
@@ -939,11 +934,10 @@ const LoanOfficerPerformanceReport = () => {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-2 rounded-lg transition-colors ${
-                              currentPage === pageNum
+                            className={`px-3 py-2 rounded-lg transition-colors ${currentPage === pageNum
                                 ? 'bg-blue-600 text-white font-semibold'
                                 : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                            }`}
+                              }`}
                           >
                             {pageNum}
                           </button>
@@ -953,11 +947,10 @@ const LoanOfficerPerformanceReport = () => {
                     <button
                       onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
                       disabled={currentPage === pagination.totalPages}
-                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${
-                        currentPage === pagination.totalPages
+                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === pagination.totalPages
                           ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                           : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                      }`}
+                        }`}
                     >
                       Next
                       <ChevronRight className="w-4 h-4" />

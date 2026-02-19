@@ -171,7 +171,7 @@ const LoanListing = () => {
   const [productTypes, setProductTypes] = useState([]);
   const [statusTypes, setStatusTypes] = useState([]);
   const [repaymentStates, setRepaymentStates] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // ✅ Add error state
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -215,8 +215,6 @@ const LoanListing = () => {
   });
 
   // ========== Refs ==========
-  const hasFetchedLoansRef = useRef(false);
-  const hasFetchedBranchesRef = useRef(false);
   const isMountedRef = useRef(true); // ✅ Track mount state
 
   // ========== Debounced Save Filters ==========
@@ -231,19 +229,15 @@ const LoanListing = () => {
     return () => clearTimeout(timeoutId);
   }, [filters]);
 
-  // ========== FIXED: Fetch Branches and Regions (ONCE) ==========
+  // ========== Fetch Branches and Regions (ONCE) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
+    isMountedRef.current = true;
 
-    // Early return if no tenant or already fetched
-    if (!tenantId || hasFetchedBranchesRef.current) {
-      console.log("⏭️ Skipping branches fetch - tenantId:", tenantId, "hasFetched:", hasFetchedBranchesRef.current);
+    // Early return if no tenant
+    if (!tenantId) {
       return;
     }
-
-    // Mark as fetched IMMEDIATELY
-    hasFetchedBranchesRef.current = true;
-    isMountedRef.current = true;
 
     const fetchBranchesAndRegions = async () => {
       console.log("🔄 Fetching branches and regions for tenant:", tenantId);
@@ -300,19 +294,16 @@ const LoanListing = () => {
     };
   }, [tenant?.id]);
 
-  // ========== FIXED: Fetch All Loans (ONCE with Caching) ==========
+  // ========== Fetch All Loans (with Caching) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
+    isMountedRef.current = true;
 
-    // Early return if no tenant or already fetched
-    if (!tenantId || hasFetchedLoansRef.current) {
-      console.log("⏭️ Skipping loans fetch - tenantId:", tenantId, "hasFetched:", hasFetchedLoansRef.current);
+    // Early return if no tenant
+    if (!tenantId) {
+      setLoading(false);
       return;
     }
-
-    // Mark as fetched IMMEDIATELY to prevent duplicate calls
-    hasFetchedLoansRef.current = true;
-    isMountedRef.current = true;
 
     const fetchAllLoans = async () => {
       console.log("🔄 Starting loans fetch for tenant:", tenantId);
@@ -348,7 +339,6 @@ const LoanListing = () => {
 
         // Set loading state
         if (isMountedRef.current) {
-          setLoading(true);
           setError(null);
         }
 
@@ -1359,8 +1349,8 @@ const LoanListing = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
 

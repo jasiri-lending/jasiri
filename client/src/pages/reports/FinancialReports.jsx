@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { exportToCSV } from '../../utils/exportUtils';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 const FinancialReports = () => {
   const [filters, setFilters] = useState({
@@ -11,7 +12,7 @@ const FinancialReports = () => {
     reportType: 'summary',
     groupBy: 'monthly'
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -93,7 +94,7 @@ const FinancialReports = () => {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // In a real application, you would use Supabase like this:
       /*
       let query = supabase
@@ -120,7 +121,7 @@ const FinancialReports = () => {
         filteredData.branchBreakdown = filteredData.branchBreakdown.filter(
           branch => branch.branch_name === filters.branch
         );
-        
+
         // Adjust summary for single branch
         const branchData = filteredData.branchBreakdown[0];
         if (branchData) {
@@ -161,9 +162,9 @@ const FinancialReports = () => {
 
   const handleExport = () => {
     if (!reportData) return;
-    
+
     let csvData = [];
-    
+
     if (filters.reportType === 'summary') {
       csvData = [{
         'Total Disbursed (KES)': reportData.summary.totalDisbursed,
@@ -185,7 +186,7 @@ const FinancialReports = () => {
         'Profit Margin (%)': `${branch.profit_margin}%`
       }));
     }
-    
+
     exportToCSV(csvData, `financial-reports-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -205,7 +206,7 @@ const FinancialReports = () => {
   // Sort and paginate branch data
   const sortedBranches = React.useMemo(() => {
     if (!reportData?.branchBreakdown) return [];
-    
+
     const sorted = [...reportData.branchBreakdown].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
         return sortConfig.direction === 'asc' ? -1 : 1;
@@ -215,7 +216,7 @@ const FinancialReports = () => {
       }
       return 0;
     });
-    
+
     return sorted;
   }, [reportData?.branchBreakdown, sortConfig]);
 
@@ -254,7 +255,7 @@ const FinancialReports = () => {
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h2 className="text-lg font-semibold text-gray-900 mb-4">Filter Financial Reports</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -268,7 +269,7 @@ const FinancialReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               End Date
@@ -281,7 +282,7 @@ const FinancialReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Branch
@@ -298,7 +299,7 @@ const FinancialReports = () => {
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Report Type
@@ -316,27 +317,23 @@ const FinancialReports = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="mt-4">
           <button
             onClick={generateReport}
             disabled={loading}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {loading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating...
-              </>
-            ) : 'Generate Report'}
+            {loading ? 'Generating...' : 'Generate Report'}
           </button>
         </div>
       </div>
 
-      {reportData && (
+      {loading && !reportData ? (
+        <div className="py-20">
+          <Spinner text="Generating financial reports..." />
+        </div>
+      ) : reportData && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -459,34 +456,34 @@ const FinancialReports = () => {
                 <LineChart data={reportData.trends}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="period" />
-                  <YAxis 
+                  <YAxis
                     tickFormatter={(value) => `KES ${value / 1000}k`}
                   />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => [formatCurrency(value), 'Amount']}
                     labelFormatter={(label) => `Period: ${label}`}
                   />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="disbursed" 
-                    name="Disbursed" 
-                    stroke="#3b82f6" 
+                  <Line
+                    type="monotone"
+                    dataKey="disbursed"
+                    name="Disbursed"
+                    stroke="#3b82f6"
                     strokeWidth={2}
                     activeDot={{ r: 8 }}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="repaid" 
-                    name="Repaid" 
-                    stroke="#10b981" 
+                  <Line
+                    type="monotone"
+                    dataKey="repaid"
+                    name="Repaid"
+                    stroke="#10b981"
                     strokeWidth={2}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="outstanding" 
-                    name="Outstanding" 
-                    stroke="#f59e0b" 
+                  <Line
+                    type="monotone"
+                    dataKey="outstanding"
+                    name="Outstanding"
+                    stroke="#f59e0b"
                     strokeWidth={2}
                   />
                 </LineChart>
@@ -519,8 +516,8 @@ const FinancialReports = () => {
                 {reportData.revenueBreakdown.map((item, index) => (
                   <div key={index} className="text-center">
                     <div className="flex items-center justify-center space-x-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
+                      <div
+                        className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: item.color }}
                       ></div>
                       <span className="text-sm font-medium text-gray-700">{item.name}</span>
@@ -538,12 +535,12 @@ const FinancialReports = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">Branch Performance Breakdown</h3>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('branch_name')}
                     >
@@ -552,7 +549,7 @@ const FinancialReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('total_disbursed')}
                     >
@@ -561,7 +558,7 @@ const FinancialReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('total_repaid')}
                     >
@@ -576,7 +573,7 @@ const FinancialReports = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Fees
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('profit_margin')}
                     >
@@ -606,11 +603,10 @@ const FinancialReports = () => {
                         {formatCurrency(branch.fees)}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
-                          branch.profit_margin >= 9 ? 'bg-green-100 text-green-800' :
-                          branch.profit_margin >= 8 ? 'bg-blue-100 text-blue-800' :
-                          'bg-yellow-100 text-yellow-800'
-                        }`}>
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${branch.profit_margin >= 9 ? 'bg-green-100 text-green-800' :
+                            branch.profit_margin >= 8 ? 'bg-blue-100 text-blue-800' :
+                              'bg-yellow-100 text-yellow-800'
+                          }`}>
                           {formatPercentage(branch.profit_margin)}
                         </span>
                       </td>

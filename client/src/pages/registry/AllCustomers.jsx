@@ -122,7 +122,7 @@ const AllCustomers = () => {
       console.log("=== STARTING DATA FETCH ===");
       console.log("Profile:", profile);
 
-      // Fetch all customers for the tenant by joining with users
+      // Fetch all customers for the current tenant
       const { data: customersData, error: customersError } = await supabase
         .from("customers")
         .select(`
@@ -142,27 +142,20 @@ const AllCustomers = () => {
             role
           )
         `)
+        .eq("tenant_id", profile?.tenant_id)
         .eq("form_status", "submitted")
         .order("created_at", { ascending: false });
 
       console.log("=== CUSTOMERS DATA DEBUG ===");
       console.log("Raw customers data length:", customersData?.length || 0);
-      console.log("Sample customer with user data:", customersData?.[0]);
 
       if (customersError) {
         console.error("Error fetching customers:", customersError);
         return;
       }
 
-      // Filter customers by tenant_id from the created_by user
-      const filteredByTenant = customersData?.filter(customer => {
-        return customer.users?.tenant_id === profile?.tenant_id;
-      }) || [];
-
-      console.log("Customers after tenant filtering:", filteredByTenant.length);
-
       // Apply role-based filtering
-      let roleFilteredCustomers = filteredByTenant;
+      let roleFilteredCustomers = customersData || [];
 
       if (profile?.role === 'regional_manager' && profile.region_id) {
         roleFilteredCustomers = roleFilteredCustomers.filter(
@@ -949,8 +942,8 @@ const AllCustomers = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

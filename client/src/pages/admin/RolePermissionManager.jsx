@@ -29,12 +29,61 @@ export default function RolePermissionManager() {
     const [newRoleName, setNewRoleName] = useState("");
     const [addingRole, setAddingRole] = useState(false);
 
+    const RESOURCE_TITLES = {
+        'loan': 'Loan Operations',
+        'user': 'User Management',
+        'settings': 'System Settings',
+        'report': 'Reports Access',
+        'customers': 'Customer Management'
+    };
+
     const mountedRef = useRef(true);
 
     const ALLOWED_PERMISSIONS = {
-        'loans': ['create_loan', 'disburse_loan', 'adjust_loan_limit'],
-        'reports': ['view_report'],
-        'customers': ['create_customer', 'edit_customer'],
+        'loan': [
+            'loan.create',
+            'loan.view',
+            'loan.approve',
+            'loan.disburse',
+            'loan.reject',
+            'loan_limit_adjustment'
+        ],
+        'user': [
+            'user.create',
+            'user.view',
+            'user.edit',
+            'user.delete'
+        ],
+        'settings': [
+            'settings.view',
+            'settings.edit',
+            'penalty_settings_manage'
+        ],
+        'report': [
+            'report.view',
+            'report.customer_account_statement',
+            'report.loan_disbursement',
+            'report.loan_due',
+            'report.customer_listing',
+            'report.mpesa_repayment',
+            'report.loan_officer_performance',
+            'report.non_performing_loans',
+            'report.outstanding_balance',
+            'report.pending_disbursement',
+            'report.loan_listing',
+            'report.installments',
+            'report.outstanding_eom',
+            'report.trace_mpesa',
+            'report.inactive_customers',
+            'report.loan_arrears',
+            'report.suspense_payments'
+        ],
+        'customers': [
+            'customers.view',
+            'customers.create',
+            'customers.edit',
+            'customers.delete'
+        ]
     };
 
     const fetchRolesAndPermissions = useCallback(async () => {
@@ -79,22 +128,10 @@ export default function RolePermissionManager() {
                 }
             });
 
-            // Filter Permissions
+            // Filter Permissions based on ALLOWED_PERMISSIONS grouped into a flat list for checking
+            const allAllowedNames = Object.values(ALLOWED_PERMISSIONS).flat();
             const filteredPerms = (permsData || []).filter(p => {
-                const res = p.resource.toLowerCase();
-                if (res === 'loans') {
-                    return ['create_loan', 'disburse_loan', 'adjust_loan_limit'].includes(p.name);
-                }
-                if (res === 'reports') {
-                    return ['view_report'].includes(p.name);
-                }
-                if (res === 'customers') {
-                    return ['create_customer', 'edit_customer'].includes(p.name);
-                }
-                if (res === 'settings') {
-                    return ['penalty_settings'].includes(p.name);
-                }
-                return true; // Keep other resources like 'users', 'configurations' etc.
+                return allAllowedNames.includes(p.name);
             });
 
             setRoles(uniqueRoles);
@@ -147,6 +184,91 @@ export default function RolePermissionManager() {
         fetchRolePerms();
     }, [selectedRole]);
 
+    const syncPermissions = async () => {
+        try {
+            setLoading(true);
+            info("Syncing permissions...");
+
+            const reportPermissions = [
+                // Reports
+                { resource: 'report', name: 'report.view', description: 'Access Reports Dashboard' },
+                { resource: 'report', name: 'report.customer_account_statement', description: 'View customer account statement report' },
+                { resource: 'report', name: 'report.loan_disbursement', description: 'View loan disbursement report' },
+                { resource: 'report', name: 'report.loan_due', description: 'View loan due report' },
+                { resource: 'report', name: 'report.customer_listing', description: 'View customer listing report' },
+                { resource: 'report', name: 'report.mpesa_repayment', description: 'View Mpesa repayment report' },
+                { resource: 'report', name: 'report.loan_officer_performance', description: 'View loan officer performance report' },
+                { resource: 'report', name: 'report.non_performing_loans', description: 'View non-performing loans report' },
+                { resource: 'report', name: 'report.outstanding_balance', description: 'View outstanding loan balance report' },
+                { resource: 'report', name: 'report.pending_disbursement', description: 'View pending disbursement report' },
+                { resource: 'report', name: 'report.loan_listing', description: 'View loan listing report' },
+                { resource: 'report', name: 'report.installments', description: 'View installments report' },
+                { resource: 'report', name: 'report.outstanding_eom', description: 'View end-of-month outstanding balance report' },
+                { resource: 'report', name: 'report.trace_mpesa', description: 'Trace Mpesa transaction report' },
+                { resource: 'report', name: 'report.inactive_customers', description: 'View inactive customers report' },
+                { resource: 'report', name: 'report.loan_arrears', description: 'View loan arrears report' },
+                { resource: 'report', name: 'report.suspense_payments', description: 'View suspense payments report' },
+
+                // Core Loans
+                { resource: 'loan', name: 'loan.create', description: 'Create Loan' },
+                { resource: 'loan', name: 'loan.view', description: 'View Loans' },
+                { resource: 'loan', name: 'loan.approve', description: 'Approve Loan' },
+                { resource: 'loan', name: 'loan.disburse', description: 'Disburse Loan' },
+                { resource: 'loan', name: 'loan.reject', description: 'Reject Loan' },
+                { resource: 'loan', name: 'loan_limit_adjustment', description: 'Adjust Loan Limit' },
+
+                // Users
+                { resource: 'user', name: 'user.create', description: 'Create User' },
+                { resource: 'user', name: 'user.view', description: 'View Users' },
+                { resource: 'user', name: 'user.edit', description: 'Edit User' },
+                { resource: 'user', name: 'user.delete', description: 'Delete User' },
+
+                // Settings
+                { resource: 'settings', name: 'settings.view', description: 'View Settings' },
+                { resource: 'settings', name: 'settings.edit', description: 'Edit Settings' },
+                { resource: 'settings', name: 'penalty_settings_manage', description: 'Manage Penalty Settings' },
+
+                // Customers
+                { resource: 'customers', name: 'customers.view', description: 'View Customers' },
+                { resource: 'customers', name: 'customers.create', description: 'Create Customer' },
+                { resource: 'customers', name: 'customers.edit', description: 'Edit Customer' },
+                { resource: 'customers', name: 'customers.delete', description: 'Delete Customer' },
+            ];
+
+            const { data: existingPerms, error: fetchError } = await supabase
+                .from("permissions")
+                .select("name");
+
+            if (fetchError) throw fetchError;
+
+            const existingNames = new Set(existingPerms.map(p => p.name));
+            const missingPerms = reportPermissions.filter(p => !existingNames.has(p.name));
+
+            if (missingPerms.length > 0) {
+                const { error: insertError } = await supabase
+                    .from("permissions")
+                    .insert(missingPerms.map(p => ({
+                        resource: p.resource,
+                        name: p.name,
+                        description: p.description,
+                        action: p.name // Using name as action for simplicity or as needed
+                    })));
+
+                if (insertError) throw insertError;
+                success(`Synced ${missingPerms.length} new report permissions.`);
+            } else {
+                success("Permissions are up to date.");
+            }
+
+            await fetchRolesAndPermissions();
+        } catch (err) {
+            console.error("Error syncing permissions:", err);
+            toastError(`Failed to sync permissions: ${err.message}`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const syncRoles = async () => {
         try {
             if (!profile?.tenant_id) {
@@ -178,7 +300,8 @@ export default function RolePermissionManager() {
 
             if (missingRoles.length === 0) {
                 success("Roles are up to date.");
-                setLoading(false);
+                // Also trigger permission sync if roles are up to date
+                await syncPermissions();
                 return;
             }
 
@@ -193,6 +316,7 @@ export default function RolePermissionManager() {
             if (insertError) throw insertError;
 
             success(`Added ${missingRoles.length} new roles.`);
+            await syncPermissions(); // Sync permissions after adding roles
 
             const { data: newRoles, error: refreshError } = await supabase
                 .from("roles")
@@ -399,38 +523,44 @@ export default function RolePermissionManager() {
                                     </div>
 
                                     <div className="divide-y divide-slate-100">
-                                        {Object.entries(permissionsByResource).map(([resource, perms]) => (
-                                            <div key={resource} className="p-6">
-                                                <h4 className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2 border-slate-50">
-                                                    {resource}
-                                                </h4>
-                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                    {perms.map((perm) => (
-                                                        <label
-                                                            key={perm.id}
-                                                            className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${rolePermissions[perm.id]
-                                                                ? "bg-brand-primary/5 border-brand-primary/30"
-                                                                : "bg-white border-slate-200 hover:border-slate-300"
-                                                                }`}
-                                                        >
-                                                            <input
-                                                                type="checkbox"
-                                                                checked={!!rolePermissions[perm.id]}
-                                                                onChange={() => togglePermission(perm.id)}
-                                                                className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-                                                            />
-                                                            <div>
-                                                                <p className={`text-sm font-medium ${rolePermissions[perm.id] ? "text-brand-primary" : "text-slate-700"
-                                                                    }`}>
-                                                                    {perm.description}
-                                                                </p>
-                                                                <p className="text-xs text-slate-400 font-mono mt-1">{perm.name}</p>
-                                                            </div>
-                                                        </label>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ))}
+                                        {Object.keys(permissionsByResource)
+                                            .sort((a, b) => (RESOURCE_TITLES[a] || a).localeCompare(RESOURCE_TITLES[b] || b))
+                                            .map((resource) => {
+                                                const perms = permissionsByResource[resource]
+                                                    .sort((a, b) => a.description.localeCompare(b.description));
+
+                                                return (
+                                                    <div key={resource} className="p-6">
+                                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2 border-slate-50">
+                                                            {RESOURCE_TITLES[resource] || resource}
+                                                        </h4>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                                            {perms.map((perm) => (
+                                                                <label
+                                                                    key={perm.id}
+                                                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${rolePermissions[perm.id]
+                                                                        ? "bg-brand-primary/5 border-brand-primary/30"
+                                                                        : "bg-white border-slate-200 hover:border-slate-300"
+                                                                        }`}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={!!rolePermissions[perm.id]}
+                                                                        onChange={() => togglePermission(perm.id)}
+                                                                        className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
+                                                                    />
+                                                                    <div>
+                                                                        <p className={`text-sm font-medium ${rolePermissions[perm.id] ? "text-brand-primary" : "text-slate-700"
+                                                                            }`}>
+                                                                            {perm.description}
+                                                                        </p>
+                                                                    </div>
+                                                                </label>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
                                     </div>
                                 </div>
                             </div>

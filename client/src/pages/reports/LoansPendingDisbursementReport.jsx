@@ -20,6 +20,8 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+import { Lock } from "lucide-react";
 
 
 // ========== Memoized Helper Components ==========
@@ -38,12 +40,7 @@ const SearchBox = React.memo(({ value, onChange }) => (
 ));
 SearchBox.displayName = "SearchBox";
 
-const Spinner = ({ text }) => (
-  <div className="flex flex-col items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    {text && <p className="mt-4 text-gray-600">{text}</p>}
-  </div>
-);
+// Local Spinner component removed
 
 // Memoized row component for better performance
 const PendingRow = React.memo(({ row, isFirstInBranch, isFirstInOfficer, branchRowSpan, officerRowSpan, branchTotal, officerTotal, formatCurrency }) => {
@@ -161,6 +158,8 @@ const PendingDisbursementReport = () => {
       customEndDate: "",
     };
   });
+
+  // usePermissions and canViewReport removed as it's handled by ReportWrapper
 
 
   // ========== Debounced Save Filters ==========
@@ -746,7 +745,7 @@ const PendingDisbursementReport = () => {
     <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
       <div className="max-w-full mx-auto space-y-8">
         {/* COMPACT HEADER */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+    <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
@@ -770,8 +769,8 @@ const PendingDisbursementReport = () => {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                    ? "bg-accent text-white border-transparent"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  ? "bg-accent text-white border-transparent"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                   }`}
               >
                 <Filter className="w-4 h-4" />
@@ -1100,8 +1099,8 @@ const PendingDisbursementReport = () => {
                           key={i}
                           onClick={() => setCurrentPage(i + 1)}
                           className={`h-8 w-8 rounded-lg text-xs font-bold transition-all ${currentPage === i + 1
-                              ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20 scale-110"
-                              : "bg-white text-slate-400 hover:text-slate-600 border border-slate-100"
+                            ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/20 scale-110"
+                            : "bg-white text-slate-400 hover:text-slate-600 border border-slate-100"
                             }`}
                         >
                           {i + 1}

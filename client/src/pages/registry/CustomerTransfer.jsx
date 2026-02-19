@@ -1,23 +1,21 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient.js';
-import { useToast } from '../../components/Toast.jsx'; // Adjust import path as needed
+import { useAuth } from '../../hooks/userAuth.js';
 import Spinner from '../../components/Spinner.jsx';
 
 const CustomerTransfer = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const { profile } = useAuth();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
   const [expandedTransfer, setExpandedTransfer] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
 
   useEffect(() => {
-    fetchCurrentUser();
-    fetchTransfers();
-  }, []);
+    if (profile) {
+      fetchTransfers();
+    }
+  }, [profile]);
 
   const fetchCurrentUser = async () => {
     try {
@@ -38,6 +36,7 @@ const CustomerTransfer = () => {
 
   const fetchTransfers = async () => {
     try {
+      if (!profile) return;
       setLoading(true);
       const { data, error } = await supabase
         .from('customer_transfer_requests')
@@ -69,6 +68,7 @@ const CustomerTransfer = () => {
             remarks
           )
         `)
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -82,7 +82,7 @@ const CustomerTransfer = () => {
   };
 
   const handleApproveTransfer = async (transferId) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       toast.error('User not authenticated');
       return;
     }
@@ -93,11 +93,12 @@ const CustomerTransfer = () => {
       const { error: updateError } = await supabase
         .from('customer_transfer_requests')
         .update({
-          regional_manager_id: currentUser.id,
+          regional_manager_id: profile.id,
           status: 'approved',
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (updateError) throw updateError;
 
@@ -106,9 +107,10 @@ const CustomerTransfer = () => {
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'approved',
-          remarks: 'Transfer approved by regional manager'
+          remarks: 'Transfer approved by Regional Manager'
         });
 
       if (logError) throw logError;
@@ -124,7 +126,7 @@ const CustomerTransfer = () => {
   };
 
   const handleRejectTransfer = async (transferId, reason) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       toast.error('User not authenticated');
       return;
     }
@@ -136,24 +138,27 @@ const CustomerTransfer = () => {
 
     setActionLoading(prev => ({ ...prev, [transferId]: 'rejecting' }));
     try {
+      // 1. Update transfer request status
       const { error: updateError } = await supabase
         .from('customer_transfer_requests')
         .update({
           status: 'rejected',
-          remarks: reason,
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (updateError) throw updateError;
 
+      // 2. Add workflow log
       const { error: logError } = await supabase
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'rejected',
-          remarks: reason
+          remarks: `Transfer rejected: ${reason}`
         });
 
       if (logError) throw logError;
@@ -169,81 +174,79 @@ const CustomerTransfer = () => {
   };
 
   const handleExecuteTransfer = async (transferId) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       toast.error('User not authenticated');
       return;
     }
 
     setActionLoading(prev => ({ ...prev, [transferId]: 'executing' }));
     try {
-      // 1. Get transfer request details
-      const { data: transferRequest, error: fetchError } = await supabase
+      // 1. Get transfer details including customers
+      const { data: transfer, error: fetchError } = await supabase
         .from('customer_transfer_requests')
         .select(`
           *,
-          new_branch:new_branch_id (id, region_id),
           transfer_items:customer_transfer_items (
             customer_id
           )
         `)
         .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id)
         .single();
 
       if (fetchError) throw fetchError;
 
-      // 2. Get all customer IDs from transfer items
-      const customerIds = transferRequest.transfer_items.map(item => item.customer_id);
+      // 2. Update each customer's branch and officer
+      if (transfer.transfer_items && transfer.transfer_items.length > 0) {
+        const customerIds = transfer.transfer_items.map(item => item.customer_id);
 
-      if (customerIds.length === 0) {
-        throw new Error('No customers found for transfer');
+        const { error: customerUpdateError } = await supabase
+          .from('customers')
+          .update({
+            branch_id: transfer.new_branch_id,
+            created_by: transfer.new_officer_id,
+            updated_at: new Date().toISOString()
+          })
+          .in('id', customerIds)
+          .eq('tenant_id', profile.tenant_id);
+
+        if (customerUpdateError) throw customerUpdateError;
       }
 
-      // 3. Update customers with new branch, region, and officer
-      const { error: updateError } = await supabase
-        .from('customers')
-        .update({
-          branch_id: transferRequest.new_branch_id,
-          region_id: transferRequest.new_branch.region_id,
-          created_by: transferRequest.new_officer_id,
-          updated_at: new Date().toISOString()
-        })
-        .in('id', customerIds);
-
-      if (updateError) throw updateError;
-
-      // 4. Update transfer request status
+      // 3. Update transfer request status
       const { error: statusError } = await supabase
         .from('customer_transfer_requests')
         .update({
-          credit_analyst_id: currentUser.id,
-          status: 'completed',
+          credit_analyst_id: profile.id,
+          status: 'executed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (statusError) throw statusError;
 
-      // 5. Update transfer items status
+      // 4. Update transfer items status
       const { error: itemsError } = await supabase
         .from('customer_transfer_items')
         .update({ status: 'transferred' })
-        .eq('transfer_request_id', transferId);
+        .eq('transfer_request_id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
-      if (itemsError) throw itemsError;
-
-      // 6. Log workflow action
+      // 5. Log workflow action
       const { error: logError } = await supabase
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
-          action: 'completed',
-          remarks: `Transferred ${customerIds.length} customer(s)`
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
+          action: 'executed',
+          remarks: `Successfully transferred ${transfer.transfer_items.length} customer(s)`
         });
 
       if (logError) throw logError;
 
-      toast.success(`Successfully transferred ${customerIds.length} customer(s)!`);
+      toast.success(`Successfully transferred ${transfer.transfer_items.length} customer(s)!`);
       await fetchTransfers();
     } catch (error) {
       console.error('Error executing transfer:', error);
@@ -274,9 +277,9 @@ const CustomerTransfer = () => {
   };
 
   const getActionButtons = (transfer) => {
-    if (!currentUser) return null;
+    if (!profile) return null;
 
-    switch(currentUser.role) {
+    switch (profile.role) {
       case 'regional_manager':
         if (transfer.status === 'pending_approval') {
           return (
@@ -304,27 +307,22 @@ const CustomerTransfer = () => {
         break;
 
       case 'credit_analyst_officer':
+      case 'credit_analyst':
         if (transfer.status === 'approved') {
           return (
             <button
-              onClick={() => {
-                if (window.confirm('Are you sure you want to execute this transfer?')) {
-                  handleExecuteTransfer(transfer.id);
-                }
-              }}
+              onClick={() => handleExecuteTransfer(transfer.id)}
               disabled={actionLoading[transfer.id] === 'executing'}
-              className="px-3 py-1 bg-brand-btn text-white text-xs rounded hover:bg-brand-btn disabled:opacity-50"
+              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              {actionLoading[transfer.id] === 'executing' ? 'Executing...' : 'Execute'}
+              {actionLoading[transfer.id] === 'executing' ? 'Executing...' : 'Execute Transfer'}
             </button>
           );
         }
         break;
-
       default:
         return null;
     }
-
     return null;
   };
 
@@ -520,7 +518,7 @@ const CustomerTransfer = () => {
                           {getActionButtons(transfer)}
                         </td>
                       </tr>
-                      
+
                       {/* Expanded row for customer details */}
                       {expandedTransfer === transfer.id && (
                         <tr>
@@ -558,7 +556,7 @@ const CustomerTransfer = () => {
                                   </div>
                                 ))}
                               </div>
-                              
+
                               {/* Workflow Logs */}
                               {transfer.workflow_logs && transfer.workflow_logs.length > 0 && (
                                 <div className="mt-6">
@@ -566,12 +564,11 @@ const CustomerTransfer = () => {
                                   <div className="space-y-2">
                                     {transfer.workflow_logs.map((log, index) => (
                                       <div key={index} className="flex items-start gap-3 text-sm">
-                                        <div className={`w-2 h-2 mt-1 rounded-full ${
-                                          log.action === 'initiated' ? 'bg-blue-500' :
+                                        <div className={`w-2 h-2 mt-1 rounded-full ${log.action === 'initiated' ? 'bg-blue-500' :
                                           log.action === 'approved' ? 'bg-green-500' :
-                                          log.action === 'rejected' ? 'bg-red-500' :
-                                          log.action === 'completed' ? 'bg-purple-500' : 'bg-gray-500'
-                                        }`}></div>
+                                            log.action === 'rejected' ? 'bg-red-500' :
+                                              log.action === 'completed' ? 'bg-purple-500' : 'bg-gray-500'
+                                          }`}></div>
                                         <div>
                                           <p className="font-medium text-gray-900">
                                             {log.action.charAt(0).toUpperCase() + log.action.slice(1)} by {log.user?.full_name}

@@ -764,9 +764,9 @@ const InactiveCustomers = () => {
   return (
     <div className="min-h-screen bg-brand-surface pb-12">
       {/* HEADER SECTION */}
-    <div className="bg-brand-secondary border-b border-gray-200 shadow-sm relative z-20 rounded-lg mx-4 mt-4">
-  <div className="max-w-[1600px] mx-auto px-6 py-4">
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+   <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
       
       {/* LEFT SECTION (Company Name + Report Title) */}
       <div>

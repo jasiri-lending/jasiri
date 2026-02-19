@@ -14,16 +14,17 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components (unchanged) ==========
 const StatusBadge = React.memo(({ status }) => {
   const statusConfig = {
-    applied:   { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
+    applied: { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
     completed: { label: "Completed", color: "bg-blue-50 text-blue-700 border border-blue-200", icon: CheckCircle },
-    success:   { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
-    pending:   { label: "Pending", color: "bg-amber-50 text-amber-700 border border-amber-200", icon: Clock },
-    failed:    { label: "Failed", color: "bg-red-50 text-red-700 border border-red-200", icon: AlertCircle },
-    default:   { label: "Processing", color: "bg-gray-50 text-gray-700 border border-gray-200", icon: Clock },
+    success: { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
+    pending: { label: "Pending", color: "bg-amber-50 text-amber-700 border border-amber-200", icon: Clock },
+    failed: { label: "Failed", color: "bg-red-50 text-red-700 border border-red-200", icon: AlertCircle },
+    default: { label: "Processing", color: "bg-gray-50 text-gray-700 border border-gray-200", icon: Clock },
   };
   const config = statusConfig[status] || statusConfig.default;
   const Icon = config.icon;
@@ -65,12 +66,7 @@ const SearchBox = React.memo(({ value, onChange }) => (
 ));
 SearchBox.displayName = 'SearchBox';
 
-const Spinner = ({ text }) => (
-  <div className="flex flex-col items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    {text && <p className="mt-4 text-gray-600">{text}</p>}
-  </div>
-);
+// Local Spinner component removed
 
 const RepaymentTableRow = React.memo(({ repayment, index, startIdx }) => {
   const formatDate = (date) => date ? new Date(date).toLocaleDateString("en-KE", { year: 'numeric', month: 'short', day: 'numeric' }) : "N/A";
@@ -137,11 +133,10 @@ const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, 
             <button
               key={pageNum}
               onClick={() => onPageChange(pageNum)}
-              className={`w-8 h-8 rounded text-xs transition-colors ${
-                currentPage === pageNum
+              className={`w-8 h-8 rounded text-xs transition-colors ${currentPage === pageNum
                   ? "bg-blue-600 text-white"
                   : "hover:bg-gray-100 text-gray-700"
-              }`}
+                }`}
             >
               {pageNum}
             </button>
@@ -194,7 +189,7 @@ const MpesaRepaymentReports = () => {
         const parsed = JSON.parse(saved);
         return { ...parsed, search: "" };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       branch: "",
@@ -346,8 +341,8 @@ const MpesaRepaymentReports = () => {
 
         const fullName = customer
           ? [customer.Firstname, customer.Middlename, customer.Surname]
-              .filter(n => n && n.trim() !== "")
-              .join(" ")
+            .filter(n => n && n.trim() !== "")
+            .join(" ")
           : "N/A";
 
         const paymentDate = item.paid_at ? new Date(item.paid_at) : null;
@@ -487,7 +482,7 @@ const MpesaRepaymentReports = () => {
 
     if (search) {
       const q = search.toLowerCase();
-      result = result.filter(r => 
+      result = result.filter(r =>
         (r.customerName || "").toLowerCase().includes(q) ||
         String(r.mobile || "").toLowerCase().includes(q) ||
         String(r.idNumber || "").toLowerCase().includes(q) ||
@@ -594,9 +589,9 @@ const MpesaRepaymentReports = () => {
     const formatCurrency = (amount) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount || 0);
 
     const csv = [
-      ["No","Customer Name","Customer ID","Mobile","ID Number","Branch","Region","Transaction ID","Bill Reference","Amount Paid (KES)","Status","Payment Date","Payment Time"],
+      ["No", "Customer Name", "Customer ID", "Mobile", "ID Number", "Branch", "Region", "Transaction ID", "Bill Reference", "Amount Paid (KES)", "Status", "Payment Date", "Payment Time"],
       ...filteredData.map((r, i) => [
-        i+1,
+        i + 1,
         `"${r.customerName}"`,
         r.customerId || "N/A",
         r.mobile,
@@ -650,9 +645,10 @@ const MpesaRepaymentReports = () => {
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section (same as before) */}
         <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-          
+
               <div>
                 <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">M-Pesa Repayment Reports</h2>
@@ -660,17 +656,16 @@ const MpesaRepaymentReports = () => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-            
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
-              
+
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                    showFilters
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
                       : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
-                  }`}
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>

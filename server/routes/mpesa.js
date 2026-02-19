@@ -1,21 +1,21 @@
-// mpesa.js
 import axios from "axios";
 
 /**
- * Get tenant-specific MPESA access token
+ * Generate tenant-specific MPESA token
  * @param {Object} tenantConfig
  */
-export async function getMpesaToken(tenantConfig) {
+export async function getTenantMpesaToken(tenantConfig) {
   try {
     const { consumer_key, consumer_secret } = tenantConfig;
 
+    // Normally you'd decrypt these first if stored encrypted
     const response = await axios.get(
       "https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials",
       {
         auth: {
           username: consumer_key,
-          password: consumer_secret,
-        },
+          password: consumer_secret
+        }
       }
     );
 

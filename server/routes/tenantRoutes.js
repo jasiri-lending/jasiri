@@ -18,7 +18,7 @@ const supabase = createClient(
 async function sendTenantEmail(adminEmail, adminPassword, tenantSlug, companyName) {
   const loginUrl = `https://jasirilending.software/login?tenant=${tenantSlug}`;
   await transporter.sendMail({
-    from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
     to: adminEmail,
     subject: `Your Tenant Platform is Ready`,
     html: baseEmailTemplate("Welcome to Jasiri", `
@@ -50,7 +50,12 @@ tenantRouter.post("/create-tenant", async (req, res) => {
       primary_color,
       secondary_color,
       admin_full_name,
-      admin_email
+      admin_email,
+      cr12,
+      company_certificate,
+      license,
+      tenant_id_number,
+      phone_number
     } = req.body;
 
     if (!name || !company_name || !admin_email || !admin_full_name) {
@@ -60,7 +65,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
     const tenant_slug = name.toLowerCase().replace(/\s+/g, "");
 
     // 0️⃣ Pre-flight checks
-    const { data: existingTenant } = await supabaseAdmin
+    const { data: existingTenant } = await supabase
       .from("tenants")
       .select("id")
       .eq("tenant_slug", tenant_slug)
@@ -88,7 +93,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
       .toUpperCase();
 
     // 1️⃣ Insert tenant
-    const { data: tenant, error: tenantErr } = await supabaseAdmin
+    const { data: tenant, error: tenantErr } = await supabase
       .from("tenants")
       .insert([{
         name,
@@ -102,7 +107,12 @@ tenantRouter.post("/create-tenant", async (req, res) => {
         primary_color,
         secondary_color,
         status: 'active',
-        onboarding_completed: false
+        onboarding_completed: false,
+        cr12,
+        company_certificate,
+        license,
+        tenant_id_number,
+        phone_number
       }])
       .select()
       .single();
@@ -129,7 +139,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
 
     if (authErr) {
       console.error("❌ Auth User Creation Error:", authErr);
-      await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+      await supabase.from("tenants").delete().eq("id", tenant.id);
       throw authErr;
     }
 
@@ -137,7 +147,7 @@ tenantRouter.post("/create-tenant", async (req, res) => {
     // Wait a moment for trigger to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    const { error: userUpdateErr } = await supabaseAdmin
+    const { error: userUpdateErr } = await supabase
       .from("users")
       .update({
         full_name: admin_full_name,
@@ -149,13 +159,13 @@ tenantRouter.post("/create-tenant", async (req, res) => {
 
     if (userUpdateErr) {
       console.error("❌ User Update Error:", userUpdateErr);
-      await supabaseAdmin.auth.admin.deleteUser(authUser.user.id);
-      await supabaseAdmin.from("tenants").delete().eq("id", tenant.id);
+      await supabase.auth.admin.deleteUser(authUser.user.id);
+      await supabase.from("tenants").delete().eq("id", tenant.id);
       throw userUpdateErr;
     }
 
     // 5️⃣ Update profiles (if trigger created it)
-    const { error: profileUpdateErr } = await supabaseAdmin
+    const { error: profileUpdateErr } = await supabase
       .from("profiles")
       .update({
         tenant_id: tenant.id,
@@ -196,6 +206,79 @@ tenantRouter.post("/create-tenant", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Create Tenant Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete tenant endpoint (Cascading Delete)
+tenantRouter.delete("/delete-tenant/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id) {
+      return res.status(400).json({ error: "Tenant ID is required" });
+    }
+
+    console.log(`🗑️ Attempting to delete tenant: ${id}`);
+
+    // 1️⃣ Fetch all admin users associated with this tenant (to delete from Auth)
+    // We need to delete auth users first or in parallel
+    const { data: tenantUsers, error: usersFetchError } = await supabase
+      .from("users")
+      .select("auth_id")
+      .eq("tenant_id", id);
+
+    if (usersFetchError) {
+      throw new Error(`Failed to fetch tenant users: ${usersFetchError.message}`);
+    }
+
+    // 2️⃣ Delete Auth Users
+    if (tenantUsers && tenantUsers.length > 0) {
+      const deleteAuthPromises = tenantUsers
+        .filter(u => u.auth_id)
+        .map(u => supabase.auth.admin.deleteUser(u.auth_id));
+
+      await Promise.all(deleteAuthPromises);
+      console.log(`✅ Deleted ${tenantUsers.length} auth users`);
+    }
+
+    // 3️⃣ Delete Branches (Foreign Key Constraint)
+    const { error: branchesError } = await supabase
+      .from("branches")
+      .delete()
+      .eq("tenant_id", id);
+
+    if (branchesError) throw new Error(`Failed to delete branches: ${branchesError.message}`);
+
+    // 4️⃣ Delete Regions (Foreign Key Constraint)
+    const { error: regionsError } = await supabase
+      .from("regions")
+      .delete()
+      .eq("tenant_id", id);
+
+    if (regionsError) throw new Error(`Failed to delete regions: ${regionsError.message}`);
+
+    // 5️⃣ Delete Users (Public Table - cascaded from auth deletion usually, but manual safety check)
+    const { error: usersError } = await supabase
+      .from("users")
+      .delete()
+      .eq("tenant_id", id);
+
+    if (usersError) throw new Error(`Failed to delete users: ${usersError.message}`);
+
+    // 6️⃣ Delete Tenant
+    const { error: tenantError } = await supabase
+      .from("tenants")
+      .delete()
+      .eq("id", id);
+
+    if (tenantError) throw new Error(`Failed to delete tenant: ${tenantError.message}`);
+
+    console.log(`✅ Tenant ${id} deleted successfully`);
+    res.status(200).json({ message: "Tenant deleted successfully" });
+
+  } catch (err) {
+    console.error("❌ Delete Tenant Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

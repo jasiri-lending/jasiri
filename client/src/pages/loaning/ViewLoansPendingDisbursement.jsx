@@ -16,7 +16,8 @@ import {
   ArrowLeftIcon,
   PhoneIcon,
   EnvelopeIcon,
-  DocumentTextIcon as NotesIcon
+  DocumentTextIcon as NotesIcon,
+  LockClosedIcon as LockIcon
 } from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
 
@@ -535,6 +536,7 @@ const ViewLoansPendingDisbursement = () => {
 
   const { hasPermission, loading: permsLoading, permissions } = usePermissions();
   const canDisburse = hasPermission('loan.disburse');
+  const canViewReport = hasPermission('view_pending_disbursement_report');
 
   useEffect(() => {
     if (!authLoading && !permsLoading) {
@@ -606,6 +608,7 @@ const ViewLoansPendingDisbursement = () => {
           )
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -692,6 +695,19 @@ const ViewLoansPendingDisbursement = () => {
       setLoading(false);
     }
   };
+
+  if (loading || permsLoading) {
+    return (
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <div className="flex flex-col items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
+          <p className="text-gray-600">Verifying access...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Removed blocking canViewReport check. Page is now always accessible.
 
   const generateRepaymentSchedule = (loan) => {
     const schedule = [];
@@ -872,10 +888,10 @@ const ViewLoansPendingDisbursement = () => {
     }
   };
 
-  if (authLoading || loading || permsLoading) {
+  if (authLoading || loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-
+        <Spinner text="Loading loan details..." />
       </div>
     );
   }
@@ -904,7 +920,7 @@ const ViewLoansPendingDisbursement = () => {
     <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-      
+
 
         <div className="space-y-6">
           {/* Loan Summary */}

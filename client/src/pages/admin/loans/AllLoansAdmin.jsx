@@ -1,6 +1,7 @@
 // src/components/AllLoansAdmin.jsx
 import React, { useState, useEffect } from "react";
 import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../hooks/userAuth";
 import {
   CurrencyDollarIcon,
   CalendarIcon,
@@ -14,6 +15,7 @@ import {
 import ViewLoan from "./ViewLoanAdmin";
 
 const AllLoansAdmin = () => {
+  const { profile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [filteredLoans, setFilteredLoans] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -26,10 +28,12 @@ const AllLoansAdmin = () => {
   const [selectedLoan, setSelectedLoan] = useState(null);
 
   useEffect(() => {
-    fetchRegions();
-    fetchBranches();
-    fetchLoans();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchRegions();
+      fetchBranches();
+      fetchLoans();
+    }
+  }, [profile]);
 
   useEffect(() => {
     filterLoans();
@@ -37,7 +41,10 @@ const AllLoansAdmin = () => {
 
   const fetchRegions = async () => {
     try {
-      const { data, error } = await supabase.from("regions").select("id, name");
+      const { data, error } = await supabase
+        .from("regions")
+        .select("id, name")
+        .eq("tenant_id", profile?.tenant_id);
       if (error) throw error;
       setRegions(data || []);
     } catch (error) {
@@ -50,6 +57,7 @@ const AllLoansAdmin = () => {
       const { data, error } = await supabase
         .from("branches")
         .select("id, name, region_id")
+        .eq("tenant_id", profile?.tenant_id)
         .order("name");
       if (error) throw error;
       setBranches(data || []);
@@ -82,6 +90,7 @@ const AllLoansAdmin = () => {
           )
         `
         )
+        .eq("tenant_id", profile?.tenant_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -299,9 +308,8 @@ const AllLoansAdmin = () => {
               {filteredLoans.map((loan, index) => (
                 <tr
                   key={loan.id}
-                  className={`${
-                    index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                  } hover:bg-indigo-50 transition-colors`}
+                  className={`${index % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    } hover:bg-indigo-50 transition-colors`}
                 >
                   <td className="px-3 py-3 whitespace-nowrap">
                     {loan.customers?.Firstname} {loan.customers?.Surname}

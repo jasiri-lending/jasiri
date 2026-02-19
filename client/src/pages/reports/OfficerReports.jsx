@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { exportToCSV } from '../../utils/exportUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, LineChart, Line } from 'recharts';
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 const OfficerReports = () => {
   const [filters, setFilters] = useState({
@@ -11,7 +12,7 @@ const OfficerReports = () => {
     officer: 'all',
     metric: 'performance'
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -149,7 +150,7 @@ const OfficerReports = () => {
     try {
       // Simulate API delay
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       // In a real application, you would use Supabase like this:
       /*
       let query = supabase
@@ -197,13 +198,13 @@ const OfficerReports = () => {
           totalLoansBooked: filteredOfficers.reduce((sum, officer) => sum + officer.loans_booked, 0),
           totalAmountDisbursed: filteredOfficers.reduce((sum, officer) => sum + officer.amount_disbursed, 0),
           totalCollections: filteredOfficers.reduce((sum, officer) => sum + officer.total_collections, 0),
-          promiseKeptRate: filteredOfficers.length > 0 
+          promiseKeptRate: filteredOfficers.length > 0
             ? filteredOfficers.reduce((sum, officer) => sum + officer.promise_kept_rate, 0) / filteredOfficers.length
             : 0,
           activeClients: filteredOfficers.reduce((sum, officer) => sum + officer.active_clients, 0),
-          avgLoanSize: filteredOfficers.reduce((sum, officer) => sum + officer.amount_disbursed, 0) / 
+          avgLoanSize: filteredOfficers.reduce((sum, officer) => sum + officer.amount_disbursed, 0) /
             filteredOfficers.reduce((sum, officer) => sum + officer.loans_booked, 0),
-          collectionEfficiency: filteredOfficers.reduce((sum, officer) => sum + officer.total_collections, 0) / 
+          collectionEfficiency: filteredOfficers.reduce((sum, officer) => sum + officer.total_collections, 0) /
             filteredOfficers.reduce((sum, officer) => sum + officer.amount_disbursed, 0) * 100
         };
       }
@@ -232,7 +233,7 @@ const OfficerReports = () => {
 
   const handleExport = () => {
     if (!reportData?.officers) return;
-    
+
     const csvData = reportData.officers.map(officer => ({
       'Officer ID': officer.id,
       'Officer Name': officer.name,
@@ -246,7 +247,7 @@ const OfficerReports = () => {
       'Phone Calls': officer.phone_calls,
       'Visits Completed': officer.visits_completed
     }));
-    
+
     exportToCSV(csvData, `officer-reports-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -277,7 +278,7 @@ const OfficerReports = () => {
   // Sort and paginate officer data
   const sortedOfficers = React.useMemo(() => {
     if (!reportData?.officers) return [];
-    
+
     const sorted = [...reportData.officers].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
         return sortConfig.direction === 'asc' ? -1 : 1;
@@ -287,7 +288,7 @@ const OfficerReports = () => {
       }
       return 0;
     });
-    
+
     return sorted;
   }, [reportData?.officers, sortConfig]);
 
@@ -324,7 +325,7 @@ const OfficerReports = () => {
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h2 className="text-lg font-semibold text-gray-600 mb-4">Filter Officer Reports</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -338,7 +339,7 @@ const OfficerReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               End Date
@@ -351,7 +352,7 @@ const OfficerReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Branch
@@ -368,7 +369,7 @@ const OfficerReports = () => {
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Officer
@@ -386,27 +387,23 @@ const OfficerReports = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="mt-4">
           <button
             onClick={generateReport}
             disabled={loading}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {loading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating...
-              </>
-            ) : 'Generate Report'}
+            {loading ? 'Generating...' : 'Generate Report'}
           </button>
         </div>
       </div>
 
-      {reportData && (
+      {loading && !reportData ? (
+        <div className="py-20">
+          <Spinner text="Generating officer reports..." />
+        </div>
+      ) : reportData && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -494,8 +491,8 @@ const OfficerReports = () => {
                 <p className="text-sm font-medium text-gray-600">Collection Efficiency</p>
                 <p className="text-3xl font-bold text-green-600">{formatPercentage(reportData.summary.collectionEfficiency)}</p>
                 <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
-                  <div 
-                    className="bg-green-600 h-2 rounded-full" 
+                  <div
+                    className="bg-green-600 h-2 rounded-full"
                     style={{ width: `${reportData.summary.collectionEfficiency}%` }}
                   />
                 </div>
@@ -528,11 +525,11 @@ const OfficerReports = () => {
                   <YAxis tickFormatter={(value) => `KES ${value / 1000}k`} />
                   <Tooltip formatter={(value) => [formatCurrency(value), 'Collections']} />
                   <Legend />
-                  <Line 
-                    type="monotone" 
-                    dataKey="collections" 
-                    name="Collections" 
-                    stroke="#10b981" 
+                  <Line
+                    type="monotone"
+                    dataKey="collections"
+                    name="Collections"
+                    stroke="#10b981"
                     strokeWidth={2}
                     activeDot={{ r: 8 }}
                   />
@@ -546,7 +543,7 @@ const OfficerReports = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-sm font-semibold text-gray-600">Officer Performance Details</h3>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
@@ -557,7 +554,7 @@ const OfficerReports = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Branch
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('loans_booked')}
                     >
@@ -566,7 +563,7 @@ const OfficerReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('amount_disbursed')}
                     >
@@ -575,7 +572,7 @@ const OfficerReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('promise_kept_rate')}
                     >
@@ -584,7 +581,7 @@ const OfficerReports = () => {
                         <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
                       )}
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('total_collections')}
                     >
@@ -633,8 +630,8 @@ const OfficerReports = () => {
                           <div className="flex items-center">
                             <span className="text-sm text-gray-900 mr-2">{formatPercentage(officer.promise_kept_rate)}</span>
                             <div className="w-16 bg-gray-200 rounded-full h-2">
-                              <div 
-                                className="bg-green-600 h-2 rounded-full" 
+                              <div
+                                className="bg-green-600 h-2 rounded-full"
                                 style={{ width: `${officer.promise_kept_rate}%` }}
                               />
                             </div>

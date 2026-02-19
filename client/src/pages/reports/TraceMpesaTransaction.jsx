@@ -1,7 +1,10 @@
 import React, { useState } from "react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 const TraceMpesaTransaction = () => {
+  const { tenant } = useAuth();
   const [reference, setReference] = useState("");
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -17,13 +20,19 @@ const TraceMpesaTransaction = () => {
       return;
     }
 
+    const tenantId = tenant?.id;
+    if (!tenantId) {
+      setErrorMsg("Tenant information not found. Please log in again.");
+      return;
+    }
+
     try {
       setLoading(true);
 
       // Search in C2B transactions table
-     const { data: c2bData, error: c2bError } = await supabase
-  .from("mpesa_c2b_transactions")
-  .select(`
+      const { data: c2bData, error: c2bError } = await supabase
+        .from("mpesa_c2b_transactions")
+        .select(`
     id,
     transaction_id,
     amount,
@@ -43,8 +52,9 @@ const TraceMpesaTransaction = () => {
       )
     )
   `)
-  .eq("transaction_id", reference)
-  .single();
+        .eq("transaction_id", reference)
+        .eq("tenant_id", tenantId)
+        .single();
 
 
       if (c2bError && c2bError.code !== "PGRST116") throw c2bError;
@@ -56,9 +66,9 @@ const TraceMpesaTransaction = () => {
         });
       } else {
         // If not found in C2B, check B2C transactions
-      const { data: b2cData, error: b2cError } = await supabase
-  .from("mpesa_b2c_transactions")
-  .select(`
+        const { data: b2cData, error: b2cError } = await supabase
+          .from("mpesa_b2c_transactions")
+          .select(`
     id,
     transaction_id,
     amount,
@@ -77,8 +87,9 @@ const TraceMpesaTransaction = () => {
       )
     )
   `)
-  .eq("transaction_id", reference)
-  .single();
+          .eq("transaction_id", reference)
+          .eq("tenant_id", tenantId)
+          .single();
 
 
         if (b2cError && b2cError.code !== "PGRST116") throw b2cError;
@@ -103,7 +114,7 @@ const TraceMpesaTransaction = () => {
   // Helper function to get status badge styling
   const getStatusBadge = (status, source) => {
     const baseClasses = "px-2 py-1 rounded text-xs font-semibold";
-    
+
     switch (status?.toLowerCase()) {
       case 'success':
       case 'applied':
@@ -132,8 +143,8 @@ const TraceMpesaTransaction = () => {
         <button
           type="submit"
           disabled={loading}
-   className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                style={{ backgroundColor: "#586ab1" }}
+          className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
+          style={{ backgroundColor: "#586ab1" }}
         >
           {loading ? "Searching..." : "Search"}
         </button>
@@ -145,7 +156,13 @@ const TraceMpesaTransaction = () => {
         </div>
       )}
 
-      {transaction && (
+      {loading && (
+        <div className="py-12">
+          <Spinner text="Tracing M-Pesa transaction..." />
+        </div>
+      )}
+
+      {transaction && !loading && (
         <div className="space-y-4">
           {/* Transaction Details Card */}
           <div className="bg-gray-50 p-4 rounded-lg border">
@@ -157,11 +174,10 @@ const TraceMpesaTransaction = () => {
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Source</label>
-                <p className={`px-2 py-1 rounded text-xs font-semibold ${
-                  transaction.source === 'C2B' 
-                    ? 'bg-blue-100 text-blue-800' 
-                    : 'bg-purple-100 text-purple-800'
-                }`}>
+                <p className={`px-2 py-1 rounded text-xs font-semibold ${transaction.source === 'C2B'
+                  ? 'bg-blue-100 text-blue-800'
+                  : 'bg-purple-100 text-purple-800'
+                  }`}>
                   {transaction.source}
                 </p>
               </div>
@@ -212,27 +228,27 @@ const TraceMpesaTransaction = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="text-sm font-medium text-gray-600">Customer Name</label>
-             <p className="font-medium">
-  {[
-    transaction.loan?.customer?.Firstname,
-    transaction.loan?.customer?.Middlename,
-    transaction.loan?.customer?.Surname
-  ]
-    .filter(Boolean)
-    .join(" ") || "N/A"}
-</p>
+                <p className="font-medium">
+                  {[
+                    transaction.loan?.customer?.Firstname,
+                    transaction.loan?.customer?.Middlename,
+                    transaction.loan?.customer?.Surname
+                  ]
+                    .filter(Boolean)
+                    .join(" ") || "N/A"}
+                </p>
 
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">ID Number</label>
-<p className="font-mono text-sm">
-  {transaction.loan?.customer?.id_number || "N/A"}
-</p>
+                <p className="font-mono text-sm">
+                  {transaction.loan?.customer?.id_number || "N/A"}
+                </p>
 
               </div>
               <div>
                 <label className="text-sm font-medium text-gray-600">Loan ID</label>
-             <p className="text-sm">{transaction.loan?.id || "N/A"}</p>
+                <p className="text-sm">{transaction.loan?.id || "N/A"}</p>
               </div>
               {transaction.loan && (
                 <div>
@@ -260,11 +276,10 @@ const TraceMpesaTransaction = () => {
                   <td className="px-4 py-2 border font-mono">{transaction.transaction_id}</td>
                   <td className="px-4 py-2 border font-medium">Source</td>
                   <td className="px-4 py-2 border">
-                    <span className={`px-2 py-1 rounded text-xs font-semibold ${
-                      transaction.source === 'C2B' 
-                        ? 'bg-blue-100 text-blue-800' 
-                        : 'bg-purple-100 text-purple-800'
-                    }`}>
+                    <span className={`px-2 py-1 rounded text-xs font-semibold ${transaction.source === 'C2B'
+                      ? 'bg-blue-100 text-blue-800'
+                      : 'bg-purple-100 text-purple-800'
+                      }`}>
                       {transaction.source}
                     </span>
                   </td>

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
 import Spinner from '../../components/Spinner.jsx';
 
-const PendingTransfersList = ({  onApprove, onReject }) => {
+const PendingTransfersList = ({ onApprove, onReject }) => {
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
@@ -38,6 +38,7 @@ const PendingTransfersList = ({  onApprove, onReject }) => {
           )
         `)
         .eq('status', 'pending_approval')
+        .eq('tenant_id', currentUser?.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -62,7 +63,7 @@ const PendingTransfersList = ({  onApprove, onReject }) => {
       alert('Please provide a reason for rejection');
       return;
     }
-    
+
     if (window.confirm('Are you sure you want to reject this transfer request?')) {
       await onReject(transferId, rejectReason);
       setSelectedTransfer(null);
@@ -82,7 +83,7 @@ const PendingTransfersList = ({  onApprove, onReject }) => {
     });
   };
 
- if (loading) {
+  if (loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />

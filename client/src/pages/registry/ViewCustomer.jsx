@@ -48,146 +48,150 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
     //  Only run when prop `initialCustomer` or `profile.region_id` changes
   }, [initialCustomer?.id, profile?.region_id]);
 
-const fetchCustomerDetails = async (customerId) => {
-  try {
-    setLoading(true);
+  const fetchCustomerDetails = async (customerId) => {
+    try {
+      setLoading(true);
 
-    if (!profile?.region_id) {
-      console.error("No region_id found for this RM profile");
-      toast.error("Profile not loaded. Please try again.");
-      return;
-    }
+      if (!profile?.region_id) {
+        console.error("No region_id found for this RM profile");
+        toast.error("Profile not loaded. Please try again.");
+        return;
+      }
 
-    // Fetch main customer record
-    const { data: customerData, error: customerError } = await supabase
-      .from("customers")
-      .select(
-        `
+      // Fetch main customer record
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select(
+          `
           *,
           customer_verifications!inner (
             bm_loan_scored_amount
           )
         `
-      )
-      .eq("id", customerId)
-      .eq("region_id", profile.region_id)
-      .single();
+        )
+        .eq("id", customerId)
+        .eq("region_id", profile.region_id)
+        .eq("tenant_id", profile?.tenant_id)
+        .single();
 
-    if (customerError) {
-      console.error("Error fetching customer:", customerError);
+      if (customerError) {
+        console.error("Error fetching customer:", customerError);
+        toast.error("Error loading customer details");
+        return;
+      }
+
+      console.log("Customer Data from Supabase:", customerData);
+      console.log("prequalifiedAmount from DB:", customerData.prequalifiedAmount);
+      console.log(
+        "BM scored amount from DB:",
+        customerData.customer_verifications?.[0]?.bm_loan_scored_amount
+      );
+
+      setCustomer(customerData);
+
+      // Set loan details ONCE with the correct data
+      setLoanDetails({
+        prequalifiedAmount: customerData.prequalifiedAmount,
+        bm_loan_scored_amount:
+          customerData.customer_verifications?.[0]?.bm_loan_scored_amount || null,
+      });
+
+      // Fetch related data in parallel (remove loans from this query since we don't need it)
+      const [
+        { data: nextOfKinData },
+        { data: documentsData },
+        { data: businessImagesData },
+        { data: guarantorsData },
+        { data: securityItemsData },
+      ] = await Promise.all([
+        supabase.from("next_of_kin").select("*").eq("customer_id", customerId).eq("tenant_id", profile?.tenant_id).single(),
+        supabase
+          .from("documents")
+          .select("id, document_type, document_url")
+          .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id),
+        supabase.from("business_images").select("*").eq("customer_id", customerId).eq("tenant_id", profile?.tenant_id),
+
+        supabase.from("guarantors").select("*").eq("customer_id", customerId).eq("tenant_id", profile?.tenant_id),
+        supabase
+          .from("security_items")
+          .select("*, security_item_images(image_url)")
+          .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id),
+      ]);
+
+      // Update state with fetched data
+      setNextOfKin(nextOfKinData || null);
+      setDocuments(documentsData || []);
+      setFormData((prev) => ({ ...prev, documents: documentsData || [] }));
+      setBusinessImages(businessImagesData || []);
+
+      setGuarantors(guarantorsData || []);
+
+      // Security items + images
+      if (securityItemsData?.length > 0) {
+        const securityWithImages = securityItemsData.map((item) => ({
+          ...item,
+          images: item.security_item_images?.map((img) => img.image_url) || [],
+        }));
+
+        console.log("Processed Security Items:", securityWithImages);
+
+        setSecurityItems(securityWithImages);
+      }
+
+
+      // Guarantor security + images
+      if (guarantorsData?.length > 0) {
+        const guarantorIds = guarantorsData.map((g) => g.id);
+        const { data: gSecurityData } = await supabase
+          .from("guarantor_security")
+          .select("*, guarantor_security_images(image_url)")
+          .in("guarantor_id", guarantorIds)
+          .eq("tenant_id", profile?.tenant_id);
+
+        const gSecurityWithImages = (gSecurityData || []).map((item) => ({
+          ...item,
+          images: item.guarantor_security_images?.map((img) => img.image_url) || [],
+        }));
+
+        setGuarantorSecurityItems(gSecurityWithImages);
+      }
+
+      // Map existing images
+      const imageData = {
+        passport: customerData?.passport_url || null,
+        idFront: customerData?.id_front_url || null,
+        idBack: customerData?.id_back_url || null,
+        house: customerData?.house_image_url || null,
+        business: businessImagesData?.map((img) => img.image_url) || [],
+        security:
+          securityItemsData?.flatMap((item) =>
+            item.security_item_images?.map((img) => img.image_url) || []
+          ) || [],
+        guarantorPassport: guarantorsData?.[0]?.passport_url || null,
+        guarantorIdFront: guarantorsData?.[0]?.id_front_url || null,
+        guarantorIdBack: guarantorsData?.[0]?.id_back_url || null,
+        officerClient1:
+          documentsData?.find((doc) => doc.document_type === "First Officer and Client Image")
+            ?.document_url || null,
+        officerClient2:
+          documentsData?.find((doc) => doc.document_type === "Second Officer and Client Image")
+            ?.document_url || null,
+        bothOfficers:
+          documentsData?.find((doc) => doc.document_type === "Both Officers Image")
+            ?.document_url || null,
+      };
+
+      setExistingImages(imageData);
+      toast.success("Customer details loaded");
+    } catch (error) {
+      console.error("Error fetching customer details:", error);
       toast.error("Error loading customer details");
-      return;
+    } finally {
+      setLoading(false);
     }
-
-    console.log("Customer Data from Supabase:", customerData);
-    console.log("prequalifiedAmount from DB:", customerData.prequalifiedAmount);
-    console.log(
-      "BM scored amount from DB:",
-      customerData.customer_verifications?.[0]?.bm_loan_scored_amount
-    );
-
-    setCustomer(customerData);
-
-    // Set loan details ONCE with the correct data
-    setLoanDetails({
-      prequalifiedAmount: customerData.prequalifiedAmount,
-      bm_loan_scored_amount:
-        customerData.customer_verifications?.[0]?.bm_loan_scored_amount || null,
-    });
-
-    // Fetch related data in parallel (remove loans from this query since we don't need it)
-    const [
-      { data: nextOfKinData },
-      { data: documentsData },
-      { data: businessImagesData },
-      { data: guarantorsData },
-      { data: securityItemsData },
-    ] = await Promise.all([
-      supabase.from("next_of_kin").select("*").eq("customer_id", customerId).single(),
-      supabase
-        .from("documents")
-        .select("id, document_type, document_url")
-        .eq("customer_id", customerId),
-      supabase.from("business_images").select("*").eq("customer_id", customerId),
-      
-      supabase.from("guarantors").select("*").eq("customer_id", customerId),
-      supabase
-        .from("security_items")
-        .select("*, security_item_images(image_url)")
-        .eq("customer_id", customerId),
-    ]);
-
-    // Update state with fetched data
-    setNextOfKin(nextOfKinData || null);
-    setDocuments(documentsData || []);
-    setFormData((prev) => ({ ...prev, documents: documentsData || [] }));
-    setBusinessImages(businessImagesData || []);
-    
-    setGuarantors(guarantorsData || []);
-
-   // Security items + images
-if (securityItemsData?.length > 0) {
-  const securityWithImages = securityItemsData.map((item) => ({
-    ...item,
-    images: item.security_item_images?.map((img) => img.image_url) || [],
-  }));
-
-  console.log("Processed Security Items:", securityWithImages);
-
-  setSecurityItems(securityWithImages);
-}
-
-
-    // Guarantor security + images
-    if (guarantorsData?.length > 0) {
-      const guarantorIds = guarantorsData.map((g) => g.id);
-      const { data: gSecurityData } = await supabase
-        .from("guarantor_security")
-        .select("*, guarantor_security_images(image_url)")
-        .in("guarantor_id", guarantorIds);
-
-      const gSecurityWithImages = (gSecurityData || []).map((item) => ({
-        ...item,
-        images: item.guarantor_security_images?.map((img) => img.image_url) || [],
-      }));
-
-      setGuarantorSecurityItems(gSecurityWithImages);
-    }
-
-    // Map existing images
-    const imageData = {
-      passport: customerData?.passport_url || null,
-      idFront: customerData?.id_front_url || null,
-      idBack: customerData?.id_back_url || null,
-      house: customerData?.house_image_url || null,
-      business: businessImagesData?.map((img) => img.image_url) || [],
-      security:
-        securityItemsData?.flatMap((item) =>
-          item.security_item_images?.map((img) => img.image_url) || []
-        ) || [],
-      guarantorPassport: guarantorsData?.[0]?.passport_url || null,
-      guarantorIdFront: guarantorsData?.[0]?.id_front_url || null,
-      guarantorIdBack: guarantorsData?.[0]?.id_back_url || null,
-      officerClient1:
-        documentsData?.find((doc) => doc.document_type === "First Officer and Client Image")
-          ?.document_url || null,
-      officerClient2:
-        documentsData?.find((doc) => doc.document_type === "Second Officer and Client Image")
-          ?.document_url || null,
-      bothOfficers:
-        documentsData?.find((doc) => doc.document_type === "Both Officers Image")
-          ?.document_url || null,
-    };
-
-    setExistingImages(imageData);
-    toast.success("Customer details loaded");
-  } catch (error) {
-    console.error("Error fetching customer details:", error);
-    toast.error("Error loading customer details");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
 
   const DocumentCard = ({ title, imageUrl, placeholder, icon: Icon }) => (
@@ -234,7 +238,7 @@ if (securityItemsData?.length > 0) {
       </span>
     </div>
   );
- if (loading) {
+  if (loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
@@ -268,7 +272,7 @@ if (securityItemsData?.length > 0) {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-700 to-blue-700 bg-clip-text text-transparent">
-                Customer Details 
+                Customer Details
               </h1>
               <p className="text-gray-600 mt-2">Complete customer information and documents </p>
             </div>
@@ -428,12 +432,12 @@ if (securityItemsData?.length > 0) {
                 </div>
               </div>
 
-             
+
             </div>
           </div>
         )}
 
-      
+
 
         {/* Business Information */}
         <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
@@ -838,87 +842,87 @@ if (securityItemsData?.length > 0) {
             </div>
           </div>
         )}
-{/* Documents Verification Section */}
-<div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
-  <div className="p-8">
-    <div className="border-b border-gray-200 pb-6 mb-8">
-      <h2 className="text-2xl font-bold text-gray-900 flex items-center">
-        <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
-        Document Verification
-      </h2>
-      <p className="text-gray-600 mt-2">
-        Verification and officer images
-      </p>
-    </div>
+        {/* Documents Verification Section */}
+        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
+          <div className="p-8">
+            <div className="border-b border-gray-200 pb-6 mb-8">
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center">
+                <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                Document Verification
+              </h2>
+              <p className="text-gray-600 mt-2">
+                Verification and officer images
+              </p>
+            </div>
 
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-      {[
-        {
-          key: "first_officer_client",
-          label: "First Officer & Client",
-          document: documents.find(d => d.document_type === "First Officer and Client Image")
-        },
-        {
-          key: "second_officer_client",
-          label: "Second Officer & Client",
-          document: documents.find(d => d.document_type === "Second Officer and Client Image")
-        },
-        {
-          key: "both_officers",
-          label: "Both Officers",
-          document: documents.find(d => d.document_type === "Both Officers Image")
-        }
-      ].map(({ key, label, document }) => (
-        <DocumentCard
-          key={key}
-          title={label}
-          imageUrl={document?.document_url}
-          placeholder="No image available"
-          icon={DocumentTextIcon}
-          onClick={() => document?.document_url && setSelectedImage({
-            url: document.document_url,
-            title: label
-          })}
-        />
-      ))}
-    </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {[
+                {
+                  key: "first_officer_client",
+                  label: "First Officer & Client",
+                  document: documents.find(d => d.document_type === "First Officer and Client Image")
+                },
+                {
+                  key: "second_officer_client",
+                  label: "Second Officer & Client",
+                  document: documents.find(d => d.document_type === "Second Officer and Client Image")
+                },
+                {
+                  key: "both_officers",
+                  label: "Both Officers",
+                  document: documents.find(d => d.document_type === "Both Officers Image")
+                }
+              ].map(({ key, label, document }) => (
+                <DocumentCard
+                  key={key}
+                  title={label}
+                  imageUrl={document?.document_url}
+                  placeholder="No image available"
+                  icon={DocumentTextIcon}
+                  onClick={() => document?.document_url && setSelectedImage({
+                    url: document.document_url,
+                    title: label
+                  })}
+                />
+              ))}
+            </div>
 
-    {/* Additional Documents */}
-    {documents.filter(d => ![
-      "First Officer and Client Image",
-      "Second Officer and Client Image",
-      "Both Officers Image"
-    ].includes(d.document_type)).length > 0 && (
-      <div className="mt-8">
-        <h3 className="text-xl font-semibold text-gray-900 mb-6">Additional Documents</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {documents
-            .filter(d => ![
+            {/* Additional Documents */}
+            {documents.filter(d => ![
               "First Officer and Client Image",
               "Second Officer and Client Image",
               "Both Officers Image"
-            ].includes(d.document_type))
-            .map((document, index) => (
-              <DocumentCard
-                key={index}
-                title={document.document_type}
-                imageUrl={document.document_url}
-                placeholder="No image available"
-                icon={DocumentTextIcon}
-                onClick={() => document.document_url && setSelectedImage({
-                  url: document.document_url,
-                  title: document.document_type
-                })}
-              />
-            ))}
+            ].includes(d.document_type)).length > 0 && (
+                <div className="mt-8">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-6">Additional Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {documents
+                      .filter(d => ![
+                        "First Officer and Client Image",
+                        "Second Officer and Client Image",
+                        "Both Officers Image"
+                      ].includes(d.document_type))
+                      .map((document, index) => (
+                        <DocumentCard
+                          key={index}
+                          title={document.document_type}
+                          imageUrl={document.document_url}
+                          placeholder="No image available"
+                          icon={DocumentTextIcon}
+                          onClick={() => document.document_url && setSelectedImage({
+                            url: document.document_url,
+                            title: document.document_type
+                          })}
+                        />
+                      ))}
+                  </div>
+                </div>
+              )}
+          </div>
         </div>
-      </div>
-    )}
-  </div>
-</div>
         {/* Image Modal */}
         {selectedImage && (
-          <div 
+          <div
             className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50 p-4"
             onClick={() => setSelectedImage(null)}
           >
@@ -935,7 +939,7 @@ if (securityItemsData?.length > 0) {
                   </button>
                 </div>
               </div>
-              
+
               {/* Modal Image */}
               <div className="p-4 bg-gray-50">
                 <img
@@ -945,7 +949,7 @@ if (securityItemsData?.length > 0) {
                   onClick={(e) => e.stopPropagation()}
                 />
               </div>
-              
+
               {/* Modal Footer */}
               <div className="px-6 py-4 bg-gray-50 border-t">
                 <div className="flex justify-between items-center">

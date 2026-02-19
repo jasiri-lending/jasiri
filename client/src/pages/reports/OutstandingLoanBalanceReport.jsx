@@ -169,7 +169,7 @@ const OutstandingLoanBalanceReport = () => {
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
   const [officers, setOfficers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null); // ✅ Add error state
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -210,8 +210,7 @@ const OutstandingLoanBalanceReport = () => {
   });
 
   // Refs
-  const hasFetchedRef = useRef(false);
-  const isMountedRef = useRef(true); // ✅ Track mount state
+  const isMountedRef = useRef(true); // Track mount state
 
   // ========== Debounced Save Filters ==========
   useEffect(() => {
@@ -253,19 +252,15 @@ const OutstandingLoanBalanceReport = () => {
     return { arrearsAmount, overdueDays: maxOverdueDays };
   }, []);
 
-  // ========== FIXED: Fetch All Data (ONCE with Caching) ==========
+  // ========== Fetch All Data (with Caching) ==========
   useEffect(() => {
     const tenantId = tenant?.id;
+    isMountedRef.current = true; // Reset on every run (handles StrictMode remount)
 
-    // Early return if no tenant or already fetched
-    if (!tenantId || hasFetchedRef.current) {
-      console.log("⏭️ Skipping fetch - tenantId:", tenantId, "hasFetched:", hasFetchedRef.current);
+    if (!tenantId) {
+      setLoading(false);
       return;
     }
-
-    // Mark as fetched IMMEDIATELY to prevent duplicate calls
-    hasFetchedRef.current = true;
-    isMountedRef.current = true;
 
     const fetchAllData = async () => {
       console.log("🔄 Starting outstanding loans data fetch for tenant:", tenantId);
@@ -300,7 +295,6 @@ const OutstandingLoanBalanceReport = () => {
 
         // Set loading state
         if (isMountedRef.current) {
-          setLoading(true);
           setError(null);
         }
 
@@ -1157,8 +1151,8 @@ const OutstandingLoanBalanceReport = () => {
               <button
                 onClick={() => setShowFilters(!showFilters)}
                 className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                    ? "bg-accent text-white border-transparent"
-                    : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
+                  ? "bg-accent text-white border-transparent"
+                  : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
                   }`}
               >
                 <Filter className="w-4 h-4" />
@@ -1551,8 +1545,8 @@ const OutstandingLoanBalanceReport = () => {
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
                             className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
-                                ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
-                                : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
+                              ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
+                              : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
                               }`}
                           >
                             {pageNum}

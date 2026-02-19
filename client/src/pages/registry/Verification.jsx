@@ -48,11 +48,11 @@ const Verification = () => {
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
-  
+
   // Loan amounts - READ ONLY
   const [prequalifiedAmount, setPrequalifiedAmount] = useState(0);
   const [bmScoredAmount, setBmScoredAmount] = useState(0);
-  const [userRole] = useState('credit_analyst_officer'); 
+  const [userRole] = useState('credit_analyst_officer');
 
   // Track fields that need amendment with component/section information
   const [fieldsToAmend, setFieldsToAmend] = useState([]);
@@ -85,7 +85,7 @@ const Verification = () => {
       comment: "",
     },
     loan: {
-      
+
       comment: ""
     },
     finalDecision: "",
@@ -100,10 +100,10 @@ const Verification = () => {
   }, [verificationData.finalDecision]);
 
   useEffect(() => {
-    if (customerId) {
+    if (customerId && profile?.tenant_id) {
       fetchCustomerDetails();
     }
-  }, [customerId]);
+  }, [customerId, profile?.tenant_id]);
 
   const fetchCustomerDetails = async () => {
     try {
@@ -114,6 +114,7 @@ const Verification = () => {
         .from("customers")
         .select("*")
         .eq("id", customerId)
+        .eq("tenant_id", profile?.tenant_id)
         .single();
 
       if (customerError) throw customerError;
@@ -126,8 +127,9 @@ const Verification = () => {
           .from("spouse")
           .select("*")
           .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id)
           .single();
-        
+
         if (!spouseError && spouseData) {
           setSpouseInfo(spouseData);
         }
@@ -138,6 +140,7 @@ const Verification = () => {
         .from("loans")
         .select("*")
         .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id)
         .single();
       if (!loanError && loanData) {
         setLoanDetails(loanData);
@@ -148,6 +151,7 @@ const Verification = () => {
         .from("customer_verifications")
         .select("branch_manager_loan_scored_amount")
         .eq("customer_id", Number(customerId))
+        .eq("tenant_id", profile?.tenant_id)
         .not("branch_manager_loan_scored_amount", "is", null)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -161,7 +165,8 @@ const Verification = () => {
       const { data: businessData, error: businessError } = await supabase
         .from("business_images")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (!businessError) setBusinessImages(businessData || []);
 
@@ -169,7 +174,8 @@ const Verification = () => {
       const { data: guarantorsData, error: guarantorsError } = await supabase
         .from("guarantors")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (!guarantorsError && guarantorsData) {
         setGuarantors(guarantorsData);
@@ -187,7 +193,8 @@ const Verification = () => {
       const { data: nokData, error: nokError } = await supabase
         .from("next_of_kin")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (!nokError) setNextOfKinInfo(nokData || []);
 
@@ -196,7 +203,8 @@ const Verification = () => {
         await supabase
           .from("security_items")
           .select("*")
-          .eq("customer_id", customerId);
+          .eq("customer_id", customerId)
+          .eq("tenant_id", profile?.tenant_id);
 
       if (!securityItemsError && securityItemsData) {
         const { data: securityImagesData, error: securityImagesError } =
@@ -227,7 +235,8 @@ const Verification = () => {
         const { data: gSecurityData, error: gSecurityError } = await supabase
           .from("guarantor_security")
           .select("*")
-          .in("guarantor_id", guarantorIds);
+          .in("guarantor_id", guarantorIds)
+          .eq("tenant_id", profile?.tenant_id);
 
         if (!gSecurityError && gSecurityData) {
           const { data: gSecurityImagesData, error: gSecurityImagesError } =
@@ -256,7 +265,8 @@ const Verification = () => {
       const { data: documentsData, error: documentsError } = await supabase
         .from("documents")
         .select("*")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (!documentsError && documentsData) {
         const docsWithUrls = documentsData.map((doc) => {
@@ -279,9 +289,9 @@ const Verification = () => {
         .from("customer_verifications")
         .select("*")
         .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id)
         .order("created_at", { ascending: false })
-        .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!verificationError && existingVerification) {
         // Set existing verification data
@@ -545,7 +555,8 @@ const Verification = () => {
             sent_back_reason: verificationData.overallComment
           })
         })
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (error) throw error;
 
@@ -568,7 +579,8 @@ const Verification = () => {
         const { error: statusError } = await supabase
           .from("customers")
           .update({ status: newStatus })
-          .eq("id", customerId);
+          .eq("id", customerId)
+          .eq("tenant_id", profile?.tenant_id);
 
         if (statusError) throw statusError;
       }
@@ -592,18 +604,16 @@ const Verification = () => {
         className="absolute opacity-0 w-0 h-0"
       />
       <div
-        className={`relative w-14 h-7 bg-gray-300 rounded-full transition-colors duration-200 ${
-          checked
+        className={`relative w-14 h-7 bg-gray-300 rounded-full transition-colors duration-200 ${checked
             ? "bg-gradient-to-r from-emerald-400 to-emerald-500"
             : "hover:bg-gray-400"
-        }`}
+          }`}
       >
         <div
-          className={`absolute top-0.5 left-0.5 bg-white border rounded-full w-6 h-6 transition-transform duration-200 shadow-md ${
-            checked
+          className={`absolute top-0.5 left-0.5 bg-white border rounded-full w-6 h-6 transition-transform duration-200 shadow-md ${checked
               ? "transform translate-x-7 shadow-emerald-200"
               : "shadow-gray-300"
-          }`}
+            }`}
         >
           {checked && (
             <CheckCircleIcon className="h-4 w-4 text-emerald-500 m-0.5" />
@@ -611,11 +621,10 @@ const Verification = () => {
         </div>
       </div>
       <span
-        className={`ml-3 text-sm font-medium transition-colors ${
-          checked
+        className={`ml-3 text-sm font-medium transition-colors ${checked
             ? "text-emerald-700"
             : "text-gray-700 group-hover:text-gray-900"
-        }`}
+          }`}
       >
         {checked ? "Verified" : label}
       </span>
@@ -747,35 +756,35 @@ const Verification = () => {
         }
         break;
       case 7: {
-  // Loan Assessment Word Count Validation
-  const comment = verificationData.loan.comment || "";
-  const wordCount = comment.trim().split(/\s+/).filter(Boolean).length; // count words
+        // Loan Assessment Word Count Validation
+        const comment = verificationData.loan.comment || "";
+        const wordCount = comment.trim().split(/\s+/).filter(Boolean).length; // count words
 
-  const minWords = 5; // example: require at least 10 words
-  const maxWords = 200; // optional: max limit
+        const minWords = 5; // example: require at least 10 words
+        const maxWords = 200; // optional: max limit
 
-  if (wordCount < minWords) {
-    toast.error(`Please enter at least ${minWords} words in the recommendation`);
-    return false;
-  }
+        if (wordCount < minWords) {
+          toast.error(`Please enter at least ${minWords} words in the recommendation`);
+          return false;
+        }
 
-  if (wordCount > maxWords) {
-    toast.error(`Recommendation cannot exceed ${maxWords} words`);
-    return false;
-  }
+        if (wordCount > maxWords) {
+          toast.error(`Recommendation cannot exceed ${maxWords} words`);
+          return false;
+        }
 
-  // Save verification data if validation passes
-  setVerificationData((prev) => ({
-    ...prev,
-    loan: {
-      ...prev.loan,
-      comment: comment,
-    },
-  }));
-  break;
-}
+        // Save verification data if validation passes
+        setVerificationData((prev) => ({
+          ...prev,
+          loan: {
+            ...prev.loan,
+            comment: comment,
+          },
+        }));
+        break;
+      }
 
-      
+
       case 8:
         if (!verificationData.finalDecision) {
           toast.error("Please select a final decision");
@@ -791,7 +800,7 @@ const Verification = () => {
     }
     return true;
   };
- if (loading) {
+  if (loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
@@ -831,6 +840,7 @@ const Verification = () => {
 
       const draftData = {
         customer_id: Number(customerId),
+        tenant_id: profile?.tenant_id,
 
         co_customer_id_verified: verificationData.customer.idVerified,
         co_customer_phone_verified: verificationData.customer.phoneVerified,
@@ -879,6 +889,7 @@ const Verification = () => {
         .from("customer_verifications")
         .select("id")
         .eq("customer_id", Number(customerId))
+        .eq("tenant_id", profile?.tenant_id)
         .eq("is_draft", true)
         .maybeSingle();
 
@@ -898,7 +909,8 @@ const Verification = () => {
       const { error: statusError } = await supabase
         .from("customers")
         .update({ form_status: 'draft' })
-        .eq("id", customerId);
+        .eq("id", customerId)
+        .eq("tenant_id", profile?.tenant_id);
       if (statusError) throw statusError;
 
       toast.success("Draft saved successfully!");
@@ -937,7 +949,7 @@ const Verification = () => {
         <div className="p-4 mb-2">
           <div className="flex items-center justify-between">
             <h1 className="text-lg font-semibold text-slate-600">
-              Customer Verification 
+              Customer Verification
             </h1>
           </div>
         </div>
@@ -957,24 +969,22 @@ const Verification = () => {
             ].map(({ num, label, icon: Icon }) => (
               <div key={num} className="flex flex-col items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${
-                    step === num
+                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step === num
                       ? "border-primary bg-brand-primary text-white shadow-lg shadow-indigo-200 scale-110"
                       : step > num
-                      ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
-                      : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
-                  }`}
+                        ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
+                        : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
+                    }`}
                 >
                   <Icon className="h-6 w-6" />
                 </div>
                 <span
-                  className={`text-sm mt-3 font-medium transition-colors ${
-                    step === num
+                  className={`text-sm mt-3 font-medium transition-colors ${step === num
                       ? "text-indigo-700"
                       : step > num
-                      ? "text-emerald-700"
-                      : "text-gray-600"
-                  }`}
+                        ? "text-emerald-700"
+                        : "text-gray-600"
+                    }`}
                 >
                   {label}
                 </span>
@@ -991,7 +1001,7 @@ const Verification = () => {
               <div className="border-b border-gray-200 pb-6 mb-8">
                 <h2 className="text-lg font-semibold text-slate-600 flex items-center">
                   <UserCircleIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                  Customer Verification 
+                  Customer Verification
                 </h2>
                 <p className="text-gray-600 mt-2 text-sm">
                   Verify customer identity and contact information
@@ -1229,7 +1239,7 @@ const Verification = () => {
                         "customer"
                       )
                     }
-                    placeholder={userRole === 'bm' 
+                    placeholder={userRole === 'bm'
                       ? "Add instructions for the relationship officer (e.g., 'Please verify phone number', 'Update customer address', etc.)"
                       : "Add comments about customer verification, ID validation, contact details accuracy, etc."
                     }
@@ -1285,12 +1295,12 @@ const Verification = () => {
                     <p className="font-semibold text-gray-900">
                       {customer.year_established
                         ? new Date(
-                            customer.year_established
-                          ).toLocaleDateString("en-US", {
-                            day: "2-digit",
-                            month: "long",
-                            year: "numeric",
-                          })
+                          customer.year_established
+                        ).toLocaleDateString("en-US", {
+                          day: "2-digit",
+                          month: "long",
+                          year: "numeric",
+                        })
                         : "Not provided"}
                     </p>
                   </div>
@@ -1321,8 +1331,8 @@ const Verification = () => {
                   <MapPinIcon className="h-6 w-6 text-red-600" />
                   Business Location Map
                 </h3>
-                <BusinessMap 
-                  lat={customer.business_lat} 
+                <BusinessMap
+                  lat={customer.business_lat}
                   lng={customer.business_lng}
                   businessName={customer.business_name}
                 />
@@ -1769,9 +1779,8 @@ const Verification = () => {
                               <img
                                 key={i}
                                 src={imgUrl}
-                                alt={`${item.item || "Security Item"} - Image ${
-                                  i + 1
-                                }`}
+                                alt={`${item.item || "Security Item"} - Image ${i + 1
+                                  }`}
                                 className="w-full h-40 object-cover rounded-lg shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                                 onError={(e) =>
                                   (e.currentTarget.style.display = "none")
@@ -1779,9 +1788,8 @@ const Verification = () => {
                                 onClick={() =>
                                   setSelectedImage({
                                     url: imgUrl,
-                                    title: `${
-                                      item.item || "Security Item"
-                                    } - Image ${i + 1}`,
+                                    title: `${item.item || "Security Item"
+                                      } - Image ${i + 1}`,
                                   })
                                 }
                               />
@@ -1908,10 +1916,9 @@ const Verification = () => {
                                 <img
                                   key={i}
                                   src={imgUrl}
-                                  alt={`${
-                                    item.item ||
+                                  alt={`${item.item ||
                                     `Guarantor Security ${index + 1}`
-                                  } - Image ${i + 1}`}
+                                    } - Image ${i + 1}`}
                                   className="w-full h-40 object-cover rounded-lg shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                                   onError={(e) =>
                                     (e.currentTarget.style.display = "none")
@@ -1919,10 +1926,9 @@ const Verification = () => {
                                   onClick={() =>
                                     setSelectedImage({
                                       url: imgUrl,
-                                      title: `${
-                                        item.item ||
+                                      title: `${item.item ||
                                         `Guarantor Security ${index + 1}`
-                                      } - Image ${i + 1}`,
+                                        } - Image ${i + 1}`,
                                     })
                                   }
                                 />
@@ -2039,9 +2045,8 @@ const Verification = () => {
                         <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
                           <DetailRow
                             label="Full Name"
-                            value={`${nok.Firstname || ""} ${
-                              nok.middlename || ""
-                            } ${nok.surname || ""}`}
+                            value={`${nok.Firstname || ""} ${nok.middlename || ""
+                              } ${nok.surname || ""}`}
                           />
                           <DetailRow label="ID Number" value={nok.id_number} />
                           <DetailRow label="Mobile" value={nok.mobile} />
@@ -2059,9 +2064,9 @@ const Verification = () => {
                         <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
                           <DetailRow label="County" value={nok.county} />
                           <DetailRow label="City/Town" value={nok.city_town} />
-                          <DetailRow 
-                            label="Employment Status" 
-                            value={nok.employment_status} 
+                          <DetailRow
+                            label="Employment Status"
+                            value={nok.employment_status}
                           />
                         </div>
                       </div>
@@ -2433,8 +2438,8 @@ const Verification = () => {
                         Loan Assessment Guidance
                       </h4>
                       <p className="text-sm text-indigo-700">
-                        Review the prequalified amount (system assessment) and BM scored amount (branch manager assessment). 
-                        Provide your recommended amount based on comprehensive verification of all customer details, security, 
+                        Review the prequalified amount (system assessment) and BM scored amount (branch manager assessment).
+                        Provide your recommended amount based on comprehensive verification of all customer details, security,
                         and repayment capacity. Your detailed reasoning will help senior management make the final decision.
                       </p>
                     </div>
@@ -2485,7 +2490,7 @@ const Verification = () => {
                           color: "amber",
                           icon: DocumentMagnifyingGlassIcon,
                         },
-                       
+
                         {
                           value: "edit",
                           label: "Edit Personal Details",
@@ -2541,19 +2546,17 @@ const Verification = () => {
                           <button
                             key={value}
                             type="button"
-                            className={`flex items-center w-full p-4 rounded-xl border-2 cursor-pointer transition-all ${
-                              isSelected
+                            className={`flex items-center w-full p-4 rounded-xl border-2 cursor-pointer transition-all ${isSelected
                                 ? `${currentColor.bg} ${currentColor.border} ${currentColor.text}`
                                 : "border-gray-200 bg-white text-gray-700 hover:border-gray-300 hover:bg-gray-50"
-                            }`}
+                              }`}
                             onClick={() =>
                               handleVerificationChange("finalDecision", value)
                             }
                           >
                             <Icon
-                              className={`h-6 w-6 mr-3 ${
-                                isSelected ? currentColor.icon : "text-gray-400"
-                              }`}
+                              className={`h-6 w-6 mr-3 ${isSelected ? currentColor.icon : "text-gray-400"
+                                }`}
                             />
                             <span className="font-medium">{label}</span>
                           </button>
@@ -2683,9 +2686,8 @@ const Verification = () => {
                               {label}:
                             </span>
                             <span
-                              className={`flex items-center text-sm font-semibold ${
-                                verified ? "text-emerald-600" : "text-red-600"
-                              }`}
+                              className={`flex items-center text-sm font-semibold ${verified ? "text-emerald-600" : "text-red-600"
+                                }`}
                             >
                               {verified ? (
                                 <CheckCircleIcon className="h-4 w-4 mr-1" />
@@ -2728,16 +2730,15 @@ const Verification = () => {
             <button
               onClick={() => setStep(step - 1)}
               disabled={step === 1}
-              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${
-                step === 1
+              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${step === 1
                   ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                   : "bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md"
-              }`}
+                }`}
             >
               <ChevronLeftIcon className="h-5 w-5 mr-2" />
               Previous
             </button>
-            
+
             {/* Save Draft Button - Show for all steps except the last one */}
             {step < 8 && <SaveDraftButton />}
           </div>
@@ -2752,7 +2753,7 @@ const Verification = () => {
               className="flex items-center px-6 py-3 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg"
               style={{
                 backgroundColor: "#586ab1",
-                hover: { backgroundColor: "#49579a" } 
+                hover: { backgroundColor: "#49579a" }
               }}
             >
               Next
@@ -2768,11 +2769,10 @@ const Verification = () => {
                   }
                 }}
                 disabled={loading}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${
-                  loading
+                className={`px-6 py-3 rounded-xl font-medium transition-all ${loading
                     ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                     : "bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg"
-                }`}
+                  }`}
               >
                 {loading ? (
                   <div className="flex items-center">
@@ -2818,7 +2818,7 @@ const Verification = () => {
               <div className="px-6 py-4 bg-gray-50 border-t">
                 <div className="flex justify-between items-center">
                   <p className="text-sm text-gray-600">
-                    Click outside the image or the X button to close 
+                    Click outside the image or the X button to close
                   </p>
                   <button
                     onClick={() => setSelectedImage(null)}

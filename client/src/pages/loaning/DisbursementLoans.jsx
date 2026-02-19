@@ -82,6 +82,7 @@ const DisbursedLoans = () => {
           )
         `)
         .eq('status', 'disbursed')
+        .eq('tenant_id', profile?.tenant_id)
         .order('disbursed_at', { ascending: false });
 
       // Filter by branch for branch managers
@@ -94,7 +95,7 @@ const DisbursedLoans = () => {
           .from("branches")
           .select("id")
           .eq("region_id", profile.region_id);
-        
+
         const branchIds = branchesInRegion?.map(b => b.id) || [];
         if (branchIds.length > 0) {
           loansQuery = loansQuery.in("branch_id", branchIds);
@@ -135,7 +136,7 @@ const DisbursedLoans = () => {
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
         setRegions(regionsResult.data || []);
-        
+
         // Enrich ROs with their branch and region info from loans data
         const enrichedROs = (roResult.data || []).map(ro => {
           const roLoan = loansData?.find(l => l.booked_by === ro.id);
@@ -145,7 +146,7 @@ const DisbursedLoans = () => {
             region_id: roLoan?.customers?.branches?.region_id
           };
         });
-        
+
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
       } else if (isRegionalManager && profile?.region_id) {
@@ -157,7 +158,7 @@ const DisbursedLoans = () => {
 
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
-        
+
         // Filter ROs based on region from loans data
         const enrichedROs = (roResult.data || []).map(ro => {
           const roLoan = loansData?.find(l => l.booked_by === ro.id);
@@ -167,7 +168,7 @@ const DisbursedLoans = () => {
             region_id: roLoan?.customers?.branches?.region_id
           };
         }).filter(ro => ro.region_id?.toString() === profile.region_id);
-        
+
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
       } else if (isBranchManager && profile?.branch_id) {
@@ -214,7 +215,7 @@ const DisbursedLoans = () => {
     setSelectedRegion("");
     setSelectedRO("");
     setCurrentPage(1);
-    
+
     // Reset cascading filters
     if (isGlobalRole || isCreditAnalyst || isCustomerService) {
       setBranches(allBranches);
@@ -232,14 +233,14 @@ const DisbursedLoans = () => {
     setSelectedRegion(regionId);
     setSelectedBranch(""); // Clear branch selection
     setSelectedRO(""); // Clear RO selection
-    
+
     if (regionId) {
       // Filter branches by selected region
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       // Filter ROs by selected region
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
@@ -256,7 +257,7 @@ const DisbursedLoans = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO(""); // Clear RO selection
-    
+
     if (branchId) {
       // Filter ROs by selected branch
       const filteredROs = allRelationshipOfficers.filter(
@@ -282,7 +283,7 @@ const DisbursedLoans = () => {
     const middlename = loan.customers?.Middlename?.toLowerCase() || "";
     const fullName = `${firstName} ${middlename} ${surname}`.trim();
     const loanId = loan.id?.toString() || "";
-    
+
     const matchesSearch =
       fullName.includes(searchTerm.toLowerCase()) ||
       (loan.customers?.mobile || "").toString().includes(searchTerm) ||
@@ -403,7 +404,7 @@ const DisbursedLoans = () => {
             Disbursed Loans
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{disbursedLoans.length}</span> disbursed loan{disbursedLoans.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -729,7 +730,7 @@ const DisbursedLoans = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -739,7 +740,7 @@ const DisbursedLoans = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -751,18 +752,17 @@ const DisbursedLoans = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
                               ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                               : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -772,7 +772,7 @@ const DisbursedLoans = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

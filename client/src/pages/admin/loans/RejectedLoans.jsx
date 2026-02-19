@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../hooks/userAuth";
 import {
   XCircleIcon,
   UserIcon,
@@ -10,13 +11,16 @@ import {
 } from "@heroicons/react/24/outline";
 
 const RejectedLoans = () => {
+  const { profile } = useAuth();
   const [rejectedLoans, setRejectedLoans] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedLoan, setSelectedLoan] = useState(null);
 
   useEffect(() => {
-    fetchRejectedLoans();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchRejectedLoans();
+    }
+  }, [profile]);
 
   const fetchRejectedLoans = async () => {
     try {
@@ -32,7 +36,8 @@ const RejectedLoans = () => {
           )
         `)
         .eq('status', 'rejected')
-       
+        .eq('tenant_id', profile?.tenant_id)
+
       if (error) throw error;
       setRejectedLoans(data || []);
     } catch (error) {
@@ -95,9 +100,8 @@ const RejectedLoans = () => {
                 {rejectedLoans.map((loan, index) => (
                   <tr
                     key={loan.id}
-                    className={`${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
-                    } hover:bg-red-50 transition-colors`}
+                    className={`${index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                      } hover:bg-red-50 transition-colors`}
                   >
                     <td className="px-6 py-4">
                       <div className="font-mono text-red-600 font-semibold">
@@ -141,7 +145,7 @@ const RejectedLoans = () => {
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <button 
+                      <button
                         onClick={() => setSelectedLoan(loan)}
                         className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-gray-600 to-gray-700 text-white rounded-lg hover:from-gray-700 hover:to-gray-800 transition-all shadow-md hover:shadow-lg font-semibold"
                       >
@@ -179,7 +183,7 @@ const RejectedLoans = () => {
                   <XCircleIcon className="h-6 w-6 text-gray-600" />
                 </button>
               </div>
-              
+
               <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -205,7 +209,7 @@ const RejectedLoans = () => {
                     </div>
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="text-sm font-medium text-gray-500 flex items-center mb-2">
                     <ChatBubbleLeftRightIcon className="h-4 w-4 mr-1" />

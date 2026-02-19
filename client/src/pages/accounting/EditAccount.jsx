@@ -1,22 +1,25 @@
-import React, { useEffect, useState } from "react";
 import { supabase } from "../../supabaseClient";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Save, X } from "lucide-react";
+import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 
 export default function EditAccount() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const { success, error: toastError, warning } = useToast();
   const [form, setForm] = useState(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const loadAccount = async () => {
+    if (!profile?.tenant_id) return;
     try {
       const { data, error } = await supabase
         .from("chart_of_accounts")
         .select("*")
         .eq("id", id)
+        .eq("tenant_id", profile.tenant_id)
         .single();
 
       if (error) throw error;
@@ -28,8 +31,10 @@ export default function EditAccount() {
   };
 
   useEffect(() => {
-    loadAccount();
-  }, [id]);
+    if (profile?.tenant_id) {
+      loadAccount();
+    }
+  }, [id, profile?.tenant_id]);
 
   const saveChanges = async (e) => {
     e.preventDefault();
@@ -52,7 +57,8 @@ export default function EditAccount() {
           code: form.code, // Optional
           status: form.status
         })
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", profile?.tenant_id);
 
       if (error) throw error;
 

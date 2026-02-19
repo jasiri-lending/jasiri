@@ -60,6 +60,7 @@ const ViewDisbursedLoan = () => {
           )
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -464,8 +465,8 @@ const ViewDisbursedLoan = () => {
               {approvalTrail.map((step, index) => (
                 <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg">
                   <div className={`w-3 h-3 rounded-full mt-2 ${step.decision === 'approved' ? 'bg-green-500' :
-                      step.decision === 'rejected' ? 'bg-red-500' :
-                        step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
+                    step.decision === 'rejected' ? 'bg-red-500' :
+                      step.action === 'Funds Disbursed' ? 'bg-emerald-500' : 'bg-blue-500'
                     }`}></div>
                   <div className="flex-1">
                     <div className="flex justify-between items-center">

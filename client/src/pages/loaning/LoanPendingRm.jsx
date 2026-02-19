@@ -22,8 +22,8 @@ import { useNavigate } from "react-router-dom";
 const LoanPendingRm = () => {
   const { profile, loading: authLoading } = useAuth();
   const hasFetchedData = useRef(false);
-     const navigate = useNavigate(); 
-  
+  const navigate = useNavigate();
+
 
   const [pendingLoans, setPendingLoans] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -71,6 +71,7 @@ const LoanPendingRm = () => {
           )
         `)
         .eq('status', 'rn_review')
+        .eq('tenant_id', profile?.tenant_id)
         .order('approved_by_bm_at', { ascending: false });
 
       // Filter by region for regional managers
@@ -79,7 +80,7 @@ const LoanPendingRm = () => {
           .from("branches")
           .select("id")
           .eq("region_id", profile.region_id);
-        
+
         const branchIds = branchesInRegion?.map(b => b.id) || [];
         if (branchIds.length > 0) {
           loansQuery = loansQuery.in("branch_id", branchIds);
@@ -97,13 +98,13 @@ const LoanPendingRm = () => {
       const approvedByBmIds = loansData
         ?.map(loan => loan.approved_by_bm)
         .filter(Boolean) || [];
-      
+
       if (approvedByBmIds.length > 0) {
         const { data: bmData, error: bmError } = await supabase
           .from("users")
           .select("id, full_name")
           .in("id", approvedByBmIds);
-        
+
         if (!bmError) {
           const bmMap = {};
           bmData.forEach(bm => {
@@ -125,7 +126,7 @@ const LoanPendingRm = () => {
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
         setRegions(regionsResult.data || []);
-        
+
         // Enrich ROs with their branch and region info from loans data
         const enrichedROs = (roResult.data || []).map(ro => {
           const roLoan = loansData?.find(l => l.booked_by === ro.id);
@@ -135,7 +136,7 @@ const LoanPendingRm = () => {
             region_id: roLoan?.customers?.branches?.region_id
           };
         });
-        
+
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
       } else if (isRegionalManager && profile?.region_id) {
@@ -147,7 +148,7 @@ const LoanPendingRm = () => {
 
         setAllBranches(branchesResult.data || []);
         setBranches(branchesResult.data || []);
-        
+
         // Filter ROs based on region from loans data
         const enrichedROs = (roResult.data || []).map(ro => {
           const roLoan = loansData?.find(l => l.booked_by === ro.id);
@@ -157,7 +158,7 @@ const LoanPendingRm = () => {
             region_id: roLoan?.customers?.branches?.region_id
           };
         }).filter(ro => ro.region_id?.toString() === profile.region_id);
-        
+
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
       }
@@ -183,7 +184,7 @@ const LoanPendingRm = () => {
     setSelectedRegion("");
     setSelectedRO("");
     setCurrentPage(1);
-    
+
     // Reset cascading filters
     if (isCreditAnalyst || isCustomerService) {
       setBranches(allBranches);
@@ -199,14 +200,14 @@ const LoanPendingRm = () => {
     setSelectedRegion(regionId);
     setSelectedBranch(""); // Clear branch selection
     setSelectedRO(""); // Clear RO selection
-    
+
     if (regionId) {
       // Filter branches by selected region
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       // Filter ROs by selected region
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
@@ -223,7 +224,7 @@ const LoanPendingRm = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO(""); // Clear RO selection
-    
+
     if (branchId) {
       // Filter ROs by selected branch
       const filteredROs = allRelationshipOfficers.filter(
@@ -249,7 +250,7 @@ const LoanPendingRm = () => {
     const middlename = loan.customers?.Middlename?.toLowerCase() || "";
     const fullName = `${firstName} ${middlename} ${surname}`.trim();
     const loanId = loan.id?.toString() || "";
-    
+
     const matchesSearch =
       fullName.includes(searchTerm.toLowerCase()) ||
       (loan.customers?.mobile || "").toString().includes(searchTerm) ||
@@ -342,9 +343,9 @@ const LoanPendingRm = () => {
   };
 
   // Handle view loan details
- const handleViewLoan = (loanId) => {
-  navigate(`/loans/${loanId}`);
-};
+  const handleViewLoan = (loanId) => {
+    navigate(`/loans/${loanId}`);
+  };
 
   if (selectedLoan) {
     return <ApproveLoan loan={selectedLoan} onComplete={handleComplete} />;
@@ -367,7 +368,7 @@ const LoanPendingRm = () => {
             Loans Pending RM Approval
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{pendingLoans.length}</span> pending loan{pendingLoans.length !== 1 ? 's' : ''}
         </div>
       </div>
@@ -658,8 +659,8 @@ const LoanPendingRm = () => {
               {searchTerm || selectedBranch || selectedRegion
                 ? "Try adjusting your search or filters"
                 : isRegionalManager
-                ? "All loans have been reviewed by the regional manager."
-                : "There are no loans pending regional manager approval in your area."}
+                  ? "All loans have been reviewed by the regional manager."
+                  : "There are no loans pending regional manager approval in your area."}
             </p>
           </div>
         )}
@@ -687,7 +688,7 @@ const LoanPendingRm = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -697,7 +698,7 @@ const LoanPendingRm = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -709,18 +710,17 @@ const LoanPendingRm = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
                               ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                               : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -730,7 +730,7 @@ const LoanPendingRm = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

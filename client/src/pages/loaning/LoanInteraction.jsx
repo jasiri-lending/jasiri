@@ -21,13 +21,13 @@ const LoanInteraction = () => {
   const { profile } = useAuth();
   const { loanId } = useParams();
   const navigate = useNavigate();
-  
+
   const [loan, setLoan] = useState(null);
   const [interactions, setInteractions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [showForm, setShowForm] = useState(false);
-  
+
   // Form state
   const [formData, setFormData] = useState({
     interaction_type: 'Phone Call',
@@ -53,7 +53,7 @@ const LoanInteraction = () => {
   const fetchLoanAndInteractions = async () => {
     try {
       setLoading(true);
-      
+
       // Fetch loan details
       const { data: loanData, error: loanError } = await supabase
         .from('loans')
@@ -77,6 +77,7 @@ const LoanInteraction = () => {
           )
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -136,7 +137,7 @@ const LoanInteraction = () => {
       });
       setShowForm(false);
       await fetchLoanAndInteractions();
-      
+
       // Show success message
       alert('Interaction logged successfully!');
     } catch (error) {
@@ -150,7 +151,7 @@ const LoanInteraction = () => {
   const getInteractionIcon = (type) => {
     const interaction = interactionTypes.find(t => t.value === type);
     if (!interaction) return <ChatBubbleLeftRightIcon className="h-4 w-4 text-gray-600" />;
-    
+
     const Icon = interaction.icon;
     return <Icon className={`h-4 w-4 ${interaction.color}`} />;
   };
@@ -166,10 +167,10 @@ const LoanInteraction = () => {
 
   if (loading) {
     return (
-     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
         <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
-               <Spinner text="Loading ..." />
-             </div>
+          <Spinner text="Loading ..." />
+        </div>
       </div>
     );
   }
@@ -212,18 +213,18 @@ const LoanInteraction = () => {
                 <div>
                   <h1 className="text-sm font-medium text-gray-800">Loan Interactions</h1>
                   <p className="text-gray-600 text-xs mt-0.5">
-                    {loan.customers?.Firstname} {loan.customers?.Surname} • 
-                    Loan #{loan.id} • 
+                    {loan.customers?.Firstname} {loan.customers?.Surname} •
+                    Loan #{loan.id} •
                     KES {loan.scored_amount?.toLocaleString()}
                   </p>
                   <p className="text-xs text-gray-500 mt-0.5">
-                    Branch: {loan.customers?.branches?.name} • 
+                    Branch: {loan.customers?.branches?.name} •
                     Phone: {loan.customers?.mobile}
                   </p>
                 </div>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-[#586ab1]/10 rounded-lg border border-[#586ab1]/20">
               <ClockIcon className="h-4 w-4 text-[#586ab1]" />
               <span className="text-[#586ab1] text-sm font-medium">
@@ -419,7 +420,7 @@ const LoanInteraction = () => {
           <div className="lg:col-span-1">
             <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200 sticky top-8">
               <h3 className="text-sm font-semibold text-gray-800 mb-4">Loan Summary</h3>
-              
+
               <div className="space-y-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600">Customer</label>
@@ -427,35 +428,35 @@ const LoanInteraction = () => {
                     {loan.customers?.Firstname} {loan.customers?.Surname}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-medium text-gray-600">Loan Amount</label>
                   <p className="text-base font-bold text-[#586ab1]">
                     KES {loan.scored_amount?.toLocaleString()}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-medium text-gray-600">Duration</label>
                   <p className="text-sm font-medium text-gray-800">
                     {loan.duration_weeks} weeks
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-medium text-gray-600">Branch</label>
                   <p className="text-sm font-medium text-gray-800">
                     {loan.customers?.branches?.name}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-medium text-gray-600">Status</label>
                   <p className="text-sm font-medium text-[#586ab1] capitalize">
                     {loan.status?.replace('_', ' ')}
                   </p>
                 </div>
-                
+
                 <div>
                   <label className="text-xs font-medium text-gray-600">Created</label>
                   <p className="text-sm font-medium text-gray-800">

@@ -1,6 +1,4 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { supabase } from '../../supabaseClient.js';
+import { useAuth } from '../../hooks/userAuth.js';
 
 // Import the missing components (create these files separately)
 import PendingTransfersList from './PendingTransfersList';
@@ -8,6 +6,7 @@ import ApprovedTransfersList from './ApprovedTransfersList';
 
 const CustomerTransferForm = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [formData, setFormData] = useState({
     currentBranch: '',
     currentOfficer: '',
@@ -22,13 +21,12 @@ const CustomerTransferForm = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
-  const [userRole, setUserRole] = useState('');
-  const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    fetchBranches();
-    fetchCurrentUser();
-  }, []);
+    if (profile) {
+      fetchBranches();
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (formData.currentBranch) {
@@ -76,9 +74,11 @@ const CustomerTransferForm = () => {
 
   const fetchBranches = async () => {
     try {
+      if (!profile) return;
       const { data, error } = await supabase
         .from('branches')
         .select('id, name')
+        .eq('tenant_id', profile.tenant_id)
         .order('name');
       if (error) throw error;
       setBranches(data || []);
@@ -89,25 +89,21 @@ const CustomerTransferForm = () => {
 
   const fetchOfficersByBranch = async (branchId, type) => {
     try {
+      if (!profile) return;
       const { data, error } = await supabase
-        .from('profiles')
+        .from('users')
         .select(`
           id,
-          users!inner (
-            id,
-            full_name,
-            role
-          )
+          full_name,
+          role
         `)
         .eq('branch_id', branchId)
-        .eq('users.role', 'relationship_officer');
+        .eq('tenant_id', profile.tenant_id)
+        .eq('role', 'relationship_officer');
 
       if (error) throw error;
 
-      const officers = data?.map(profile => ({
-        id: profile.users.id,
-        full_name: profile.users.full_name
-      })) || [];
+      const officers = data || [];
 
       if (type === 'current') {
         setCurrentOfficers(officers);
@@ -123,11 +119,13 @@ const CustomerTransferForm = () => {
 
   const fetchCustomers = async () => {
     try {
+      if (!profile) return;
       const { data, error } = await supabase
         .from('customers')
         .select('*')
         .eq('branch_id', formData.currentBranch)
-        .eq('created_by', formData.currentOfficer);
+        .eq('created_by', formData.currentOfficer)
+        .eq('tenant_id', profile.tenant_id);
       if (error) throw error;
       setCustomers(data || []);
     } catch (error) {
@@ -142,7 +140,7 @@ const CustomerTransferForm = () => {
       return;
     }
 
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       alert('User not authenticated');
       return;
     }
@@ -153,13 +151,14 @@ const CustomerTransferForm = () => {
       const { data: transferRequest, error: transferError } = await supabase
         .from('customer_transfer_requests')
         .insert({
-          branch_manager_id: currentUser.id,
+          branch_manager_id: profile.id,
           current_branch_id: formData.currentBranch,
           new_branch_id: formData.newBranch,
           current_officer_id: formData.currentOfficer,
           new_officer_id: formData.newOfficer,
           status: 'pending_approval',
-          remarks: formData.remarks
+          remarks: formData.remarks,
+          tenant_id: profile.tenant_id
         })
         .select()
         .single();
@@ -170,7 +169,8 @@ const CustomerTransferForm = () => {
       const transferItems = selectedCustomers.map(customerId => ({
         transfer_request_id: transferRequest.id,
         customer_id: customerId,
-        status: 'pending'
+        status: 'pending',
+        tenant_id: profile.tenant_id
       }));
 
       const { error: itemsError } = await supabase
@@ -184,7 +184,8 @@ const CustomerTransferForm = () => {
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferRequest.id,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'initiated',
           remarks: 'Transfer initiated by branch manager'
         });
@@ -203,7 +204,7 @@ const CustomerTransferForm = () => {
 
   // Function to approve transfer (Regional Manager)
   const handleApproveTransfer = async (transferId) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       alert('User not authenticated');
       return;
     }
@@ -214,11 +215,12 @@ const CustomerTransferForm = () => {
       const { error: updateError } = await supabase
         .from('customer_transfer_requests')
         .update({
-          regional_manager_id: currentUser.id,
+          regional_manager_id: profile.id,
           status: 'approved',
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (updateError) throw updateError;
 
@@ -227,7 +229,8 @@ const CustomerTransferForm = () => {
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'approved',
           remarks: 'Transfer approved by regional manager'
         });
@@ -245,7 +248,7 @@ const CustomerTransferForm = () => {
 
   // Function to execute transfer (Credit Analyst)
   const handleExecuteTransfer = async (transferId) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       alert('User not authenticated');
       return;
     }
@@ -263,6 +266,7 @@ const CustomerTransferForm = () => {
           )
         `)
         .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id)
         .single();
 
       if (fetchError) throw fetchError;
@@ -283,7 +287,8 @@ const CustomerTransferForm = () => {
           created_by: transferRequest.new_officer_id,
           updated_at: new Date().toISOString()
         })
-        .in('id', customerIds);
+        .in('id', customerIds)
+        .eq('tenant_id', profile.tenant_id);
 
       if (updateError) throw updateError;
 
@@ -291,11 +296,12 @@ const CustomerTransferForm = () => {
       const { error: statusError } = await supabase
         .from('customer_transfer_requests')
         .update({
-          credit_analyst_id: currentUser.id,
+          credit_analyst_id: profile.id,
           status: 'completed',
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (statusError) throw statusError;
 
@@ -303,7 +309,8 @@ const CustomerTransferForm = () => {
       const { error: itemsError } = await supabase
         .from('customer_transfer_items')
         .update({ status: 'transferred' })
-        .eq('transfer_request_id', transferId);
+        .eq('transfer_request_id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (itemsError) throw itemsError;
 
@@ -312,7 +319,8 @@ const CustomerTransferForm = () => {
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'completed',
           remarks: `Transferred ${customerIds.length} customer(s)`
         });
@@ -331,7 +339,7 @@ const CustomerTransferForm = () => {
 
   // Function to reject transfer (Regional Manager)
   const handleRejectTransfer = async (transferId, reason) => {
-    if (!currentUser?.id) {
+    if (!profile?.id) {
       alert('User not authenticated');
       return;
     }
@@ -345,7 +353,8 @@ const CustomerTransferForm = () => {
           remarks: reason,
           updated_at: new Date().toISOString()
         })
-        .eq('id', transferId);
+        .eq('id', transferId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (updateError) throw updateError;
 
@@ -353,7 +362,8 @@ const CustomerTransferForm = () => {
         .from('transfer_workflow_logs')
         .insert({
           transfer_request_id: transferId,
-          user_id: currentUser.id,
+          user_id: profile.id,
+          tenant_id: profile.tenant_id,
           action: 'rejected',
           remarks: reason
         });
@@ -392,21 +402,23 @@ const CustomerTransferForm = () => {
     customer?.mobile?.includes(customerSearch)
   );
 
-  const selectedCustomerObjects = customers.filter(customer => 
+  const selectedCustomerObjects = customers.filter(customer =>
     selectedCustomers.includes(customer.id)
   );
 
   // Render based on user role
   const renderFormBasedOnRole = () => {
-    switch(userRole) {
+    if (!profile) return null;
+
+    switch (profile.role) {
       case 'branch_manager':
         return renderBranchManagerForm();
       case 'regional_manager':
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-lg text-slate-600 mb-6">Pending Transfers for Approval</h2>
-            <PendingTransfersList 
-              currentUser={currentUser}
+            <PendingTransfersList
+              currentUser={profile}
               onApprove={handleApproveTransfer}
               onReject={handleRejectTransfer}
             />
@@ -416,8 +428,8 @@ const CustomerTransferForm = () => {
         return (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
             <h2 className="text-sm  text-slate-900 mb-6">Approved Transfers for Execution</h2>
-            <ApprovedTransfersList 
-              currentUser={currentUser}
+            <ApprovedTransfersList
+              currentUser={profile}
               onExecute={handleExecuteTransfer}
             />
           </div>
@@ -784,12 +796,12 @@ const CustomerTransferForm = () => {
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h2 className="text-sm  text-gray-600">
-            {userRole === 'branch_manager' && 'Initiate Transfer Request'}
-            {userRole === 'regional_manager' && 'Approve Transfers'}
-            {userRole === 'credit_analyst_officer' && ''}
+            {profile?.role === 'branch_manager' && 'Initiate Transfer Request'}
+            {profile?.role === 'regional_manager' && 'Approve Transfers'}
+            {profile?.role === 'credit_analyst_officer' && ''}
           </h2>
         </div>
-        
+
         {renderFormBasedOnRole()}
       </div>
     </div>

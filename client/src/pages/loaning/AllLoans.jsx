@@ -54,7 +54,8 @@ const AllLoans = () => {
       // Fetch customers data for name lookup
       const { data: customersData } = await supabase
         .from("customers")
-        .select('id, prefix, "Firstname", "Surname", "Middlename", id_number, mobile');
+        .select('id, prefix, "Firstname", "Surname", "Middlename", id_number, mobile')
+        .eq("tenant_id", profile?.tenant_id);
 
       if (customersData) {
         const customersMap = {};
@@ -72,6 +73,7 @@ const AllLoans = () => {
       let loansQuery = supabase
         .from("loans")
         .select("*")
+        .eq("tenant_id", profile?.tenant_id)
         .order("created_at", { ascending: false });
 
       if (isRelationshipOfficer && profile?.id) {
@@ -136,9 +138,9 @@ const AllLoans = () => {
       }
 
       // Enrich loans with branch and region data
-      const { data: branchesData } = await supabase.from("branches").select("id, name, region_id");
-      const { data: regionsData } = await supabase.from("regions").select("id, name");
-      const { data: usersData } = await supabase.from("users").select("id, full_name");
+      const { data: branchesData } = await supabase.from("branches").select("id, name, region_id").eq("tenant_id", profile?.tenant_id);
+      const { data: regionsData } = await supabase.from("regions").select("id, name").eq("tenant_id", profile?.tenant_id);
+      const { data: usersData } = await supabase.from("users").select("id, full_name").eq("tenant_id", profile?.tenant_id);
 
       const branchesMap = {};
       branchesData?.forEach(branch => {
@@ -343,7 +345,7 @@ const AllLoans = () => {
             All Loans
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{loans.length}</span> total loans
         </div>
       </div>
@@ -603,9 +605,9 @@ const AllLoans = () => {
                       {loan.duration_weeks || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
+                      <span
                         className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                        style={{ 
+                        style={{
                           backgroundColor: statusInfo.bg,
                           color: 'white'
                         }}
@@ -649,7 +651,7 @@ const AllLoans = () => {
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">No loans found</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus 
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus
                 ? "Try adjusting your search or filters"
                 : "No loans available in the system"}
             </p>
@@ -679,7 +681,7 @@ const AllLoans = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -689,7 +691,7 @@ const AllLoans = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -701,18 +703,17 @@ const AllLoans = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
                               ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                               : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -722,7 +723,7 @@ const AllLoans = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { exportToCSV } from '../../utils/exportUtils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import RepaymentHistoryModal from './RepaymentHistoryModal';
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 const LoanReports = () => {
   const [filters, setFilters] = useState({
@@ -12,7 +13,7 @@ const LoanReports = () => {
     officer: 'all',
     status: 'all'
   });
-  
+
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [branches, setBranches] = useState([]);
@@ -124,7 +125,7 @@ const LoanReports = () => {
     setLoading(true);
     try {
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       let filteredLoans = mockLoans;
 
       if (filters.startDate) {
@@ -178,7 +179,7 @@ const LoanReports = () => {
 
   const prepareMonthlyData = (loans) => {
     const monthlyTotals = {};
-    
+
     loans.forEach(loan => {
       const month = loan.disbursed_date.substring(0, 7);
       if (!monthlyTotals[month]) {
@@ -195,7 +196,7 @@ const LoanReports = () => {
 
   const prepareStatusData = (loans) => {
     const statusCounts = {};
-    
+
     loans.forEach(loan => {
       if (!statusCounts[loan.status]) {
         statusCounts[loan.status] = 0;
@@ -224,12 +225,12 @@ const LoanReports = () => {
 
   const handleExport = () => {
     if (!reportData?.loans) return;
-    
+
     const csvData = reportData.loans.map(loan => ({
       'Loan ID': loan.id,
       'Customer Name': loan.customer_name,
-        'Mobile': loan.mobile,
-        'Transaction Code': loan.transaction_code,
+      'Mobile': loan.mobile,
+      'Transaction Code': loan.transaction_code,
       'Disbursed Amount (KES)': loan.disbursed_amount,
       'Interest Rate (%)': loan.interest_rate,
       'Status': loan.status,
@@ -238,7 +239,7 @@ const LoanReports = () => {
       'Branch': loan.branch_name,
       'Amount Repaid (KES)': loan.total_repaid
     }));
-    
+
     exportToCSV(csvData, `loan-reports-${new Date().toISOString().split('T')[0]}.csv`);
   };
 
@@ -263,7 +264,7 @@ const LoanReports = () => {
       defaulted: { color: 'bg-red-100 text-red-800', label: 'Defaulted' },
       pending: { color: 'bg-yellow-100 text-yellow-800', label: 'Pending' }
     };
-    
+
     const config = statusConfig[status] || { color: 'bg-gray-100 text-gray-800', label: status };
     return (
       <span className={`px-2 py-1 text-xs font-medium rounded-full ${config.color}`}>
@@ -276,7 +277,7 @@ const LoanReports = () => {
 
   const sortedLoans = React.useMemo(() => {
     if (!reportData?.loans) return [];
-    
+
     const sorted = [...reportData.loans].sort((a, b) => {
       if (a[sortConfig.key] < b[sortConfig.key]) {
         return sortConfig.direction === 'asc' ? -1 : 1;
@@ -286,7 +287,7 @@ const LoanReports = () => {
       }
       return 0;
     });
-    
+
     return sorted;
   }, [reportData?.loans, sortConfig]);
 
@@ -323,7 +324,7 @@ const LoanReports = () => {
       {/* Filters */}
       <div className="bg-white p-6 rounded-lg shadow-sm border">
         <h2 className="text-lg font-semibold text-gray-600 mb-4">Filter Reports</h2>
-        
+
         <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -337,7 +338,7 @@ const LoanReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               End Date
@@ -350,7 +351,7 @@ const LoanReports = () => {
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             />
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Branch
@@ -367,7 +368,7 @@ const LoanReports = () => {
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Officer
@@ -384,7 +385,7 @@ const LoanReports = () => {
               ))}
             </select>
           </div>
-          
+
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
               Status
@@ -403,27 +404,23 @@ const LoanReports = () => {
             </select>
           </div>
         </div>
-        
+
         <div className="mt-4">
           <button
             onClick={generateReport}
             disabled={loading}
             className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
           >
-            {loading ? (
-              <>
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Generating...
-              </>
-            ) : 'Generate Report'}
+            {loading ? 'Generating...' : 'Generate Report'}
           </button>
         </div>
       </div>
 
-      {reportData && (
+      {loading && !reportData ? (
+        <div className="py-20">
+          <Spinner text="Generating loan reports..." />
+        </div>
+      ) : reportData && (
         <>
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -492,10 +489,10 @@ const LoanReports = () => {
                 <BarChart data={reportData.charts.monthly}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="month" />
-                  <YAxis 
+                  <YAxis
                     tickFormatter={(value) => `KES ${value / 1000}k`}
                   />
-                  <Tooltip 
+                  <Tooltip
                     formatter={(value) => [formatCurrency(value), 'Amount']}
                     labelFormatter={(label) => `Month: ${label}`}
                   />
@@ -535,12 +532,12 @@ const LoanReports = () => {
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-600">Loan Details</h3>
             </div>
-            
+
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('id')}
                     >
@@ -552,10 +549,10 @@ const LoanReports = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Customer Name
                     </th>
-                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Mobile
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('disbursed_amount')}
                     >
@@ -570,7 +567,7 @@ const LoanReports = () => {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                       Status
                     </th>
-                    <th 
+                    <th
                       className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                       onClick={() => handleSort('disbursed_date')}
                     >
@@ -596,7 +593,7 @@ const LoanReports = () => {
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {loan.customer_name}
                       </td>
-                         <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {loan.customer_mobile}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">

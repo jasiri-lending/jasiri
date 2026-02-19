@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from "../../supabaseClient";
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from "../../hooks/userAuth";
 import {
   UserIcon,
   CurrencyDollarIcon,
@@ -30,7 +31,8 @@ import {
 const ViewLoan = () => {
   const { loanId } = useParams();
   const navigate = useNavigate();
-  
+  const { profile } = useAuth();
+
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [bookedByUser, setBookedByUser] = useState(null);
@@ -41,7 +43,7 @@ const ViewLoan = () => {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('loanInformation');
   const [payments, setPayments] = useState([]);
-  
+
 
   useEffect(() => {
     if (loanId) {
@@ -75,6 +77,7 @@ const ViewLoan = () => {
           )
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -99,7 +102,7 @@ const ViewLoan = () => {
       if (loanData.disbursed_by) userIds.add(loanData.disbursed_by);
 
       const usersData = {};
-      
+
       // Fetch all users in one go if possible
       for (const userId of userIds) {
         const { data: userData } = await supabase
@@ -107,7 +110,7 @@ const ViewLoan = () => {
           .select("*")
           .eq('id', userId)
           .single();
-        
+
         if (userData) {
           usersData[userId] = userData;
         }
@@ -154,7 +157,7 @@ const ViewLoan = () => {
   // Calculate total paid from installments (interest_paid + principal_paid)
   const calculateTotalPaid = () => {
     if (!installments || installments.length === 0) return 0;
-    
+
     return installments.reduce((total, installment) => {
       const interestPaid = parseFloat(installment.interest_paid || 0);
       const principalPaid = parseFloat(installment.principal_paid || 0);
@@ -201,15 +204,15 @@ const ViewLoan = () => {
     const penalties = arrears * 0.1;
 
     // Calculate next due date from pending installments
-    const pendingInstallments = installments.filter(i => 
+    const pendingInstallments = installments.filter(i =>
       i.status === 'pending' || i.status === 'partial' || i.status === 'overdue'
     ).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
-    const nextDueDate = pendingInstallments.length > 0 
+    const nextDueDate = pendingInstallments.length > 0
       ? new Date(pendingInstallments[0].due_date)
       : null;
 
-    const daysUntilDue = nextDueDate 
+    const daysUntilDue = nextDueDate
       ? Math.ceil((nextDueDate - today) / (1000 * 60 * 60 * 24))
       : null;
 
@@ -287,7 +290,7 @@ const ViewLoan = () => {
     const statusMap = {
       "booked": "Booked",
       "bm_review": "Pending Branch Manager",
-      "rm_review": "Pending Regional Manager", 
+      "rm_review": "Pending Regional Manager",
       "ca_review": "Pending Credit Analysis",
       "ready_for_disbursement": "Ready for Disbursement",
       "disbursed": "Disbursed",
@@ -313,7 +316,7 @@ const ViewLoan = () => {
         <div className="bg-gradient-to-br from-emerald-50 to-green-50 rounded-xl p-6 border border-emerald-200">
           <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
             <CurrencyDollarIcon className="h-6 w-6 text-emerald-600 mr-3" />
-            Loan Details 
+            Loan Details
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -389,8 +392,8 @@ const ViewLoan = () => {
               </span>
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2.5 mt-2">
-              <div 
-                className="bg-green-600 h-2.5 rounded-full transition-all duration-300" 
+              <div
+                className="bg-green-600 h-2.5 rounded-full transition-all duration-300"
                 style={{ width: `${Math.min(100, loanMetrics.progressPercentage)}%` }}
               ></div>
             </div>
@@ -443,26 +446,24 @@ const ViewLoan = () => {
                       {formatCurrency(payment.amount)}
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        payment.payment_type === 'repayment' 
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.payment_type === 'repayment'
                           ? 'bg-green-100 text-green-800'
                           : payment.payment_type === 'processing'
-                          ? 'bg-blue-100 text-blue-800'
-                          : payment.payment_type === 'registration'
-                          ? 'bg-purple-100 text-purple-800'
-                          : 'bg-gray-100 text-gray-800'
-                      }`}>
+                            ? 'bg-blue-100 text-blue-800'
+                            : payment.payment_type === 'registration'
+                              ? 'bg-purple-100 text-purple-800'
+                              : 'bg-gray-100 text-gray-800'
+                        }`}>
                         {payment.payment_type}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        payment.status === 'applied'
+                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'applied'
                           ? 'bg-green-100 text-green-800'
                           : payment.status === 'pending'
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-red-100 text-red-800'
-                      }`}>
+                            ? 'bg-yellow-100 text-yellow-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}>
                         {payment.status}
                       </span>
                     </td>
@@ -521,23 +522,21 @@ const ViewLoan = () => {
                 {installments.map((installment) => {
                   const paidAmount = (parseFloat(installment.principal_paid || 0) + parseFloat(installment.interest_paid || 0));
                   const isOverdue = new Date(installment.due_date) < new Date() && installment.status !== 'paid';
-                  
+
                   return (
                     <tr key={installment.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
                       <td className="px-6 py-4 text-sm">
                         <div className="flex items-center">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                            installment.status === 'paid' ? 'bg-green-100' :
-                            installment.status === 'overdue' ? 'bg-red-100' :
-                            installment.status === 'partial' ? 'bg-blue-100' :
-                            'bg-gray-100'
-                          }`}>
-                            <span className={`font-semibold text-sm ${
-                              installment.status === 'paid' ? 'text-green-600' :
-                              installment.status === 'overdue' ? 'text-red-600' :
-                              installment.status === 'partial' ? 'text-blue-600' :
-                              'text-gray-600'
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center ${installment.status === 'paid' ? 'bg-green-100' :
+                              installment.status === 'overdue' ? 'bg-red-100' :
+                                installment.status === 'partial' ? 'bg-blue-100' :
+                                  'bg-gray-100'
                             }`}>
+                            <span className={`font-semibold text-sm ${installment.status === 'paid' ? 'text-green-600' :
+                                installment.status === 'overdue' ? 'text-red-600' :
+                                  installment.status === 'partial' ? 'text-blue-600' :
+                                    'text-gray-600'
+                              }`}>
                               {installment.installment_number}
                             </span>
                           </div>
@@ -564,7 +563,7 @@ const ViewLoan = () => {
                         </div>
                         {paidAmount > 0 && (
                           <div className="text-xs text-gray-500">
-                            Principal: {formatCurrency(installment.principal_paid)} | 
+                            Principal: {formatCurrency(installment.principal_paid)} |
                             Interest: {formatCurrency(installment.interest_paid)}
                           </div>
                         )}
@@ -669,7 +668,7 @@ const ViewLoan = () => {
         <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-6 border border-amber-200">
           <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
             <CreditCardIcon className="h-6 w-6 text-amber-600 mr-3" />
-            Charges & Fees 
+            Charges & Fees
           </h3>
           <div className="space-y-3">
             <div className="flex justify-between items-center">
@@ -807,7 +806,7 @@ const ViewLoan = () => {
               })}
             </div>
           </div>
-          
+
           {loanDetails.bm_reviewed_at && (
             <div className="text-center">
               <div className="text-sm text-gray-500 mb-1">BM Reviewed</div>
@@ -822,7 +821,7 @@ const ViewLoan = () => {
               </div>
             </div>
           )}
-          
+
           {loanDetails.rm_reviewed_at && (
             <div className="text-center">
               <div className="text-sm text-gray-500 mb-1">RM Reviewed</div>
@@ -837,7 +836,7 @@ const ViewLoan = () => {
               </div>
             </div>
           )}
-          
+
           {loanDetails.approved_by_rm_at && (
             <div className="text-center">
               <div className="text-sm text-gray-500 mb-1">RM Approved</div>
@@ -852,7 +851,7 @@ const ViewLoan = () => {
               </div>
             </div>
           )}
-          
+
           {loanDetails.disbursed_at && (
             <div className="text-center">
               <div className="text-sm text-gray-500 mb-1">Disbursed</div>
@@ -901,7 +900,7 @@ const ViewLoan = () => {
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      
+
       </div>
     );
   }
@@ -940,7 +939,7 @@ const ViewLoan = () => {
               </button>
               <div>
                 <h1 className="text-sm  text-slate-600">
-                  Loan Details - #{loanDetails.id} 
+                  Loan Details - #{loanDetails.id}
                 </h1>
                 <p className="text-gray-600 mt-1">
                   Complete information about this loan application
@@ -976,7 +975,7 @@ const ViewLoan = () => {
                   </span>
                 </div>
               </div>
-              
+
               <div className="space-y-3">
                 <div>
                   <span className="text-gray-600 font-medium block mb-1 flex items-center">
@@ -1019,12 +1018,11 @@ const ViewLoan = () => {
                 </div>
                 <div>
                   <span className="text-gray-600 font-medium block mb-1 text-sm ">Repayment State:</span>
-                  <span className={`font-semibold px-2 py-1 rounded-full text-sm ${
-                    loanDetails.repayment_state === 'completed' ? 'bg-green-100 text-green-800' :
-                    loanDetails.repayment_state === 'overdue' ? 'bg-red-100 text-red-800' :
-                    loanDetails.repayment_state === 'partial' ? 'bg-blue-100 text-blue-800' :
-                    'bg-gray-100 text-gray-800'
-                  }`}>
+                  <span className={`font-semibold px-2 py-1 rounded-full text-sm ${loanDetails.repayment_state === 'completed' ? 'bg-green-100 text-green-800' :
+                      loanDetails.repayment_state === 'overdue' ? 'bg-red-100 text-red-800' :
+                        loanDetails.repayment_state === 'partial' ? 'bg-blue-100 text-blue-800' :
+                          'bg-gray-100 text-gray-800'
+                    }`}>
                     {loanDetails.repayment_state || 'ongoing'}
                   </span>
                 </div>
@@ -1184,11 +1182,10 @@ const ViewLoan = () => {
                   return (
                     <button
                       key={tab.id}
-                      className={`flex items-center gap-2 py-4 px-6 text-center font-medium text-sm border-b-2 transition-colors ${
-                        activeSection === tab.id
+                      className={`flex items-center gap-2 py-4 px-6 text-center font-medium text-sm border-b-2 transition-colors ${activeSection === tab.id
                           ? 'border-blue-500 text-blue-600 bg-white'
                           : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                      }`}
+                        }`}
                       onClick={() => setActiveSection(tab.id)}
                     >
                       <Icon className="h-5 w-5" />

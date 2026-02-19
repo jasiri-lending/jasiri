@@ -66,7 +66,7 @@ const PendingAmendments = () => {
   const [showForm, setShowForm] = useState(false);
   const [customerDetails, setCustomerDetails] = useState({});
   const [refreshing, setRefreshing] = useState(false);
-  
+
   // Filter states
   const [showFilters, setShowFilters] = useState(false);
   const [selectedBranch, setSelectedBranch] = useState("");
@@ -102,7 +102,7 @@ const PendingAmendments = () => {
   const getStatusDisplay = useCallback((customer) => {
     const sentBackStatuses = ["sent_back_by_bm", "sent_back_by_ca", "sent_back_by_cso"];
     const isROActionNeeded = sentBackStatuses.includes(customer.status);
-    
+
     return {
       text: isROActionNeeded ? "RO Action Needed" : "Manager Approval Needed",
       color: isROActionNeeded ? "#f59e0b" : "#3b82f6", // amber-500 : blue-500
@@ -123,13 +123,13 @@ const PendingAmendments = () => {
 
       // Fetch all data in parallel
       const [branchPromise, regionPromise, roPromise] = [
-        customer.branch_id 
+        customer.branch_id
           ? supabase.from("branches").select("name").eq("id", customer.branch_id).single()
           : Promise.resolve({ data: null, error: null }),
-        customer.region_id 
+        customer.region_id
           ? supabase.from("regions").select("name").eq("id", customer.region_id).single()
           : Promise.resolve({ data: null, error: null }),
-        customer.created_by 
+        customer.created_by
           ? supabase.from("users").select("full_name").eq("id", customer.created_by).single()
           : Promise.resolve({ data: null, error: null })
       ];
@@ -162,10 +162,10 @@ const PendingAmendments = () => {
   // Fetch filter data based on user role
   const fetchFilterData = useCallback(async () => {
     if (!profile || hasFetchedFilterData.current) return;
-    
+
     try {
       hasFetchedFilterData.current = true;
-      
+
       if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
         // Fetch all branches and regions for these roles
         const [branchesResult, regionsResult] = await Promise.all([
@@ -180,7 +180,7 @@ const PendingAmendments = () => {
             .eq("tenant_id", profile.tenant_id)
             .order("name")
         ]);
-        
+
         setBranches(branchesResult.data || []);
         setRegions(regionsResult.data || []);
       } else if (profile?.role === 'regional_manager' && profile.region_id) {
@@ -191,13 +191,13 @@ const PendingAmendments = () => {
           .eq("region_id", profile.region_id)
           .eq("tenant_id", profile.tenant_id)
           .order("name");
-        
+
         setBranches(branchesData || []);
       } else if (profile?.role === 'branch_manager' && profile.branch_id) {
         // Just set their branch
         setBranches([{ id: profile.branch_id, name: "Current Branch" }]);
       }
-      
+
       // Fetch ROs based on role
       if (profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer') {
         const { data: roData } = await supabase
@@ -206,7 +206,7 @@ const PendingAmendments = () => {
           .eq("role", "relationship_officer")
           .eq("tenant_id", profile.tenant_id)
           .order("full_name");
-        
+
         setRelationshipOfficers(roData || []);
       } else if (profile?.role === 'regional_manager' && profile.region_id) {
         // Fetch ROs in their region
@@ -216,7 +216,7 @@ const PendingAmendments = () => {
           .eq("role", "relationship_officer")
           .eq("tenant_id", profile.tenant_id)
           .order("full_name");
-        
+
         setRelationshipOfficers(roData || []);
       } else if (profile?.role === 'branch_manager' && profile.branch_id) {
         // Fetch ROs in their branch
@@ -226,7 +226,7 @@ const PendingAmendments = () => {
           .eq("role", "relationship_officer")
           .eq("tenant_id", profile.tenant_id)
           .order("full_name");
-        
+
         setRelationshipOfficers(roData || []);
       }
     } catch (error) {
@@ -263,6 +263,7 @@ const PendingAmendments = () => {
       const { data, error } = await supabase
         .from("customers")
         .select("*")
+        .eq("tenant_id", profile?.tenant_id)
         .eq(config.idField, userLocationId)
         .in("status", statusesToInclude)
         .order("edited_at", { ascending: false });
@@ -322,16 +323,16 @@ const PendingAmendments = () => {
         (customer.business_type?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
         (customer.business_name?.toLowerCase() || "").includes(searchTerm.toLowerCase());
 
-      const matchesBranch = !selectedBranch || 
+      const matchesBranch = !selectedBranch ||
         customer.branch_id?.toString() === selectedBranch;
 
-      const matchesRegion = !selectedRegion || 
+      const matchesRegion = !selectedRegion ||
         customer.region_id?.toString() === selectedRegion;
 
-      const matchesRO = !selectedRO || 
+      const matchesRO = !selectedRO ||
         customer.created_by?.toString() === selectedRO;
 
-      const matchesStatus = !selectedStatus || 
+      const matchesStatus = !selectedStatus ||
         getStatusDisplay(customer).text === selectedStatus;
 
       return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
@@ -717,10 +718,10 @@ const PendingAmendments = () => {
                   const statusInfo = getStatusDisplay(customer);
                   const StatusIcon = statusInfo.icon;
                   const customerDetail = customerDetails[customer.id] || {};
-                  
+
                   return (
-                    <tr 
-                      key={customer.id} 
+                    <tr
+                      key={customer.id}
                       className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                     >
                       {/* Name */}
@@ -749,9 +750,9 @@ const PendingAmendments = () => {
                           <div className="text-xs text-gray-500">
                             {customer.edited_at
                               ? new Date(customer.edited_at).toLocaleTimeString([], {
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
                               : ""}
                           </div>
                         </div>
@@ -759,9 +760,9 @@ const PendingAmendments = () => {
 
                       {/* Status */}
                       <td className="px-4 py-3 whitespace-nowrap">
-                        <div 
+                        <div
                           className="inline-flex items-center px-3 py-1 rounded text-xs border"
-                          style={{ 
+                          style={{
                             backgroundColor: statusInfo.bgColor,
                             color: statusInfo.color,
                             borderColor: statusInfo.borderColor

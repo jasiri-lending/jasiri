@@ -24,6 +24,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
 
@@ -41,12 +42,7 @@ const SearchBox = React.memo(({ value, onChange }) => (
 ));
 SearchBox.displayName = "SearchBox";
 
-const Spinner = ({ text }) => (
-  <div className="flex flex-col items-center justify-center">
-    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-    {text && <p className="mt-4 text-gray-600">{text}</p>}
-  </div>
-);
+// Local Spinner component removed
 
 const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
   return (
@@ -58,18 +54,16 @@ const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
         {label}
         <div className="flex flex-col">
           <ChevronUp
-            className={`w-3 h-3 -mb-1 transition-colors ${
-              sortConfig.key === sortKey && sortConfig.direction === "asc"
+            className={`w-3 h-3 -mb-1 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "asc"
                 ? "text-brand-primary"
                 : "text-slate-300"
-            }`}
+              }`}
           />
           <ChevronDown
-            className={`w-3 h-3 transition-colors ${
-              sortConfig.key === sortKey && sortConfig.direction === "desc"
+            className={`w-3 h-3 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "desc"
                 ? "text-brand-primary"
                 : "text-slate-300"
-            }`}
+              }`}
           />
         </div>
       </div>
@@ -135,11 +129,10 @@ const NPLTableRow = React.memo(({ row, index, startIdx, formatCurrency }) => {
       </td>
       <td className="px-6 py-4 whitespace-nowrap">
         <span
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm border ${
-            row.repayment_state === "defaulted"
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm border ${row.repayment_state === "defaulted"
               ? "bg-red-500 border-red-400 text-white"
               : "bg-orange-100 border-orange-200 text-orange-700"
-          }`}
+            }`}
         >
           {row.repayment_state}
         </span>
@@ -299,7 +292,7 @@ const NonPerformingLoansReport = () => {
           customEndDate: parsed.customEndDate || "",
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       region: "",
@@ -371,239 +364,239 @@ const NonPerformingLoansReport = () => {
     };
   }, []);
 
- // ========== Fetch NPL Data (Safe + No Infinite Spinner) ==========
-useEffect(() => {
-  const tenantId = tenant?.id;
+  // ========== Fetch NPL Data (Safe + No Infinite Spinner) ==========
+  useEffect(() => {
+    const tenantId = tenant?.id;
 
-  // If no tenant, stop initial loading immediately
-  if (!tenantId) {
-    setIsInitialLoad(false);
-    return;
-  }
+    // If no tenant, stop initial loading immediately
+    if (!tenantId) {
+      setIsInitialLoad(false);
+      return;
+    }
 
-  let mounted = true;
+    let mounted = true;
 
-  const fetchNonPerformingLoans = async () => {
-    try {
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-
-      abortControllerRef.current = new AbortController();
-      const signal = abortControllerRef.current.signal;
-
-      const cacheKey = `npl-raw-data-${tenantId}`;
-
-      // ✅ Try cache first
+    const fetchNonPerformingLoans = async () => {
       try {
-        const cached = localStorage.getItem(cacheKey);
-        if (cached) {
-          const { data, timestamp } = JSON.parse(cached);
-          const cacheAge = Date.now() - timestamp;
-
-          // 24-hour cache
-          if (cacheAge < 24 * 60 * 60 * 1000) {
-            if (mounted) {
-              setRawNPLs(data || []);
-              setIsInitialLoad(false);
-            }
-            return;
-          }
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
         }
-      } catch (err) {
-        console.error("Cache read error:", err);
-      }
 
-      if (mounted) setLoading(true);
+        abortControllerRef.current = new AbortController();
+        const signal = abortControllerRef.current.signal;
 
-      const [
-        loansRes,
-        installmentsRes,
-        customersRes,
-        usersRes,
-        branchesRes,
-      ] = await Promise.all([
-        supabase
-          .from("loans")
-          .select(
-            "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
-          )
-          .in("repayment_state", ["overdue", "defaulted"])
-          .eq("tenant_id", tenantId)
-          .abortSignal(signal),
+        const cacheKey = `npl-raw-data-${tenantId}`;
 
-        supabase
-          .from("loan_installments")
-          .select(
-            "loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue"
-          )
-          .eq("tenant_id", tenantId)
-          .abortSignal(signal),
+        // ✅ Try cache first
+        try {
+          const cached = localStorage.getItem(cacheKey);
+          if (cached) {
+            const { data, timestamp } = JSON.parse(cached);
+            const cacheAge = Date.now() - timestamp;
 
-        supabase
-          .from("customers")
-          .select("id, Firstname, Middlename, Surname, id_number, mobile")
-          .eq("tenant_id", tenantId)
-          .abortSignal(signal),
+            // 24-hour cache
+            if (cacheAge < 24 * 60 * 60 * 1000) {
+              if (mounted) {
+                setRawNPLs(data || []);
+                setIsInitialLoad(false);
+              }
+              return;
+            }
+          }
+        } catch (err) {
+          console.error("Cache read error:", err);
+        }
 
-        supabase
-          .from("users")
-          .select("id, full_name")
-          .eq("role", "relationship_officer")
-          .eq("tenant_id", tenantId)
-          .abortSignal(signal),
+        if (mounted) setLoading(true);
 
-        supabase
-          .from("branches")
-          .select("id, name, region_id")
-          .eq("tenant_id", tenantId)
-          .abortSignal(signal),
-      ]);
+        const [
+          loansRes,
+          installmentsRes,
+          customersRes,
+          usersRes,
+          branchesRes,
+        ] = await Promise.all([
+          supabase
+            .from("loans")
+            .select(
+              "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
+            )
+            .in("repayment_state", ["overdue", "defaulted"])
+            .eq("tenant_id", tenantId)
+            .abortSignal(signal),
 
-      if (
-        loansRes.error ||
-        installmentsRes.error ||
-        customersRes.error ||
-        usersRes.error ||
-        branchesRes.error
-      ) {
-        throw (
+          supabase
+            .from("loan_installments")
+            .select(
+              "loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue"
+            )
+            .eq("tenant_id", tenantId)
+            .abortSignal(signal),
+
+          supabase
+            .from("customers")
+            .select("id, Firstname, Middlename, Surname, id_number, mobile")
+            .eq("tenant_id", tenantId)
+            .abortSignal(signal),
+
+          supabase
+            .from("users")
+            .select("id, full_name")
+            .eq("role", "relationship_officer")
+            .eq("tenant_id", tenantId)
+            .abortSignal(signal),
+
+          supabase
+            .from("branches")
+            .select("id, name, region_id")
+            .eq("tenant_id", tenantId)
+            .abortSignal(signal),
+        ]);
+
+        if (
           loansRes.error ||
           installmentsRes.error ||
           customersRes.error ||
           usersRes.error ||
           branchesRes.error
-        );
-      }
+        ) {
+          throw (
+            loansRes.error ||
+            installmentsRes.error ||
+            customersRes.error ||
+            usersRes.error ||
+            branchesRes.error
+          );
+        }
 
-      const loans = loansRes.data || [];
-      const installmentsArr = installmentsRes.data || [];
-      const customers = customersRes.data || [];
-      const relationshipOfficers = usersRes.data || [];
-      const branchList = branchesRes.data || [];
+        const loans = loansRes.data || [];
+        const installmentsArr = installmentsRes.data || [];
+        const customers = customersRes.data || [];
+        const relationshipOfficers = usersRes.data || [];
+        const branchList = branchesRes.data || [];
 
-      const nplReports = loans.map((loan) => {
-        const customer = customers.find((c) => c.id === loan.customer_id);
-        const loanOfficer = relationshipOfficers.find(
-          (u) => u.id === loan.booked_by
-        );
-        const branch = branchList.find((b) => b.id === loan.branch_id);
+        const nplReports = loans.map((loan) => {
+          const customer = customers.find((c) => c.id === loan.customer_id);
+          const loanOfficer = relationshipOfficers.find(
+            (u) => u.id === loan.booked_by
+          );
+          const branch = branchList.find((b) => b.id === loan.branch_id);
 
-        const fullName = customer
-          ? [customer.Firstname, customer.Middlename, customer.Surname]
+          const fullName = customer
+            ? [customer.Firstname, customer.Middlename, customer.Surname]
               .filter(Boolean)
               .join(" ")
-          : "N/A";
+            : "N/A";
 
-        const loanInstallments = installmentsArr.filter(
-          (i) => i.loan_id === loan.id
-        );
+          const loanInstallments = installmentsArr.filter(
+            (i) => i.loan_id === loan.id
+          );
 
-        let totalPrincipalDue = 0;
-        let totalInterestDue = 0;
-        let principalPaid = 0;
-        let interestPaid = 0;
-        let arrearsAmount = 0;
-        let overdueDays = 0;
-        let nextPaymentDate = null;
+          let totalPrincipalDue = 0;
+          let totalInterestDue = 0;
+          let principalPaid = 0;
+          let interestPaid = 0;
+          let arrearsAmount = 0;
+          let overdueDays = 0;
+          let nextPaymentDate = null;
 
-        loanInstallments.forEach((installment) => {
-          const principal = Number(installment.principal_amount) || 0;
-          const interest = Number(installment.interest_amount) || 0;
-          const paidAmount = Number(installment.paid_amount) || 0;
-          const dueAmount = Number(installment.due_amount) || 0;
+          loanInstallments.forEach((installment) => {
+            const principal = Number(installment.principal_amount) || 0;
+            const interest = Number(installment.interest_amount) || 0;
+            const paidAmount = Number(installment.paid_amount) || 0;
+            const dueAmount = Number(installment.due_amount) || 0;
 
-          totalPrincipalDue += principal;
-          totalInterestDue += interest;
+            totalPrincipalDue += principal;
+            totalInterestDue += interest;
 
-          if (dueAmount > 0) {
-            const principalRatio = principal / dueAmount;
-            const interestRatio = interest / dueAmount;
-            principalPaid += paidAmount * principalRatio;
-            interestPaid += paidAmount * interestRatio;
-          }
-
-          if (["overdue", "partial", "defaulted"].includes(installment.status)) {
-            arrearsAmount += dueAmount - paidAmount;
-            overdueDays = Math.max(
-              overdueDays,
-              installment.days_overdue || 0
-            );
-          }
-
-          if (["pending", "partial", "overdue"].includes(installment.status)) {
-            const dueDate = new Date(installment.due_date);
-            if (!nextPaymentDate || dueDate < nextPaymentDate) {
-              nextPaymentDate = dueDate;
+            if (dueAmount > 0) {
+              const principalRatio = principal / dueAmount;
+              const interestRatio = interest / dueAmount;
+              principalPaid += paidAmount * principalRatio;
+              interestPaid += paidAmount * interestRatio;
             }
-          }
+
+            if (["overdue", "partial", "defaulted"].includes(installment.status)) {
+              arrearsAmount += dueAmount - paidAmount;
+              overdueDays = Math.max(
+                overdueDays,
+                installment.days_overdue || 0
+              );
+            }
+
+            if (["pending", "partial", "overdue"].includes(installment.status)) {
+              const dueDate = new Date(installment.due_date);
+              if (!nextPaymentDate || dueDate < nextPaymentDate) {
+                nextPaymentDate = dueDate;
+              }
+            }
+          });
+
+          return {
+            id: loan.id,
+            customer_name: fullName,
+            customer_id: customer?.id_number || "N/A",
+            mobile: customer?.mobile || "N/A",
+            branch: branch?.name || "N/A",
+            branch_id: branch?.id || null,
+            region_id: branch?.region_id || null,
+            loan_officer: loanOfficer?.full_name || "N/A",
+            officer_id: loanOfficer?.id || null,
+            loan_product: loan.product_name || "N/A",
+            disbursement_amount: Number(loan.scored_amount) || 0,
+            installment_amount: Number(loan.weekly_payment) || 0,
+            total_principal_due: totalPrincipalDue,
+            total_interest_due: totalInterestDue,
+            principal_paid: principalPaid,
+            interest_paid: interestPaid,
+            arrears_amount: arrearsAmount,
+            overdue_days: overdueDays,
+            loan_start_date_raw: loan.disbursed_at,
+            loan_start_date: loan.disbursed_at
+              ? new Date(loan.disbursed_at).toLocaleDateString()
+              : "N/A",
+            next_payment_date: nextPaymentDate
+              ? nextPaymentDate.toLocaleDateString()
+              : "N/A",
+            repayment_state: loan.repayment_state,
+          };
         });
 
-        return {
-          id: loan.id,
-          customer_name: fullName,
-          customer_id: customer?.id_number || "N/A",
-          mobile: customer?.mobile || "N/A",
-          branch: branch?.name || "N/A",
-          branch_id: branch?.id || null,
-          region_id: branch?.region_id || null,
-          loan_officer: loanOfficer?.full_name || "N/A",
-          officer_id: loanOfficer?.id || null,
-          loan_product: loan.product_name || "N/A",
-          disbursement_amount: Number(loan.scored_amount) || 0,
-          installment_amount: Number(loan.weekly_payment) || 0,
-          total_principal_due: totalPrincipalDue,
-          total_interest_due: totalInterestDue,
-          principal_paid: principalPaid,
-          interest_paid: interestPaid,
-          arrears_amount: arrearsAmount,
-          overdue_days: overdueDays,
-          loan_start_date_raw: loan.disbursed_at,
-          loan_start_date: loan.disbursed_at
-            ? new Date(loan.disbursed_at).toLocaleDateString()
-            : "N/A",
-          next_payment_date: nextPaymentDate
-            ? nextPaymentDate.toLocaleDateString()
-            : "N/A",
-          repayment_state: loan.repayment_state,
-        };
-      });
+        if (mounted) {
+          setRawNPLs(nplReports);
 
-      if (mounted) {
-        setRawNPLs(nplReports);
-
-        try {
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              data: nplReports,
-              timestamp: Date.now(),
-            })
-          );
-        } catch (err) {
-          console.error("Cache write error:", err);
+          try {
+            localStorage.setItem(
+              cacheKey,
+              JSON.stringify({
+                data: nplReports,
+                timestamp: Date.now(),
+              })
+            );
+          } catch (err) {
+            console.error("Cache write error:", err);
+          }
+        }
+      } catch (err) {
+        if (err?.name === "AbortError") return;
+        console.error("Error fetching NPL data:", err);
+      } finally {
+        if (mounted) {
+          setLoading(false);
+          setIsInitialLoad(false);
         }
       }
-    } catch (err) {
-      if (err?.name === "AbortError") return;
-      console.error("Error fetching NPL data:", err);
-    } finally {
-      if (mounted) {
-        setLoading(false);
-        setIsInitialLoad(false);
+    };
+
+    fetchNonPerformingLoans();
+
+    return () => {
+      mounted = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
-    }
-  };
-
-  fetchNonPerformingLoans();
-
-  return () => {
-    mounted = false;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-  };
-}, [tenant?.id]);
+    };
+  }, [tenant?.id]);
 
 
 
@@ -1063,15 +1056,15 @@ useEffect(() => {
     <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
       <div className="max-w-full mx-auto space-y-8">
         {/* PREMIUM HEADER */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-             
+
               <div>
                 <h1 className="text-sm font-bold text-stone-600">
                   {tenant?.company_name || "Company Name"}
                 </h1>
-               
+
                 <h2 className="text-lg font-semibold text-white mt-1">
                   Non-Performing Loans Report
                 </h2>
@@ -1079,20 +1072,19 @@ useEffect(() => {
             </div>
 
             <div className="flex flex-col items-end gap-2 text-right">
-          
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox
                   value={filters.search}
                   onChange={(val) => handleFilterChange("search", val)}
                 />
-            
+
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                    showFilters
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
                       : "text-white border-white/20 hover:bg-white/10"
-                  }`}
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
@@ -1517,11 +1509,10 @@ useEffect(() => {
                           <button
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
-                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${
-                              currentPage === pageNum
+                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
                                 ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
                                 : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
-                            }`}
+                              }`}
                           >
                             {pageNum}
                           </button>

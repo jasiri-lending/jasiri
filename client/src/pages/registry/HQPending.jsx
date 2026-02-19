@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  MagnifyingGlassIcon, 
+import {
+  MagnifyingGlassIcon,
   EyeIcon,
   CheckIcon,
   XMarkIcon,
@@ -27,19 +27,19 @@ const HQPending = () => {
   const [relationshipOfficers, setRelationshipOfficers] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
-  
+
   // Filter states
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   const navigate = useNavigate();
-  
+
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
 
@@ -96,19 +96,19 @@ const HQPending = () => {
       if (roResponse.data) {
         // Filter ROs based on role restrictions
         let filteredROs = roResponse.data;
-        
+
         if (profile?.role === 'regional_manager' && profile.region_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.region_id === profile.region_id
           );
         }
-        
+
         if (profile?.role === 'branch_manager' && profile.branch_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.branch_id === profile.branch_id
           );
         }
-        
+
         setRelationshipOfficers(filteredROs);
         setAllRelationshipOfficers(filteredROs);
       }
@@ -139,6 +139,7 @@ const HQPending = () => {
             tenant_id
           )
         `)
+        .eq("tenant_id", profile?.tenant_id)
         .eq("status", "ca_review")
         .eq("form_status", "submitted")
         .order("created_at", { ascending: false });
@@ -157,12 +158,7 @@ const HQPending = () => {
       if (error) {
         console.error("Error fetching pending customers:", error.message);
       } else {
-        // Filter by tenant_id from the created_by user
-        const filteredByTenant = data?.filter(customer => {
-          return customer.users?.tenant_id === profile?.tenant_id;
-        }) || [];
-
-        setCustomers(filteredByTenant);
+        setCustomers(data || []);
       }
     } catch (err) {
       console.error("Error:", err);
@@ -185,14 +181,14 @@ const HQPending = () => {
     setSelectedRegion(regionId);
     setSelectedBranch(""); // Clear branch selection
     setSelectedRO(""); // Clear RO selection
-    
+
     if (regionId) {
       // Filter branches by selected region
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       // Filter ROs by selected region
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
@@ -209,7 +205,7 @@ const HQPending = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO(""); // Clear RO selection
-    
+
     if (branchId) {
       // Filter ROs by selected branch
       const filteredROs = allRelationshipOfficers.filter(
@@ -235,7 +231,7 @@ const HQPending = () => {
     setSelectedRegion("");
     setSelectedRO("");
     setCurrentPage(1);
-    
+
     // Reset cascading filters
     setBranches(allBranches);
     setRelationshipOfficers(allRelationshipOfficers);
@@ -247,7 +243,7 @@ const HQPending = () => {
       setFilteredCustomers([]);
       return;
     }
-    
+
     const filtered = customers.filter(customer => {
       const fullName = `${customer.Firstname || ''} ${customer.Surname || ''}`.toLowerCase();
       const matchesSearch =
@@ -270,7 +266,7 @@ const HQPending = () => {
 
       return matchesSearch && matchesBranch && matchesRegion && matchesRO;
     });
-    
+
     setFilteredCustomers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, customers]);
@@ -297,7 +293,7 @@ const HQPending = () => {
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       // Show all pages
       for (let i = 1; i <= totalPages; i++) {
@@ -306,47 +302,47 @@ const HQPending = () => {
     } else {
       // Always show first page
       pageNumbers.push(1);
-      
+
       // Calculate start and end of visible pages
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
+
       // Adjust if we're near the beginning
       if (currentPage <= 2) {
         endPage = 4;
       }
-      
+
       // Adjust if we're near the end
       if (currentPage >= totalPages - 1) {
         startPage = totalPages - 3;
       }
-      
+
       // Add ellipsis if needed
       if (startPage > 2) {
         pageNumbers.push('...');
       }
-      
+
       // Add middle pages
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i);
       }
-      
+
       // Add ellipsis if needed
       if (endPage < totalPages - 1) {
         pageNumbers.push('...');
       }
-      
+
       // Always show last page
       pageNumbers.push(totalPages);
     }
-    
+
     return pageNumbers;
   };
 
   // Determine if region filter should be shown
   const shouldShowRegionFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager'
     );
   };
@@ -354,7 +350,7 @@ const HQPending = () => {
   // Determine if branch filter should be shown
   const shouldShowBranchFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager'
     );
@@ -363,7 +359,7 @@ const HQPending = () => {
   // Determine if RO filter should be shown
   const shouldShowROFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager'
     );
@@ -391,26 +387,26 @@ const HQPending = () => {
   // Helper function to get status color
   const getStatusColor = (status) => {
     const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
-    
+
     if (statusValue.includes('approved')) return '#10b981'; // green
     if (statusValue.includes('rejected')) return '#ef4444'; // red
     if (statusValue.includes('review') || statusValue.includes('pending')) return '#f59e0b'; // amber
     if (statusValue.includes('sent back') || statusValue.includes('amend')) return '#8b5cf6'; // purple
-    
+
     return '#586ab1'; // default blue
   };
 
   // Check if user has permission to view this page
   const hasPermission = () => {
     if (!profile) return false;
-    
+
     const allowedRoles = [
       'credit_analyst_officer',
       'regional_manager',
       'branch_manager',
       'relationship_officer'
     ];
-    
+
     return allowedRoles.includes(profile.role);
   };
 
@@ -448,7 +444,7 @@ const HQPending = () => {
             Registry / Pending HQ Review
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{customers.length}</span> pending reviews
         </div>
       </div>
@@ -503,10 +499,10 @@ const HQPending = () => {
                     </span>
                   )}
                 </button>
-                <button 
+                <button
                   onClick={handleRefresh}
                   className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 border whitespace-nowrap"
-                  style={{ 
+                  style={{
                     backgroundColor: "#586ab1",
                     color: "white",
                     borderColor: "#586ab1"
@@ -538,11 +534,11 @@ const HQPending = () => {
                         disabled={profile?.role === 'regional_manager' && profile.region_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'regional_manager' && profile.region_id 
+                          {profile?.role === 'regional_manager' && profile.region_id
                             ? regions.find(r => r.id.toString() === selectedRegion)?.name || "Loading..."
                             : "All Regions"}
                         </option>
-                        {(profile?.role !== 'regional_manager' || !profile.region_id) && 
+                        {(profile?.role !== 'regional_manager' || !profile.region_id) &&
                           regions.map((region) => (
                             <option key={region.id} value={region.id.toString()}>
                               {region.name}
@@ -571,11 +567,11 @@ const HQPending = () => {
                         disabled={profile?.role === 'branch_manager' && profile.branch_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'branch_manager' && profile.branch_id 
+                          {profile?.role === 'branch_manager' && profile.branch_id
                             ? branches.find(b => b.id.toString() === selectedBranch)?.name || "Loading..."
                             : "All Branches"}
                         </option>
-                        {(profile?.role !== 'branch_manager' || !profile.branch_id) && 
+                        {(profile?.role !== 'branch_manager' || !profile.branch_id) &&
                           branches.map((branch) => (
                             <option key={branch.id} value={branch.id.toString()}>
                               {branch.name}
@@ -705,10 +701,10 @@ const HQPending = () => {
               {currentCustomers.map((customer, index) => {
                 const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.trim();
                 const statusColor = getStatusColor("ca_review"); // All are CA Review status
-                
+
                 return (
-                  <tr 
-                    key={customer.id} 
+                  <tr
+                    key={customer.id}
                     className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                   >
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
@@ -721,8 +717,8 @@ const HQPending = () => {
                       {customer.id_number || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                      {customer.prequalifiedAmount ? 
-                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                      {customer.prequalifiedAmount ?
+                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
@@ -737,9 +733,9 @@ const HQPending = () => {
                       {customer.regions?.name || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span 
+                      <span
                         className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                        style={{ 
+                        style={{
                           backgroundColor: statusColor,
                           color: 'white'
                         }}
@@ -785,7 +781,7 @@ const HQPending = () => {
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending HQ reviews</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion || selectedRO 
+              {searchTerm || selectedBranch || selectedRegion || selectedRO
                 ? "Try adjusting your search or filters"
                 : "All HQ reviews have been processed."}
             </p>
@@ -815,7 +811,7 @@ const HQPending = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -825,7 +821,7 @@ const HQPending = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -837,18 +833,17 @@ const HQPending = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
                               ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                               : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -858,7 +853,7 @@ const HQPending = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

@@ -743,8 +743,8 @@ useEffect(() => {
       <div className="max-w-[1600px] mx-auto space-y-6">
 
         {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+     <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
           
               <div>

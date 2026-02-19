@@ -18,6 +18,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 import {
   Document,
@@ -646,7 +647,7 @@ const OutstandingLoanBalanceReportEOM = () => {
   const startIdx = (currentPage - 1) * itemsPerPage;
   const endIdx = startIdx + itemsPerPage;
 
-  
+
 
   const cutoffDate = getCutoffDate();
 
@@ -657,8 +658,8 @@ const OutstandingLoanBalanceReportEOM = () => {
         <div className="max-w-[1600px] mx-auto px-6 py-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
             <div className="flex items-center gap-4">
-            
-            
+
+
               <div>
                 <h1 className="text-sm font-black text-stone-600 tracking-tight flex items-center gap-2">
                   {tenant?.company_name || "Jasiri"}
@@ -666,13 +667,13 @@ const OutstandingLoanBalanceReportEOM = () => {
                 </h1>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
                   <p className="text-lg font-bold text-white">OLB at EOM</p>
-                
+
                 </div>
               </div>
             </div>
 
             <div className="flex flex-col items-end gap-1">
-           
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -817,9 +818,8 @@ const OutstandingLoanBalanceReportEOM = () => {
 
 
         {loading ? (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex flex-col items-center justify-center space-y-4">
-            <div className="w-12 h-12 border-4 border-accent border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-gray-600 font-medium">Calculating portfolio snapshot for EOM...</p>
+          <div className="p-12">
+            <Spinner text="Analyzing loan balances at end of month..." />
           </div>
         ) : allLoans.length === 0 ? (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex flex-col items-center justify-center space-y-4 text-center">

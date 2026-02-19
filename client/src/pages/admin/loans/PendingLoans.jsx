@@ -38,8 +38,10 @@ const PendingLoans = () => {
   const { profile } = useAuth();
 
   useEffect(() => {
-    fetchPendingDisbursementLoans();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchPendingDisbursementLoans();
+    }
+  }, [profile]);
 
   useEffect(() => {
     if (selectedLoan) {
@@ -57,6 +59,7 @@ const PendingLoans = () => {
           customers (*)
         `)
         .eq('status', 'ready_for_disbursement')
+        .eq('tenant_id', profile?.tenant_id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -71,31 +74,31 @@ const PendingLoans = () => {
   };
 
 
- const fetchWalletAndFeeStatus = async (loanData) => {
-  try {
-    const { data: walletTxns, error } = await supabase
-      .from("customer_wallets")
-      .select("credit, debit")                    // ⬅ use new columns
-      .eq("customer_id", loanData.customer_id);
+  const fetchWalletAndFeeStatus = async (loanData) => {
+    try {
+      const { data: walletTxns, error } = await supabase
+        .from("customer_wallets")
+        .select("credit, debit")                    // ⬅ use new columns
+        .eq("customer_id", loanData.customer_id);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    // balance = sum(credit) - sum(debit)
-    const balance =
-      walletTxns?.reduce(
-        (sum, t) => sum + (Number(t.credit || 0) - Number(t.debit || 0)),
-        0
-      ) || 0;
+      // balance = sum(credit) - sum(debit)
+      const balance =
+        walletTxns?.reduce(
+          (sum, t) => sum + (Number(t.credit || 0) - Number(t.debit || 0)),
+          0
+        ) || 0;
 
-    setWalletInfo({
-      balance,
-      registration_fee_paid: loanData.registration_fee_paid || false,
-      processing_fee_paid: loanData.processing_fee_paid || false,
-    });
-  } catch (error) {
-    console.error("Error fetching wallet info:", error);
-  }
-};
+      setWalletInfo({
+        balance,
+        registration_fee_paid: loanData.registration_fee_paid || false,
+        processing_fee_paid: loanData.processing_fee_paid || false,
+      });
+    } catch (error) {
+      console.error("Error fetching wallet info:", error);
+    }
+  };
 
 
   const fetchLoanFullDetails = async (loanId) => {
@@ -108,6 +111,7 @@ const PendingLoans = () => {
           customers (*)
         `)
         .eq('id', loanId)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -139,10 +143,10 @@ const PendingLoans = () => {
 
       setLoanDetails(loanData);
       setCustomer(loanData.customers);
-      
+
       // Build approval trail
       const trail = [];
-      
+
       // RO who booked the loan
       if (loanData.booked_by && usersData[loanData.booked_by]) {
         trail.push({
@@ -213,7 +217,7 @@ const PendingLoans = () => {
     for (let week = 1; week <= duration; week++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(startDate.getDate() + (week * 7));
-      
+
       schedule.push({
         week,
         due_date: dueDate.toISOString().split('T')[0],
@@ -224,19 +228,19 @@ const PendingLoans = () => {
         total: weeklyPayment
       });
     }
-    
+
     setRepaymentSchedule(schedule);
   };
 
   // Check if all required fees are paid
   const areFeesFullyPaid = () => {
     if (!loanDetails) return false;
-    
+
     // For new loans: both registration and processing fees must be paid
     if (loanDetails.is_new_loan) {
       return walletInfo.registration_fee_paid && walletInfo.processing_fee_paid;
     }
-    
+
     // For repeat loans: only processing fee must be paid
     return walletInfo.processing_fee_paid;
   };
@@ -284,11 +288,11 @@ const PendingLoans = () => {
 
       const { data: b2cResponse } = await axios.post(
         "http://localhost:5000/mpesa/b2c/disburse",
-        { 
+        {
           amount: loan.scored_amount,
-          phone: mobileNumber,       
-          loanId: loan.id,          
-          customerId: customerId     
+          phone: mobileNumber,
+          loanId: loan.id,
+          customerId: customerId
         }
       );
 
@@ -325,12 +329,12 @@ const PendingLoans = () => {
 
   // Check if selected loan is valid for disbursement
   const isLoanValidForDisbursement = (loan) => {
-    return loan && 
-           loan.customers && 
-           loan.customers.mobile && 
-           loan.scored_amount && 
-           loan.scored_amount > 0 &&
-           areFeesFullyPaid();
+    return loan &&
+      loan.customers &&
+      loan.customers.mobile &&
+      loan.scored_amount &&
+      loan.scored_amount > 0 &&
+      areFeesFullyPaid();
   };
 
   // Sort loans
@@ -349,7 +353,7 @@ const PendingLoans = () => {
     if (sortConfig.key) {
       const aValue = getNestedValue(a, sortConfig.key);
       const bValue = getNestedValue(b, sortConfig.key);
-      
+
       if (aValue < bValue) {
         return sortConfig.direction === 'asc' ? -1 : 1;
       }
@@ -416,8 +420,8 @@ const PendingLoans = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('id')}
                       >
@@ -429,8 +433,8 @@ const PendingLoans = () => {
                       <th scope="col" className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Customer Details
                       </th>
-                      <th 
-                        scope="col" 
+                      <th
+                        scope="col"
                         className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider cursor-pointer hover:bg-gray-100"
                         onClick={() => handleSort('scored_amount')}
                       >
@@ -452,13 +456,12 @@ const PendingLoans = () => {
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {sortedLoans.map((loan) => (
-                      <tr 
+                      <tr
                         key={loan.id}
-                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${
-                          selectedLoan?.id === loan.id ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : ''
-                        }`}
+                        className={`hover:bg-gray-50 cursor-pointer transition-colors ${selectedLoan?.id === loan.id ? 'bg-indigo-50 border-l-4 border-l-indigo-500' : ''
+                          }`}
                       >
-                        <td 
+                        <td
                           className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900"
                           onClick={() => setSelectedLoan(loan)}
                         >
@@ -467,7 +470,7 @@ const PendingLoans = () => {
                             {new Date(loan.created_at).toLocaleDateString('en-GB')}
                           </div>
                         </td>
-                        <td 
+                        <td
                           className="px-6 py-4 text-sm text-gray-900"
                           onClick={() => setSelectedLoan(loan)}
                         >
@@ -481,7 +484,7 @@ const PendingLoans = () => {
                             📞 {loan.customers?.mobile}
                           </div>
                         </td>
-                        <td 
+                        <td
                           className="px-6 py-4 whitespace-nowrap text-right text-sm text-gray-900"
                           onClick={() => setSelectedLoan(loan)}
                         >
@@ -492,7 +495,7 @@ const PendingLoans = () => {
                             Weekly: KES {loan.weekly_payment?.toLocaleString()}
                           </div>
                         </td>
-                        <td 
+                        <td
                           className="px-6 py-4 text-sm text-gray-900"
                           onClick={() => setSelectedLoan(loan)}
                         >
@@ -577,9 +580,8 @@ const PendingLoans = () => {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-600 font-medium">Mobile Number:</span>
-                          <span className={`font-semibold ${
-                            customer?.mobile ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-semibold ${customer?.mobile ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {customer?.mobile || 'Missing'}
                           </span>
                         </div>
@@ -587,9 +589,8 @@ const PendingLoans = () => {
                       <div className="space-y-4">
                         <div className="flex justify-between">
                           <span className="text-gray-600 font-medium">Approved Amount:</span>
-                          <span className={`font-bold text-lg ${
-                            loanDetails?.scored_amount ? 'text-emerald-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-bold text-lg ${loanDetails?.scored_amount ? 'text-emerald-600' : 'text-red-600'
+                            }`}>
                             KES {loanDetails?.scored_amount?.toLocaleString() || 'Missing'}
                           </span>
                         </div>
@@ -616,11 +617,10 @@ const PendingLoans = () => {
                   </div>
 
                   {/* Wallet & Fee Status Section */}
-                  <div className={`rounded-xl p-6 border ${
-                    feesPaid 
-                      ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200' 
+                  <div className={`rounded-xl p-6 border ${feesPaid
+                      ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
                       : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
-                  }`}>
+                    }`}>
                     <h3 className="text-lg font-bold text-gray-600 flex items-center mb-6">
                       <BanknotesIcon className="h-5 w-5 text-emerald-600 mr-3" />
                       Wallet & Fee Payment Status
@@ -632,7 +632,7 @@ const PendingLoans = () => {
                           KES {walletInfo.balance.toLocaleString()}
                         </div>
                       </div>
-                      
+
                       <div className="bg-white rounded-xl p-5 shadow-sm">
                         <div className="text-sm text-gray-600 mb-2">Processing Fee</div>
                         <div className="flex items-center justify-between">
@@ -686,10 +686,9 @@ const PendingLoans = () => {
                     <div className="space-y-4">
                       {approvalTrail.map((step, index) => (
                         <div key={index} className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-200">
-                          <div className={`w-3 h-3 rounded-full mt-2 ${
-                            step.decision === 'approved' ? 'bg-green-500' : 
-                            step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
-                          }`}></div>
+                          <div className={`w-3 h-3 rounded-full mt-2 ${step.decision === 'approved' ? 'bg-green-500' :
+                              step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
+                            }`}></div>
                           <div className="flex-1">
                             <div className="flex justify-between items-center">
                               <span className="font-semibold text-gray-900">{step.role}</span>
@@ -700,9 +699,8 @@ const PendingLoans = () => {
                             <p className="text-gray-700">{step.name}</p>
                             {step.branch && <p className="text-sm text-gray-600">Branch: {step.branch}</p>}
                             {step.decision && (
-                              <p className={`text-sm font-medium ${
-                                step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
-                              }`}>
+                              <p className={`text-sm font-medium ${step.decision === 'approved' ? 'text-green-600' : 'text-red-600'
+                                }`}>
                                 Decision: {step.decision.toUpperCase()}
                               </p>
                             )}
@@ -760,16 +758,15 @@ const PendingLoans = () => {
                   </div>
 
                   {/* Disbursement Action */}
-                  <div className={`rounded-xl p-6 border ${
-                    isLoanValidForDisbursement(selectedLoan) 
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200' 
+                  <div className={`rounded-xl p-6 border ${isLoanValidForDisbursement(selectedLoan)
+                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
                       : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
-                  }`}>
+                    }`}>
                     <h3 className="text-lg font-bold text-gray-900 flex items-center mb-4">
                       <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
                       Ready for Disbursement
                     </h3>
-                    
+
                     {!isLoanValidForDisbursement(selectedLoan) && (
                       <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
                         <p className="text-red-700 font-medium flex items-center">
@@ -785,20 +782,19 @@ const PendingLoans = () => {
                     )}
 
                     <p className="text-gray-700 mb-4">
-                      {isLoanValidForDisbursement(selectedLoan) 
+                      {isLoanValidForDisbursement(selectedLoan)
                         ? "This loan has been fully approved and is ready for disbursement. Click the button below to process disbursement via M-Pesa B2C."
                         : "Please ensure all requirements are met before processing disbursement."
                       }
                     </p>
-                    
+
                     <button
-                      onClick={() => handleDisbursement(selectedLoan)} 
+                      onClick={() => handleDisbursement(selectedLoan)}
                       disabled={!isLoanValidForDisbursement(selectedLoan) || disbursing}
-                      className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all shadow-lg font-semibold ${
-                        isLoanValidForDisbursement(selectedLoan) && !disbursing
+                      className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all shadow-lg font-semibold ${isLoanValidForDisbursement(selectedLoan) && !disbursing
                           ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
                           : 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                      }`}
+                        }`}
                     >
                       <CurrencyDollarIcon className="h-5 w-5" />
                       {disbursing ? 'Processing Disbursement...' : 'Confirm Disbursement'}

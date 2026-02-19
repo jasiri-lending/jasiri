@@ -11,6 +11,7 @@ import {
   Users,
   UserCheck,
   UserPlus,
+  Lock
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
@@ -26,6 +27,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import { usePermissions } from "../../hooks/usePermissions";
 import Spinner from "../../components/Spinner";
 
 // ========== Memoized Helper Components ==========
@@ -149,6 +151,9 @@ const CustomerListing = () => {
       search: "",
     };
   });
+
+  const { hasPermission, loading: permsLoading } = usePermissions();
+  // canViewReport is handled by ReportWrapper in App.jsx
 
   // ========== Refs ==========
   const hasFetchedRef = useRef(false);
@@ -650,17 +655,18 @@ const CustomerListing = () => {
   if (loading) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <Spinner text="Loading Customer Listing..." />
+        <Spinner text="Loading customers..." />
       </div>
     );
   }
+
 
   return (
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
               <div>
@@ -677,8 +683,8 @@ const CustomerListing = () => {
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                    : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
@@ -998,8 +1004,8 @@ const CustomerListing = () => {
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`w-8 h-8 rounded-lg text-xs font-bold transition-all shadow-sm ${currentPage === pageNum
-                            ? "bg-brand-primary text-white"
-                            : "bg-white text-gray-600 border border-gray-200 hover:border-brand-primary hover:text-brand-primary"
+                          ? "bg-brand-primary text-white"
+                          : "bg-white text-gray-600 border border-gray-200 hover:border-brand-primary hover:text-brand-primary"
                           }`}
                       >
                         {pageNum}

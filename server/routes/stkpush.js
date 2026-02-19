@@ -1,16 +1,12 @@
 import express from "express";
 import axios from "axios";
-import { getMpesaToken } from "./mpesa.js";
 import { createClient } from "@supabase/supabase-js";
+import { getTenantMpesaToken } from "./mpesa.js";
 
 const stkpush = express.Router();
+const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-//  Timestamp generator for M-Pesa format
+// Timestamp generator for MPESA
 const getCurrentTimestamp = () => {
   const date = new Date();
   const YYYY = date.getFullYear();
@@ -22,18 +18,27 @@ const getCurrentTimestamp = () => {
   return `${YYYY}${MM}${DD}${HH}${mm}${ss}`;
 };
 
-// STK PUSH INITIATION
+// STK Push initiation
 stkpush.post("/stkpush", async (req, res) => {
   try {
-    console.log(" Incoming STK Push request:", req.body);
+    const { tenant_id, amount, phone, accountReference, transactionDesc, loanId, customerId } = req.body;
 
-    const { amount, phone, accountReference, transactionDesc, loanId, customerId } = req.body;
-
-    if (!amount || !phone) {
-      return res.status(400).json({ success: false, message: "Amount and phone are required" });
+    if (!tenant_id || !amount || !phone) {
+      return res.status(400).json({ success: false, message: "Tenant ID, amount and phone are required" });
     }
 
-    //  Determine payment purpose and set description & type
+    // 1️⃣ Fetch tenant MPESA config
+    const tenantConfig = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .select("*")
+      .eq("tenant_id", tenant_id)
+      .single()
+      .then(r => {
+        if (r.error || !r.data) throw new Error("Tenant MPESA config not found");
+        return r.data;
+      });
+
+    // 2️⃣ Determine payment purpose
     let billRef = "";
     let description = "";
     let paymentType = "other";
@@ -44,12 +49,10 @@ stkpush.post("/stkpush", async (req, res) => {
       billRef = `registration-${customerId}`;
       description = "Joining Fee Payment";
       paymentType = "registration";
-      console.log(`Registration Fee: KES ${amount} for Customer ${customerId}`);
     } else if (refType === "PROCESSING") {
       billRef = `processing-${loanId}`;
       description = "Loan Processing Fee";
       paymentType = "processing";
-      console.log(` Processing Fee: KES ${amount} for Loan ${loanId}`);
     } else if (refType === "INTEREST") {
       billRef = `interest-${loanId}`;
       description = "Interest Repayment";
@@ -64,13 +67,12 @@ stkpush.post("/stkpush", async (req, res) => {
       paymentType = "other";
     }
 
-    console.log(` STK Reference: ${billRef}`);
-
-    //  Log pending transaction before push
+    // 3️⃣ Log pending transaction
     const { data: tx, error: txError } = await supabaseAdmin
       .from("mpesa_c2b_transactions")
       .insert([
         {
+          tenant_id,
           transaction_id: null, // will be updated after STK push
           phone_number: phone,
           amount,
@@ -80,70 +82,57 @@ stkpush.post("/stkpush", async (req, res) => {
           payment_type: paymentType,
           description,
           reference: billRef,
-          raw_payload: {}, // placeholder
+          raw_payload: {},
         },
       ])
       .select()
       .single();
 
-    if (txError) {
-      console.error(" Failed to insert pending transaction:", txError.message);
-    } else {
-      console.log(`Pending transaction logged with ID: ${tx?.id}`);
-    }
+    if (txError) console.error("Failed to insert pending transaction:", txError.message);
 
-    //  Get M-Pesa Access Token
-    const token = await getMpesaToken();
+    // 4️⃣ Get tenant-specific MPESA token
+    const token = await getTenantMpesaToken(tenantConfig);
 
-    //  Prepare STK Payload
+    // 5️⃣ Prepare STK Push payload
     const payload = {
-      BusinessShortCode: process.env.MPESA_SHORTCODE,   
-      Password: process.env.MPESA_PASSKEY,
+      BusinessShortCode: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,
+      Password: tenantConfig.passkey,
       Timestamp: getCurrentTimestamp(),
       TransactionType: "CustomerPayBillOnline",
       Amount: amount,
       PartyA: phone,
-      PartyB: process.env.MPESA_SHORTCODE,
+      PartyB: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,
       PhoneNumber: phone,
-      CallBackURL: `${process.env.CALLBACK_URL}/mpesa/c2b/confirmation`,
+      CallBackURL: `${tenantConfig.callback_url}/mpesa/stkpush/callback`,
       AccountReference: billRef,
       TransactionDesc: description,
     };
 
-    console.log(" Sending STK Push payload:", payload);
+    console.log("STK Push payload:", payload);
 
-    //  Send request to Safaricom
+    // 6️⃣ Send STK Push request
     const { data } = await axios.post(
       "https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest",
       payload,
       { headers: { Authorization: `Bearer ${token}` } }
     );
 
-    console.log(" STK Push initiated successfully:", data);
-
-    // Update record with CheckoutRequestID (for callback)
+    // 7️⃣ Update transaction with CheckoutRequestID
     if (tx?.id) {
       await supabaseAdmin
         .from("mpesa_c2b_transactions")
-        .update({
-          transaction_id: data.CheckoutRequestID,
-          raw_payload: payload,
-        })
+        .update({ transaction_id: data.CheckoutRequestID, raw_payload: payload })
         .eq("id", tx.id);
     }
 
-    res.status(200).json({
-      success: true,
-      message: "STK Push sent successfully",
-      data,
-    });
+    res.status(200).json({ success: true, message: "STK Push sent successfully", data, txId: tx?.id });
   } catch (error) {
-    console.error(" STK Push Error:", error.response?.data || error.message);
+    console.error("STK Push Error:", error.response?.data || error.message);
     res.status(500).json({ success: false, message: error.message });
   }
 });
 
-//  STK PUSH CALLBACK HANDLER
+// STK Push callback handler
 stkpush.post("/callback", async (req, res) => {
   try {
     const body = req.body?.Body?.stkCallback;
@@ -151,24 +140,14 @@ stkpush.post("/callback", async (req, res) => {
 
     const { CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = body;
     const status = ResultCode === 0 ? "applied" : "failed";
-    const amount = CallbackMetadata?.Item?.find((i) => i.Name === "Amount")?.Value;
-    const phone = CallbackMetadata?.Item?.find((i) => i.Name === "PhoneNumber")?.Value;
+    const amount = CallbackMetadata?.Item?.find(i => i.Name === "Amount")?.Value;
+    const phone = CallbackMetadata?.Item?.find(i => i.Name === "PhoneNumber")?.Value;
 
-    console.log(` STK Callback received: ${ResultDesc} (Code: ${ResultCode})`);
-
-    // Update the transaction
+    // Update transaction in database
     await supabaseAdmin
       .from("mpesa_c2b_transactions")
-      .update({
-        status,
-        amount,
-        phone_number: phone,
-        transaction_time: new Date().toISOString(),
-        raw_payload: body,
-      })
+      .update({ status, amount, phone_number: phone, transaction_time: new Date().toISOString(), raw_payload: body })
       .eq("transaction_id", CheckoutRequestID);
-
-    console.log(` Transaction ${CheckoutRequestID} updated to status: ${status}`);
 
     res.json({ ResultCode: 0, ResultDesc: "Callback received successfully" });
   } catch (error) {

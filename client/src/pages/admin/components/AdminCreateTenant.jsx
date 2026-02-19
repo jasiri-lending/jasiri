@@ -30,6 +30,12 @@ export default function AdminCreateTenant() {
     confirmation_url: "",
     validation_url: "",
     callback_url: "",
+    // Optional fields
+    cr12: "",
+    company_certificate: "",
+    license: "",
+    tenant_id_number: "",
+    phone_number: "",
   });
 
   const navigate = useNavigate();
@@ -99,7 +105,14 @@ export default function AdminCreateTenant() {
           primary_color: formData.primary_color,
           secondary_color: formData.secondary_color,
           admin_full_name: formData.admin_full_name,
+          admin_full_name: formData.admin_full_name,
           admin_email: formData.admin_email,
+          // Optional fields
+          cr12: formData.cr12,
+          company_certificate: formData.company_certificate,
+          license: formData.license,
+          tenant_id_number: formData.tenant_id_number,
+          phone_number: formData.phone_number,
         }),
       });
 
@@ -190,37 +203,23 @@ export default function AdminCreateTenant() {
     }
 
     try {
-      const { data: adminUser, error: userError } = await supabase
-        .from("users")
-        .select("id, auth_id")
-        .eq("tenant_id", tenantId)
-        .eq("role", "admin")
-        .maybeSingle();
+      // Use the new backend endpoint for cascading delete
+      const res = await fetch(`${API_BASE_URL}/api/tenant/delete-tenant/${tenantId}`, {
+        method: "DELETE",
+      });
 
-      if (userError) throw userError;
+      const data = await res.json();
 
-      if (adminUser) {
-        const { error: deleteUserError } = await supabase
-          .from("users")
-          .delete()
-          .eq("id", adminUser.id);
-
-        if (deleteUserError) throw deleteUserError;
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete tenant");
       }
-
-      const { error } = await supabase
-        .from("tenants")
-        .delete()
-        .eq("id", tenantId);
-
-      if (error) throw error;
 
       setTenants(tenants.filter(tenant => tenant.id !== tenantId));
       setSuccess(true);
       setTimeout(() => setSuccess(false), 3000);
     } catch (err) {
       console.error("Delete error details:", err);
-      setError(`Failed to delete tenant: ${err.message}. Please check if there are other users (non-admin) associated with this tenant.`);
+      setError(`Failed to delete tenant: ${err.message}`);
     }
   };
 
@@ -258,7 +257,13 @@ export default function AdminCreateTenant() {
       shortcode: "",
       confirmation_url: "",
       validation_url: "",
+      validation_url: "",
       callback_url: "",
+      cr12: "",
+      company_certificate: "",
+      license: "",
+      tenant_id_number: "",
+      phone_number: "",
     });
     setCurrentStep(1);
     setNewTenantId(null);
@@ -682,6 +687,76 @@ export default function AdminCreateTenant() {
                                   placeholder="Company Legal Name"
                                   value={formData.company_name}
                                   onChange={(e) => setFormData({ ...formData, company_name: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Optional Documents & IDs */}
+                          <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <div className="pb-2">
+                              <h3 className="text-sm font-semibold text-gray-900">Additional Details (Optional)</h3>
+                              <p className="text-gray-500 text-xs mt-1">Legal documents and contact info</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  CR12 Number
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="e.g. CR12-12345"
+                                  value={formData.cr12}
+                                  onChange={(e) => setFormData({ ...formData, cr12: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Company Certificate
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Certificate No."
+                                  value={formData.company_certificate}
+                                  onChange={(e) => setFormData({ ...formData, company_certificate: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Business License
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="License No."
+                                  value={formData.license}
+                                  onChange={(e) => setFormData({ ...formData, license: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Tenant ID / Registration No.
+                                </label>
+                                <input
+                                  type="text"
+                                  placeholder="Reg No."
+                                  value={formData.tenant_id_number}
+                                  onChange={(e) => setFormData({ ...formData, tenant_id_number: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                />
+                              </div>
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
+                                  Phone Number
+                                </label>
+                                <input
+                                  type="tel"
+                                  placeholder="+254..."
+                                  value={formData.phone_number}
+                                  onChange={(e) => setFormData({ ...formData, phone_number: e.target.value })}
                                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
                                 />
                               </div>

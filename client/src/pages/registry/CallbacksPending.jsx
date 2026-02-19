@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from "../../hooks/userAuth";
-import { 
-  MagnifyingGlassIcon, 
+import {
+  MagnifyingGlassIcon,
   EyeIcon,
   PhoneIcon,
   XMarkIcon,
@@ -27,19 +27,19 @@ const CallbackPending = () => {
   const [relationshipOfficers, setRelationshipOfficers] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
-  
+
   // Filter states
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   const navigate = useNavigate();
-  
+
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
 
@@ -96,19 +96,19 @@ const CallbackPending = () => {
       if (roResponse.data) {
         // Filter ROs based on role restrictions
         let filteredROs = roResponse.data;
-        
+
         if (profile?.role === 'regional_manager' && profile.region_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.region_id === profile.region_id
           );
         }
-        
+
         if (profile?.role === 'branch_manager' && profile.branch_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.branch_id === profile.branch_id
           );
         }
-        
+
         setRelationshipOfficers(filteredROs);
         setAllRelationshipOfficers(filteredROs);
       }
@@ -118,12 +118,12 @@ const CallbackPending = () => {
   };
 
   const fetchPendingCustomers = async () => {
-  setLoading(true);
-  try {
-    // Build the query - REMOVED: tenant_id filter (column doesn't exist)
-    let query = supabase
-      .from("customers")
-      .select(`
+    setLoading(true);
+    try {
+      // Build the query
+      let query = supabase
+        .from("customers")
+        .select(`
         *,
         branches (
           id,
@@ -140,63 +140,57 @@ const CallbackPending = () => {
         ),
         customer_verifications(*)
       `)
-      .eq("status", "cso_review")
-      .eq("form_status", "submitted")
-      .order("created_at", { ascending: false });
+        .eq('tenant_id', profile.tenant_id)
+        .eq("status", "cso_review")
+        .eq("form_status", "submitted")
+        .order("created_at", { ascending: false });
 
-    console.log("🔧 Base query filters:", {
-      status: "cso_review",
-      form_status: "submitted"
-    });
-
-    // Apply role-based filtering for initial fetch
-    if (profile?.role === 'regional_manager' && profile.region_id) {
-      query = query.eq("region_id", profile.region_id);
-    } else if (profile?.role === 'branch_manager' && profile.branch_id) {
-      query = query.eq("branch_id", profile.branch_id);
-    } else if (profile?.role === 'relationship_officer') {
-      query = query.eq("created_by", profile.id);
-    }
-
-    const { data, error } = await query;
-    
-    if (error) {
-      console.error("❌ Query error:", error);
-      throw error;
-    }
-
-    if (data && data.length > 0) {
-      console.log("✅ Data fetched:", data.length, "records");
-
-      // Filter by tenant_id using the related user's tenant_id
-      const tenantFiltered = data.filter(c => 
-        c.users?.tenant_id === profile.tenant_id
-      );
-
-      console.log("✅ After tenant filter:", tenantFiltered.length, "records");
-
-      // Enrich with verification data
-      const enriched = tenantFiltered.map((c) => {
-        const bmVerification =
-          c.customer_verifications?.find((v) => v.role === "bm") || null;
-        return {
-          ...c,
-          bm_verification: bmVerification,
-        };
+      console.log("🔧 Base query filters:", {
+        status: "cso_review",
+        form_status: "submitted"
       });
 
-      setCustomers(enriched);
-    } else {
-      console.log("ℹ️ No data returned from query");
+      // Apply role-based filtering for initial fetch
+      if (profile?.role === 'regional_manager' && profile.region_id) {
+        query = query.eq("region_id", profile.region_id);
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        query = query.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === 'relationship_officer') {
+        query = query.eq("created_by", profile.id);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error("❌ Query error:", error);
+        throw error;
+      }
+
+      if (data && data.length > 0) {
+        console.log("✅ Data fetched:", data.length, "records");
+
+        // Enrich with verification data
+        const enriched = data.map((c) => {
+          const bmVerification =
+            c.customer_verifications?.find((v) => v.role === "bm") || null;
+          return {
+            ...c,
+            bm_verification: bmVerification,
+          };
+        });
+
+        setCustomers(enriched);
+      } else {
+        console.log("ℹ️ No data returned from query");
+        setCustomers([]);
+      }
+    } catch (err) {
+      console.error("❌ Unexpected error:", err);
       setCustomers([]);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error("❌ Unexpected error:", err);
-    setCustomers([]);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Initial data fetch - only runs once when profile is available
   useEffect(() => {
@@ -212,14 +206,14 @@ const CallbackPending = () => {
     setSelectedRegion(regionId);
     setSelectedBranch(""); // Clear branch selection
     setSelectedRO(""); // Clear RO selection
-    
+
     if (regionId) {
       // Filter branches by selected region
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       // Filter ROs by selected region
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
@@ -236,7 +230,7 @@ const CallbackPending = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO(""); // Clear RO selection
-    
+
     if (branchId) {
       // Filter ROs by selected branch
       const filteredROs = allRelationshipOfficers.filter(
@@ -262,7 +256,7 @@ const CallbackPending = () => {
     setSelectedRegion("");
     setSelectedRO("");
     setCurrentPage(1);
-    
+
     // Reset cascading filters
     setBranches(allBranches);
     setRelationshipOfficers(allRelationshipOfficers);
@@ -274,7 +268,7 @@ const CallbackPending = () => {
       setFilteredCustomers([]);
       return;
     }
-    
+
     const filtered = customers.filter(customer => {
       const fullName = `${customer.Firstname || ''} ${customer.Surname || ''}`.toLowerCase();
       const matchesSearch =
@@ -297,7 +291,7 @@ const CallbackPending = () => {
 
       return matchesSearch && matchesBranch && matchesRegion && matchesRO;
     });
-    
+
     setFilteredCustomers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, customers]);
@@ -324,7 +318,7 @@ const CallbackPending = () => {
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       // Show all pages
       for (let i = 1; i <= totalPages; i++) {
@@ -333,47 +327,47 @@ const CallbackPending = () => {
     } else {
       // Always show first page
       pageNumbers.push(1);
-      
+
       // Calculate start and end of visible pages
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
+
       // Adjust if we're near the beginning
       if (currentPage <= 2) {
         endPage = 4;
       }
-      
+
       // Adjust if we're near the end
       if (currentPage >= totalPages - 1) {
         startPage = totalPages - 3;
       }
-      
+
       // Add ellipsis if needed
       if (startPage > 2) {
         pageNumbers.push('...');
       }
-      
+
       // Add middle pages
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i);
       }
-      
+
       // Add ellipsis if needed
       if (endPage < totalPages - 1) {
         pageNumbers.push('...');
       }
-      
+
       // Always show last page
       pageNumbers.push(totalPages);
     }
-    
+
     return pageNumbers;
   };
 
   // Determine if region filter should be shown
   const shouldShowRegionFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'customer_service_officer' ||
       profile?.role === 'regional_manager'
     );
@@ -382,7 +376,7 @@ const CallbackPending = () => {
   // Determine if branch filter should be shown
   const shouldShowBranchFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'customer_service_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager'
@@ -392,7 +386,7 @@ const CallbackPending = () => {
   // Determine if RO filter should be shown
   const shouldShowROFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'customer_service_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager'
@@ -428,7 +422,7 @@ const CallbackPending = () => {
             Registry / Pending Callbacks
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{customers.length}</span> pending callbacks
         </div>
       </div>
@@ -483,10 +477,10 @@ const CallbackPending = () => {
                     </span>
                   )}
                 </button>
-                <button 
+                <button
                   onClick={handleRefresh}
                   className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 border whitespace-nowrap"
-                  style={{ 
+                  style={{
                     backgroundColor: "#586ab1",
                     color: "white",
                     borderColor: "#586ab1"
@@ -518,11 +512,11 @@ const CallbackPending = () => {
                         disabled={profile?.role === 'regional_manager' && profile.region_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'regional_manager' && profile.region_id 
+                          {profile?.role === 'regional_manager' && profile.region_id
                             ? regions.find(r => r.id.toString() === selectedRegion)?.name || "Loading..."
                             : "All Regions"}
                         </option>
-                        {(profile?.role !== 'regional_manager' || !profile.region_id) && 
+                        {(profile?.role !== 'regional_manager' || !profile.region_id) &&
                           regions.map((region) => (
                             <option key={region.id} value={region.id.toString()}>
                               {region.name}
@@ -551,11 +545,11 @@ const CallbackPending = () => {
                         disabled={profile?.role === 'branch_manager' && profile.branch_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'branch_manager' && profile.branch_id 
+                          {profile?.role === 'branch_manager' && profile.branch_id
                             ? branches.find(b => b.id.toString() === selectedBranch)?.name || "Loading..."
                             : "All Branches"}
                         </option>
-                        {(profile?.role !== 'branch_manager' || !profile.branch_id) && 
+                        {(profile?.role !== 'branch_manager' || !profile.branch_id) &&
                           branches.map((branch) => (
                             <option key={branch.id} value={branch.id.toString()}>
                               {branch.name}
@@ -681,10 +675,10 @@ const CallbackPending = () => {
             <tbody>
               {currentCustomers.map((customer, index) => {
                 const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.trim();
-                
+
                 return (
-                  <tr 
-                    key={customer.id} 
+                  <tr
+                    key={customer.id}
                     className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                   >
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
@@ -697,8 +691,8 @@ const CallbackPending = () => {
                       {customer.id_number || customer.national_id || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                      {customer.prequalifiedAmount ? 
-                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                      {customer.prequalifiedAmount ?
+                        `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
@@ -750,7 +744,7 @@ const CallbackPending = () => {
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending callbacks</h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion || selectedRO 
+              {searchTerm || selectedBranch || selectedRegion || selectedRO
                 ? "Try adjusting your search or filters"
                 : "All callbacks have been processed."}
             </p>
@@ -780,7 +774,7 @@ const CallbackPending = () => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -790,7 +784,7 @@ const CallbackPending = () => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -802,18 +796,17 @@ const CallbackPending = () => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -823,7 +816,7 @@ const CallbackPending = () => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

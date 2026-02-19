@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  MagnifyingGlassIcon, 
+import {
+  MagnifyingGlassIcon,
   EyeIcon,
   CheckIcon,
   XMarkIcon,
@@ -9,7 +9,7 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
-    PhoneIcon,
+  PhoneIcon,
   ChevronDoubleRightIcon
 } from '@heroicons/react/24/outline';
 import { useNavigate } from 'react-router-dom';
@@ -23,52 +23,52 @@ const ApprovalPending = () => {
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  
+
   // Filter states
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
   const [selectedStatus, setSelectedStatus] = useState("");
   const [showFilters, setShowFilters] = useState(false);
-  
+
   // Data for filters
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
   const [relationshipOfficers, setRelationshipOfficers] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
-  
+
   const navigate = useNavigate();
-  
+
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
 
   // Check if user can approve a specific customer based on role and status
   const canApproveCustomer = (customerStatus) => {
     if (!profile) return false;
-    
+
     const userRole = profile.role;
     const status = customerStatus;
-    
+
     // Branch Manager can approve bm_review and bm_review_amend
     if (userRole === 'branch_manager') {
       return status === 'bm_review' || status === 'bm_review_amend';
     }
-    
+
     // Credit Analyst Officer can approve ca_review and ca_review_amend
     if (userRole === 'credit_analyst_officer') {
       return status === 'ca_review' || status === 'ca_review_amend';
     }
-    
+
     // Customer Service Officer can approve cso_review and cso_review_amend
     if (userRole === 'customer_service_officer') {
       return status === 'cso_review' || status === 'cso_review_amend';
     }
-    
+
     return false;
   };
 
@@ -143,24 +143,24 @@ const ApprovalPending = () => {
       if (roResponse.data) {
         // Filter ROs based on role restrictions
         let filteredROs = roResponse.data;
-        
+
         if (profile?.role === 'regional_manager' && profile.region_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.region_id === profile.region_id
           );
         }
-        
+
         if (profile?.role === 'branch_manager' && profile.branch_id) {
-          filteredROs = filteredROs.filter(ro => 
+          filteredROs = filteredROs.filter(ro =>
             ro.branch_id === profile.branch_id
           );
         }
-        
+
         if (profile?.role === 'relationship_officer') {
           // Relationship officers can only see themselves
           filteredROs = filteredROs.filter(ro => ro.id === profile.id);
         }
-        
+
         setRelationshipOfficers(filteredROs);
         setAllRelationshipOfficers(filteredROs);
       }
@@ -196,9 +196,10 @@ const ApprovalPending = () => {
             tenant_id
           )
         `)
+        .eq('tenant_id', profile.tenant_id)
         .in("status", [
-          'bm_review', 
-          'ca_review', 
+          'bm_review',
+          'ca_review',
           'cso_review',
           'bm_review_amend',
           'ca_review_amend',
@@ -238,17 +239,9 @@ const ApprovalPending = () => {
       if (error) {
         console.error("Error fetching pending customers:", error.message);
       } else if (data) {
-        // Filter by tenant_id from the created_by user
-        const filteredByTenant = data.filter(customer => {
-          const userTenantId = customer.users?.tenant_id;
-          const profileTenantId = profile?.tenant_id;
-          return userTenantId === profileTenantId;
-        });
-
-        console.log("Filtered by tenant:", filteredByTenant);
-        
-        setCustomers(filteredByTenant);
-        setFilteredCustomers(filteredByTenant);
+        console.log("Fetched pending customers:", data.length);
+        setCustomers(data);
+        setFilteredCustomers(data);
       } else {
         setCustomers([]);
         setFilteredCustomers([]);
@@ -274,14 +267,14 @@ const ApprovalPending = () => {
     setSelectedRegion(regionId);
     setSelectedBranch(""); // Clear branch selection
     setSelectedRO(""); // Clear RO selection
-    
+
     if (regionId) {
       // Filter branches by selected region
       const filteredBranches = allBranches.filter(
         (branch) => branch.region_id?.toString() === regionId
       );
       setBranches(filteredBranches);
-      
+
       // Filter ROs by selected region
       const filteredROs = allRelationshipOfficers.filter(
         (ro) => ro.region_id?.toString() === regionId
@@ -298,7 +291,7 @@ const ApprovalPending = () => {
   const handleBranchChange = (branchId) => {
     setSelectedBranch(branchId);
     setSelectedRO(""); // Clear RO selection
-    
+
     if (branchId) {
       // Filter ROs by selected branch
       const filteredROs = allRelationshipOfficers.filter(
@@ -325,7 +318,7 @@ const ApprovalPending = () => {
     setSelectedRO("");
     setSelectedStatus("");
     setCurrentPage(1);
-    
+
     // Reset cascading filters
     setBranches(allBranches);
     setRelationshipOfficers(allRelationshipOfficers);
@@ -337,7 +330,7 @@ const ApprovalPending = () => {
       setFilteredCustomers([]);
       return;
     }
-    
+
     const filtered = customers.filter(customer => {
       const fullName = `${customer.Firstname || ''} ${customer.Surname || ''}`.toLowerCase();
       const matchesSearch =
@@ -367,19 +360,19 @@ const ApprovalPending = () => {
 
       return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesStatus;
     });
-    
+
     setFilteredCustomers(filtered);
     setCurrentPage(1); // Reset to first page when filters change
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, selectedStatus, customers]);
 
 
-const handleApprove = (customerId) => {
-  if (profile?.role === "customer_service_officer") {
-    navigate(`/customer/${customerId}/verify-customer_service_officer`);
-  } else {
-    navigate(`/customer/${customerId}/verify`);
-  }
-};
+  const handleApprove = (customerId) => {
+    if (profile?.role === "customer_service_officer") {
+      navigate(`/customer/${customerId}/verify-customer_service_officer`);
+    } else {
+      navigate(`/customer/${customerId}/verify`);
+    }
+  };
 
   const handleView = (customer) => {
     navigate(`/customer/${customer.id}/details`);
@@ -397,7 +390,7 @@ const handleApprove = (customerId) => {
   const getPageNumbers = () => {
     const pageNumbers = [];
     const maxVisiblePages = 5;
-    
+
     if (totalPages <= maxVisiblePages) {
       // Show all pages
       for (let i = 1; i <= totalPages; i++) {
@@ -406,47 +399,47 @@ const handleApprove = (customerId) => {
     } else {
       // Always show first page
       pageNumbers.push(1);
-      
+
       // Calculate start and end of visible pages
       let startPage = Math.max(2, currentPage - 1);
       let endPage = Math.min(totalPages - 1, currentPage + 1);
-      
+
       // Adjust if we're near the beginning
       if (currentPage <= 2) {
         endPage = 4;
       }
-      
+
       // Adjust if we're near the end
       if (currentPage >= totalPages - 1) {
         startPage = totalPages - 3;
       }
-      
+
       // Add ellipsis if needed
       if (startPage > 2) {
         pageNumbers.push('...');
       }
-      
+
       // Add middle pages
       for (let i = startPage; i <= endPage; i++) {
         pageNumbers.push(i);
       }
-      
+
       // Add ellipsis if needed
       if (endPage < totalPages - 1) {
         pageNumbers.push('...');
       }
-      
+
       // Always show last page
       pageNumbers.push(totalPages);
     }
-    
+
     return pageNumbers;
   };
 
   // Determine which filters to show based on role
   const shouldShowRegionFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'customer_service_officer' ||
       profile?.role === 'relationship_officer'
@@ -455,7 +448,7 @@ const handleApprove = (customerId) => {
 
   const shouldShowBranchFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager' ||
       profile?.role === 'customer_service_officer' ||
@@ -465,7 +458,7 @@ const handleApprove = (customerId) => {
 
   const shouldShowROFilter = () => {
     return (
-      profile?.role === 'credit_analyst_officer' || 
+      profile?.role === 'credit_analyst_officer' ||
       profile?.role === 'regional_manager' ||
       profile?.role === 'branch_manager' ||
       profile?.role === 'customer_service_officer'
@@ -494,7 +487,7 @@ const handleApprove = (customerId) => {
   // Helper function to get status display value
   const getStatusDisplay = (customer) => {
     if (!customer.status) return 'N/A';
-    
+
     const statusMap = {
       'bm_review': 'BM Review',
       'ca_review': 'CA Review',
@@ -506,18 +499,18 @@ const handleApprove = (customerId) => {
       'sent_back_by_ca': 'Sent Back by CA',
       'sent_back_by_cso': 'Sent Back by CSO'
     };
-    
+
     return statusMap[customer.status] || customer.status;
   };
 
   // Helper function to get status color
   const getStatusColor = (status) => {
     const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
-    
+
     if (statusValue.includes('review') && statusValue.includes('amend')) return '#8b5cf6'; // purple for amend
     if (statusValue.includes('review')) return '#f59e0b'; // amber for review
     if (statusValue.includes('sent back')) return '#ef4444'; // red for sent back
-    
+
     return '#586ab1'; // default blue
   };
 
@@ -540,7 +533,7 @@ const handleApprove = (customerId) => {
   // Check if user has permission to view this page
   const hasPermission = () => {
     if (!profile) return false;
-    
+
     const allowedRoles = [
       'relationship_officer',
       'branch_manager',
@@ -548,7 +541,7 @@ const handleApprove = (customerId) => {
       'credit_analyst_officer',
       'customer_service_officer'
     ];
-    
+
     return allowedRoles.includes(profile.role);
   };
 
@@ -586,7 +579,7 @@ const handleApprove = (customerId) => {
             Registry / Pending Approvals
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
           <span className="font-medium text-white">{customers.length}</span> pending approvals
         </div>
       </div>
@@ -663,11 +656,11 @@ const handleApprove = (customerId) => {
                         disabled={profile?.role === 'regional_manager' && profile.region_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'regional_manager' && profile.region_id 
+                          {profile?.role === 'regional_manager' && profile.region_id
                             ? regions.find(r => r.id.toString() === selectedRegion)?.name || "Loading..."
                             : "All Regions"}
                         </option>
-                        {(profile?.role !== 'regional_manager' || !profile.region_id) && 
+                        {(profile?.role !== 'regional_manager' || !profile.region_id) &&
                           regions.map((region) => (
                             <option key={region.id} value={region.id.toString()}>
                               {region.name}
@@ -696,11 +689,11 @@ const handleApprove = (customerId) => {
                         disabled={profile?.role === 'branch_manager' && profile.branch_id}
                       >
                         <option value="" className="text-gray-400">
-                          {profile?.role === 'branch_manager' && profile.branch_id 
+                          {profile?.role === 'branch_manager' && profile.branch_id
                             ? branches.find(b => b.id.toString() === selectedBranch)?.name || "Loading..."
                             : "All Branches"}
                         </option>
-                        {(profile?.role !== 'branch_manager' || !profile.branch_id) && 
+                        {(profile?.role !== 'branch_manager' || !profile.branch_id) &&
                           branches.map((branch) => (
                             <option key={branch.id} value={branch.id.toString()}>
                               {branch.name}
@@ -871,7 +864,7 @@ const handleApprove = (customerId) => {
                       </div>
                       <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending approvals</h3>
                       <p className="text-xs text-gray-500 max-w-sm mx-auto">
-                        {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus 
+                        {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus
                           ? "Try adjusting your search or filters"
                           : "All approvals have been processed."}
                       </p>
@@ -884,10 +877,10 @@ const handleApprove = (customerId) => {
                   const statusColor = getStatusColor(customer.status);
                   const displayStatus = getStatusDisplay(customer);
                   const showApproveButton = canApproveCustomer(customer.status);
-                  
+
                   return (
-                    <tr 
-                      key={customer.id} 
+                    <tr
+                      key={customer.id}
                       className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                     >
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
@@ -900,8 +893,8 @@ const handleApprove = (customerId) => {
                         {customer.id_number || "N/A"}
                       </td>
                       <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                        {customer.prequalifiedAmount ? 
-                          `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
+                        {customer.prequalifiedAmount ?
+                          `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                           "N/A"}
                       </td>
                       {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
@@ -916,9 +909,9 @@ const handleApprove = (customerId) => {
                         {customer.regions?.name || "N/A"}
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span 
+                        <span
                           className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                          style={{ 
+                          style={{
                             backgroundColor: statusColor,
                             color: 'white'
                           }}
@@ -926,35 +919,35 @@ const handleApprove = (customerId) => {
                           {displayStatus || "N/A"}
                         </span>
                       </td>
-                 <td className="px-5 py-3.5 text-center whitespace-nowrap">
- <td className="px-5 py-3.5 text-center whitespace-nowrap">
-  <div className="flex items-center justify-center gap-1.5">
-    {/* View Customer */}
-    <button
-      onClick={() => handleView(customer)}
-      className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-      title="View Customer Details"
-    >
-      <EyeIcon className="h-4 w-4" />
-    </button>
+                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                        <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                          <div className="flex items-center justify-center gap-1.5">
+                            {/* View Customer */}
+                            <button
+                              onClick={() => handleView(customer)}
+                              className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                              title="View Customer Details"
+                            >
+                              <EyeIcon className="h-4 w-4" />
+                            </button>
 
-    {/* Conditional Action Button based on role and status */}
-    {showApproveButton && (
-      <button
-        onClick={() => handleApprove(customer.id)}
-        className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-        title={profile?.role === "customer_service_officer" ? "Spoof Call" : "Approve Customer"}
-      >
-        {profile?.role === "customer_service_officer" ? (
-          <PhoneIcon className="h-4 w-4" />
-        ) : (
-          <CheckIcon className="h-4 w-4" />
-        )}
-      </button>
-    )}
-  </div>
-</td>
-</td>
+                            {/* Conditional Action Button based on role and status */}
+                            {showApproveButton && (
+                              <button
+                                onClick={() => handleApprove(customer.id)}
+                                className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
+                                title={profile?.role === "customer_service_officer" ? "Spoof Call" : "Approve Customer"}
+                              >
+                                {profile?.role === "customer_service_officer" ? (
+                                  <PhoneIcon className="h-4 w-4" />
+                                ) : (
+                                  <CheckIcon className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </td>
                     </tr>
                   );
                 })
@@ -986,7 +979,7 @@ const handleApprove = (customerId) => {
                   >
                     <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -996,7 +989,7 @@ const handleApprove = (customerId) => {
                   >
                     <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
@@ -1008,18 +1001,17 @@ const handleApprove = (customerId) => {
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${
-                            currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                          }`}
+                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            }`}
                         >
                           {pageNum}
                         </button>
                       )
                     ))}
                   </div>
-                  
+
                   {/* Next Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
@@ -1029,7 +1021,7 @@ const handleApprove = (customerId) => {
                   >
                     <ChevronRightIcon className="h-4 w-4 text-gray-600" />
                   </button>
-                  
+
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}

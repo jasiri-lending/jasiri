@@ -1,6 +1,7 @@
 // src/components/ViewLoan.jsx
 import { useState, useEffect } from 'react';
 import { supabase } from "../../../supabaseClient";
+import { useAuth } from "../../../hooks/userAuth";
 import {
   UserIcon,
   CurrencyDollarIcon,
@@ -12,13 +13,14 @@ import {
   PhoneIcon,
   EnvelopeIcon,
   IdentificationIcon,
- 
+
   ChatBubbleLeftRightIcon,
- 
+
   XCircleIcon,
 } from "@heroicons/react/24/outline";
 
 const ViewLoanAdmin = ({ loan, onClose }) => {
+  const { profile } = useAuth();
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [bookedByUser, setBookedByUser] = useState(null);
@@ -41,6 +43,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
           customers (*)
         `)
         .eq('id', loan.id)
+        .eq('tenant_id', profile?.tenant_id)
         .single();
 
       if (loanError) throw loanError;
@@ -85,7 +88,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
     for (let week = 1; week <= duration; week++) {
       const dueDate = new Date(startDate);
       dueDate.setDate(startDate.getDate() + (week * 7));
-      
+
       schedule.push({
         week,
         due_date: dueDate.toISOString().split('T')[0],
@@ -96,7 +99,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
         total: weeklyPayment
       });
     }
-    
+
     setRepaymentSchedule(schedule);
   };
 
@@ -237,7 +240,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
                     {customer.mobile}
                   </span>
                 </div>
-              
+
                 <div className="flex justify-between items-center">
                   <span className="text-gray-600 font-medium">Customer Type:</span>
                   <span className={`font-semibold ${loanDetails.is_new_customer ? 'text-green-600' : 'text-blue-600'}`}>
@@ -333,7 +336,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
                       {bookedByUser.role || 'Staff'}
                     </span>
                   </div>
-                 
+
                 </div>
               ) : (
                 <div className="text-center py-4">
@@ -363,7 +366,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
                   })}
                 </div>
               </div>
-              
+
               {loanDetails.bm_approved_at && (
                 <div className="text-center">
                   <div className="text-sm text-gray-500 mb-1">BM Approved</div>
@@ -378,7 +381,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
                   </div>
                 </div>
               )}
-              
+
               {loanDetails.rm_approved_at && (
                 <div className="text-center">
                   <div className="text-sm text-gray-500 mb-1">RM Approved</div>
@@ -393,7 +396,7 @@ const ViewLoanAdmin = ({ loan, onClose }) => {
                   </div>
                 </div>
               )}
-              
+
               {loanDetails.disbursed_at && (
                 <div className="text-center">
                   <div className="text-sm text-gray-500 mb-1">Disbursed</div>

@@ -24,13 +24,13 @@ function CustomerEdits() {
   const [filteredRequests, setFilteredRequests] = useState([]);
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  
+
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editType, setEditType] = useState(null); // 'id_phone' or 'other_details'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
-  
+
   // Form states for ID/Phone edit
   const [idPhoneForm, setIdPhoneForm] = useState({
     newMobile: '',
@@ -52,10 +52,10 @@ function CustomerEdits() {
 
   const fetchEditRequests = async () => {
     if (!profile) return;
-    
+
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from('customer_phone_id_edit_requests')
         .select(`
@@ -66,6 +66,7 @@ function CustomerEdits() {
           approved_by_user:users!approved_by(full_name),
           rejected_by_user:users!rejected_by(full_name)
         `)
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
       // Filter based on role
@@ -75,8 +76,9 @@ function CustomerEdits() {
         const { data: branchCustomers } = await supabase
           .from('customers')
           .select('id')
-          .eq('branch_id', profile.branch_id);
-        
+          .eq('branch_id', profile.branch_id)
+          .eq('tenant_id', profile.tenant_id);
+
         if (branchCustomers && branchCustomers.length > 0) {
           const customerIds = branchCustomers.map(c => c.id);
           query = query.in('customer_id', customerIds);
@@ -85,8 +87,9 @@ function CustomerEdits() {
         const { data: regionCustomers } = await supabase
           .from('customers')
           .select('id')
-          .eq('region_id', profile.region_id);
-        
+          .eq('region_id', profile.region_id)
+          .eq('tenant_id', profile.tenant_id);
+
         if (regionCustomers && regionCustomers.length > 0) {
           const customerIds = regionCustomers.map(c => c.id);
           query = query.in('customer_id', customerIds);
@@ -94,9 +97,9 @@ function CustomerEdits() {
       }
 
       const { data: editRequests, error } = await query;
-      
+
       if (error) throw error;
-      
+
       setEditRequests(editRequests || []);
     } catch (error) {
       console.error('Error fetching edit requests:', error);
@@ -108,26 +111,26 @@ function CustomerEdits() {
 
   const filterRequests = () => {
     let filtered = [...editRequests];
-    
+
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(req => req.status === statusFilter);
     }
-    
+
     // Search filter
     if (searchQuery.trim()) {
       filtered = filtered.filter(req => {
-        const customerName = req.customer 
+        const customerName = req.customer
           ? `${req.customer.Firstname} ${req.customer.Middlename} ${req.customer.Surname}`.toLowerCase()
           : '';
         const mobile = req.customer?.mobile?.toLowerCase() || '';
         const idNumber = req.customer?.id_number?.toLowerCase() || '';
         const query = searchQuery.toLowerCase();
-        
+
         return customerName.includes(query) || mobile.includes(query) || idNumber.includes(query);
       });
     }
-    
+
     setFilteredRequests(filtered);
   };
 
@@ -136,19 +139,19 @@ function CustomerEdits() {
     if (file) {
       const validTypes = ['image/jpeg', 'image/png', 'image/jpg', 'application/pdf'];
       const maxSize = 5 * 1024 * 1024;
-      
+
       if (!validTypes.includes(file.type)) {
         alert('Please upload a valid file (JPEG, PNG, PDF)');
         return;
       }
-      
+
       if (file.size > maxSize) {
         alert('File size must be less than 5MB');
         return;
       }
-      
+
       setIdPhoneForm(prev => ({ ...prev, document: file }));
-      
+
       if (file.type.startsWith('image/')) {
         const reader = new FileReader();
         reader.onloadend = () => {
@@ -163,22 +166,22 @@ function CustomerEdits() {
 
   const uploadSupportDocument = async (file) => {
     if (!file) return null;
-    
+
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}_${Math.random().toString(36).substring(2)}.${fileExt}`;
       const filePath = `support-documents/${fileName}`;
-      
+
       const { error: uploadError } = await supabase.storage
         .from('customer-edits')
         .upload(filePath, file);
-      
+
       if (uploadError) throw uploadError;
-      
+
       const { data: { publicUrl } } = supabase.storage
         .from('customer-edits')
         .getPublicUrl(filePath);
-      
+
       return publicUrl;
     } catch (error) {
       console.error('Error uploading document:', error);
@@ -213,7 +216,7 @@ function CustomerEdits() {
       setLoading(true);
 
       const documentUrl = await uploadSupportDocument(idPhoneForm.document);
-      
+
       const editRequestData = {
         customer_id: selectedCustomer.id,
         current_mobile: selectedCustomer.mobile,
@@ -225,6 +228,7 @@ function CustomerEdits() {
         document_url: documentUrl,
         status: 'pending_branch_manager',
         created_by: profile.id,
+        tenant_id: profile.tenant_id,
         branch_id: profile.branch_id || selectedCustomer.branch_id,
         region_id: profile.region_id || selectedCustomer.region_id,
         created_at: new Date().toISOString()
@@ -237,7 +241,7 @@ function CustomerEdits() {
       if (insertError) throw insertError;
 
       alert('Edit request submitted successfully!');
-      
+
       // Reset form
       setIdPhoneForm({
         newMobile: '',
@@ -248,7 +252,7 @@ function CustomerEdits() {
       });
       setSelectedCustomer(null);
       setShowEditModal(false);
-      
+
       fetchEditRequests();
     } catch (error) {
       console.error('Error submitting edit request:', error);
@@ -266,12 +270,12 @@ function CustomerEdits() {
 
     try {
       setLoading(true);
-      
-      const updateData = { 
+
+      const updateData = {
         status: newStatus,
         updated_at: new Date().toISOString()
       };
-      
+
       if (newStatus === 'confirmed' && profile.role === 'branch_manager') {
         updateData.confirmed_by = profile.id;
         updateData.confirmed_at = new Date().toISOString();
@@ -290,7 +294,8 @@ function CustomerEdits() {
       const { error } = await supabase
         .from('customer_phone_id_edit_requests')
         .update(updateData)
-        .eq('id', requestId);
+        .eq('id', requestId)
+        .eq('tenant_id', profile.tenant_id);
 
       if (error) throw error;
 
@@ -305,7 +310,8 @@ function CustomerEdits() {
               id_number: request.new_id_number,
               updated_at: new Date().toISOString()
             })
-            .eq('id', request.customer_id);
+            .eq('id', request.customer_id)
+            .eq('tenant_id', profile.tenant_id);
         }
       }
 
@@ -343,9 +349,9 @@ function CustomerEdits() {
         label: 'Rejected'
       }
     };
-    
+
     const config = configs[status] || configs['pending_branch_manager'];
-    
+
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
         {config.label}
@@ -367,7 +373,7 @@ function CustomerEdits() {
 
   const canReject = (request) => {
     return (profile?.role === 'branch_manager' && request.status === 'pending_branch_manager') ||
-           (profile?.role === 'credit_analyst_officer' && request.status === 'confirmed');
+      (profile?.role === 'credit_analyst_officer' && request.status === 'confirmed');
   };
 
   // Customer Search Modal
@@ -387,7 +393,7 @@ function CustomerEdits() {
       setSearching(true);
 
       try {
-        let query = supabase.from("customers").select("*").limit(10);
+        let query = supabase.from("customers").select("*").eq('tenant_id', profile.tenant_id).limit(10);
 
         if (profile?.role === "relationship_officer") {
           query = query.eq("created_by", profile.id);
@@ -435,7 +441,7 @@ function CustomerEdits() {
               <XMarkIcon className="w-6 h-6 text-muted" />
             </button>
           </div>
-          
+
           <div className="p-6">
             <div className="relative mb-4">
               <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
@@ -460,7 +466,7 @@ function CustomerEdits() {
                   No customers found
                 </div>
               )}
-              
+
               {searchResults.map(customer => (
                 <div
                   key={customer.id}
@@ -520,7 +526,7 @@ function CustomerEdits() {
               <XMarkIcon className="w-6 h-6 text-muted" />
             </button>
           </div>
-          
+
           <form onSubmit={handleSubmitIdPhoneEdit} className="p-6">
             {/* Customer Info Display */}
             {selectedCustomer && (
@@ -636,12 +642,12 @@ function CustomerEdits() {
                 >
                   Choose File
                 </label>
-                
+
                 {idPhoneForm.documentPreview && (
                   <div className="mt-4">
-                    <img 
-                      src={idPhoneForm.documentPreview} 
-                      alt="Document preview" 
+                    <img
+                      src={idPhoneForm.documentPreview}
+                      alt="Document preview"
                       className="max-h-48 mx-auto rounded-xl border-2 border-gray-200"
                     />
                   </div>
@@ -681,10 +687,10 @@ function CustomerEdits() {
 
   // View Request Modal with Document Comparison
   const ViewRequestModal = ({ request, onClose }) => {
-    const customerName = request.customer 
+    const customerName = request.customer
       ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
       : 'Unknown Customer';
-    
+
     const isPdf = request.document_url?.toLowerCase().endsWith('.pdf');
 
     return (
@@ -704,7 +710,7 @@ function CustomerEdits() {
               <XMarkIcon className="w-6 h-6 text-muted" />
             </button>
           </div>
-          
+
           <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Left: Changes & Details */}
@@ -793,7 +799,7 @@ function CustomerEdits() {
                         Approve as Branch Manager
                       </button>
                     )}
-                    
+
                     {canApprove(request) && (
                       <button
                         onClick={() => handleStatusUpdate(request.id, 'approved')}
@@ -803,7 +809,7 @@ function CustomerEdits() {
                         Give Final Approval
                       </button>
                     )}
-                    
+
                     {canReject(request) && (
                       <button
                         onClick={() => handleStatusUpdate(request.id, 'rejected')}
@@ -826,7 +832,7 @@ function CustomerEdits() {
                       Compare the document provided with the requested changes
                     </p>
                   </div>
-                  
+
                   <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
                     {isPdf ? (
                       <div className="p-8 text-center bg-neutral">
@@ -952,7 +958,7 @@ function CustomerEdits() {
                 <PencilSquareIcon className="w-5 h-5 mr-2" />
                 Edit ID / Phone Number
               </button>
-              
+
               <button
                 onClick={() => alert('Other details editing coming soon')}
                 className="inline-flex items-center px-6 py-3 bg-white border-2 border-brand-btn text-brand-btn rounded-xl hover:bg-brand-surface font-medium font-heading transition-colors"
@@ -1042,10 +1048,10 @@ function CustomerEdits() {
                   </tr>
                 ) : (
                   filteredRequests.map(request => {
-                    const customerName = request.customer 
+                    const customerName = request.customer
                       ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
                       : 'Unknown';
-                    
+
                     return (
                       <tr key={request.id} className="hover:bg-neutral transition-colors">
                         <td className="px-6 py-4">

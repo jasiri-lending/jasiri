@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X,FileSpreadsheet } from "lucide-react";
+import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X, FileSpreadsheet, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/userAuth";
@@ -11,6 +11,10 @@ function Journals() {
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false); // Valid: boolean or ID string if needed, but here boolean is enough for modal
+
+  // Pagination State
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(30);
 
   // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -140,6 +144,37 @@ function Journals() {
     j.journal_type?.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Pagination Logic
+  const totalPages = Math.ceil(filteredJournals.length / itemsPerPage);
+  const paginatedJournals = filteredJournals.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
+  const generatePageNumbers = () => {
+    const pages = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i);
+    } else {
+      const start = Math.max(2, currentPage - 1);
+      const end = Math.min(totalPages - 1, currentPage + 1);
+
+      pages.push(1);
+      if (start > 2) pages.push("...");
+      for (let i = start; i <= end; i++) pages.push(i);
+      if (end < totalPages - 1) pages.push("...");
+      pages.push(totalPages);
+    }
+    return pages;
+  };
+
+  // Reset to page 1 when search changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [search]);
+
   if (loading) {
     return (
 
@@ -192,52 +227,52 @@ function Journals() {
           <table className="w-full">
             <thead>
               <tr className="bg-brand-surface border-b border-gray-200">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Journal Type
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Customer
                 </th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Amount
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Description
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Created By
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Date
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600">
+                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
             </thead>
 
             <tbody>
-              {filteredJournals.map((j) => (
+              {paginatedJournals.map((j) => (
                 <tr
                   key={j.id}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-4 py-3 text-sm  text-gray-700">
+                  <td className="px-4 py-3 text-sm  text-gray-700 whitespace-nowrap">
                     {j.journal_type}
                   </td>
-                  <td className="px-4 py-3 text-xs font-medium text-gray-700">
+                  <td className="px-4 py-3 text-xs font-medium text-gray-700 whitespace-nowrap">
                     {j.customer_name || "Unknown"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 text-right font-medium">
+                  <td className="px-4 py-3 text-sm text-gray-700 text-right font-medium whitespace-nowrap">
                     {parseFloat(j.amount).toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs truncate">
+                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs ">
                     {j.description}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -247,10 +282,10 @@ function Journals() {
                       {j.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600">
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                     {j.created_by_name}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 text-center">
+                  <td className="px-4 py-3 text-sm text-gray-600 text-center whitespace-nowrap">
                     {new Date(j.created_at).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "short",
@@ -300,6 +335,69 @@ function Journals() {
         {filteredJournals.length === 0 && (
           <div className="p-8 text-center text-xs text-gray-500">
             {journals.length === 0 ? "No journals found" : "No matching journals"}
+          </div>
+        )}
+
+        {/* Pagination Controls */}
+        {filteredJournals.length > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-gray-200">
+            <div className="text-xs text-gray-500 mb-2 sm:mb-0">
+              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredJournals.length)}</span> of <span className="font-medium">{filteredJournals.length}</span> entries
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(1)}
+                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
+                title="First Page"
+              >
+                <ChevronsLeft size={16} />
+              </button>
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
+                title="Previous Page"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="flex items-center gap-1 mx-2">
+                {generatePageNumbers().map((page, i) => (
+                  <button
+                    key={i}
+                    onClick={() => typeof page === 'number' && setCurrentPage(page)}
+                    disabled={page === '...'}
+                    className={`min-w-[28px] h-7 flex items-center justify-center rounded text-xs font-medium transition-colors ${currentPage === page
+                      ? 'bg-blue-600 text-white'
+                      : page === '...'
+                        ? 'text-gray-400 cursor-default'
+                        : 'text-gray-600 hover:bg-gray-100'
+                      }`}
+                  >
+                    {page}
+                  </button>
+                ))}
+              </div>
+
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
+                title="Next Page"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(totalPages)}
+                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
+                title="Last Page"
+              >
+                <ChevronsRight size={16} />
+              </button>
+            </div>
           </div>
         )}
       </div>
