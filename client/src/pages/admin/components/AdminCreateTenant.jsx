@@ -105,7 +105,6 @@ export default function AdminCreateTenant() {
           primary_color: formData.primary_color,
           secondary_color: formData.secondary_color,
           admin_full_name: formData.admin_full_name,
-          admin_full_name: formData.admin_full_name,
           admin_email: formData.admin_email,
           // Optional fields
           cr12: formData.cr12,
@@ -256,7 +255,6 @@ export default function AdminCreateTenant() {
       passkey: "",
       shortcode: "",
       confirmation_url: "",
-      validation_url: "",
       validation_url: "",
       callback_url: "",
       cr12: "",

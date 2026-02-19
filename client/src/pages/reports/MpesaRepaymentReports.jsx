@@ -134,8 +134,8 @@ const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, 
               key={pageNum}
               onClick={() => onPageChange(pageNum)}
               className={`w-8 h-8 rounded text-xs transition-colors ${currentPage === pageNum
-                  ? "bg-blue-600 text-white"
-                  : "hover:bg-gray-100 text-gray-700"
+                ? "bg-blue-600 text-white"
+                : "hover:bg-gray-100 text-gray-700"
                 }`}
             >
               {pageNum}
@@ -644,8 +644,7 @@ const MpesaRepaymentReports = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section (same as before) */}
-        <div className="bg-brand-secondary rounded-xl shadow-sm border border-gray-100 p-6 overflow-hidden relative">
-       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
@@ -663,8 +662,8 @@ const MpesaRepaymentReports = () => {
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                    : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
