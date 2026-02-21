@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, BuildingOfficeIcon, CalendarIcon, EyeIcon, ArrowUpRightIcon } from "@heroicons/react/24/outline";
 import { supabase } from "../../../supabaseClient";
 import { useNavigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../../hooks/userAuth";
 import { API_BASE_URL } from "../../../../config.js";
 
 // Define color constants for consistency
@@ -39,6 +40,7 @@ export default function AdminCreateTenant() {
   });
 
   const navigate = useNavigate();
+  const { profile } = useAuth();
   const [tenants, setTenants] = useState([]);
   const [fetchingTenants, setFetchingTenants] = useState(false);
   const [tableError, setTableError] = useState("");
@@ -73,10 +75,17 @@ export default function AdminCreateTenant() {
     setFetchingTenants(true);
     setTableError("");
     try {
-      const { data: tenantsData, error: tenantsError } = await supabase
+      let query = supabase
         .from("tenants")
         .select("*")
         .order("created_at", { ascending: false });
+
+      // If user is admin (not superadmin), only show their tenant
+      if (profile?.role === 'admin' && profile?.tenant_id) {
+        query = query.eq("id", profile.tenant_id);
+      }
+
+      const { data: tenantsData, error: tenantsError } = await query;
 
       if (tenantsError) throw tenantsError;
 

@@ -15,12 +15,16 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { useNavigate, useLocation } from 'react-router-dom';
+import { API_BASE_URL } from "../../../config";
+import Spinner from "../../components/Spinner.jsx";
+import { useToast } from "../../components/Toast.jsx";
 
 const LoanBookingForm = ({ customerData }) => {
   const [duration, setDuration] = useState(4);
   const location = useLocation();
   const navigate = useNavigate();
   const customer = customerData || location.state?.customerData;
+  const toast = useToast();
 
   // Get customerData from navigation state
 
@@ -33,6 +37,9 @@ const LoanBookingForm = ({ customerData }) => {
   const [selectedProductType, setSelectedProductType] = useState("");
   const { profile } = useAuth();
   const [errorMessage, setErrorMessage] = useState("");
+  const [products, setProducts] = useState([]);
+  const [dbProductTypes, setDbProductTypes] = useState([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   //  destructure customer info + latest BM/RM values from parent
   const {
@@ -45,35 +52,63 @@ const LoanBookingForm = ({ customerData }) => {
     caScoredAmount,
   } = customer || {};
 
-  //  RM takes precedence → use RM if available, else BM
-  const approved_amount = caScoredAmount ?? bmScoredAmount ?? 0;
+  //  RM takes precedence → use CA score if available, else BM score
+  const approved_amount = Number(caScoredAmount || bmScoredAmount || 0);
 
+  // DEBUG: Log approved amount source on mount
+  useEffect(() => {
+    console.log("[LoanBooking] Customer & Approved Amount:", {
+      customerId: id,
+      name: `${Firstname} ${Surname}`,
+      caScoredAmount,
+      bmScoredAmount,
+      approved_amount,
+    });
+  }, [approved_amount]);
 
+  // Fetch products and types on mount
+  useEffect(() => {
+    if (profile?.tenant_id) {
+      fetchAllData();
+    }
+  }, [profile?.tenant_id]);
 
-  // Product types configuration
-  const productTypes = {
-    Inuka: [
-      { weeks: 4, name: "Inuka 4 Weeks" },
-      { weeks: 5, name: "Inuka 5 Weeks" },
-      { weeks: 6, name: "Inuka 6 Weeks" },
-      { weeks: 7, name: "Inuka 7 Weeks" },
-      { weeks: 8, name: "Inuka 8 Weeks" },
-    ],
-    Kuza: [
-      { weeks: 4, name: "Kuza 4 Weeks" },
-      { weeks: 5, name: "Kuza 5 Weeks" },
-      { weeks: 6, name: "Kuza 6 Weeks" },
-      { weeks: 7, name: "Kuza 7 Weeks" },
-      { weeks: 8, name: "Kuza 8 Weeks" },
+  const fetchAllData = async () => {
+    setIsInitialLoading(true);
+    try {
+      await Promise.all([
+        fetchProducts(),
+        fetchProductTypes()
+      ]);
+    } catch (err) {
+      console.error("Error fetching data:", err);
+    } finally {
+      setIsInitialLoading(false);
+    }
+  };
 
-    ],
-    Fadhili: [
-      { weeks: 4, name: "Fadhili 4 Weeks" },
-      { weeks: 5, name: "Fadhili 5 Weeks" },
-      { weeks: 6, name: "Fadhili 6 Weeks" },
-      { weeks: 7, name: "Fadhili 7 Weeks" },
-      { weeks: 8, name: "Fadhili 8 Weeks" },
-    ]
+  const fetchProducts = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/loan-products?tenant_id=${profile.tenant_id}`);
+      const data = await res.json();
+      if (data.success) {
+        setProducts(data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching products:", err);
+    }
+  };
+
+  const fetchProductTypes = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/loan-products/types?tenant_id=${profile.tenant_id}`);
+      const data = await res.json();
+      if (data.success) {
+        setDbProductTypes(data.data);
+      }
+    } catch (err) {
+      console.error("Error fetching product types:", err);
+    }
   };
 
   useEffect(() => {
@@ -82,25 +117,33 @@ const LoanBookingForm = ({ customerData }) => {
     }
   }, [id]);
 
+  // Effect 1: Auto-select product type when principal or customer type changes
   useEffect(() => {
-    if (principalAmount > 0) {
-      calculateLoan();
+    if (principalAmount > 0 && dbProductTypes.length > 0) {
       autoSelectProductType();
     }
     // eslint-disable-next-line
-  }, [duration, isNewCustomer, principalAmount]);
+  }, [principalAmount, isNewCustomer, dbProductTypes.length]);
+
+  // Effect 2: Recalculate loan when product type, duration or principal changes
+  useEffect(() => {
+    if (principalAmount > 0 && selectedProductType) {
+      calculateLoan();
+    }
+    // eslint-disable-next-line
+  }, [principalAmount, duration, selectedProductType, isNewCustomer]);
 
   useEffect(() => {
     // Update duration when product type is selected
     if (selectedProductType) {
-      const productType = getAvailableProductTypes().find(
-        type => type.name === selectedProductType
+      const productType = dbProductTypes.find(
+        type => type.product_type === selectedProductType
       );
       if (productType) {
-        setDuration(productType.weeks);
+        setDuration(productType.duration_weeks);
       }
     }
-  }, [selectedProductType]);
+  }, [selectedProductType, dbProductTypes]);
 
   //  determine if customer is new or returning
   const checkCustomerType = async (customerId) => {
@@ -126,52 +169,48 @@ const LoanBookingForm = ({ customerData }) => {
 
   //  loan products by amount
   const getProductInfo = (amount) => {
-    if (amount >= 1000 && amount <= 5000) {
+    if (!amount || amount < 0) return { product: "", productName: "", range: "", baseName: "" };
+
+    const matchedProduct = products.find(p => {
+      const min = parseFloat(p.min_amount);
+      const max = p.max_amount ? parseFloat(p.max_amount) : Infinity;
+      return amount >= min && amount <= max;
+    });
+
+    if (matchedProduct) {
       return {
-        product: "Inuka",
-        productName: "Inuka (1K-5K)",
-        range: "KES 1,000 - 5,000",
-        baseName: "Inuka"
-      };
-    } else if (amount >= 6000 && amount <= 10000) {
-      return {
-        product: "Kuza",
-        productName: "Kuza (6K-10K)",
-        range: "KES 6,000 - 10,000",
-        baseName: "Kuza"
-      };
-    } else if (amount > 10000) {
-      return {
-        product: "Fadhili",
-        productName: "Fadhili (10K+)",
-        range: "KES 10,000 and above",
-        baseName: "Fadhili"
-      };
-    } else {
-      return {
-        product: "",
-        productName: "Invalid Amount",
-        range: "Amount must be KES 1,000 or more",
-        baseName: ""
+        product: matchedProduct.id,
+        productName: matchedProduct.product_name,
+        range: `KES ${parseFloat(matchedProduct.min_amount).toLocaleString()} - ${matchedProduct.max_amount ? parseFloat(matchedProduct.max_amount).toLocaleString() : 'Above'}`,
+        baseName: matchedProduct.product_name,
+        id: matchedProduct.id,
+        registrationFee: parseFloat(matchedProduct.registration_fee || 0)
       };
     }
+
+    return {
+      product: "",
+      productName: "Invalid Amount",
+      range: "Enter a valid amount to see products",
+      baseName: ""
+    };
   };
 
   // Get available product types based on current product
   const getAvailableProductTypes = () => {
     const productInfo = getProductInfo(principalAmount);
-    return productTypes[productInfo.baseName] || [];
+    if (!productInfo.id) return [];
+    return dbProductTypes.filter(type => type.loan_product_id === productInfo.id);
   };
 
   // Auto-select product type when amount changes
   const autoSelectProductType = () => {
-    const productInfo = getProductInfo(principalAmount);
-    const availableTypes = productTypes[productInfo.baseName];
+    const availableTypes = getAvailableProductTypes();
 
     if (availableTypes && availableTypes.length > 0) {
       // Find the type that matches current duration or default to first option
-      const matchingType = availableTypes.find(type => type.weeks === duration) || availableTypes[0];
-      setSelectedProductType(matchingType.name);
+      const matchingType = availableTypes.find(type => type.duration_weeks === duration) || availableTypes[0];
+      setSelectedProductType(matchingType.product_type);
     } else {
       setSelectedProductType("");
     }
@@ -180,17 +219,47 @@ const LoanBookingForm = ({ customerData }) => {
   // recalc repayment schedule
   const calculateLoan = () => {
     const principal = Number(principalAmount) || 0;
-    const processingFee = principal <= 10000 ? 500 : principal * 0.05;
-    const registrationFee = isNewCustomer ? 300 : 0;
+    const productInfo = getProductInfo(principal);
+    const availableTypes = getAvailableProductTypes();
+    const activeType = availableTypes.find(t => t.product_type === selectedProductType) || availableTypes[0];
 
-    const weeklyRate = 6.25;
-    const interestRate = weeklyRate * duration;
+    if (!activeType) {
+      setCalculated({ principal });
+      return;
+    }
+
+    const durationWeeks = activeType.duration_weeks;
+    const registrationFee = isNewCustomer ? (productInfo.registrationFee || 0) : 0;
+
+    let processingFee = 0;
+    if (activeType.processing_fee_mode === 'percentage') {
+      processingFee = (principal * (activeType.processing_fee_rate || 0)) / 100;
+    } else {
+      processingFee = parseFloat(activeType.processing_fee_rate || 0);
+    }
+
+    // Interest = rate/100 * principal (rate stored as full duration rate in DB, e.g. 25 for 25%)
+    const interestRate = parseFloat(activeType.interest_rate || 0);
     const totalInterest = (principal * interestRate) / 100;
 
+    // Total Repayment = principal + interest ONLY (fees are NOT included)
     const totalPayable = principal + totalInterest;
-    const weeklyPayment = totalPayable / duration;
+    const weeklyPayment = totalPayable / durationWeeks;
 
-    const productInfo = getProductInfo(principal);
+    // DEBUG: comprehensive log
+    console.log("[LoanBooking] Computation:", {
+      principal,
+      approved_amount,
+      product: productInfo.productName,
+      productType: activeType.product_type,
+      interestRate,
+      totalInterest,
+      processingFee,
+      registrationFee,
+      totalPayable,
+      weeklyPayment,
+      durationWeeks,
+    });
 
     setCalculated({
       principal,
@@ -204,23 +273,24 @@ const LoanBookingForm = ({ customerData }) => {
       productName: productInfo.productName,
       productRange: productInfo.range,
       baseName: productInfo.baseName,
-      productType: selectedProductType,
+      productType: activeType.product_type,
+      id: productInfo.id
     });
 
-    // repayment schedule
     const schedule = [];
     const today = new Date();
 
-    for (let week = 1; week <= duration; week++) {
+    // Use durationWeeks from activeType (not stale `duration` state)
+    for (let week = 1; week <= durationWeeks; week++) {
       const dueDate = new Date(today);
       dueDate.setDate(today.getDate() + week * 7);
       schedule.push({
         week,
         due_date: dueDate.toISOString().split("T")[0],
-        principal: week === duration ? principal : 0,
-        interest: totalInterest / duration,
+        interest: totalInterest / durationWeeks,
         processing_fee: week === 1 ? processingFee : 0,
         registration_fee: week === 1 ? registrationFee : 0,
+        // Weekly installment = (principal + interest) / weeks — fees shown separately
         total: weeklyPayment,
       });
     }
@@ -284,9 +354,8 @@ const LoanBookingForm = ({ customerData }) => {
   // Book loan
   const handleBookLoan = async () => {
     if (!isValidAmount()) {
-      alert(
-        `Please enter a valid loan amount (KES 1,000 - ${approved_amount?.toLocaleString() || 0
-        }) and select a product type`
+      toast.warning(
+        `Please enter a valid loan amount (KES 1,000 - ${approved_amount?.toLocaleString() || 0}) and select a product type`
       );
       return;
     }
@@ -334,24 +403,22 @@ const LoanBookingForm = ({ customerData }) => {
 
       if (error) throw error;
 
-      alert("Loan successfully booked!");
+      toast.success("Loan successfully booked!");
       navigate(-1);
 
     } catch (error) {
       console.error(" Error booking loan:", error.message);
-      alert("Error booking loan. Please try again.");
+      toast.error("Error booking loan. Please try again.");
     } finally {
       setLoading(false);
     }
   };
 
 
-  if (!customer) {
+  if (!customer || isInitialLoading) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <div className="h-full bg-brand-surface p-6 min-h-screen flex items-center justify-center ">
-          <Spinner text="Loading ..." />
-        </div>
+        <Spinner text="Loading product settings..." />
       </div>
     );
   }
@@ -469,8 +536,8 @@ const LoanBookingForm = ({ customerData }) => {
                       >
                         <option value="">Select product type</option>
                         {availableProductTypes.map((type) => (
-                          <option key={type.name} value={type.name}>
-                            {type.name} - {type.description}
+                          <option key={type.id} value={type.product_type}>
+                            {type.product_type} - {type.duration_weeks} Weeks
                           </option>
                         ))}
                       </select>
@@ -551,7 +618,7 @@ const LoanBookingForm = ({ customerData }) => {
                   <div className="flex justify-between pt-2 border-t border-gray-200">
                     <span className="text-gray-600 font-medium">Total Repayment:</span>
                     <span className="text-xl font-bold text-brand-primary">
-                      KES {(repaymentSchedule.reduce((sum, payment) => sum + payment.total, 0)).toLocaleString()}
+                      KES {(calculated.totalPayable || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </span>
                   </div>
                 </div>
@@ -567,22 +634,6 @@ const LoanBookingForm = ({ customerData }) => {
                 Repayment Configuration
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Loan Duration (weeks)
-                  </label>
-                  <select
-                    value={duration}
-                    onChange={(e) => setDuration(parseInt(e.target.value))}
-                    className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors bg-white"
-                  >
-                    {[4, 5, 6, 7, 8].map(weeks => (
-                      <option key={weeks} value={weeks}>
-                        {weeks} weeks
-                      </option>
-                    ))}
-                  </select>
-                </div> */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-3">
                     Selected Product Type
@@ -641,7 +692,7 @@ const LoanBookingForm = ({ customerData }) => {
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right font-semibold text-slate-600">
-                              KES {payment.principal.toLocaleString()}
+                              KES {(payment.total || 0).toLocaleString()}
                             </td>
                             <td className="px-6 py-4 text-right font-semibold text-amber-600">
                               KES {(payment.processing_fee + payment.registration_fee).toLocaleString()}
@@ -688,32 +739,19 @@ const LoanBookingForm = ({ customerData }) => {
                 Loan Product Details
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Inuka' ? 'border-purple-300 ring-2 ring-purple-200' : 'border-purple-100'
-                  }`}>
-                  <h4 className="font-semibold text-purple-700 mb-2">Inuka</h4>
-                  <p className="text-sm text-gray-600">KES 1,000 - 5,000</p>
-                  <p className="text-xs text-gray-500 mt-2">4-6 weeks duration</p>
-
-                </div>
-                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Kuza' ? 'border-blue-300 ring-2 ring-blue-200' : 'border-blue-100'
-                  }`}>
-                  <h4 className="font-semibold text-blue-700 mb-2">Kuza</h4>
-                  <p className="text-sm text-gray-600">KES 6,000 - 10,000</p>
-                  <p className="text-xs text-gray-500 mt-2">4-7 weeks duration</p>
-
-                </div>
-                <div className={`bg-white p-4 rounded-lg border ${calculated.product === 'Fadhili' ? 'border-green-300 ring-2 ring-green-200' : 'border-green-100'
-                  }`}>
-                  <h4 className="font-semibold text-green-700 mb-2">Fadhili</h4>
-                  <p className="text-sm text-gray-600">KES 10,000 and above</p>
-                  <p className="text-xs text-gray-500 mt-2">4-8 weeks duration</p>
-
-                </div>
+                {products.map((p) => (
+                  <div key={p.id} className={`bg-white p-4 rounded-lg border ${calculated.id === p.id ? 'border-brand-primary ring-2 ring-brand-primary/20' : 'border-gray-100'
+                    }`}>
+                    <h4 className="font-semibold text-brand-primary mb-2">{p.product_name}</h4>
+                    <p className="text-sm text-gray-600">
+                      KES {parseFloat(p.min_amount).toLocaleString()} - {p.max_amount ? parseFloat(p.max_amount).toLocaleString() : 'Above'}
+                    </p>
+                    <p className="text-xs text-gray-500 mt-2">Dynamic settings from branch</p>
+                  </div>
+                ))}
               </div>
               <div className="mt-4 text-sm text-gray-600">
-                <p><span className="font-semibold">Processing Fee:</span> KES 500 for loans up to 10K, 5% of principal for loans above 10K</p>
-                <p><span className="font-semibold">Registration Fee:</span> KES 300 (one-time payment for new customers only)</p>
-                {/* <p><span className="font-semibold">Interest Rate:</span> 25% over 4 weeks (6.25% per week)</p> */}
+                <p><span className="font-semibold">Fees & Interest:</span> Rates are dynamically calculated based on the selected product type.</p>
               </div>
             </div>
 

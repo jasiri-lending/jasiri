@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from "react";
+import  { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/userAuth";
-import { API_BASE_URL } from "../../../config.js";
+import { API_BASE_URL } from "../../../config";
 import {
   PlusIcon,
   XMarkIcon,
@@ -20,6 +20,8 @@ export default function LoanProducts() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [submitting, setSubmitting] = useState(false);
+  const [globalJoinFee, setGlobalJoinFee] = useState("0");
+  const [savingFee, setSavingFee] = useState(false);
 
   // Modal States
   const [showProductModal, setShowProductModal] = useState(false);
@@ -42,6 +44,7 @@ export default function LoanProducts() {
     duration_weeks: "",
     interest_rate: "",
     processing_fee_rate: "0",
+    processing_fee_mode: "percentage", // 'percentage' or 'fixed'
     registration_fee: "0",
     penalty_rate: "0",
   });
@@ -75,6 +78,10 @@ export default function LoanProducts() {
       const data = await res.json();
       if (data.success) {
         setProducts(data.data);
+        // Set global join fee from the first product if available
+        if (data.data && data.data.length > 0) {
+          setGlobalJoinFee(data.data[0].registration_fee || "0");
+        }
         await fetchTypes(profile.tenant_id);
       } else {
         throw new Error(data.error);
@@ -189,7 +196,10 @@ export default function LoanProducts() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(productForm),
+          body: JSON.stringify({
+            ...productForm,
+            tenant_id: profile.tenant_id
+          }),
         }
       );
       const data = await res.json();
@@ -219,7 +229,7 @@ export default function LoanProducts() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products/${id}`, {
+      const res = await fetch(`${API_BASE_URL}/api/loan-products/${id}?tenant_id=${profile.tenant_id}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -280,7 +290,10 @@ export default function LoanProducts() {
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(typeForm),
+          body: JSON.stringify({
+            ...typeForm,
+            tenant_id: profile.tenant_id
+          }),
         }
       );
       const data = await res.json();
@@ -312,7 +325,7 @@ export default function LoanProducts() {
 
     try {
       const res = await fetch(
-        `${API_BASE_URL}/api/loan-products/types/${typeId}`,
+        `${API_BASE_URL}/api/loan-products/types/${typeId}?tenant_id=${profile.tenant_id}`,
         {
           method: "DELETE",
         }
@@ -344,6 +357,7 @@ export default function LoanProducts() {
       duration_weeks: "",
       interest_rate: "",
       processing_fee_rate: "0",
+      processing_fee_mode: "percentage",
       registration_fee: "0",
       penalty_rate: "0",
     });
@@ -370,6 +384,7 @@ export default function LoanProducts() {
       duration_weeks: type.duration_weeks,
       interest_rate: type.interest_rate,
       processing_fee_rate: type.processing_fee_rate,
+      processing_fee_mode: type.processing_fee_mode || "percentage",
       registration_fee: type.registration_fee,
       penalty_rate: type.penalty_rate,
     });
@@ -382,6 +397,33 @@ export default function LoanProducts() {
     setSelectedType(null);
     resetTypeForm();
     setShowTypeModal(true);
+  };
+
+  const handleSaveJoinFee = async () => {
+    try {
+      setSavingFee(true);
+      const res = await fetch(`${API_BASE_URL}/api/loan-products/global/registration-fee`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tenant_id: profile.tenant_id,
+          registration_fee: parseFloat(globalJoinFee) || 0
+        })
+      });
+      const data = await res.json();
+      if (data.success) {
+        showNotification("Joining fee updated for all products");
+        // Update local products state too
+        setProducts(products.map(p => ({ ...p, registration_fee: globalJoinFee })));
+      } else {
+        throw new Error(data.error);
+      }
+    } catch (err) {
+      console.error(err);
+      showNotification(err.message, "error");
+    } finally {
+      setSavingFee(false);
+    }
   };
 
   if (loading) {
@@ -419,11 +461,10 @@ export default function LoanProducts() {
         {/* Notification */}
         {notification && (
           <div
-            className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-xl transition-all animate-in slide-in-from-top-5 duration-300 ${
-              notification.type === "success"
-                ? "bg-white border-l-4 border-accent text-gray-800 ring-1 ring-gray-100"
-                : "bg-white border-l-4 border-red-500 text-gray-800 ring-1 ring-gray-100"
-            }`}
+            className={`fixed top-6 right-6 z-50 flex items-center gap-3 px-5 py-4 rounded-xl shadow-xl transition-all animate-in slide-in-from-top-5 duration-300 ${notification.type === "success"
+              ? "bg-white border-l-4 border-accent text-gray-800 ring-1 ring-gray-100"
+              : "bg-white border-l-4 border-red-500 text-gray-800 ring-1 ring-gray-100"
+              }`}
           >
             {notification.type === "success" ? (
               <CheckCircleIcon className="w-6 h-6 text-accent" />
@@ -466,6 +507,50 @@ export default function LoanProducts() {
             <PlusIcon className="w-5 h-5" />
             New Product
           </button>
+        </div>
+
+        {/* Global Settings Section - Joining Fee */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-brand-primary/10 rounded-xl text-brand-primary">
+                <BanknotesIcon className="w-6 h-6 border-brand-primary" />
+              </div>
+              <div>
+                <h2 className="text-sm font-heading font-bold text-gray-900">Joining Fee Setting</h2>
+                <p className="text-gray-500 text-xs mt-1">Global registration fee applied once for new customers</p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-4">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <span className="text-gray-500 text-xs font-bold">KES</span>
+                </div>
+                <input
+                  type="number"
+                  value={globalJoinFee}
+                  onChange={(e) => setGlobalJoinFee(e.target.value)}
+                  className="block w-48 pl-12 rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none border-gray-300 hover:border-gray-400 focus:shadow-md font-bold text-brand-primary"
+                  placeholder="0.00"
+                />
+              </div>
+              <button
+                onClick={handleSaveJoinFee}
+                disabled={savingFee}
+                className="bg-brand-primary text-white px-6 py-2.5 rounded-xl hover:bg-brand-primary/90 transition-all shadow-md font-semibold text-sm flex items-center gap-2 disabled:opacity-70"
+              >
+                {savingFee ? <Spinner size="sm" /> : <CheckCircleIcon className="w-5 h-5 text-white" />}
+                Save Joining Fee
+              </button>
+            </div>
+          </div>
+          <div className="mt-4 p-3 bg-blue-50/50 rounded-xl border border-blue-100/50">
+            <p className="text-xs text-blue-700 flex items-center gap-2 leading-relaxed">
+              <ExclamationTriangleIcon className="w-4 h-4" />
+              This fee is saved across all products and will be automatically applied to any customer taking their first loan.
+            </p>
+          </div>
         </div>
 
         {/* Products List */}
@@ -607,7 +692,9 @@ export default function LoanProducts() {
                             <div className="flex justify-between text-sm">
                               <span className="text-gray-500">Process. Fee</span>
                               <span className="font-medium text-gray-700">
-                                {type.processing_fee_rate}%
+                                {type.processing_fee_mode === 'percentage'
+                                  ? `${type.processing_fee_rate}%`
+                                  : `KES ${Number(type.processing_fee_rate).toLocaleString()}`}
                               </span>
                             </div>
                           </div>
@@ -671,12 +758,12 @@ export default function LoanProducts() {
                         product_name: e.target.value,
                       })
                     }
-                    className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                      formErrors.product_name
-                        ? "border-red-300 focus:border-red-500 focus:ring-red-200"
-                        : ""
-                    }`}
+                    className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.product_name
+                      ? "border-red-300 focus:border-red-500"
+                      : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                      }`}
                     placeholder="e.g., Business Growth Loan"
+                    onFocus={(e) => e.target.select()}
                   />
                   {formErrors.product_name && (
                     <p className="text-red-600 text-xs mt-1.5 font-medium">
@@ -696,7 +783,6 @@ export default function LoanProducts() {
                       </div>
                       <input
                         type="number"
-                        step="0.01"
                         value={productForm.min_amount}
                         onChange={(e) =>
                           setProductForm({
@@ -704,10 +790,10 @@ export default function LoanProducts() {
                             min_amount: e.target.value,
                           })
                         }
-                        className={`block w-full pl-12 rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                          formErrors.min_amount ? "border-red-300" : ""
-                        }`}
+                        className={`block w-full pl-12 rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.min_amount ? "border-red-300" : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                          }`}
                         placeholder="0.00"
+                        onFocus={(e) => e.target.select()}
                       />
                     </div>
                     {formErrors.min_amount && (
@@ -727,7 +813,6 @@ export default function LoanProducts() {
                       </div>
                       <input
                         type="number"
-                        step="0.01"
                         value={productForm.max_amount}
                         onChange={(e) =>
                           setProductForm({
@@ -735,10 +820,10 @@ export default function LoanProducts() {
                             max_amount: e.target.value,
                           })
                         }
-                        className={`block w-full pl-12 rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                          formErrors.max_amount ? "border-red-300" : ""
-                        }`}
+                        className={`block w-full pl-12 rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.max_amount ? "border-red-300" : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                          }`}
                         placeholder="Optional"
+                        onFocus={(e) => e.target.select()}
                       />
                     </div>
                     {formErrors.max_amount && (
@@ -768,8 +853,8 @@ export default function LoanProducts() {
                     {submitting
                       ? "Saving..."
                       : selectedProduct
-                      ? "Save Changes"
-                      : "Create Product"}
+                        ? "Save Changes"
+                        : "Create Product"}
                   </button>
                 </div>
               </form>
@@ -813,12 +898,15 @@ export default function LoanProducts() {
                     type="text"
                     value={typeForm.product_type}
                     onChange={(e) =>
-                      setTypeForm({ ...typeForm, product_type: e.target.value })
+                      setTypeForm({
+                        ...typeForm,
+                        product_type: e.target.value,
+                      })
                     }
-                    className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                      formErrors.product_type ? "border-red-300" : ""
-                    }`}
+                    className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.product_type ? "border-red-300" : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                      }`}
                     placeholder="e.g., 4 Weeks Standard"
+                    onFocus={(e) => e.target.select()}
                   />
                   {formErrors.product_type && (
                     <p className="text-red-600 text-xs mt-1.5 font-medium">
@@ -841,10 +929,10 @@ export default function LoanProducts() {
                           duration_weeks: e.target.value,
                         })
                       }
-                      className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                        formErrors.duration_weeks ? "border-red-300" : ""
-                      }`}
+                      className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.duration_weeks ? "border-red-300" : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                        }`}
                       placeholder="4"
+                      onFocus={(e) => e.target.select()}
                     />
                     {formErrors.duration_weeks && (
                       <p className="text-red-600 text-xs mt-1.5 font-medium">
@@ -867,10 +955,10 @@ export default function LoanProducts() {
                           interest_rate: e.target.value,
                         })
                       }
-                      className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors ${
-                        formErrors.interest_rate ? "border-red-300" : ""
-                      }`}
+                      className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${formErrors.interest_rate ? "border-red-300" : "border-gray-300 hover:border-gray-400 focus:shadow-md"
+                        }`}
                       placeholder="15"
+                      onFocus={(e) => e.target.select()}
                     />
                     {formErrors.interest_rate && (
                       <p className="text-red-600 text-xs mt-1.5 font-medium">
@@ -881,22 +969,55 @@ export default function LoanProducts() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-                    Processing Fee (%)
-                  </label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    value={typeForm.processing_fee_rate}
-                    onChange={(e) =>
-                      setTypeForm({
-                        ...typeForm,
-                        processing_fee_rate: e.target.value,
-                      })
-                    }
-                    className="block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-colors"
-                    placeholder="0"
-                  />
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-sm font-semibold text-gray-700">
+                      Processing Fee ({typeForm.processing_fee_mode === 'percentage' ? '%' : 'Amount'})
+                    </label>
+                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                      <button
+                        type="button"
+                        onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: 'percentage' })}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${typeForm.processing_fee_mode === 'percentage'
+                          ? 'bg-white text-brand-primary shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                      >
+                        %
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: 'fixed' })}
+                        className={`px-3 py-1 text-xs font-medium rounded-md transition-all ${typeForm.processing_fee_mode === 'fixed'
+                          ? 'bg-white text-brand-primary shadow-sm'
+                          : 'text-gray-500 hover:text-gray-700'
+                          }`}
+                      >
+                        Amount
+                      </button>
+                    </div>
+                  </div>
+                  <div className="relative">
+                    {typeForm.processing_fee_mode === 'fixed' && (
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <span className="text-gray-500 sm:text-sm">KES</span>
+                      </div>
+                    )}
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={typeForm.processing_fee_rate}
+                      onChange={(e) =>
+                        setTypeForm({
+                          ...typeForm,
+                          processing_fee_rate: e.target.value,
+                        })
+                      }
+                      className={`block w-full rounded-xl border-gray-300 shadow-sm focus:border-brand-primary focus:ring-brand-primary/20 sm:text-sm py-2.5 transition-all outline-none ${typeForm.processing_fee_mode === 'fixed' ? 'pl-12' : ''
+                        } border-gray-300 hover:border-gray-400 focus:shadow-md`}
+                      placeholder="0"
+                      onFocus={(e) => e.target.select()}
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-4 pt-4 mt-4 border-t border-gray-100">
@@ -918,8 +1039,8 @@ export default function LoanProducts() {
                     {submitting
                       ? "Saving..."
                       : selectedType
-                      ? "Save Changes"
-                      : "Add Type"}
+                        ? "Save Changes"
+                        : "Add Type"}
                   </button>
                 </div>
               </form>

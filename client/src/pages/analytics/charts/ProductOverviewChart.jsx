@@ -2,42 +2,38 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { PieChart, Download, Filter, Calendar, Globe, Building } from 'lucide-react';
+import { PieChart, Download, Calendar, Globe, Building } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 
 // Constants
 const HEADER_COLOR = "#586ab1";
 const SUB_PRODUCT_COLORS = {
-  0: "#10b981", // Green
-  1: "#f59e0b", // Amber
-  2: "#8b5cf6", // Purple
-  3: "#ef4444", // Red
-  4: "#06b6d4", // Cyan
-  5: "#ec4899", // Pink
-  6: "#84cc16", // Lime
-  7: "#f97316"  // Orange
+  0: "#10b981",
+  1: "#f59e0b",
+  2: "#8b5cf6",
+  3: "#ef4444",
+  4: "#06b6d4",
+  5: "#ec4899",
+  6: "#84cc16",
+  7: "#f97316"
 };
 
 // Custom Tooltip Component
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
-  
+
   const productData = payload[0]?.payload;
-  
+
   return (
-    <div 
+    <div
       className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200"
-      style={{ 
-        zIndex: 10000,
-        pointerEvents: 'none',
-        minWidth: '280px',
-        maxWidth: '320px'
-      }}
+      style={{ zIndex: 10000, pointerEvents: 'none', minWidth: '280px', maxWidth: '320px' }}
     >
       <p className="font-bold text-slate-600 mb-3 text-sm border-b pb-2">
         {productData?.productName}
       </p>
-      
+
       <div className="space-y-2 mb-3">
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Total Loans:</span>
@@ -49,7 +45,6 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {productData?.totalAmount?.toLocaleString()}
           </span>
         </div>
-      
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Avg Loan Size:</span>
           <span className="text-slate-600 font-bold text-xs">
@@ -58,28 +53,22 @@ const CustomTooltip = ({ active, payload }) => {
         </div>
       </div>
 
-      {/* Sub-products breakdown */}
       {productData?.subProducts && productData.subProducts.length > 0 && (
         <div className="border-t pt-2">
-          <p className="text-xs font-semibold text-gray-700 mb-2">Product Types </p>
+          <p className="text-xs font-semibold text-gray-700 mb-2">Product Types</p>
           <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
             {productData.subProducts.map((sub, idx) => (
               <div key={idx} className="flex flex-col gap-1">
-                {/* Product Type Name */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 flex-1">
-                    <div 
-                      className="w-2 h-2 rounded-full flex-shrink-0" 
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0"
                       style={{ backgroundColor: SUB_PRODUCT_COLORS[idx % 8] }}
                     />
                     <span className="text-xs font-medium text-gray-700 truncate">{sub.name}</span>
                   </div>
-                  <span className="text-xs text-gray-500 font-medium">
-                    {sub.percentage}%
-                  </span>
+                  <span className="text-xs text-gray-500 font-medium">{sub.percentage}%</span>
                 </div>
-                
-                {/* Count and Amount */}
                 <div className="flex justify-between items-center pl-4">
                   <div className="flex flex-col">
                     <span className="text-xs text-gray-600">Count:</span>
@@ -92,10 +81,8 @@ const CustomTooltip = ({ active, payload }) => {
                     </span>
                   </div>
                 </div>
-                
-                {/* Divider except for last item */}
                 {idx < productData.subProducts.length - 1 && (
-                  <div className="border-t border-gray-100 pt-1"></div>
+                  <div className="border-t border-gray-100 pt-1" />
                 )}
               </div>
             ))}
@@ -110,8 +97,8 @@ const CustomTooltip = ({ active, payload }) => {
 const getDateFilter = (dateRange, isThisPeriod = false) => {
   const now = new Date();
   const dateFilter = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       if (isThisPeriod) {
         const day = now.getDay();
@@ -153,44 +140,42 @@ const getDateFilter = (dateRange, isThisPeriod = false) => {
     default:
       return null;
   }
-  
+
   return dateFilter.toISOString();
 };
 
-// Fetch function for product breakdown with region and branch filters
-const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+// Fetch function for product breakdown
+const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('loans')
       .select('product_name, product_type, scored_amount, total_payable, created_at, branch_id, region_id')
-      .eq('status', 'disbursed');
+      .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId);
 
-    // Filter by branch if specified
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
     } else if (selectedRegion !== 'all') {
-      // Filter by region if specified
       const { data: regionData } = await supabase
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
-        // Get all branches in this region
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
-          const branchIds = branchesInRegion.map(b => b.id);
-          query = query.in('branch_id', branchIds);
+          query = query.in('branch_id', branchesInRegion.map(b => b.id));
         }
       }
     }
 
-    // Handle date filtering
     if (customDateRange?.startDate && customDateRange?.endDate) {
       query = query
         .gte('created_at', customDateRange.startDate)
@@ -203,47 +188,30 @@ const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, 
     }
 
     const { data, error } = await query;
-    
+
     if (error) {
       console.error("Error fetching product breakdown:", error);
       return [];
     }
 
-    if (!data || data.length === 0) {
-      return [];
-    }
+    if (!data || data.length === 0) return [];
 
-    // Group by product_name and product_type
     const productMap = {};
-    
+
     data.forEach(loan => {
       const productName = loan.product_name || 'Unknown';
       const productType = loan.product_type || 'Unknown';
-      
-      // Initialize product if not exists
+
       if (!productMap[productName]) {
-        productMap[productName] = {
-          productName,
-          types: {},
-          totalCount: 0,
-          totalAmount: 0,
-          totalPayable: 0
-        };
+        productMap[productName] = { productName, types: {}, totalCount: 0, totalAmount: 0, totalPayable: 0 };
       }
-      
-      // Initialize product type if not exists
       if (!productMap[productName].types[productType]) {
-        productMap[productName].types[productType] = {
-          name: productType,
-          count: 0,
-          amount: 0
-        };
+        productMap[productName].types[productType] = { name: productType, count: 0, amount: 0 };
       }
-      
-      // Aggregate data
+
       const scoredAmount = Number(loan.scored_amount) || 0;
       const payableAmount = Number(loan.total_payable) || 0;
-      
+
       productMap[productName].types[productType].count++;
       productMap[productName].types[productType].amount += scoredAmount;
       productMap[productName].totalCount++;
@@ -251,31 +219,25 @@ const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, 
       productMap[productName].totalPayable += payableAmount;
     });
 
-    // Transform to chart format
     const chartData = Object.values(productMap).map(product => {
-      const subProducts = Object.values(product.types).map(type => ({
-        name: type.name,
-        count: type.count,
-        amount: type.amount,
-        percentage: Math.round((type.count / product.totalCount) * 100 * 10) / 10
-      }));
+      const subProducts = Object.values(product.types)
+        .map(type => ({
+          name: type.name,
+          count: type.count,
+          amount: type.amount,
+          percentage: Math.round((type.count / product.totalCount) * 1000) / 10
+        }))
+        .sort((a, b) => b.amount - a.amount);
 
-      // Sort sub-products by amount descending
-      subProducts.sort((a, b) => b.amount - a.amount);
-
-      // Create dynamic properties for stacked bars
       const chartDataObj = {
         productName: product.productName,
         totalCount: product.totalCount,
         totalAmount: Math.round(product.totalAmount),
         totalPayable: Math.round(product.totalPayable),
-        avgLoanSize: product.totalCount > 0 
-          ? Math.round(product.totalAmount / product.totalCount) 
-          : 0,
+        avgLoanSize: product.totalCount > 0 ? Math.round(product.totalAmount / product.totalCount) : 0,
         subProducts
       };
 
-      // Add each sub-product as a separate property for stacking using AMOUNT
       subProducts.forEach((sub, idx) => {
         chartDataObj[`type_${idx}`] = sub.amount;
       });
@@ -283,7 +245,6 @@ const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, 
       return chartDataObj;
     });
 
-    // Sort by total amount descending
     return chartData.sort((a, b) => b.totalAmount - a.totalAmount);
 
   } catch (error) {
@@ -292,7 +253,9 @@ const fetchProductBreakdown = async (dateRange, selectedRegion, selectedBranch, 
   }
 };
 
+// Main Component
 const ProductBreakdownChart = () => {
+  const { tenant } = useTenant();
   const [localData, setLocalData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [localFilters, setLocalFilters] = useState({
@@ -306,38 +269,51 @@ const ProductBreakdownChart = () => {
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
 
-  // Fetch available regions and branches on mount
+  const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
+    if (!tenant?.id) return;
+    try {
+      const productData = await fetchProductBreakdown(
+        filters.dateRange,
+        filters.region,
+        filters.branch,
+        customDateRange,
+        tenant.id
+      );
+      setLocalData(productData);
+    } catch (error) {
+      console.error("Error fetching product data:", error);
+      setLocalData([]);
+    }
+  }, [tenant?.id]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
-      // Fetch all regions
-      const { data: regionsData } = await supabase
-        .from('regions')
-        .select('id, name')
-        .order('name');
-      
-      if (regionsData) {
-        setAvailableRegions(regionsData);
-      }
-      
-      // Fetch all branches
-      const { data: branchesData } = await supabase
-        .from('branches')
-        .select('id, name, code, region_id')
-        .order('name');
-      
-      if (branchesData) {
-        setAvailableBranches(branchesData);
-      }
-      
-      // Fetch initial product data
-      const productData = await fetchProductBreakdown('all', 'all', 'all', null);
-      setLocalData(productData);
-    };
-    
-    fetchInitialData();
-  }, []);
+      try {
+        const { data: regionsData } = await supabase
+          .from('regions')
+          .select('id, name')
+          .eq('tenant_id', tenant.id)
+          .order('name');
 
-  // Filter branches by selected region
+        if (regionsData) setAvailableRegions(regionsData);
+
+        const { data: branchesData } = await supabase
+          .from('branches')
+          .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
+          .order('name');
+
+        if (branchesData) setAvailableBranches(branchesData);
+
+        await fetchDataWithFilters({ dateRange: 'all', region: 'all', branch: 'all' });
+      } catch (error) {
+        console.error("Error fetching initial data:", error);
+      }
+    };
+
+    if (tenant?.id) fetchInitialData();
+  }, [tenant?.id, fetchDataWithFilters]);
+
   useEffect(() => {
     if (localFilters.region === 'all') {
       setSelectedRegionId(null);
@@ -347,36 +323,16 @@ const ProductBreakdownChart = () => {
     }
   }, [localFilters.region, availableRegions]);
 
-  const filteredBranches = localFilters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = localFilters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
-  const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
-    try {
-      const productData = await fetchProductBreakdown(
-        filters.dateRange,
-        filters.region,
-        filters.branch,
-        customDateRange
-      );
-      setLocalData(productData);
-    } catch (error) {
-      console.error("Error fetching product data:", error);
-      setLocalData([]);
-    }
-  }, []);
-
-  // Handle filter changes
   const handleLocalFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...localFilters };
-    
-    // Reset branch when region changes
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
-      // Update selected region ID
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -387,6 +343,7 @@ const ProductBreakdownChart = () => {
       newFilters.dateRange = value;
       if (value === 'custom') {
         setShowCustomDate(true);
+        setLocalFilters(newFilters);
         return;
       } else {
         setShowCustomDate(false);
@@ -394,53 +351,38 @@ const ProductBreakdownChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setLocalFilters(newFilters);
-    
-    // Prepare custom date range if applicable
-    let customDateRange = null;
-    if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
-      customDateRange = {
-        startDate: newFilters.customStartDate,
-        endDate: newFilters.customEndDate
-      };
-    }
-    
+
+    const customDateRange =
+      newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate
+        ? { startDate: newFilters.customStartDate, endDate: newFilters.customEndDate }
+        : null;
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [localFilters, availableRegions, fetchDataWithFilters]);
 
-  // Apply custom date filter
   const applyCustomDateFilter = useCallback(async () => {
     if (localFilters.customStartDate && localFilters.customEndDate) {
-      const customDateRange = {
-        startDate: localFilters.customStartDate,
-        endDate: localFilters.customEndDate
-      };
-      await fetchDataWithFilters({ ...localFilters, dateRange: 'custom' }, customDateRange);
+      await fetchDataWithFilters(
+        { ...localFilters, dateRange: 'custom' },
+        { startDate: localFilters.customStartDate, endDate: localFilters.customEndDate }
+      );
     }
   }, [localFilters, fetchDataWithFilters]);
 
-  // Export function
   const handleExport = useCallback(() => {
     if (!localData || localData.length === 0) return;
-    
-    const csvRows = [];
-    csvRows.push(['Product Name', 'Product Type', 'Count', 'Amount', 'Percentage']);
-    
+
+    const csvRows = [['Product Name', 'Product Type', 'Count', 'Amount', 'Percentage']];
+
     localData.forEach(product => {
       product.subProducts?.forEach(sub => {
-        csvRows.push([
-          product.productName,
-          sub.name,
-          sub.count,
-          sub.amount,
-          sub.percentage
-        ]);
+        csvRows.push([product.productName, sub.name, sub.count, sub.amount, sub.percentage]);
       });
     });
-    
+
     const csv = csvRows.map(row => row.join(',')).join('\n');
-    
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -452,8 +394,42 @@ const ProductBreakdownChart = () => {
     window.URL.revokeObjectURL(url);
   }, [localData]);
 
-  // Get max number of sub-products for rendering bars
   const maxSubProducts = Math.max(...localData.map(p => p.subProducts?.length || 0), 0);
+
+  const filterConfigs = [
+    {
+      icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+      value: localFilters.dateRange,
+      onChange: (e) => handleLocalFilterChange('dateRange', e.target.value),
+      options: [
+        { value: "all", label: "All Time" },
+        { value: "week", label: "This Week" },
+        { value: "month", label: "This Month" },
+        { value: "quarter", label: "This Quarter" },
+        { value: "6months", label: "Last 6 Months" },
+        { value: "year", label: "This Year" },
+        { value: "custom", label: "Custom Range" }
+      ]
+    },
+    {
+      icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+      value: localFilters.region,
+      onChange: (e) => handleLocalFilterChange('region', e.target.value),
+      options: [
+        { value: "all", label: "All Regions" },
+        ...availableRegions.map(r => ({ value: r.name, label: r.name }))
+      ]
+    },
+    {
+      icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+      value: localFilters.branch,
+      onChange: (e) => handleLocalFilterChange('branch', e.target.value),
+      options: [
+        { value: "all", label: "All Branches" },
+        ...filteredBranches.map(b => ({ value: b.id, label: b.name }))
+      ]
+    }
+  ];
 
   return (
     <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
@@ -462,13 +438,13 @@ const ProductBreakdownChart = () => {
         <div className="flex items-center gap-3">
           <PieChart className="w-6 h-6" style={{ color: HEADER_COLOR }} />
           <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>
-            Product  Distribution
+            Product Distribution
           </h3>
         </div>
         <button
           onClick={handleExport}
-          className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
           disabled={!localData || localData.length === 0}
+          className="flex items-center gap-2 text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
         >
           <Download className="w-4 h-4" />
           Export
@@ -476,138 +452,77 @@ const ProductBreakdownChart = () => {
       </div>
 
       {/* Filters */}
-    {/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.dateRange,
-        onChange: (e) =>
-          handleLocalFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.region,
-        onChange: (e) =>
-          handleLocalFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(region => ({
-            value: region.name,
-            label: region.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.branch,
-        onChange: (e) =>
-          handleLocalFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(branch => ({
-            value: branch.id,
-            label: `${branch.name}`
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {filterConfigs.map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
           ))}
-        </select>
+        </div>
+
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
+            <input
+              type="date"
+              value={localFilters.customStartDate}
+              onChange={(e) => handleLocalFilterChange('customStartDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            <span className="text-slate-500 text-sm">to</span>
+            <input
+              type="date"
+              value={localFilters.customEndDate}
+              onChange={(e) => handleLocalFilterChange('customEndDate', e.target.value)}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!localFilters.customStartDate || !localFilters.customEndDate}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
       </div>
-    ))}
-  </div>
 
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
-
-      <input
-        type="date"
-        value={localFilters.customStartDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customStartDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={localFilters.customEndDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customEndDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
-
-      
       {/* Chart */}
       <div className="h-96">
         {localData && localData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={localData}
-              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
-            >
+            <BarChart data={localData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="productName" 
-                angle={-45} 
-                textAnchor="end" 
+              <XAxis
+                dataKey="productName"
+                angle={-45}
+                textAnchor="end"
                 height={80}
                 fontSize={12}
               />
-              <YAxis 
+              <YAxis
                 fontSize={12}
                 tickFormatter={(value) => `Ksh ${(value / 1000).toFixed(0)}k`}
                 label={{ value: 'Loan Amount (Ksh)', angle: -90, position: 'insideLeft' }}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip />}
                 cursor={{ fill: 'rgba(88, 106, 177, 0.1)' }}
-                wrapperStyle={{ 
-                  zIndex: 10000,
-                  outline: 'none'
-                }}
+                wrapperStyle={{ zIndex: 10000, outline: 'none' }}
                 position={{ y: 0 }}
                 allowEscapeViewBox={{ x: true, y: true }}
               />
@@ -616,19 +531,21 @@ const ProductBreakdownChart = () => {
                 align="center"
                 height={36}
                 wrapperStyle={{ fontSize: 11 }}
-                payload={localData[0]?.subProducts?.map((sub, idx) => ({
-                  value: sub.name,
-                  type: 'rect',
-                  color: SUB_PRODUCT_COLORS[idx % 8]
-                })) || []}
+                payload={
+                  localData[0]?.subProducts?.map((sub, idx) => ({
+                    value: sub.name,
+                    type: 'rect',
+                    color: SUB_PRODUCT_COLORS[idx % 8]
+                  })) || []
+                }
               />
               {Array.from({ length: maxSubProducts }).map((_, idx) => (
-                <Bar 
+                <Bar
                   key={idx}
-                  dataKey={`type_${idx}`} 
+                  dataKey={`type_${idx}`}
                   stackId="a"
                   fill={SUB_PRODUCT_COLORS[idx % 8]}
-                  radius={idx === (maxSubProducts - 1) ? [2, 2, 0, 0] : [0, 0, 0, 0]}
+                  radius={idx === maxSubProducts - 1 ? [2, 2, 0, 0] : [0, 0, 0, 0]}
                 />
               ))}
             </BarChart>
@@ -638,14 +555,11 @@ const ProductBreakdownChart = () => {
             <div className="text-center">
               <PieChart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500">No product data available</p>
-              <p className="text-gray-400 text-sm mt-1">
-                Try adjusting your filters or date range
-              </p>
+              <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or date range</p>
             </div>
           </div>
         )}
       </div>
-
     </div>
   );
 };

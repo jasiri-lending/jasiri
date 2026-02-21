@@ -4,14 +4,15 @@ import {
 } from 'recharts';
 import { Heart, Calendar, Globe, Building } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 
 // Helper function to get date range start
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       startDate.setDate(now.getDate() - 6);
       break;
@@ -31,13 +32,13 @@ const getDateRangeStart = (dateRange) => {
     default:
       return null;
   }
-  
+
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
 // Fetch marital status data with filters
-const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('customers')
@@ -50,6 +51,7 @@ const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch,
         branches!inner(name, code, region_id),
         regions!inner(name)
       `)
+      .eq('tenant_id', tenantId)
       .not('marital_status', 'is', null);
 
     // Filter by branch if specified
@@ -60,14 +62,16 @@ const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch,
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -88,7 +92,7 @@ const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch,
     }
 
     const { data, error } = await query;
-    
+
     if (error) {
       console.error("Error fetching marital status:", error);
       return [];
@@ -115,6 +119,7 @@ const fetchMaritalStatusData = async (dateRange, selectedRegion, selectedBranch,
 };
 
 const MaritalStatusChart = () => {
+  const { tenant } = useTenant();
   const [data, setData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [filters, setFilters] = useState({
@@ -128,7 +133,24 @@ const MaritalStatusChart = () => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
-  
+
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
+    if (!tenant?.id) return;
+    try {
+      const maritalData = await fetchMaritalStatusData(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange,
+        tenant.id
+      );
+      setData(maritalData);
+    } catch (error) {
+      console.error("Error fetching marital status data:", error);
+      setData([]);
+    }
+  }, [tenant?.id]);
 
   // Fetch available regions and branches on mount
   useEffect(() => {
@@ -137,23 +159,25 @@ const MaritalStatusChart = () => {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -164,9 +188,11 @@ const MaritalStatusChart = () => {
         console.error("Error fetching initial data:", error);
       }
     };
-    
-    fetchInitialData();
-  }, []);
+
+    if (tenant?.id) {
+      fetchInitialData();
+    }
+  }, [tenant?.id, fetchDataWithFilters]);
 
   // Filter branches by selected region
   useEffect(() => {
@@ -178,34 +204,25 @@ const MaritalStatusChart = () => {
     }
   }, [filters.region, availableRegions]);
 
-  const filteredBranches = filters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = filters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
-  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    try {
-      const maritalData = await fetchMaritalStatusData(
-        filterParams.dateRange,
-        filterParams.region,
-        filterParams.branch,
-        customDateRange
-      );
-      setData(maritalData);
-    } catch (error) {
-      console.error("Error fetching marital status data:", error);
-      setData([]);
-    } 
-  }, []);
+  // Initial data fetch sync with filters
+  useEffect(() => {
+    if (tenant?.id) {
+      fetchDataWithFilters(filters);
+    }
+  }, [fetchDataWithFilters]);
 
   // Handle filter changes
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
-    
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -223,19 +240,19 @@ const MaritalStatusChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setFilters(newFilters);
-    
+
     // Don't refetch if only viewType changed
     if (key === 'viewType') {
       return;
     }
-    
+
     // Don't refetch if we're setting custom dates (wait for apply)
     if (key === 'customStartDate' || key === 'customEndDate') {
       return;
     }
-    
+
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -243,7 +260,7 @@ const MaritalStatusChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [filters, availableRegions, fetchDataWithFilters]);
 
@@ -261,19 +278,19 @@ const MaritalStatusChart = () => {
   // Export function
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
-    
+
     const total = data.reduce((sum, item) => sum + item.value, 0);
     const csvData = data.map(item => ({
       'Marital Status': item.name,
       'Count': item.value,
       'Percentage': Math.round((item.value / total) * 100) + '%'
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -289,10 +306,10 @@ const MaritalStatusChart = () => {
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) return null;
-    
+
     const item = payload[0].payload;
     const percentage = total > 0 ? Math.round((item.value / total) * 100) : 0;
-    
+
     return (
       <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
         <p className="font-bold text-slate-600 mb-2 text-sm">{item.name}</p>
@@ -416,62 +433,61 @@ const MaritalStatusChart = () => {
       </div>
 
       {/* Chart */}
-    <div className="h-80">
-  {data && data.length > 0 ? (
-    <ResponsiveContainer width="100%" height="100%">
-      {filters.viewType === 'pie' ? (
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={60}
-            outerRadius={100}
-            paddingAngle={5}
-            dataKey="value"
-            label={({ name, value }) =>
-              `${name}: ${Math.round((value / total) * 100)}%`
-            }
-          >
-            {data.map((entry, index) => (
-              <Cell
-                key={`cell-${index}`}
-                fill={COLORS[index % COLORS.length]}
-              />
-            ))}
-          </Pie>
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-        </PieChart>
-      ) : (
-        <BarChart data={data}>
-          <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-          <XAxis dataKey="name" />
-          <YAxis />
-          <Tooltip content={<CustomTooltip />} />
-          <Legend />
-          <Bar
-            dataKey="value"
-            name="Count"
-            fill={HEADER_COLOR}
-            radius={[4, 4, 0, 0]}
-          />
-        </BarChart>
-      )}
-    </ResponsiveContainer>
-  ) : (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">No marital status data available</p>
-        <p className="text-gray-400 text-sm mt-1">
-          Try adjusting your filters or date range
-        </p>
+      <div className="h-80">
+        {data && data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            {filters.viewType === 'pie' ? (
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                  label={({ name, value }) =>
+                    `${name}: ${Math.round((value / total) * 100)}%`
+                  }
+                >
+                  {data.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={COLORS[index % COLORS.length]}
+                    />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+              </PieChart>
+            ) : (
+              <BarChart data={data}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                <XAxis dataKey="name" />
+                <YAxis />
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+                <Bar
+                  dataKey="value"
+                  name="Count"
+                  fill={HEADER_COLOR}
+                  radius={[4, 4, 0, 0]}
+                />
+              </BarChart>
+            )}
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <Heart className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">No marital status data available</p>
+              <p className="text-gray-400 text-sm mt-1">
+                Try adjusting your filters or date range
+              </p>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )}
-</div>
-
 
     </div>
   );

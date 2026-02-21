@@ -255,9 +255,9 @@ const OperationsDashboard = () => {
   });
 
   // Filter Helpers
-  const fetchBranches = async (regionId) => {
+  const fetchBranches = async (regionId, tenantId) => {
     try {
-      let query = supabase.from("branches").select("id, name");
+      let query = supabase.from("branches").select("id, name").eq("tenant_id", tenantId);
       if (regionId && regionId !== "all") {
         query = query.eq("region_id", regionId);
       }
@@ -270,12 +270,13 @@ const OperationsDashboard = () => {
     }
   };
 
-  const fetchRelationshipOfficers = async (branchId) => {
+  const fetchRelationshipOfficers = async (branchId, tenantId) => {
     try {
       let query = supabase
         .from("users")
         .select("id, full_name")
-        .eq("role", "relationship_officer");
+        .eq("role", "relationship_officer")
+        .eq("tenant_id", tenantId);
 
       if (branchId && branchId !== "all") {
         query = query.eq("branch_id", branchId);
@@ -298,9 +299,20 @@ const OperationsDashboard = () => {
     if (!Array.isArray(data)) return [];
 
     return data.filter(item => {
+      // Role-based restrictions
+      if (userProfile?.role === 'relationship_officer') {
+        const field = type === 'loans' ? 'booked_by' : 'created_by';
+        if (String(item[field]) !== String(userProfile.id)) return false;
+      } else if (['branch_manager', 'customer_service_officer'].includes(userProfile?.role)) {
+        if (item.branch_id !== userProfile.branch_id) return false;
+      } else if (userProfile?.role === 'regional_manager') {
+        if (item.region_id !== userProfile.region_id) return false;
+      }
+
+      // Explicit filter selections
       if (selectedRegion !== "all" && item.region_id !== selectedRegion) return false;
       if (selectedBranch !== "all" && item.branch_id !== selectedBranch) return false;
-      
+
       if (selectedRO !== "all") {
         const field = type === 'loans' ? 'booked_by' : 'created_by';
         if (String(item[field]) !== String(selectedRO)) return false;
@@ -308,21 +320,31 @@ const OperationsDashboard = () => {
 
       return true;
     });
-  }, [selectedRegion, selectedBranch, selectedRO]);
+  }, [selectedRegion, selectedBranch, selectedRO, userProfile]);
 
   // Handle Filter Changes
   const handleRegionChange = async (val) => {
     setSelectedRegion(val);
     setSelectedBranch("all");
     setSelectedRO("all");
-    const branches = await fetchBranches(val);
+
+    // Get tenantId from profile
+    const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+    const tenantId = profile.tenant_id;
+
+    const branches = await fetchBranches(val, tenantId);
     setAvailableBranches(branches);
   };
 
   const handleBranchChange = async (val) => {
     setSelectedBranch(val);
     setSelectedRO("all");
-    const ros = await fetchRelationshipOfficers(val);
+
+    // Get tenantId from profile
+    const profile = JSON.parse(localStorage.getItem("profile") || "{}");
+    const tenantId = profile.tenant_id;
+
+    const ros = await fetchRelationshipOfficers(val, tenantId);
     setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
   };
 
@@ -331,44 +353,44 @@ const OperationsDashboard = () => {
   // Helper function to get date range based on filter
   const getDateRange = useCallback(() => {
     const today = getLocalYYYYMMDD();
-    
+
     if (dateFilter === 'custom_range' && customStartDate && customEndDate) {
       return { start: customStartDate, end: customEndDate };
     }
-    
+
     if (dateFilter === 'today') {
       return { start: today, end: today };
     }
-    
+
     if (dateFilter === 'yesterday') {
       const yesterday = new Date();
       yesterday.setDate(yesterday.getDate() - 1);
       const yesterdayStr = getLocalYYYYMMDD(yesterday);
       return { start: yesterdayStr, end: yesterdayStr };
     }
-    
+
     if (dateFilter === 'this_week') {
       const now = new Date();
       const startOfWeek = new Date(now);
       startOfWeek.setDate(now.getDate() - now.getDay());
       return { start: getLocalYYYYMMDD(startOfWeek), end: today };
     }
-    
+
     if (dateFilter === 'this_month') {
       const startOfMonth = today.substring(0, 7) + '-01';
       return { start: startOfMonth, end: today };
     }
-    
+
     if (dateFilter === 'last_month') {
       const now = new Date();
       const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
       const lastMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0);
-      return { 
-        start: getLocalYYYYMMDD(lastMonth), 
-        end: getLocalYYYYMMDD(lastMonthEnd) 
+      return {
+        start: getLocalYYYYMMDD(lastMonth),
+        end: getLocalYYYYMMDD(lastMonthEnd)
       };
     }
-    
+
     // all_time
     return { start: '2000-01-01', end: today };
   }, [dateFilter, customStartDate, customEndDate]);
@@ -425,6 +447,7 @@ const OperationsDashboard = () => {
       const { data: loans, error: loansError } = await supabase
         .from('loans')
         .select('*')
+        .eq('tenant_id', tenantId);
 
       if (loansError) console.error("Error fetching loans:", loansError);
       const loansData = loans || [];
@@ -442,6 +465,7 @@ const OperationsDashboard = () => {
         const { data: payments } = await supabase
           .from('loan_payments')
           .select('*')
+          .eq('tenant_id', tenantId);
         paymentsData = payments || [];
       } catch (error) {
         console.warn('loan_payments table not available:', error);
@@ -453,6 +477,7 @@ const OperationsDashboard = () => {
         const { data: installments } = await supabase
           .from('loan_installments')
           .select('*')
+          .eq('tenant_id', tenantId);
         installmentsData = installments || [];
       } catch (error) {
         console.warn('loan_installments table not available:', error);
@@ -498,21 +523,26 @@ const OperationsDashboard = () => {
       if (!userProfile) {
         const { data: userP } = await supabase.from('users').select('*').eq('id', userId).single();
         if (userP) {
-          setUserProfile(userP);
-          
-          if (userP.role === 'branch_manager') {
-            setSelectedBranch(userP.branch_id);
-            setAvailableBranches([{ id: userP.branch_id, name: 'My Branch' }]);
+          const { data: profileP } = await supabase.from('profiles').select('*').eq('id', userId).single();
+          const fullProfile = { ...userP, ...profileP };
+          setUserProfile(fullProfile);
+
+          if (['branch_manager', 'customer_service_officer'].includes(fullProfile.role)) {
+            setSelectedBranch(fullProfile.branch_id);
+            setAvailableBranches([{ id: fullProfile.branch_id, name: 'My Branch' }]);
+
+            const ros = await fetchRelationshipOfficers(fullProfile.branch_id, tenantId);
+            setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+          } else {
+            const branches = await fetchBranches("all", tenantId);
+            setAvailableBranches([{ id: "all", name: "All Branches" }, ...branches]);
+
+            const ros = await fetchRelationshipOfficers("all", tenantId);
+            setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
+
+            const { data: regions } = await supabase.from('regions').select('id, name').eq('tenant_id', tenantId);
+            setAvailableRegions(regions || []);
           }
-
-          const branches = await fetchBranches("all");
-          setAvailableBranches([{ id: "all", name: "All Branches" }, ...branches]);
-
-          const ros = await fetchRelationshipOfficers("all");
-          setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
-
-          const { data: regions } = await supabase.from('regions').select('id, name');
-          setAvailableRegions(regions || []);
         }
       }
 
@@ -601,10 +631,10 @@ const OperationsDashboard = () => {
         const paidDate = getLocalYYYYMMDD(p.paid_at);
         return paidDate >= revenueStartDate && paidDate <= revenueEndDate;
       });
-      
+
       // Interest Earned: Sum all interest_paid from loan_payments (regardless of payment_type)
       const interestEarned = dateRangePayments.reduce((sum, p) => sum + (Number(p.interest_paid) || 0), 0);
-      
+
       // Penalties: from loans.net_penalties (for active loans with penalties)
       // net_penalties is a generated column: (total_penalties - penalty_waived)
       const netPenalties = activeLoans.reduce((sum, l) => sum + (Number(l.net_penalties) || 0), 0);
@@ -632,10 +662,10 @@ const OperationsDashboard = () => {
       const overdueLoansCount = overdueLoans.length;
 
       const defaultedLoans = loansData.filter(l => l.repayment_state === 'defaulted');
-      const defaultRate = activeLoans.length > 0 ? 
+      const defaultRate = activeLoans.length > 0 ?
         ((defaultedLoans.length / activeLoans.length) * 100).toFixed(1) : 0;
 
-      const pendingApps = loansData.filter(l => 
+      const pendingApps = loansData.filter(l =>
         ['booked', 'bm_review', 'rn_review', 'ca_review'].includes(l.status)
       ).length;
 
@@ -650,7 +680,7 @@ const OperationsDashboard = () => {
 
       // ===== TASKS =====
       const todayInstallments = filteredInstallments.filter(inst => inst.due_date === today);
-      
+
       const tasks = {
         approvedNotDisbursed: loansData.filter(l => l.status === 'ready_for_disbursement').length,
         loansDueToday: todayInstallments.length,
@@ -673,7 +703,7 @@ const OperationsDashboard = () => {
       const callsMade = interactions.filter(i => i.type === 'call').length;
       const successfulCalls = interactions.filter(i => i.type === 'call' && i.outcome === 'successful').length;
       const successRate = callsMade > 0 ? Math.round((successfulCalls / callsMade) * 100) : 0;
-      
+
       const ptpCreated = ptps.length;
       const ptpKeptCount = ptps.filter(p => p.status === 'kept').length;
       const ptpKeptRate = ptpCreated > 0 ? Math.round((ptpKeptCount / ptpCreated) * 100) : 0;
@@ -695,20 +725,20 @@ const OperationsDashboard = () => {
       // Get the last 7 days of payment data
       const last7Days = [];
       const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-      
+
       for (let i = 6; i >= 0; i--) {
         const date = new Date();
         date.setDate(date.getDate() - i);
         const dateStr = getLocalYYYYMMDD(date);
         const dayName = dayNames[date.getDay()];
-        
+
         // Sum all payments for this day
-        const dayPayments = filteredPayments.filter(p => 
+        const dayPayments = filteredPayments.filter(p =>
           p.paid_at && getLocalYYYYMMDD(p.paid_at) === dateStr
         );
-        
+
         const dayAmount = dayPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
-        
+
         last7Days.push({
           name: dayName,
           amount: dayAmount,
@@ -739,13 +769,13 @@ const OperationsDashboard = () => {
         collectorPerformance: { calls: 0, collectedAmount: 0, recoveryRate: 0, ptpKept: 0 },
         disbursement: { failedCount: 0, failedAmount: 0, pendingCount: 0 },
         portfolio: {
-          status: { 
-            labels: Object.keys(statusCounts), 
-            data: Object.values(statusCounts) 
+          status: {
+            labels: Object.keys(statusCounts),
+            data: Object.values(statusCounts)
           },
-          types: { 
-            labels: Object.keys(typeCounts), 
-            data: Object.values(typeCounts) 
+          types: {
+            labels: Object.keys(typeCounts),
+            data: Object.values(typeCounts)
           }
         },
         recentActivity: [],
@@ -768,7 +798,7 @@ const OperationsDashboard = () => {
       // Set actual chart data from database
       setChartData(last7Days);
 
-   
+
 
     } catch (error) {
       console.error("Error calculating metrics:", error);
@@ -803,8 +833,8 @@ const OperationsDashboard = () => {
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                 Live
               </div>
-              <button 
-                onClick={fetchRealData} 
+              <button
+                onClick={fetchRealData}
                 className="p-2 text-gray-500 hover:text-brand-primary hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200"
               >
                 <RefreshCw className="w-5 h-5" />
@@ -819,7 +849,7 @@ const OperationsDashboard = () => {
               value={selectedRegion}
               onChange={handleRegionChange}
               options={[
-                { value: 'all', label: 'All Regions' }, 
+                { value: 'all', label: 'All Regions' },
                 ...availableRegions.map(r => ({ value: r.id, label: r.name }))
               ]}
             />

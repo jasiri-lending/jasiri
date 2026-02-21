@@ -5,7 +5,7 @@ import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner.jsx";
 import {
   MagnifyingGlassIcon,
-  ArrowPathIcon
+  ArrowPathIcon,BanknotesIcon
 } from "@heroicons/react/24/outline";
 
 function LoanApplication() {

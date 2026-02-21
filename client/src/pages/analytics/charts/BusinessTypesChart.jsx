@@ -4,13 +4,14 @@ import {
 } from 'recharts';
 import { Briefcase, Calendar, Globe, Building, Download } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
-  
+
   const data = payload[0]?.payload;
-  
+
   return (
     <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
       <p className="font-bold text-slate-600 mb-3 text-sm">{data?.name}</p>
@@ -41,8 +42,8 @@ const CustomTooltip = ({ active, payload }) => {
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       startDate.setDate(now.getDate() - 6);
       break;
@@ -62,12 +63,12 @@ const getDateRangeStart = (dateRange) => {
     default:
       return null;
   }
-  
+
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
-const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch, customDateRange, showTopTen) => {
+const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch, customDateRange, showTopTen, tenantId) => {
   try {
     let query = supabase
       .from('loans')
@@ -81,6 +82,7 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
         customers!inner(business_type, daily_Sales)
       `)
       .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId)
       .not('customers.business_type', 'is', null);
 
     if (selectedBranch !== 'all') {
@@ -90,14 +92,16 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -117,7 +121,7 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
     }
 
     const { data: loansData, error: loansError } = await query;
-    
+
     if (loansError) {
       console.error("Error fetching business types data:", loansError);
       return [];
@@ -134,10 +138,10 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
       const customer = loan.customers;
       if (customer && customer.business_type && !processedCustomers.has(loan.customer_id)) {
         processedCustomers.add(loan.customer_id);
-        
+
         const businessType = customer.business_type || 'Unknown';
         const dailySales = Number(customer.daily_Sales) || 0;
-        
+
         if (!businessMap[businessType]) {
           businessMap[businessType] = {
             name: businessType,
@@ -145,7 +149,7 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
             totalIncome: 0
           };
         }
-        
+
         businessMap[businessType].count++;
         businessMap[businessType].totalIncome += dailySales;
       }
@@ -153,11 +157,11 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
 
     let result = Object.values(businessMap);
     result.sort((a, b) => b.count - a.count);
-    
+
     if (showTopTen && result.length > 10) {
       result = result.slice(0, 10);
     }
-    
+
     result = result.map(item => ({
       ...item,
       avgDailyIncome: item.count > 0 ? Math.round(item.totalIncome / item.count) : 0
@@ -172,6 +176,7 @@ const fetchBusinessTypesData = async (dateRange, selectedRegion, selectedBranch,
 };
 
 const BusinessTypesChart = () => {
+  const { tenant } = useTenant();
   const [data, setData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [filters, setFilters] = useState({
@@ -186,29 +191,49 @@ const BusinessTypesChart = () => {
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [showTopTen, setShowTopTen] = useState(true);
 
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null, topTen = true) => {
+    if (!tenant?.id) return;
+    try {
+      const businessData = await fetchBusinessTypesData(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange,
+        topTen,
+        tenant.id
+      );
+      setData(businessData);
+    } catch (error) {
+      console.error("Error fetching business types data:", error);
+      setData([]);
+    }
+  }, [tenant?.id]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -218,9 +243,11 @@ const BusinessTypesChart = () => {
         console.error("Error fetching initial data:", error);
       }
     };
-    
-    fetchInitialData();
-  }, []);
+
+    if (tenant?.id) {
+      fetchInitialData();
+    }
+  }, [tenant?.id, fetchDataWithFilters, showTopTen]);
 
   useEffect(() => {
     if (filters.region === 'all') {
@@ -231,37 +258,17 @@ const BusinessTypesChart = () => {
     }
   }, [filters.region, availableRegions]);
 
-  const filteredBranches = filters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = filters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
-
-  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null, topTen = true) => {
-    try {
-      const businessData = await fetchBusinessTypesData(
-        filterParams.dateRange,
-        filterParams.region,
-        filterParams.branch,
-        customDateRange,
-        topTen
-      );
-      setData(businessData);
-    } catch (error) {
-      console.error("Error fetching business types data:", error);
-      setData([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDataWithFilters(filters, null, showTopTen);
-  }, [fetchDataWithFilters, showTopTen]);
 
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
-    
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -279,9 +286,9 @@ const BusinessTypesChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setFilters(newFilters);
-    
+
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -289,7 +296,7 @@ const BusinessTypesChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange, showTopTen);
   }, [filters, availableRegions, fetchDataWithFilters, showTopTen]);
 
@@ -311,19 +318,19 @@ const BusinessTypesChart = () => {
 
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
-    
+
     const csvData = data.map(item => ({
       'Business Type': item.name,
       'Customer Count': item.count || 0,
       'Total Daily Income (Ksh)': item.totalIncome || 0,
       'Average Daily Income (Ksh)': item.avgDailyIncome || 0
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -342,7 +349,7 @@ const BusinessTypesChart = () => {
           <Briefcase className="w-6 h-6" style={{ color: HEADER_COLOR }} />
           <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>Business Types Analysis</h3>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
@@ -463,10 +470,10 @@ const BusinessTypesChart = () => {
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={data} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45} 
-                textAnchor="end" 
+              <XAxis
+                dataKey="name"
+                angle={-45}
+                textAnchor="end"
                 height={60}
                 tick={{ fontSize: 12 }}
               />
@@ -491,6 +498,7 @@ const BusinessTypesChart = () => {
       </div>
     </div>
   );
+
 };
 
 export default BusinessTypesChart;

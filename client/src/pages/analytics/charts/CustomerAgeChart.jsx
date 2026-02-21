@@ -4,13 +4,14 @@ import {
 } from 'recharts';
 import { Users, Calendar, Globe, Building, Download } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 
 const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload || !payload.length) return null;
-  
+
   const data = payload[0]?.payload;
-  
+
   return (
     <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
       <p className="font-bold text-slate-600 mb-3 text-sm">{label}</p>
@@ -47,8 +48,8 @@ const CustomTooltip = ({ active, payload, label }) => {
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       startDate.setDate(now.getDate() - 6);
       break;
@@ -68,12 +69,12 @@ const getDateRangeStart = (dateRange) => {
     default:
       return null;
   }
-  
+
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
-const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('loans')
@@ -86,7 +87,8 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
         regions!inner(name),
         customers!inner(date_of_birth, gender)
       `)
-      .eq('status', 'disbursed');
+      .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId);
 
     if (selectedBranch !== 'all') {
       query = query.eq('branch_id', selectedBranch);
@@ -95,14 +97,16 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -122,7 +126,7 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
     }
 
     const { data: loansData, error: loansError } = await query;
-    
+
     if (loansError) {
       console.error("Error fetching customer age data:", loansError);
       return [];
@@ -154,15 +158,15 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
       const customer = loan.customers;
       if (customer && customer.date_of_birth && !processedCustomers.has(loan.customer_id)) {
         processedCustomers.add(loan.customer_id);
-        
+
         const birthDate = new Date(customer.date_of_birth);
         const age = new Date().getFullYear() - birthDate.getFullYear();
-        
+
         const group = ageGroups.find(g => age >= g.min && age <= g.max);
         if (group) {
           const index = ageGroups.indexOf(group);
           const gender = (customer.gender || 'other').toLowerCase();
-          
+
           if (gender === 'male' || gender === 'm') {
             distribution[index].male++;
           } else if (gender === 'female' || gender === 'f') {
@@ -189,6 +193,7 @@ const fetchCustomerAgeGenderData = async (dateRange, selectedRegion, selectedBra
 };
 
 const CustomerAgeChart = () => {
+  const { tenant } = useTenant();
   const [data, setData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [filters, setFilters] = useState({
@@ -203,29 +208,49 @@ const CustomerAgeChart = () => {
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
 
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
+    if (!tenant?.id) return;
+    try {
+      const distribution = await fetchCustomerAgeGenderData(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange,
+        tenant.id
+      );
+      setData(distribution);
+    } catch (error) {
+      console.error("Error fetching customer age data:", error);
+      setData([]);
+    }
+  }, [tenant?.id]);
+
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -236,9 +261,11 @@ const CustomerAgeChart = () => {
         console.error("Error fetching initial data:", error);
       }
     };
-    
-    fetchInitialData();
-  }, []);
+
+    if (tenant?.id) {
+      fetchInitialData();
+    }
+  }, [tenant?.id, fetchDataWithFilters]);
 
   useEffect(() => {
     if (filters.region === 'all') {
@@ -249,36 +276,17 @@ const CustomerAgeChart = () => {
     }
   }, [filters.region, availableRegions]);
 
-  const filteredBranches = filters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = filters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
-
-  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    try {
-      const ageGenderData = await fetchCustomerAgeGenderData(
-        filterParams.dateRange,
-        filterParams.region,
-        filterParams.branch,
-        customDateRange
-      );
-      setData(ageGenderData);
-    } catch (error) {
-      console.error("Error fetching customer age data:", error);
-      setData([]);
-    }
-  }, []);
-
-  useEffect(() => {
-    fetchDataWithFilters(filters);
-  }, [fetchDataWithFilters]);
 
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
-    
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -296,9 +304,9 @@ const CustomerAgeChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setFilters(newFilters);
-    
+
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -306,7 +314,7 @@ const CustomerAgeChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [filters, availableRegions, fetchDataWithFilters]);
 
@@ -324,7 +332,7 @@ const CustomerAgeChart = () => {
     if (filters.gender === 'all') {
       return data;
     }
-    
+
     return data.map(group => {
       const filteredGroup = { ...group };
       if (filters.gender === 'male') {
@@ -343,7 +351,7 @@ const CustomerAgeChart = () => {
 
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
-    
+
     const csvData = data.map(item => ({
       'Age Group': item.ageGroup,
       'Male': item.male || 0,
@@ -351,12 +359,12 @@ const CustomerAgeChart = () => {
       'Other': item.other || 0,
       'Total': (item.male || 0) + (item.female || 0) + (item.other || 0)
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -377,7 +385,7 @@ const CustomerAgeChart = () => {
           <Users className="w-6 h-6" style={{ color: HEADER_COLOR }} />
           <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>Customer Age</h3>
         </div>
-        
+
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
@@ -511,6 +519,7 @@ const CustomerAgeChart = () => {
       </div>
     </div>
   );
+
 };
 
 export default CustomerAgeChart;

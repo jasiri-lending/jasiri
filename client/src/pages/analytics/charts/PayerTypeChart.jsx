@@ -2,8 +2,9 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
-import { Shield,  Calendar, Globe, Building, Download } from 'lucide-react';
+import { Shield, Calendar, Globe, Building, Download } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
 import { formatCurrencyCompact } from '../shared/Format.js';
 
@@ -11,8 +12,8 @@ import { formatCurrencyCompact } from '../shared/Format.js';
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       startDate.setDate(now.getDate() - 6);
       break;
@@ -32,13 +33,13 @@ const getDateRangeStart = (dateRange) => {
     default:
       return null;
   }
-  
+
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
 // Fetch payer type analysis with filters
-const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('loan_payments')
@@ -55,6 +56,8 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
           regions!inner(name)
         )
       `)
+      .eq('tenant_id', tenantId)
+      .eq('loans.tenant_id', tenantId)
       .not('payer_type', 'is', null);
 
     // Filter by branch if specified
@@ -65,14 +68,16 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('loans.branch_id', branchIds);
@@ -93,7 +98,7 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
     }
 
     const { data, error } = await query;
-    
+
     if (error) {
       console.error("Error fetching payer type analysis:", error);
       return {
@@ -120,7 +125,7 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
     data.forEach(payment => {
       const payerType = payment.payer_type?.toLowerCase() || 'other';
       const amount = Number(payment.paid_amount) || 0;
-      
+
       if (payerTypeTotals[payerType]) {
         payerTypeTotals[payerType].amount += amount;
         payerTypeTotals[payerType].count++;
@@ -149,7 +154,7 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
     const pieColors = [
       "#10b981", "#f59e0b", "#8b5cf6", "#586ab1", "#ef4444"
     ];
-    
+
     const payerTypePieData = Object.entries(payerTypeTotals)
       .filter(([key, value]) => value.amount > 0)
       .map(([key, value], index) => ({
@@ -176,6 +181,7 @@ const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch,
 };
 
 const PayerTypeChart = () => {
+  const { tenant } = useTenant();
   const [barData, setBarData] = useState([]);
   const [pieData, setPieData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
@@ -191,6 +197,29 @@ const PayerTypeChart = () => {
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
+    if (!tenant?.id) return;
+    setLoading(true);
+    try {
+      const result = await fetchPayerTypeAnalysis(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange,
+        tenant.id
+      );
+      setBarData(result.payerTypeBreakdown);
+      setPieData(result.payerTypePieData);
+    } catch (error) {
+      console.error("Error fetching payer type data:", error);
+      setBarData([]);
+      setPieData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenant?.id]);
+
   // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -198,23 +227,25 @@ const PayerTypeChart = () => {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -224,9 +255,11 @@ const PayerTypeChart = () => {
         console.error("Error fetching initial data:", error);
       }
     };
-    
-    fetchInitialData();
-  }, []);
+
+    if (tenant?.id) {
+      fetchInitialData();
+    }
+  }, [tenant?.id, fetchDataWithFilters]);
 
   // Filter branches by selected region
   useEffect(() => {
@@ -238,39 +271,25 @@ const PayerTypeChart = () => {
     }
   }, [filters.region, availableRegions]);
 
-  const filteredBranches = filters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = filters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
-  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    setLoading(true);
-    try {
-      const result = await fetchPayerTypeAnalysis(
-        filterParams.dateRange,
-        filterParams.region,
-        filterParams.branch,
-        customDateRange
-      );
-      setBarData(result.payerTypeBreakdown);
-      setPieData(result.payerTypePieData);
-    } catch (error) {
-      console.error("Error fetching payer type data:", error);
-      setBarData([]);
-      setPieData([]);
-    } finally {
-      setLoading(false);
+  // Initial data fetch sync with filters
+  useEffect(() => {
+    if (tenant?.id) {
+      fetchDataWithFilters(filters);
     }
-  }, []);
+  }, [fetchDataWithFilters]);
 
   // Handle filter changes
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
-    
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -288,9 +307,9 @@ const PayerTypeChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setFilters(newFilters);
-    
+
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -298,7 +317,7 @@ const PayerTypeChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [filters, availableRegions, fetchDataWithFilters]);
 
@@ -316,19 +335,19 @@ const PayerTypeChart = () => {
   // Export function
   const handleExport = useCallback(() => {
     if (!barData || barData.length === 0) return;
-    
+
     const csvData = barData.map(item => ({
       'Payer Type': item.type,
       'Amount Paid': item.amount || 0,
       'Payment Count': item.count || 0,
       'Percentage': item.percentage || 0
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -352,7 +371,7 @@ const PayerTypeChart = () => {
           </h3>
         </div>
         <div className="flex items-center gap-3">
-        
+
           <button
             onClick={handleExport}
             className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -365,114 +384,113 @@ const PayerTypeChart = () => {
       </div>
 
       {/* Filters */}
-    {/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.dateRange,
-        onChange: (e) =>
-          handleFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.region,
-        onChange: (e) =>
-          handleFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(region => ({
-            value: region.name,
-            label: region.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.branch,
-        onChange: (e) =>
-          handleFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(branch => ({
-            value: branch.id,
-            label: `${branch.name} (${branch.code})`
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          disabled={loading}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+          {[
+            {
+              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.dateRange,
+              onChange: (e) =>
+                handleFilterChange('dateRange', e.target.value),
+              options: [
+                { value: "all", label: "All Time" },
+                { value: "week", label: "This Week" },
+                { value: "month", label: "This Month" },
+                { value: "quarter", label: "This Quarter" },
+                { value: "6months", label: "Last 6 Months" },
+                { value: "year", label: "This Year" },
+                { value: "custom", label: "Custom Range" }
+              ]
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.region,
+              onChange: (e) =>
+                handleFilterChange('region', e.target.value),
+              options: [
+                { value: "all", label: "All Regions" },
+                ...availableRegions.map(region => ({
+                  value: region.name,
+                  label: region.name
+                }))
+              ]
+            },
+            {
+              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.branch,
+              onChange: (e) =>
+                handleFilterChange('branch', e.target.value),
+              options: [
+                { value: "all", label: "All Branches" },
+                ...filteredBranches.map(branch => ({
+                  value: branch.id,
+                  label: `${branch.name} (${branch.code})`
+                }))
+              ]
+            }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                disabled={loading}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           ))}
-        </select>
+        </div>
+
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
+
+            <input
+              type="date"
+              value={filters.customStartDate}
+              onChange={(e) =>
+                handleFilterChange('customStartDate', e.target.value)
+              }
+              disabled={loading}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <span className="text-slate-500 text-sm">to</span>
+
+            <input
+              type="date"
+              value={filters.customEndDate}
+              onChange={(e) =>
+                handleFilterChange('customEndDate', e.target.value)
+              }
+              disabled={loading}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!filters.customStartDate || !filters.customEndDate || loading}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
       </div>
-    ))}
-  </div>
-
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
-
-      <input
-        type="date"
-        value={filters.customStartDate}
-        onChange={(e) =>
-          handleFilterChange('customStartDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={filters.customEndDate}
-        onChange={(e) =>
-          handleFilterChange('customEndDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!filters.customStartDate || !filters.customEndDate || loading}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
 
 
-      { barData && barData.length > 0 ? (
+      {barData && barData.length > 0 ? (
         <>
           {/* Bar Chart */}
           <div className="h-64 mb-6">
@@ -488,7 +506,7 @@ const PayerTypeChart = () => {
               </BarChart>
             </ResponsiveContainer>
           </div>
-          
+
           {/* Pie Chart */}
           <div className="mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -512,7 +530,7 @@ const PayerTypeChart = () => {
                         <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -540,8 +558,8 @@ const PayerTypeChart = () => {
               </div>
             </div>
           </div>
-          
-        
+
+
         </>
       ) : (
         <div className="flex items-center justify-center h-96">

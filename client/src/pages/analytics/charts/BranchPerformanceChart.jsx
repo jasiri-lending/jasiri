@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { Download, Calendar, Building, Globe } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 
 // Define colors for each metric
 const COLORS = {
@@ -27,13 +28,13 @@ const METRIC_LABELS = {
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
-  
+
   const branchData = payload[0]?.payload;
-  
+
   return (
-    <div 
+    <div
       className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200"
-      style={{ 
+      style={{
         zIndex: 10000,
         pointerEvents: 'none',
         minWidth: '280px',
@@ -47,7 +48,7 @@ const CustomTooltip = ({ active, payload }) => {
           <span className="text-gray-600 text-xs">Region:</span>
           <span className="text-slate-600 font-bold text-xs">{branchData?.region}</span>
         </div>
-        
+
         {/* Total Disbursed - Green */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Total Disbursed:</span>
@@ -55,7 +56,7 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.totalDisbursed?.toLocaleString()}
           </span>
         </div>
-        
+
         {/* Total Payable - Blue */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Total Payable:</span>
@@ -63,7 +64,7 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.totalPayable?.toLocaleString()}
           </span>
         </div>
-        
+
         {/* Total Collected - Amber */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Total Collected:</span>
@@ -71,7 +72,7 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.totalCollected?.toLocaleString()}
           </span>
         </div>
-        
+
         {/* Outstanding - Purple */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Outstanding:</span>
@@ -79,31 +80,30 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.totalOutstanding?.toLocaleString()}
           </span>
         </div>
-        
+
         {/* Collection Rate - Conditional */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Collection Rate:</span>
-          <span className={`font-semibold text-xs ${
-            branchData?.collectionRate >= 80 ? 'text-green-600' :
-            branchData?.collectionRate >= 60 ? 'text-orange-600' :
-            'text-red-600'
-          }`}>
+          <span className={`font-semibold text-xs ${branchData?.collectionRate >= 80 ? 'text-green-600' :
+              branchData?.collectionRate >= 60 ? 'text-orange-600' :
+                'text-red-600'
+            }`}>
             {branchData?.collectionRate}%
           </span>
         </div>
-        
+
         {/* Loan Count - Default */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Loan Count:</span>
           <span className="text-slate-600 font-bold text-xs">{branchData?.loanCount}</span>
         </div>
-        
+
         {/* Avg Loan Size - Default */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Avg Loan Size:</span>
           <span className="text-slate-600 font-bold text-xs">Ksh {branchData?.avgLoanSize?.toLocaleString()}</span>
         </div>
-        
+
         {/* NPL Amount - Orange */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">NPL Amount:</span>
@@ -111,7 +111,7 @@ const CustomTooltip = ({ active, payload }) => {
             Ksh {branchData?.nplAmount?.toLocaleString()}
           </span>
         </div>
-        
+
         {/* Arrears - Red */}
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Arrears:</span>
@@ -137,8 +137,8 @@ const getTodayDate = () => {
 const getDateFilter = (dateRange, isThisPeriod = false) => {
   const now = new Date();
   const dateFilter = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       if (isThisPeriod) {
         const day = now.getDay();
@@ -180,12 +180,12 @@ const getDateFilter = (dateRange, isThisPeriod = false) => {
     default:
       return null;
   }
-  
+
   return dateFilter.toISOString();
 };
 
 // Optimized fetch function with proper arrears calculation
-const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch, customDateRange, topCount) => {
+const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch, customDateRange, topCount, tenantId) => {
   try {
     let query = supabase
       .from('loans')
@@ -200,7 +200,8 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
         branches!inner(name, code, region_id),
         regions!inner(name)
       `)
-      .eq('status', 'disbursed');
+      .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId);
 
     // Filter by branch if specified
     if (selectedBranch !== 'all') {
@@ -211,15 +212,17 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         // Get all branches in this region
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -250,12 +253,13 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
     }
 
     const loanIds = loansData.map(loan => loan.id);
-    
+
     // Fetch payments
     const { data: paymentsData, error: paymentsError } = await supabase
       .from('loan_payments')
       .select('loan_id, paid_amount')
-      .in('loan_id', loanIds);
+      .in('loan_id', loanIds)
+      .eq('tenant_id', tenantId);
 
     if (paymentsError) {
       console.error("Error fetching payments:", paymentsError);
@@ -265,7 +269,8 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
     const { data: installmentsData, error: installmentsError } = await supabase
       .from('loan_installments')
       .select('loan_id, due_date, due_amount, interest_paid, principal_paid, status')
-      .in('loan_id', loanIds);
+      .in('loan_id', loanIds)
+      .eq('tenant_id', tenantId);
 
     if (installmentsError) {
       console.error("Error fetching installments:", installmentsError);
@@ -289,18 +294,18 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
         const dueAmount = Number(inst.due_amount) || 0;
         const paidAmount = (Number(inst.interest_paid) || 0) + (Number(inst.principal_paid) || 0);
         const arrears = dueAmount - paidAmount;
-        
+
         if (arrears > 0) {
           if (!arrearsPerLoan[inst.loan_id]) {
             arrearsPerLoan[inst.loan_id] = 0;
           }
           arrearsPerLoan[inst.loan_id] += arrears;
-          
+
           // Check if loan is NPL (overdue for 90+ days)
           const dueDate = new Date(inst.due_date);
           const todayDate = new Date(today);
           const daysDiff = Math.floor((todayDate - dueDate) / (1000 * 60 * 60 * 24));
-          
+
           if (daysDiff >= 90) {
             nplLoans.add(inst.loan_id);
           }
@@ -314,7 +319,7 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
       const branchCode = loan.branches?.code || 'Unknown';
       const regionName = loan.regions?.name || 'Unknown';
       const branchKey = `${branchCode}-${branchName}`;
-      
+
       if (!branchMap[branchKey]) {
         branchMap[branchKey] = {
           name: branchName,
@@ -329,18 +334,18 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
           loanCount: 0
         };
       }
-      
+
       const loanAmount = Number(loan.scored_amount) || 0;
       const payableAmount = Number(loan.total_payable) || 0;
       const collectedAmount = paymentsByLoan[loan.id] || 0;
       const loanArrears = arrearsPerLoan[loan.id] || 0;
-      
+
       branchMap[branchKey].totalDisbursed += loanAmount;
       branchMap[branchKey].totalPayable += payableAmount;
       branchMap[branchKey].totalCollected += collectedAmount;
       branchMap[branchKey].totalArrears += loanArrears;
       branchMap[branchKey].loanCount++;
-      
+
       // Add to NPL if loan is past 90 days
       if (nplLoans.has(loan.id)) {
         branchMap[branchKey].nplAmount += (payableAmount - collectedAmount);
@@ -351,18 +356,18 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
     // Process and format the data
     const branchData = Object.values(branchMap).map(branch => {
       const totalOutstanding = branch.totalPayable - branch.totalCollected;
-      const collectionRate = branch.totalPayable > 0 
-        ? (branch.totalCollected / branch.totalPayable) * 100 
+      const collectionRate = branch.totalPayable > 0
+        ? (branch.totalCollected / branch.totalPayable) * 100
         : 0;
-      
-      const nplRate = branch.totalPayable > 0 
-        ? (branch.nplAmount / branch.totalPayable) * 100 
+
+      const nplRate = branch.totalPayable > 0
+        ? (branch.nplAmount / branch.totalPayable) * 100
         : 0;
-      
-      const arrearsRate = totalOutstanding > 0 
-        ? (branch.totalArrears / totalOutstanding) * 100 
+
+      const arrearsRate = totalOutstanding > 0
+        ? (branch.totalArrears / totalOutstanding) * 100
         : 0;
-      
+
       return {
         name: branch.name,
         code: branch.code,
@@ -378,8 +383,8 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
         arrearsAmount: Math.round(branch.totalArrears),
         arrearsRate: Math.round(arrearsRate * 10) / 10,
         loanCount: branch.loanCount,
-        avgLoanSize: branch.loanCount > 0 
-          ? Math.round(branch.totalDisbursed / branch.loanCount) 
+        avgLoanSize: branch.loanCount > 0
+          ? Math.round(branch.totalDisbursed / branch.loanCount)
           : 0
       };
     });
@@ -396,6 +401,7 @@ const fetchBranchPerformance = async (dateRange, selectedRegion, selectedBranch,
 };
 
 const BranchChart = () => {
+  const { tenant } = useTenant();
   const [localData, setLocalData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [localFilters, setLocalFilters] = useState({
@@ -413,33 +419,36 @@ const BranchChart = () => {
   // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
+      if (!tenant?.id) return;
       // Fetch all regions
       const { data: regionsData } = await supabase
         .from('regions')
         .select('id, name')
+        .eq('tenant_id', tenant.id)
         .order('name');
-      
+
       if (regionsData) {
         setAvailableRegions(regionsData);
       }
-      
+
       // Fetch all branches
       const { data: branchesData } = await supabase
         .from('branches')
         .select('id, name, code, region_id')
+        .eq('tenant_id', tenant.id)
         .order('name');
-      
+
       if (branchesData) {
         setAvailableBranches(branchesData);
       }
-      
+
       // Fetch initial branch data
-      const branchData = await fetchBranchPerformance('all', 'all', 'all', null, 10);
+      const branchData = await fetchBranchPerformance('all', 'all', 'all', null, 10, tenant.id);
       setLocalData(branchData);
     };
-    
+
     fetchInitialData();
-  }, []);
+  }, [tenant?.id]);
 
   // Filter branches by selected region
   useEffect(() => {
@@ -451,19 +460,21 @@ const BranchChart = () => {
     }
   }, [localFilters.region, availableRegions]);
 
-  const filteredBranches = localFilters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = localFilters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
   // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
+    if (!tenant?.id) return;
     try {
       const branchData = await fetchBranchPerformance(
         filters.dateRange,
         filters.region,
         filters.branch,
         customDateRange,
-        filters.topCount
+        filters.topCount,
+        tenant.id
       );
       setLocalData(branchData);
     } catch (error) {
@@ -480,12 +491,12 @@ const BranchChart = () => {
   // Handle filter changes
   const handleLocalFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...localFilters };
-    
+
     // Reset branch when region changes
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       // Update selected region ID
       if (value === 'all') {
         setSelectedRegionId(null);
@@ -504,9 +515,9 @@ const BranchChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setLocalFilters(newFilters);
-    
+
     // Prepare custom date range if applicable
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
@@ -515,7 +526,7 @@ const BranchChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [localFilters, availableRegions, fetchDataWithFilters]);
 
@@ -533,7 +544,7 @@ const BranchChart = () => {
   // Export function
   const handleExport = useCallback(() => {
     if (!localData || localData.length === 0) return;
-    
+
     const csvData = localData.map(branch => ({
       'Branch Name': branch.name || 'Unknown',
       'Branch Code': branch.code || 'Unknown',
@@ -550,12 +561,12 @@ const BranchChart = () => {
       'Loan Count': branch.loanCount || 0,
       'Avg Loan Size': branch.avgLoanSize || 0
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -577,9 +588,9 @@ const BranchChart = () => {
           <h3 className="text-lg font-light" style={{ color: "#586ab1" }}>
             Branch Performance Analysis
           </h3>
-        
+
         </div>
-        
+
         <button
           onClick={handleExport}
           className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -590,126 +601,126 @@ const BranchChart = () => {
         </button>
       </div>
 
-{/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* Filters */}
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-    {/* Shared Select Wrapper */}
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.dateRange,
-        onChange: (e) => handleLocalFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.region,
-        onChange: (e) => handleLocalFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(r => ({
-            value: r.name,
-            label: r.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: localFilters.branch,
-        onChange: (e) => handleLocalFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(b => ({
-            value: b.id,
-            label: b.name
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+          {/* Shared Select Wrapper */}
+          {[
+            {
+              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: localFilters.dateRange,
+              onChange: (e) => handleLocalFilterChange('dateRange', e.target.value),
+              options: [
+                { value: "all", label: "All Time" },
+                { value: "week", label: "This Week" },
+                { value: "month", label: "This Month" },
+                { value: "quarter", label: "This Quarter" },
+                { value: "6months", label: "Last 6 Months" },
+                { value: "year", label: "This Year" },
+                { value: "custom", label: "Custom Range" }
+              ]
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: localFilters.region,
+              onChange: (e) => handleLocalFilterChange('region', e.target.value),
+              options: [
+                { value: "all", label: "All Regions" },
+                ...availableRegions.map(r => ({
+                  value: r.name,
+                  label: r.name
+                }))
+              ]
+            },
+            {
+              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: localFilters.branch,
+              onChange: (e) => handleLocalFilterChange('branch', e.target.value),
+              options: [
+                { value: "all", label: "All Branches" },
+                ...filteredBranches.map(b => ({
+                  value: b.id,
+                  label: b.name
+                }))
+              ]
+            }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           ))}
-        </select>
+
+
+
+        </div>
+
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
+
+            <input
+              type="date"
+              value={localFilters.customStartDate}
+              onChange={(e) =>
+                handleLocalFilterChange('customStartDate', e.target.value)
+              }
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <span className="text-slate-500 text-sm">to</span>
+
+            <input
+              type="date"
+              value={localFilters.customEndDate}
+              onChange={(e) =>
+                handleLocalFilterChange('customEndDate', e.target.value)
+              }
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!localFilters.customStartDate || !localFilters.customEndDate}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
       </div>
-    ))}
-
-  
-
-  </div>
-
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
-
-      <input
-        type="date"
-        value={localFilters.customStartDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customStartDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={localFilters.customEndDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customEndDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
 
 
 
 
       {/* Graph */}
-     <div className="h-96" style={{ position: 'relative' }}>
+      <div className="h-96" style={{ position: 'relative' }}>
         {localData && localData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
+            <BarChart
               data={localData}
               margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45} 
-                textAnchor="end" 
+              <XAxis
+                dataKey="name"
+                angle={-45}
+                textAnchor="end"
                 height={60}
                 fontSize={12}
                 tickFormatter={(value) => {
@@ -719,14 +730,14 @@ const BranchChart = () => {
                   return value;
                 }}
               />
-              <YAxis 
+              <YAxis
                 fontSize={12}
                 tickFormatter={(value) => `Ksh ${(value / 1000).toFixed(0)}k`}
               />
-              <Tooltip 
+              <Tooltip
                 content={<CustomTooltip />}
                 cursor={{ fill: 'rgba(88, 106, 177, 0.1)' }}
-                wrapperStyle={{ 
+                wrapperStyle={{
                   zIndex: 10000,
                   outline: 'none'
                 }}
@@ -739,22 +750,22 @@ const BranchChart = () => {
                 height={36}
                 wrapperStyle={{ fontSize: 12 }}
               />
-              <Bar 
-                dataKey="totalDisbursed" 
-                name="Disbursed" 
-                fill={COLORS.totalDisbursed} 
+              <Bar
+                dataKey="totalDisbursed"
+                name="Disbursed"
+                fill={COLORS.totalDisbursed}
                 radius={[2, 2, 0, 0]}
               />
-              <Bar 
-                dataKey="totalCollected" 
-                name="Collected" 
-                fill={COLORS.totalCollected} 
+              <Bar
+                dataKey="totalCollected"
+                name="Collected"
+                fill={COLORS.totalCollected}
                 radius={[2, 2, 0, 0]}
               />
-              <Bar 
-                dataKey="totalOutstanding" 
-                name="Outstanding" 
-                fill={COLORS.totalOutstanding} 
+              <Bar
+                dataKey="totalOutstanding"
+                name="Outstanding"
+                fill={COLORS.totalOutstanding}
                 radius={[2, 2, 0, 0]}
               />
             </BarChart>
@@ -771,7 +782,7 @@ const BranchChart = () => {
           </div>
         )}
       </div>
-      
+
       {/* Empty state message */}
       {localData.length === 0 && (
         <div className="text-center py-8">

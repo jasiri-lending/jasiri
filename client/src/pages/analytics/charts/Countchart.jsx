@@ -5,13 +5,15 @@ import {
 import { UserCog, Calendar, Globe, Building, Download } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
 import { HEADER_COLOR, COLORS } from '../shared/constants';
+import { useTenant } from "../../../hooks/useTenant";
+
 
 // Helper function to get date range start
 const getDateRangeStart = (dateRange) => {
   const now = new Date();
   const startDate = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       startDate.setDate(now.getDate() - 6);
       break;
@@ -31,13 +33,13 @@ const getDateRangeStart = (dateRange) => {
     default:
       return null;
   }
-  
+
   startDate.setHours(0, 0, 0, 0);
   return startDate.toISOString();
 };
 
 // Fetch customer distribution by county with filters
-const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('customers')
@@ -50,6 +52,7 @@ const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBran
         branches!inner(name, code, region_id),
         regions!inner(name)
       `)
+      .eq('tenant_id', tenantId)
       .not('county', 'is', null);
 
     // Filter by branch if specified
@@ -60,14 +63,16 @@ const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBran
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -88,7 +93,7 @@ const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBran
     }
 
     const { data, error } = await query;
-    
+
     if (error) {
       console.error("Error fetching customer distribution:", error);
       return [];
@@ -125,6 +130,7 @@ const fetchCustomerDistribution = async (dateRange, selectedRegion, selectedBran
 };
 
 const CountyChart = () => {
+  const { tenant } = useTenant();
   const [data, setData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [filters, setFilters] = useState({
@@ -139,30 +145,54 @@ const CountyChart = () => {
   const [selectedRegionId, setSelectedRegionId] = useState(null);
   const [loading, setLoading] = useState(false);
 
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
+    if (!tenant?.id) return;
+    setLoading(true);
+    try {
+      const distributionData = await fetchCustomerDistribution(
+        filterParams.dateRange,
+        filterParams.region,
+        filterParams.branch,
+        customDateRange,
+        tenant.id
+      );
+      setData(distributionData);
+    } catch (error) {
+      console.error("Error fetching customer distribution:", error);
+      setData([]);
+    } finally {
+      setLoading(false);
+    }
+  }, [tenant?.id]);
+
   // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
+      if (!tenant?.id) return;
       try {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         await fetchDataWithFilters({
           dateRange: 'all',
           region: 'all',
@@ -172,9 +202,9 @@ const CountyChart = () => {
         console.error("Error fetching initial data:", error);
       }
     };
-    
+
     fetchInitialData();
-  }, []);
+  }, [tenant?.id, fetchDataWithFilters]);
 
   // Filter branches by selected region
   useEffect(() => {
@@ -186,37 +216,19 @@ const CountyChart = () => {
     }
   }, [filters.region, availableRegions]);
 
-  const filteredBranches = filters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = filters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
 
-  // Fetch data with filters
-  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
-    setLoading(true);
-    try {
-      const distributionData = await fetchCustomerDistribution(
-        filterParams.dateRange,
-        filterParams.region,
-        filterParams.branch,
-        customDateRange
-      );
-      setData(distributionData);
-    } catch (error) {
-      console.error("Error fetching customer distribution:", error);
-      setData([]);
-    } finally {
-      setLoading(false);
-    }
-  }, []);
 
   // Handle filter changes
   const handleFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...filters };
-    
+
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       if (value === 'all') {
         setSelectedRegionId(null);
       } else {
@@ -234,9 +246,9 @@ const CountyChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setFilters(newFilters);
-    
+
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
       customDateRange = {
@@ -244,7 +256,7 @@ const CountyChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [filters, availableRegions, fetchDataWithFilters]);
 
@@ -262,18 +274,18 @@ const CountyChart = () => {
   // Export function
   const handleExport = useCallback(() => {
     if (!data || data.length === 0) return;
-    
+
     const csvData = data.map(item => ({
       'County': item.county,
       'Customers': item.customers,
       'Percentage': item.percentage + '%'
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -285,13 +297,13 @@ const CountyChart = () => {
     window.URL.revokeObjectURL(url);
   }, [data]);
 
-  const totalCustomers = data.reduce((sum, item) => sum + item.customers, 0);
+
 
   const CustomTooltip = ({ active, payload }) => {
     if (!active || !payload || !payload.length) return null;
-    
+
     const item = payload[0].payload;
-    
+
     return (
       <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
         <p className="font-bold text-slate-600 mb-2 text-sm">{item.county}</p>
@@ -318,7 +330,7 @@ const CountyChart = () => {
           </h3>
         </div>
         <div className="flex items-center gap-3">
-       
+
           <button
             onClick={handleExport}
             className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
@@ -330,152 +342,152 @@ const CountyChart = () => {
         </div>
       </div>
 
-    {/* Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      {/* Filters */}
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
 
-    {[
-      {
-        icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.dateRange,
-        onChange: (e) =>
-          handleFilterChange('dateRange', e.target.value),
-        options: [
-          { value: "all", label: "All Time" },
-          { value: "week", label: "This Week" },
-          { value: "month", label: "This Month" },
-          { value: "quarter", label: "This Quarter" },
-          { value: "6months", label: "Last 6 Months" },
-          { value: "year", label: "This Year" },
-          { value: "custom", label: "Custom Range" }
-        ]
-      },
-      {
-        icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.region,
-        onChange: (e) =>
-          handleFilterChange('region', e.target.value),
-        options: [
-          { value: "all", label: "All Regions" },
-          ...availableRegions.map(region => ({
-            value: region.name,
-            label: region.name
-          }))
-        ]
-      },
-      {
-        icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
-        value: filters.branch,
-        onChange: (e) =>
-          handleFilterChange('branch', e.target.value),
-        options: [
-          { value: "all", label: "All Branches" },
-          ...filteredBranches.map(branch => ({
-            value: branch.id,
-            label: `${branch.name} (${branch.code})`
-          }))
-        ]
-      }
-    ].map((item, idx) => (
-      <div
-        key={idx}
-        className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-      >
-        {item.icon}
-        <select
-          value={item.value}
-          onChange={item.onChange}
-          disabled={loading}
-          className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-        >
-          {item.options.map(opt => (
-            <option key={opt.value} value={opt.value}>
-              {opt.label}
-            </option>
+          {[
+            {
+              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.dateRange,
+              onChange: (e) =>
+                handleFilterChange('dateRange', e.target.value),
+              options: [
+                { value: "all", label: "All Time" },
+                { value: "week", label: "This Week" },
+                { value: "month", label: "This Month" },
+                { value: "quarter", label: "This Quarter" },
+                { value: "6months", label: "Last 6 Months" },
+                { value: "year", label: "This Year" },
+                { value: "custom", label: "Custom Range" }
+              ]
+            },
+            {
+              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.region,
+              onChange: (e) =>
+                handleFilterChange('region', e.target.value),
+              options: [
+                { value: "all", label: "All Regions" },
+                ...availableRegions.map(region => ({
+                  value: region.name,
+                  label: region.name
+                }))
+              ]
+            },
+            {
+              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              value: filters.branch,
+              onChange: (e) =>
+                handleFilterChange('branch', e.target.value),
+              options: [
+                { value: "all", label: "All Branches" },
+                ...filteredBranches.map(branch => ({
+                  value: branch.id,
+                  label: `${branch.name} (${branch.code})`
+                }))
+              ]
+            }
+          ].map((item, idx) => (
+            <div
+              key={idx}
+              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
+            >
+              {item.icon}
+              <select
+                value={item.value}
+                onChange={item.onChange}
+                disabled={loading}
+                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+              >
+                {item.options.map(opt => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           ))}
-        </select>
-      </div>
-    ))}
-  </div>
+        </div>
 
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
 
-      <input
-        type="date"
-        value={filters.customStartDate}
-        onChange={(e) =>
-          handleFilterChange('customStartDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <span className="text-slate-500 text-sm">to</span>
-
-      <input
-        type="date"
-        value={filters.customEndDate}
-        onChange={(e) =>
-          handleFilterChange('customEndDate', e.target.value)
-        }
-        disabled={loading}
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
-
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!filters.customStartDate || !filters.customEndDate || loading}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
-
-{/* Chart */}
-<div className="h-80">
-  {data && data.length > 0 ? (
-    <ResponsiveContainer width="100%" height="100%">
-      <PieChart>
-        <Pie
-          data={data}
-          cx="50%"
-          cy="50%"
-          labelLine={false}
-          label={(entry) => `${entry.county}: ${entry.percentage}%`}
-          outerRadius={120}
-          fill="#8884d8"
-          dataKey="customers"
-        >
-          {data.map((entry, index) => (
-            <Cell
-              key={`cell-${index}`}
-              fill={COLORS[index % COLORS.length]}
+            <input
+              type="date"
+              value={filters.customStartDate}
+              onChange={(e) =>
+                handleFilterChange('customStartDate', e.target.value)
+              }
+              disabled={loading}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
             />
-          ))}
-        </Pie>
-        <Tooltip content={<CustomTooltip />} />
-        <Legend />
-      </PieChart>
-    </ResponsiveContainer>
-  ) : (
-    <div className="flex items-center justify-center h-full">
-      <div className="text-center">
-        <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-        <p className="text-gray-500">
-          No customer distribution data available
-        </p>
-        <p className="text-gray-400 text-sm mt-1">
-          Try adjusting your filters or date range
-        </p>
+
+            <span className="text-slate-500 text-sm">to</span>
+
+            <input
+              type="date"
+              value={filters.customEndDate}
+              onChange={(e) =>
+                handleFilterChange('customEndDate', e.target.value)
+              }
+              disabled={loading}
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
+
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!filters.customStartDate || !filters.customEndDate || loading}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
       </div>
-    </div>
-  )}
-</div>
+
+      {/* Chart */}
+      <div className="h-80">
+        {data && data.length > 0 ? (
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={(entry) => `${entry.county}: ${entry.percentage}%`}
+                outerRadius={120}
+                fill="#8884d8"
+                dataKey="customers"
+              >
+                {data.map((entry, index) => (
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={COLORS[index % COLORS.length]}
+                  />
+                ))}
+              </Pie>
+              <Tooltip content={<CustomTooltip />} />
+              <Legend />
+            </PieChart>
+          </ResponsiveContainer>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <div className="text-center">
+              <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+              <p className="text-gray-500">
+                No customer distribution data available
+              </p>
+              <p className="text-gray-400 text-sm mt-1">
+                Try adjusting your filters or date range
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
 
 
     </div>

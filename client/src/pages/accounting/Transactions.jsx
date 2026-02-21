@@ -1,6 +1,7 @@
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { Search, Eye, CheckCircle, Archive, Calendar, DollarSign, Phone, User, FileText } from 'lucide-react';
+import { useEffect, useState } from "react";
 
 // Transaction Details Modal
 const TransactionDetailsModal = ({ transaction, onClose }) => {

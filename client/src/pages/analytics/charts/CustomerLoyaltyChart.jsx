@@ -1,9 +1,10 @@
-import  { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
 } from 'recharts';
 import { Repeat, Download, Calendar, Globe, Building } from 'lucide-react';
 import { supabase } from "../../../supabaseClient";
+import { useTenant } from "../../../hooks/useTenant";
 
 // Use existing COLORS from shared constants
 const COLORS = [
@@ -26,13 +27,13 @@ const HEADER_COLOR = '#586ab1';
 
 const CustomTooltip = ({ active, payload }) => {
   if (!active || !payload || !payload.length) return null;
-  
+
   const data = payload[0]?.payload;
-  
+
   return (
-    <div 
+    <div
       className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200"
-      style={{ 
+      style={{
         zIndex: 10000,
         pointerEvents: 'none',
         minWidth: '240px',
@@ -47,7 +48,7 @@ const CustomTooltip = ({ active, payload }) => {
             {data?.count?.toLocaleString()}
           </span>
         </div>
-        
+
         <div className="flex justify-between gap-4">
           <span className="text-gray-600 text-xs">Total Loan Amount:</span>
           <span className="font-semibold text-xs" style={{ color: COLORS[7] }}>
@@ -65,8 +66,8 @@ const CustomTooltip = ({ active, payload }) => {
 const getDateFilter = (dateRange, isThisPeriod = false) => {
   const now = new Date();
   const dateFilter = new Date();
-  
-  switch(dateRange) {
+
+  switch (dateRange) {
     case 'week':
       if (isThisPeriod) {
         const day = now.getDay();
@@ -108,12 +109,12 @@ const getDateFilter = (dateRange, isThisPeriod = false) => {
     default:
       return null;
   }
-  
+
   return dateFilter.toISOString();
 };
 
 // Enhanced fetch function with correct loyalty categories
-const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranch, customDateRange) => {
+const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranch, customDateRange, tenantId) => {
   try {
     let query = supabase
       .from('loans')
@@ -128,7 +129,8 @@ const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranc
         branches!inner(name, code, region_id),
         regions!inner(name)
       `)
-      .eq('status', 'disbursed');
+      .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId);
 
     // Filter by branch if specified
     if (selectedBranch !== 'all') {
@@ -139,15 +141,17 @@ const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranc
         .from('regions')
         .select('id')
         .eq('name', selectedRegion)
+        .eq('tenant_id', tenantId)
         .single();
-      
+
       if (regionData) {
         // Get all branches in this region
         const { data: branchesInRegion } = await supabase
           .from('branches')
           .select('id')
-          .eq('region_id', regionData.id);
-        
+          .eq('region_id', regionData.id)
+          .eq('tenant_id', tenantId);
+
         if (branchesInRegion?.length > 0) {
           const branchIds = branchesInRegion.map(b => b.id);
           query = query.in('branch_id', branchIds);
@@ -188,7 +192,7 @@ const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranc
           loans: []
         };
       }
-      
+
       customerLoans[customerId].loanCount++;
       customerLoans[customerId].totalAmount += Number(loan.scored_amount) || 0;
       customerLoans[customerId].loans.push(loan);
@@ -238,6 +242,7 @@ const fetchCustomerLoyaltyData = async (dateRange, selectedRegion, selectedBranc
 };
 
 const CustomerLoyaltyChart = () => {
+  const { tenant } = useTenant();
   const [localData, setLocalData] = useState([]);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [localFilters, setLocalFilters] = useState({
@@ -251,6 +256,24 @@ const CustomerLoyaltyChart = () => {
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
 
+  // Fetch data with filters
+  const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
+    if (!tenant?.id) return;
+    try {
+      const loyaltyData = await fetchCustomerLoyaltyData(
+        filters.dateRange,
+        filters.region,
+        filters.branch,
+        customDateRange,
+        tenant.id
+      );
+      setLocalData(loyaltyData);
+    } catch (error) {
+      console.error("Error fetching customer loyalty data:", error);
+      setLocalData([]);
+    }
+  }, [tenant?.id]);
+
   // Fetch available regions and branches on mount
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -259,34 +282,41 @@ const CustomerLoyaltyChart = () => {
         const { data: regionsData, error: regionsError } = await supabase
           .from('regions')
           .select('id, name')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (regionsError) throw regionsError;
         if (regionsData) {
           setAvailableRegions(regionsData);
         }
-        
+
         // Fetch all branches
         const { data: branchesData, error: branchesError } = await supabase
           .from('branches')
           .select('id, name, code, region_id')
+          .eq('tenant_id', tenant.id)
           .order('name');
-        
+
         if (branchesError) throw branchesError;
         if (branchesData) {
           setAvailableBranches(branchesData);
         }
-        
+
         // Fetch initial customer loyalty data
-        const loyaltyData = await fetchCustomerLoyaltyData('all', 'all', 'all', null);
-        setLocalData(loyaltyData);
+        await fetchDataWithFilters({
+          dateRange: 'all',
+          region: 'all',
+          branch: 'all'
+        });
       } catch (error) {
         console.error("Error fetching initial data:", error);
       }
     };
-    
-    fetchInitialData();
-  }, []);
+
+    if (tenant?.id) {
+      fetchInitialData();
+    }
+  }, [tenant?.id, fetchDataWithFilters]);
 
   // Filter branches by selected region
   useEffect(() => {
@@ -298,40 +328,19 @@ const CustomerLoyaltyChart = () => {
     }
   }, [localFilters.region, availableRegions]);
 
-  const filteredBranches = localFilters.region === 'all' 
-    ? availableBranches 
+  const filteredBranches = localFilters.region === 'all'
+    ? availableBranches
     : availableBranches.filter(branch => branch.region_id === selectedRegionId);
-
-  // Fetch data with filters
-  const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
-    try {
-      const loyaltyData = await fetchCustomerLoyaltyData(
-        filters.dateRange,
-        filters.region,
-        filters.branch,
-        customDateRange
-      );
-      setLocalData(loyaltyData);
-    } catch (error) {
-      console.error("Error fetching customer loyalty data:", error);
-      setLocalData([]);
-    }
-  }, []);
-
-  // Initial data fetch
-  useEffect(() => {
-    fetchDataWithFilters(localFilters);
-  }, [fetchDataWithFilters]);
 
   // Handle filter changes
   const handleLocalFilterChange = useCallback(async (key, value) => {
     const newFilters = { ...localFilters };
-    
+
     // Reset branch when region changes
     if (key === 'region') {
       newFilters.region = value;
       newFilters.branch = 'all';
-      
+
       // Update selected region ID
       if (value === 'all') {
         setSelectedRegionId(null);
@@ -350,9 +359,9 @@ const CustomerLoyaltyChart = () => {
     } else {
       newFilters[key] = value;
     }
-    
+
     setLocalFilters(newFilters);
-    
+
     // Prepare custom date range if applicable
     let customDateRange = null;
     if (newFilters.dateRange === 'custom' && newFilters.customStartDate && newFilters.customEndDate) {
@@ -361,7 +370,7 @@ const CustomerLoyaltyChart = () => {
         endDate: newFilters.customEndDate
       };
     }
-    
+
     fetchDataWithFilters(newFilters, customDateRange);
   }, [localFilters, availableRegions, fetchDataWithFilters]);
 
@@ -379,7 +388,7 @@ const CustomerLoyaltyChart = () => {
   // Export function
   const handleExport = useCallback(() => {
     if (!localData || localData.length === 0) return;
-    
+
     const csvData = localData.map(item => ({
       'Customer Category': item.category || 'Unknown',
       'Customer Count': item.count || 0,
@@ -388,12 +397,12 @@ const CustomerLoyaltyChart = () => {
       'Percentage of Total Amount (%)': item.amountPercentage || 0,
       'Average Loan Size': item.count > 0 ? Math.round(item.amount / item.count) : 0
     }));
-    
+
     const csv = [
       Object.keys(csvData[0]).join(','),
       ...csvData.map(row => Object.values(row).join(','))
     ].join('\n');
-    
+
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -428,105 +437,104 @@ const CustomerLoyaltyChart = () => {
       </div>
 
       {/* Filters */}
-     {/* Customer Loyalty Filters */}
-<div className="mb-6">
-  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mb-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
 
-    {/* Date Range */}
-    <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
-      <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
-      <select
-        value={localFilters.dateRange}
-        onChange={(e) =>
-          handleLocalFilterChange('dateRange', e.target.value)
-        }
-        className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-      >
-        <option value="all">All Time</option>
-        <option value="week">This Week</option>
-        <option value="month">This Month</option>
-        <option value="quarter">This Quarter</option>
-        <option value="6months">Last 6 Months</option>
-        <option value="year">This Year</option>
-        <option value="custom">Custom Range</option>
-      </select>
-    </div>
+          {/* Date Range */}
+          <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
+            <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={localFilters.dateRange}
+              onChange={(e) =>
+                handleLocalFilterChange('dateRange', e.target.value)
+              }
+              className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+            >
+              <option value="all">All Time</option>
+              <option value="week">This Week</option>
+              <option value="month">This Month</option>
+              <option value="quarter">This Quarter</option>
+              <option value="6months">Last 6 Months</option>
+              <option value="year">This Year</option>
+              <option value="custom">Custom Range</option>
+            </select>
+          </div>
 
-    {/* Region */}
-    <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
-      <Globe className="w-4 h-4 text-slate-500 shrink-0" />
-      <select
-        value={localFilters.region}
-        onChange={(e) =>
-          handleLocalFilterChange('region', e.target.value)
-        }
-        className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-      >
-        <option value="all">All Regions</option>
-        {availableRegions.map(region => (
-          <option key={region.id} value={region.name}>
-            {region.name}
-          </option>
-        ))}
-      </select>
-    </div>
+          {/* Region */}
+          <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
+            <Globe className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={localFilters.region}
+              onChange={(e) =>
+                handleLocalFilterChange('region', e.target.value)
+              }
+              className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+            >
+              <option value="all">All Regions</option>
+              {availableRegions.map(region => (
+                <option key={region.id} value={region.name}>
+                  {region.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-    {/* Branch */}
-    <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
-      <Building className="w-4 h-4 text-slate-500 shrink-0" />
-      <select
-        value={localFilters.branch}
-        onChange={(e) =>
-          handleLocalFilterChange('branch', e.target.value)
-        }
-        className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
-      >
-        <option value="all">All Branches</option>
-        {filteredBranches.map(branch => (
-          <option key={branch.id} value={branch.id}>
-            {branch.name} 
-          </option>
-        ))}
-      </select>
-    </div>
+          {/* Branch */}
+          <div className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition">
+            <Building className="w-4 h-4 text-slate-500 shrink-0" />
+            <select
+              value={localFilters.branch}
+              onChange={(e) =>
+                handleLocalFilterChange('branch', e.target.value)
+              }
+              className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+            >
+              <option value="all">All Branches</option>
+              {filteredBranches.map(branch => (
+                <option key={branch.id} value={branch.id}>
+                  {branch.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-  </div>
+        </div>
 
-  {/* Custom Date Range */}
-  {showCustomDate && (
-    <div className="mt-4 flex flex-wrap items-center gap-3">
-      <Calendar className="w-4 h-4 text-slate-500" />
+        {/* Custom Date Range */}
+        {showCustomDate && (
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <Calendar className="w-4 h-4 text-slate-500" />
 
-      <input
-        type="date"
-        value={localFilters.customStartDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customStartDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
+            <input
+              type="date"
+              value={localFilters.customStartDate}
+              onChange={(e) =>
+                handleLocalFilterChange('customStartDate', e.target.value)
+              }
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
 
-      <span className="text-slate-500 text-sm">to</span>
+            <span className="text-slate-500 text-sm">to</span>
 
-      <input
-        type="date"
-        value={localFilters.customEndDate}
-        onChange={(e) =>
-          handleLocalFilterChange('customEndDate', e.target.value)
-        }
-        className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-      />
+            <input
+              type="date"
+              value={localFilters.customEndDate}
+              onChange={(e) =>
+                handleLocalFilterChange('customEndDate', e.target.value)
+              }
+              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+            />
 
-      <button
-        onClick={applyCustomDateFilter}
-        disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-        className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-      >
-        Apply
-      </button>
-    </div>
-  )}
-</div>
+            <button
+              onClick={applyCustomDateFilter}
+              disabled={!localFilters.customStartDate || !localFilters.customEndDate}
+              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+            >
+              Apply
+            </button>
+          </div>
+        )}
+      </div>
 
 
       {/* Graph - matching old design */}
@@ -557,6 +565,7 @@ const CustomerLoyaltyChart = () => {
       </div>
     </div>
   );
+
 };
 
 export default CustomerLoyaltyChart;

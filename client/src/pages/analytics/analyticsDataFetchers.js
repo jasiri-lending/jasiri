@@ -4,7 +4,7 @@ import { supabase } from "../../supabaseClient";
 // const getDateFilter = (dateRange) => {
 //   const now = new Date();
 //   const dateFilter = new Date();
-  
+
 //   switch(dateRange) {
 //     case 'week':
 //       dateFilter.setDate(now.getDate() - 7);
@@ -24,16 +24,17 @@ import { supabase } from "../../supabaseClient";
 //     default:
 //       return null;
 //   }
-  
+
 //   return dateFilter.toISOString();
 // };
 
 // 1. Product Overview
-export const fetchProductOverview = async (dateRange) => {
+export const fetchProductOverview = async (dateRange, tenantId) => {
   let query = supabase
     .from('loans')
     .select('product_type, scored_amount, status, total_payable, created_at')
-    .eq('status', 'disbursed');
+    .eq('status', 'disbursed')
+    .eq('tenant_id', tenantId);
 
   if (dateRange !== 'all') {
     const dateFilter = getDateFilter(dateRange);
@@ -66,7 +67,7 @@ export const fetchProductOverview = async (dateRange) => {
 };
 
 // 2. Branch Performance
-export const fetchBranchPerformance = async (dateRange, selectedBranch) => {
+export const fetchBranchPerformance = async (dateRange, selectedBranch, tenantId) => {
   let query = supabase
     .from('loans')
     .select(`
@@ -77,7 +78,8 @@ export const fetchBranchPerformance = async (dateRange, selectedBranch) => {
       branch_id,
       branches!inner(name, code)
     `)
-    .eq('status', 'disbursed');
+    .eq('status', 'disbursed')
+    .eq('tenant_id', tenantId);
 
   if (selectedBranch !== 'all') {
     query = query.eq('branch_id', selectedBranch);
@@ -116,7 +118,7 @@ export const fetchBranchPerformance = async (dateRange, selectedBranch) => {
   loansData.forEach(loan => {
     const branchName = loan.branches?.name || 'Unknown';
     const branchCode = loan.branches?.code || 'N/A';
-    
+
     if (!branchMap[branchCode]) {
       branchMap[branchCode] = {
         name: branchName,
@@ -127,21 +129,21 @@ export const fetchBranchPerformance = async (dateRange, selectedBranch) => {
         totalExpected: 0
       };
     }
-    
+
     branchMap[branchCode].disbursed += Number(loan.scored_amount) || 0;
     branchMap[branchCode].activeLoans++;
     branchMap[branchCode].totalExpected += Number(loan.total_payable) || 0;
-    
+
     const loanPaid = paymentsByLoan[loan.id] || 0;
     branchMap[branchCode].collected += loanPaid;
   });
 
   return Object.values(branchMap).map(branch => ({
     ...branch,
-    collectionRate: branch.totalExpected > 0 ? 
+    collectionRate: branch.totalExpected > 0 ?
       Math.round((branch.collected / branch.totalExpected) * 100) : 0,
     outstanding: branch.totalExpected - branch.collected,
-    avgLoanSize: branch.activeLoans > 0 ? 
+    avgLoanSize: branch.activeLoans > 0 ?
       Math.round(branch.disbursed / branch.activeLoans) : 0
   })).sort((a, b) => b.disbursed - a.disbursed);
 };
@@ -149,7 +151,7 @@ export const fetchBranchPerformance = async (dateRange, selectedBranch) => {
 // 3. Region Performance
 
 // Enhanced Region Performance with all metrics
-export const fetchRegionPerformance = async (dateRange, selectedRegion, customDateRange) => {
+export const fetchRegionPerformance = async (dateRange, selectedRegion, customDateRange, tenantId) => {
   let query = supabase
     .from('loans')
     .select(`
@@ -161,7 +163,8 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
       region_id,
       regions!inner(name)
     `)
-    .eq('status', 'disbursed');
+    .eq('status', 'disbursed')
+    .eq('tenant_id', tenantId);
 
   if (selectedRegion !== 'all') {
     query = query.eq('region_id', selectedRegion);
@@ -207,7 +210,7 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
   const regionMap = {};
   loansData.forEach(loan => {
     const regionName = loan.regions?.name || 'Unknown';
-    
+
     if (!regionMap[regionName]) {
       regionMap[regionName] = {
         name: regionName,
@@ -218,11 +221,11 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
         loans: []
       };
     }
-    
+
     const loanAmount = Number(loan.scored_amount) || 0;
     const payableAmount = Number(loan.total_payable) || 0;
     const collectedAmount = paymentsByLoan[loan.id] || 0;
-    
+
     regionMap[regionName].totalDisbursed += loanAmount;
     regionMap[regionName].totalPayable += payableAmount;
     regionMap[regionName].totalCollected += collectedAmount;
@@ -238,22 +241,22 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
   // Calculate derived metrics for each region
   return Object.values(regionMap).map(region => {
     const totalOutstanding = region.totalPayable - region.totalCollected;
-    const collectionRate = region.totalPayable > 0 
-      ? (region.totalCollected / region.totalPayable) * 100 
+    const collectionRate = region.totalPayable > 0
+      ? (region.totalCollected / region.totalPayable) * 100
       : 0;
-    
+
     // Calculate NPL (loans with < 70% collection rate)
     const nplLoans = region.loans.filter(loan => {
       const loanCollectionRate = loan.payable > 0 ? (loan.collected / loan.payable) : 0;
       return loanCollectionRate < 0.7;
     });
-    
+
     const nplAmount = nplLoans.reduce((sum, loan) => sum + (loan.payable - loan.collected), 0);
     const nplRate = region.totalPayable > 0 ? (nplAmount / region.totalPayable) * 100 : 0;
-    
+
     // Calculate arrears (overdue amounts)
     const arrearsAmount = Math.max(0, totalOutstanding * 0.6); // Simplified calculation
-    
+
     return {
       name: region.name,
       totalDisbursed: Math.round(region.totalDisbursed),
@@ -265,8 +268,8 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
       nplRate: Math.round(nplRate * 10) / 10,
       arrearsAmount: Math.round(arrearsAmount),
       loanCount: region.loanCount,
-      avgLoanSize: region.loanCount > 0 
-        ? Math.round(region.totalDisbursed / region.loanCount) 
+      avgLoanSize: region.loanCount > 0
+        ? Math.round(region.totalDisbursed / region.loanCount)
         : 0
     };
   }).sort((a, b) => b.totalDisbursed - a.totalDisbursed);
@@ -277,7 +280,7 @@ export const fetchRegionPerformance = async (dateRange, selectedRegion, customDa
 
 
 // 4. Payer Type Analysis
-export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch) => {
+export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selectedBranch, tenantId) => {
   let query = supabase
     .from('loan_payments')
     .select(`
@@ -291,6 +294,7 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
         created_at
       )
     `)
+    .eq('tenant_id', tenantId)
     .not('payer_type', 'is', null);
 
   if (dateRange !== 'all') {
@@ -302,8 +306,9 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
     const { data: loansInRegion } = await supabase
       .from('loans')
       .select('id')
-      .eq('region_id', selectedRegion);
-    
+      .eq('region_id', selectedRegion)
+      .eq('tenant_id', tenantId);
+
     if (loansInRegion?.length > 0) {
       const loanIds = loansInRegion.map(loan => loan.id);
       query = query.in('loan_id', loanIds);
@@ -314,8 +319,9 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
     const { data: loansInBranch } = await supabase
       .from('loans')
       .select('id')
-      .eq('branch_id', selectedBranch);
-    
+      .eq('branch_id', selectedBranch)
+      .eq('tenant_id', tenantId);
+
     if (loansInBranch?.length > 0) {
       const loanIds = loansInBranch.map(loan => loan.id);
       query = query.in('loan_id', loanIds);
@@ -341,7 +347,7 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
   data.forEach(payment => {
     const payerType = payment.payer_type;
     const amount = Number(payment.paid_amount) || 0;
-    
+
     if (payerTypeTotals[payerType]) {
       payerTypeTotals[payerType].amount += amount;
       payerTypeTotals[payerType].count++;
@@ -364,10 +370,10 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
 
   // Pie chart data
   const COLORS = [
-    "#10b981", "#f59e0b", "#8b5cf6", "#586ab1", 
+    "#10b981", "#f59e0b", "#8b5cf6", "#586ab1",
     "#ef4444", "#06b6d4", "#ec4899", "#84cc16"
   ];
-  
+
   const payerTypePieData = Object.entries(payerTypeTotals)
     .filter(([key, value]) => value.amount > 0)
     .map(([key, value], index) => ({
@@ -385,10 +391,11 @@ export const fetchPayerTypeAnalysis = async (dateRange, selectedRegion, selected
 };
 
 // 5. Repayment Trends
-export const fetchRepaymentTrends = async (dateRange) => {
+export const fetchRepaymentTrends = async (dateRange, tenantId) => {
   const { data, error } = await supabase
     .from('loan_payments')
     .select('paid_amount, created_at')
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true });
 
   if (error) {
@@ -399,7 +406,7 @@ export const fetchRepaymentTrends = async (dateRange) => {
   const now = new Date();
   const trends = {};
   let periods = [];
-  
+
   if (dateRange === 'week') {
     for (let i = 6; i >= 0; i--) {
       const date = new Date(now);
@@ -446,13 +453,13 @@ export const fetchRepaymentTrends = async (dateRange) => {
   data.forEach(payment => {
     const date = new Date(payment.created_at);
     let period;
-    
+
     if (dateRange === 'week' || dateRange === 'month') {
       period = date.toISOString().split('T')[0];
     } else {
       period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     }
-    
+
     if (trends[period]) {
       trends[period].amount += Number(payment.paid_amount) || 0;
       trends[period].count++;
@@ -463,10 +470,11 @@ export const fetchRepaymentTrends = async (dateRange) => {
 };
 
 // 6. Business Types Analysis
-export const fetchBusinessTypes = async () => {
+export const fetchBusinessTypes = async (tenantId) => {
   const { data, error } = await supabase
     .from('customers')
     .select('business_type, daily_Sales, county')
+    .eq('tenant_id', tenantId)
     .not('business_type', 'is', null);
 
   if (error) {
@@ -484,7 +492,7 @@ export const fetchBusinessTypes = async () => {
         totalIncome: 0
       };
     }
-    
+
     businessMap[businessType].count++;
     businessMap[businessType].totalIncome += Number(customer.daily_Sales) || 0;
   });
@@ -495,10 +503,11 @@ export const fetchBusinessTypes = async () => {
 };
 
 // 7. Age and Gender Distribution
-export const fetchAgeGenderDistribution = async () => {
+export const fetchAgeGenderDistribution = async (tenantId) => {
   const { data, error } = await supabase
     .from('guarantors')
-    .select('date_of_birth, gender');
+    .select('date_of_birth, gender')
+    .eq('tenant_id', tenantId);
 
   if (error) {
     console.error("Error fetching age gender distribution:", error);
@@ -507,7 +516,7 @@ export const fetchAgeGenderDistribution = async () => {
 
   const distribution = [];
   const ageGroups = ['18-25', '26-35', '36-45', '46-55', '56+'];
-  
+
   ageGroups.forEach(group => {
     distribution.push({
       ageGroup: group,
@@ -521,7 +530,7 @@ export const fetchAgeGenderDistribution = async () => {
     if (guarantor.date_of_birth && guarantor.gender) {
       const birthDate = new Date(guarantor.date_of_birth);
       const age = new Date().getFullYear() - birthDate.getFullYear();
-      
+
       let ageGroup;
       if (age <= 25) ageGroup = '18-25';
       else if (age <= 35) ageGroup = '26-35';
@@ -543,11 +552,12 @@ export const fetchAgeGenderDistribution = async () => {
 };
 
 // 8. Repeat Loan Analysis
-export const fetchRepeatCustomers = async () => {
+export const fetchRepeatCustomers = async (tenantId) => {
   const { data, error } = await supabase
     .from('loans')
     .select('customer_id, created_at, scored_amount')
-    .eq('status', 'disbursed');
+    .eq('status', 'disbursed')
+    .eq('tenant_id', tenantId);
 
   if (error) {
     console.error("Error fetching repeat customers:", error);
@@ -562,7 +572,7 @@ export const fetchRepeatCustomers = async () => {
         totalAmount: 0
       };
     }
-    
+
     customerLoans[loan.customer_id].loanCount++;
     customerLoans[loan.customer_id].totalAmount += Number(loan.scored_amount) || 0;
   });
@@ -594,10 +604,11 @@ export const fetchRepeatCustomers = async () => {
 };
 
 // 9. Collection Metrics
-export const fetchCollectionMetrics = async () => {
+export const fetchCollectionMetrics = async (tenantId) => {
   const { data: payments, error } = await supabase
     .from('loan_payments')
     .select('paid_amount, paid_at')
+    .eq('tenant_id', tenantId)
     .gte('paid_at', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString());
 
   if (error) {
@@ -607,7 +618,7 @@ export const fetchCollectionMetrics = async () => {
 
   const dailyCollections = {};
   const now = new Date();
-  
+
   for (let i = 29; i >= 0; i--) {
     const date = new Date(now);
     date.setDate(date.getDate() - i);
@@ -627,11 +638,12 @@ export const fetchCollectionMetrics = async () => {
 };
 
 // 10. Overdue Loans Analysis
-export const fetchOverdueLoans = async () => {
+export const fetchOverdueLoans = async (tenantId) => {
   const { data: loans, error } = await supabase
     .from('loans')
     .select('id, scored_amount, total_payable, weekly_payment, created_at, repayment_state')
-    .eq('status', 'disbursed');
+    .eq('status', 'disbursed')
+    .eq('tenant_id', tenantId);
 
   if (error) {
     console.error("Error fetching overdue loans:", error);
@@ -639,14 +651,14 @@ export const fetchOverdueLoans = async () => {
   }
 
   const overdueAnalysis = [];
-  
+
   loans.forEach(loan => {
     const weeksSinceStart = Math.floor((new Date() - new Date(loan.created_at)) / (7 * 24 * 60 * 60 * 1000));
     const expectedPayment = weeksSinceStart * Number(loan.weekly_payment) || 0;
-    
+
     const randomPaid = expectedPayment * (0.7 + Math.random() * 0.3);
     const overdueAmount = Math.max(0, expectedPayment - randomPaid);
-    
+
     if (overdueAmount > 0 && Math.random() > 0.7) {
       overdueAnalysis.push({
         loanId: loan.id,
@@ -662,10 +674,11 @@ export const fetchOverdueLoans = async () => {
 };
 
 // 11. County Analysis
-export const fetchCountyAnalysis = async () => {
+export const fetchCountyAnalysis = async (tenantId) => {
   const { data, error } = await supabase
     .from('customers')
     .select('county, daily_Sales, business_type, id')
+    .eq('tenant_id', tenantId)
     .not('county', 'is', null);
 
   if (error) {
@@ -683,7 +696,7 @@ export const fetchCountyAnalysis = async () => {
         totalDailySales: 0
       };
     }
-    
+
     countyMap[county].customerCount++;
     countyMap[county].totalDailySales += Number(customer.daily_Sales) || 0;
   });
@@ -691,17 +704,18 @@ export const fetchCountyAnalysis = async () => {
   return Object.values(countyMap)
     .map(county => ({
       ...county,
-      avgDailySales: county.customerCount > 0 ? 
+      avgDailySales: county.customerCount > 0 ?
         Math.round(county.totalDailySales / county.customerCount) : 0
     }))
     .sort((a, b) => b.customerCount - a.customerCount);
 };
 
 // 12. Customer Distribution by County
-export const fetchCustomerDistribution = async () => {
+export const fetchCustomerDistribution = async (tenantId) => {
   const { data, error } = await supabase
     .from('customers')
     .select('county, created_at')
+    .eq('tenant_id', tenantId)
     .not('county', 'is', null);
 
   if (error) {
@@ -729,10 +743,11 @@ export const fetchCustomerDistribution = async () => {
 };
 
 // 13. Customer Age Analysis
-export const fetchCustomerAges = async () => {
+export const fetchCustomerAges = async (tenantId) => {
   const { data, error } = await supabase
     .from('customers')
     .select('date_of_birth, gender, daily_Sales')
+    .eq('tenant_id', tenantId)
     .not('date_of_birth', 'is', null);
 
   if (error) {
@@ -760,12 +775,12 @@ export const fetchCustomerAges = async () => {
     if (customer.date_of_birth) {
       const birthDate = new Date(customer.date_of_birth);
       const age = new Date().getFullYear() - birthDate.getFullYear();
-      
+
       const group = ageGroups.find(g => age >= g.min && age <= g.max);
       if (group) {
         const index = ageGroups.indexOf(group);
         distribution[index].count++;
-        
+
         const dailySales = Number(customer.daily_Sales) || 0;
         distribution[index].totalDailySales += dailySales;
       }
@@ -783,11 +798,12 @@ export const fetchCustomerAges = async () => {
 
 
 // 14. Marital Status Data
-export const fetchMaritalStatusData = async () => {
+export const fetchMaritalStatusData = async (tenantId) => {
   try {
     const { data, error } = await supabase
       .from('customers')
       .select('marital_status')
+      .eq('tenant_id', tenantId)
       .not('marital_status', 'is', null);
 
     if (error) {
@@ -811,12 +827,13 @@ export const fetchMaritalStatusData = async () => {
 };
 
 // 15. NPL (Non-Performing Loans) Data
-export const fetchNPLData = async () => {
+export const fetchNPLData = async (tenantId) => {
   try {
     const { data: loans, error } = await supabase
       .from('loans')
       .select('id, scored_amount, total_payable, weekly_payment, created_at, branch_id, branches(name)')
       .eq('status', 'disbursed')
+      .eq('tenant_id', tenantId)
       .not('repayment_state', 'eq', 'current');
 
     if (error) {
@@ -825,15 +842,15 @@ export const fetchNPLData = async () => {
     }
 
     const nplAnalysis = [];
-    
+
     loans.forEach(loan => {
       const weeksSinceStart = Math.floor((new Date() - new Date(loan.created_at)) / (7 * 24 * 60 * 60 * 1000));
       const expectedPayment = weeksSinceStart * Number(loan.weekly_payment) || 0;
-      
+
       // Simulate payment data (in real app, fetch actual payments)
       const randomPaid = expectedPayment * (0.5 + Math.random() * 0.3); // 50-80% paid
       const overdueAmount = Math.max(0, expectedPayment - randomPaid);
-      
+
       if (overdueAmount > 0) {
         nplAnalysis.push({
           loanId: loan.id,

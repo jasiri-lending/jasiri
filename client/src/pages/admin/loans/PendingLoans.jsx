@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../.../../../../supabaseClient";
 import axios from "axios";
 import { useAuth } from "../../../hooks/userAuth";
+import { API_BASE_URL } from "../../../config.js";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -287,7 +288,7 @@ const PendingLoans = () => {
       console.log("-".repeat(60));
 
       const { data: b2cResponse } = await axios.post(
-        "http://localhost:5000/mpesa/b2c/disburse",
+        `${API_BASE_URL}/mpesa/b2c/disburse`,
         {
           amount: loan.scored_amount,
           phone: mobileNumber,
@@ -618,8 +619,8 @@ const PendingLoans = () => {
 
                   {/* Wallet & Fee Status Section */}
                   <div className={`rounded-xl p-6 border ${feesPaid
-                      ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
-                      : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
+                    ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
+                    : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
                     }`}>
                     <h3 className="text-lg font-bold text-gray-600 flex items-center mb-6">
                       <BanknotesIcon className="h-5 w-5 text-emerald-600 mr-3" />
@@ -687,7 +688,7 @@ const PendingLoans = () => {
                       {approvalTrail.map((step, index) => (
                         <div key={index} className="flex items-start space-x-4 p-4 bg-white rounded-lg border border-gray-200">
                           <div className={`w-3 h-3 rounded-full mt-2 ${step.decision === 'approved' ? 'bg-green-500' :
-                              step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
+                            step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
                             }`}></div>
                           <div className="flex-1">
                             <div className="flex justify-between items-center">
@@ -759,8 +760,8 @@ const PendingLoans = () => {
 
                   {/* Disbursement Action */}
                   <div className={`rounded-xl p-6 border ${isLoanValidForDisbursement(selectedLoan)
-                      ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                      : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
+                    ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                    : 'bg-gradient-to-r from-yellow-50 to-amber-50 border-yellow-200'
                     }`}>
                     <h3 className="text-lg font-bold text-gray-900 flex items-center mb-4">
                       <CheckCircleIcon className="h-5 w-5 text-green-600 mr-3" />
@@ -792,8 +793,8 @@ const PendingLoans = () => {
                       onClick={() => handleDisbursement(selectedLoan)}
                       disabled={!isLoanValidForDisbursement(selectedLoan) || disbursing}
                       className={`flex items-center gap-3 px-6 py-3 rounded-xl transition-all shadow-lg font-semibold ${isLoanValidForDisbursement(selectedLoan) && !disbursing
-                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
-                          : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                        : 'bg-gray-300 text-gray-500 cursor-not-allowed'
                         }`}
                     >
                       <CurrencyDollarIcon className="h-5 w-5" />

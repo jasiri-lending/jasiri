@@ -1,6 +1,6 @@
-// AnalyticsDashboard.jsx
 import { useState, useEffect, useCallback } from "react";
 import { CHART_BG } from "./shared/constants";
+import { useTenant } from "../../hooks/useTenant";
 
 // Chart components
 import RegionChart from "./charts/RegionPerformanceChart";
@@ -10,11 +10,11 @@ import CustomerLoyaltyChart from "./charts/CustomerLoyaltyChart";
 import RepaymentChart from "./charts/RepaymentTrendsChart";
 import CustomerAgeChart from "./charts/CustomerAgeChart";
 import BusinessChart from "./charts/BusinessTypesChart";
-import GuarantorAgeChart from "./charts/GuarantorAgeChat";
+import GuarantorAgeChart from "./charts/GuarantorAgeChart";
 import PayerAnalysisChart from "./charts/PayerTypeChart";
 import CountyChart from "./charts/Countchart";
 import MaritalStatusChart from "./charts/MaritalStatusChart";
-import NPLChart from "./charts/NPLChat";
+import NPLChart from "./charts/NPLChart";
 
 // Import all fetch functions
 import {
@@ -46,7 +46,7 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
         </p>
         <p className="text-xs text-blue-600 mt-2">All Regions</p>
       </div>
-      
+
       <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-sm border border-green-200">
         <p className="text-sm text-green-700 mb-2">Total Loans</p>
         <p className="text-2xl font-bold text-green-900">
@@ -54,7 +54,7 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
         </p>
         <p className="text-xs text-green-600 mt-2">Active Portfolio</p>
       </div>
-      
+
       <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl shadow-sm border border-purple-200">
         <p className="text-sm text-purple-700 mb-2">Collection Rate</p>
         <div className="flex items-center gap-2">
@@ -64,7 +64,7 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
         </div>
         <p className="text-xs text-purple-600 mt-2">Average</p>
       </div>
-      
+
       <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-sm border border-orange-200">
         <p className="text-sm text-orange-700 mb-2">Total Branches</p>
         <p className="text-2xl font-bold text-orange-900">
@@ -76,6 +76,7 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
 );
 
 const AnalyticsDashboard = () => {
+  const { tenant } = useTenant();
   const [analyticsData, setAnalyticsData] = useState({
     productOverview: [],
     branchPerformance: [],
@@ -93,7 +94,7 @@ const AnalyticsDashboard = () => {
     maritalStatusData: [],
     nplData: []
   });
-  
+
   const [globalFilters, setGlobalFilters] = useState({
     dateRange: 'all',
     region: 'all',
@@ -105,17 +106,17 @@ const AnalyticsDashboard = () => {
     const totalDisbursed = analyticsData.regionPerformance.reduce(
       (sum, region) => sum + (region.totalDisbursed || 0), 0
     );
-    
+
     const totalLoans = analyticsData.regionPerformance.reduce(
       (sum, region) => sum + (region.loanCount || 0), 0
     );
-    
+
     const totalBranches = analyticsData.branchPerformance.length || 0;
-    
+
     const avgCollectionRate = analyticsData.regionPerformance.length > 0
       ? analyticsData.regionPerformance.reduce(
-          (sum, region) => sum + (region.collectionRate || 0), 0
-        ) / analyticsData.regionPerformance.length
+        (sum, region) => sum + (region.collectionRate || 0), 0
+      ) / analyticsData.regionPerformance.length
       : 0;
 
     return {
@@ -127,8 +128,9 @@ const AnalyticsDashboard = () => {
   };
 
   const fetchAnalyticsData = useCallback(async () => {
-    try {
+    if (!tenant?.id) return;
 
+    try {
       const [
         productData,
         branchData,
@@ -146,21 +148,21 @@ const AnalyticsDashboard = () => {
         maritalStatusData,
         nplData
       ] = await Promise.all([
-        fetchProductOverview(globalFilters.dateRange),
-        fetchBranchPerformance(globalFilters.dateRange, globalFilters.branch),
-        fetchRegionPerformance(globalFilters.dateRange, globalFilters.region),
-        fetchPayerTypeAnalysis(globalFilters.dateRange, globalFilters.region, globalFilters.branch),
-        fetchRepaymentTrends(globalFilters.dateRange),
-        fetchBusinessTypes(),
-        fetchAgeGenderDistribution(),
-        fetchRepeatCustomers(),
-        fetchCollectionMetrics(),
-        fetchOverdueLoans(),
-        fetchCountyAnalysis(),
-        fetchCustomerDistribution(),
-        fetchCustomerAges(),
-        fetchMaritalStatusData(),
-        fetchNPLData()
+        fetchProductOverview(globalFilters.dateRange, tenant.id),
+        fetchBranchPerformance(globalFilters.dateRange, globalFilters.branch, tenant.id),
+        fetchRegionPerformance(globalFilters.dateRange, globalFilters.region, null, tenant.id),
+        fetchPayerTypeAnalysis(globalFilters.dateRange, globalFilters.region, globalFilters.branch, tenant.id),
+        fetchRepaymentTrends(globalFilters.dateRange, tenant.id),
+        fetchBusinessTypes(tenant.id),
+        fetchAgeGenderDistribution(tenant.id),
+        fetchRepeatCustomers(tenant.id),
+        fetchCollectionMetrics(tenant.id),
+        fetchOverdueLoans(tenant.id),
+        fetchCountyAnalysis(tenant.id),
+        fetchCustomerDistribution(tenant.id),
+        fetchCustomerAges(tenant.id),
+        fetchMaritalStatusData(tenant.id),
+        fetchNPLData(tenant.id)
       ]);
 
       setAnalyticsData({
@@ -184,8 +186,32 @@ const AnalyticsDashboard = () => {
 
     } catch (error) {
       console.error("Error fetching analytics data:", error);
-    } 
-  }, [globalFilters]);
+    }
+  }, [globalFilters, tenant?.id]);
+
+  useEffect(() => {
+    const initializeFilters = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
+        if (profile) {
+          if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+            setGlobalFilters(prev => ({
+              ...prev,
+              region: profile.region_id,
+              branch: profile.branch_id
+            }));
+          } else if (profile.role === 'regional_manager') {
+            setGlobalFilters(prev => ({
+              ...prev,
+              region: profile.region_id
+            }));
+          }
+        }
+      }
+    };
+    initializeFilters();
+  }, []);
 
   useEffect(() => {
     fetchAnalyticsData();
@@ -214,12 +240,12 @@ const AnalyticsDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Row 1: Region and Branch */}
-        <RegionChart 
+        <RegionChart
           data={analyticsData.regionPerformance}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
         />
-        <BranchChart 
+        <BranchChart
           data={analyticsData.branchPerformance}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
@@ -228,70 +254,70 @@ const AnalyticsDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Row 2: Product and Customer Loyalty */}
-        <ProductChart 
+        <ProductChart
           data={analyticsData.productOverview}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
         />
-        <CustomerLoyaltyChart 
+        <CustomerLoyaltyChart
           data={analyticsData.repeatCustomers}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
         />
       </div>
 
-<div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-  {/* Repayment Chart – 3/5 */}
-  <div className="lg:col-span-3">
-    <RepaymentChart 
-      data={analyticsData.repaymentTrends}
-      filters={globalFilters}
-      onFilterChange={handleGlobalFilterChange}
-    />
-  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+        {/* Repayment Chart – 3/5 */}
+        <div className="lg:col-span-3">
+          <RepaymentChart
+            data={analyticsData.repaymentTrends}
+            filters={globalFilters}
+            onFilterChange={handleGlobalFilterChange}
+          />
+        </div>
 
-  {/* Customer Age Chart – 2/5 */}
-  <div className="lg:col-span-2">
-    <CustomerAgeChart 
-      data={analyticsData.customerAges}
-      filters={globalFilters}
-      onFilterChange={handleGlobalFilterChange}
-    />
-  </div>
-</div>
+        {/* Customer Age Chart – 2/5 */}
+        <div className="lg:col-span-2">
+          <CustomerAgeChart
+            data={analyticsData.customerAges}
+            filters={globalFilters}
+            onFilterChange={handleGlobalFilterChange}
+          />
+        </div>
+      </div>
 
 
 
-    <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
-  {/* Business Chart – 3/5 */}
-  <div className="lg:col-span-3">
-    <BusinessChart 
-      data={analyticsData.businessTypes}
-      filters={globalFilters}
-      onFilterChange={handleGlobalFilterChange}
-    />
-  </div>
+      <div className="grid grid-cols-1 lg:grid-cols-5 gap-6 mb-8">
+        {/* Business Chart – 3/5 */}
+        <div className="lg:col-span-3">
+          <BusinessChart
+            data={analyticsData.businessTypes}
+            filters={globalFilters}
+            onFilterChange={handleGlobalFilterChange}
+          />
+        </div>
 
-  {/* Guarantor Age Chart – 2/5 */}
-  <div className="lg:col-span-2">
-    <GuarantorAgeChart 
-      data={analyticsData.ageGenderDistribution}
-      filters={globalFilters}
-      onFilterChange={handleGlobalFilterChange}
-    />
-  </div>
-</div>
+        {/* Guarantor Age Chart – 2/5 */}
+        <div className="lg:col-span-2">
+          <GuarantorAgeChart
+            data={analyticsData.ageGenderDistribution}
+            filters={globalFilters}
+            onFilterChange={handleGlobalFilterChange}
+          />
+        </div>
+      </div>
 
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
         {/* Row 5: Payer Analysis and County */}
-        <PayerAnalysisChart 
+        <PayerAnalysisChart
           barData={analyticsData.payerTypeBreakdown}
           pieData={analyticsData.payerTypePieData}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
         />
-        <CountyChart 
+        <CountyChart
           data={analyticsData.customerDistribution}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
@@ -300,12 +326,12 @@ const AnalyticsDashboard = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Row 6: Marital Status and NPL */}
-        <MaritalStatusChart 
+        <MaritalStatusChart
           data={analyticsData.maritalStatusData}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}
         />
-        <NPLChart 
+        <NPLChart
           data={analyticsData.nplData || analyticsData.overdueLoans}
           filters={globalFilters}
           onFilterChange={handleGlobalFilterChange}

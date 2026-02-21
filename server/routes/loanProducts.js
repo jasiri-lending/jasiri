@@ -30,7 +30,7 @@ router.get("/", async (req, res) => {
 // Create a new loan product
 router.post("/", async (req, res) => {
     try {
-        const { tenant_id, product_name, min_amount, max_amount } = req.body;
+        const { tenant_id, product_name, min_amount, max_amount, registration_fee } = req.body;
 
         if (!tenant_id || !product_name || !min_amount) {
             return res.status(400).json({ success: false, error: "Missing required fields" });
@@ -44,6 +44,7 @@ router.post("/", async (req, res) => {
                     product_name,
                     min_amount,
                     max_amount: max_amount || null,
+                    registration_fee: registration_fee || 0,
                 },
             ])
             .select()
@@ -62,10 +63,10 @@ router.post("/", async (req, res) => {
 router.put("/:id", async (req, res) => {
     try {
         const { id } = req.params;
-        const { product_name, min_amount, max_amount } = req.body;
+        const { tenant_id, product_name, min_amount, max_amount, registration_fee } = req.body;
 
-        if (!product_name || !min_amount) {
-            return res.status(400).json({ success: false, error: "Missing required fields" });
+        if (!tenant_id || !product_name || !min_amount) {
+            return res.status(400).json({ success: false, error: "Missing required fields (tenant_id, name, min_amount)" });
         }
 
         const { data, error } = await supabaseAdmin
@@ -74,8 +75,10 @@ router.put("/:id", async (req, res) => {
                 product_name,
                 min_amount,
                 max_amount: max_amount || null,
+                registration_fee: registration_fee || 0,
             })
             .eq("id", id)
+            .eq("tenant_id", tenant_id)
             .select()
             .single();
 
@@ -88,15 +91,44 @@ router.put("/:id", async (req, res) => {
     }
 });
 
+// Update registration_fee for ALL products of a tenant (Global Joining Fee)
+router.put("/global/registration-fee", async (req, res) => {
+    try {
+        const { tenant_id, registration_fee } = req.body;
+
+        if (!tenant_id || registration_fee === undefined) {
+            return res.status(400).json({ success: false, error: "Tenant ID and registration fee are required" });
+        }
+
+        const { data, error } = await supabaseAdmin
+            .from("loan_products")
+            .update({ registration_fee })
+            .eq("tenant_id", tenant_id);
+
+        if (error) throw error;
+
+        res.json({ success: true, message: `Registration fee updated to ${registration_fee} for all products.` });
+    } catch (error) {
+        console.error("Error updating global registration fee:", error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 // Delete a loan product
 router.delete("/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        const { tenant_id } = req.query;
+
+        if (!tenant_id) {
+            return res.status(400).json({ success: false, error: "Tenant ID is required for deletion" });
+        }
 
         const { error } = await supabaseAdmin
             .from("loan_products")
             .delete()
-            .eq("id", id);
+            .eq("id", id)
+            .eq("tenant_id", tenant_id);
 
         if (error) throw error;
 
@@ -152,6 +184,9 @@ router.post("/types", async (req, res) => {
             duration_weeks,
             interest_rate,
             processing_fee_rate,
+            processing_fee_mode,
+            registration_fee,
+            penalty_rate
         } = req.body;
 
         if (
@@ -159,7 +194,8 @@ router.post("/types", async (req, res) => {
             !loan_product_id ||
             !product_type ||
             !duration_weeks ||
-            interest_rate === undefined
+            interest_rate === undefined ||
+            !processing_fee_mode
         ) {
             return res.status(400).json({ success: false, error: "Missing required fields" });
         }
@@ -174,6 +210,9 @@ router.post("/types", async (req, res) => {
                     duration_weeks,
                     interest_rate,
                     processing_fee_rate: processing_fee_rate || 0,
+                    processing_fee_mode: processing_fee_mode || 'percentage',
+                    registration_fee: registration_fee || 0,
+                    penalty_rate: penalty_rate || 0,
                 },
             ])
             .select()
@@ -193,16 +232,22 @@ router.put("/types/:id", async (req, res) => {
     try {
         const { id } = req.params;
         const {
+            tenant_id,
             product_type,
             duration_weeks,
             interest_rate,
             processing_fee_rate,
+            processing_fee_mode,
+            registration_fee,
+            penalty_rate
         } = req.body;
 
         if (
+            !tenant_id ||
             !product_type ||
             !duration_weeks ||
-            interest_rate === undefined
+            interest_rate === undefined ||
+            !processing_fee_mode
         ) {
             return res.status(400).json({ success: false, error: "Missing required fields" });
         }
@@ -214,8 +259,12 @@ router.put("/types/:id", async (req, res) => {
                 duration_weeks,
                 interest_rate,
                 processing_fee_rate: processing_fee_rate || 0,
+                processing_fee_mode: processing_fee_mode || 'percentage',
+                registration_fee: registration_fee || 0,
+                penalty_rate: penalty_rate || 0,
             })
             .eq("id", id)
+            .eq("tenant_id", tenant_id)
             .select()
             .single();
 
@@ -232,11 +281,17 @@ router.put("/types/:id", async (req, res) => {
 router.delete("/types/:id", async (req, res) => {
     try {
         const { id } = req.params;
+        const { tenant_id } = req.query;
+
+        if (!tenant_id) {
+            return res.status(400).json({ success: false, error: "Tenant ID is required" });
+        }
 
         const { error } = await supabaseAdmin
             .from("loan_product_types")
             .delete()
-            .eq("id", id);
+            .eq("id", id)
+            .eq("tenant_id", tenant_id);
 
         if (error) throw error;
 

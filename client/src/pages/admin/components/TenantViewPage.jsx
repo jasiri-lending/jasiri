@@ -40,7 +40,7 @@ import {
   CogIcon,
   AdjustmentsHorizontalIcon,
   UserCircleIcon,
-   UserIcon,
+  UserIcon,
   CheckBadgeIcon
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../../supabaseClient";
@@ -154,7 +154,7 @@ const tabs = [
 const TenantViewPage = () => {
   const { tenantId } = useParams();
   const navigate = useNavigate();
-  
+
   const [tenant, setTenant] = useState(null);
   const [mpesaConfig, setMpesaConfig] = useState(null);
   const [stats, setStats] = useState({});
@@ -178,7 +178,7 @@ const TenantViewPage = () => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
-        
+
         // Fetch tenant and mpesa config in parallel (fast queries)
         const [tenantResponse, mpesaResponse] = await Promise.all([
           supabase.from('tenants').select('*').eq('id', tenantId).single(),
@@ -186,13 +186,13 @@ const TenantViewPage = () => {
         ]);
 
         if (tenantResponse.error) throw tenantResponse.error;
-        
+
         setTenant(tenantResponse.data);
         setMpesaConfig(mpesaResponse.data);
-        
+
         // Fetch stats in background
         calculateStats();
-        
+
       } catch (error) {
         console.error('Error fetching initial data:', error);
       } finally {
@@ -210,7 +210,7 @@ const TenantViewPage = () => {
     const fetchTabData = async () => {
       try {
         setLoading(true);
-        
+
         switch (activeTab) {
           case 'users':
             const usersData = await fetchUsers();
@@ -263,7 +263,7 @@ const TenantViewPage = () => {
         supabase.from('branches').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('regions').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
         supabase.from('users').select('id, role').eq('tenant_id', tenantId).eq('role', 'relationship_officer'),
-        supabase.from('loan_payments').select('id', { count: 'exact', head: true })
+        supabase.from('loan_payments').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
       ]);
 
       const roIds = roUsers.data?.map(u => u.id) || [];
@@ -276,7 +276,7 @@ const TenantViewPage = () => {
           supabase.from('customers').select('id', { count: 'exact', head: true }).in('created_by', roIds),
           supabase.from('loans').select('id', { count: 'exact', head: true }).in('booked_by', roIds)
         ]);
-        
+
         customerCount = customersCount.count || 0;
         loanCount = loansCount.count || 0;
       }
@@ -302,7 +302,7 @@ const TenantViewPage = () => {
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(100); // Limit results for performance
-    
+
     if (error) console.error('Error fetching users:', error);
     return data;
   }, [tenantId]);
@@ -314,7 +314,7 @@ const TenantViewPage = () => {
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(100);
-    
+
     if (error) console.error('Error fetching branches:', error);
     return data;
   }, [tenantId]);
@@ -326,7 +326,7 @@ const TenantViewPage = () => {
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(100);
-    
+
     if (error) console.error('Error fetching regions:', error);
     return data;
   }, [tenantId]);
@@ -337,9 +337,9 @@ const TenantViewPage = () => {
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('role', 'relationship_officer');
-    
+
     if (!roUsers?.length) return [];
-    
+
     const { data, error } = await supabase
       .from('customers')
       .select(`
@@ -357,7 +357,7 @@ const TenantViewPage = () => {
       .in('created_by', roUsers.map(u => u.id))
       .order('created_at', { ascending: false })
       .limit(50);
-    
+
     if (error) console.error('Error fetching customers:', error);
     return data;
   }, [tenantId]);
@@ -368,9 +368,9 @@ const TenantViewPage = () => {
       .select('id')
       .eq('tenant_id', tenantId)
       .eq('role', 'relationship_officer');
-    
+
     if (!roUsers?.length) return [];
-    
+
     const { data, error } = await supabase
       .from('loans')
       .select(`
@@ -381,7 +381,7 @@ const TenantViewPage = () => {
       .in('booked_by', roUsers.map(u => u.id))
       .order('created_at', { ascending: false })
       .limit(50);
-    
+
     if (error) console.error('Error fetching loans:', error);
     return data;
   }, [tenantId]);
@@ -393,7 +393,7 @@ const TenantViewPage = () => {
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
-    
+
     if (error) console.error('Error fetching MPESA transactions:', error);
     return data;
   }, [tenantId]);
@@ -421,11 +421,11 @@ const TenantViewPage = () => {
   // Memoized filtered data
   const filteredUsers = useMemo(() => {
     return users.filter(user => {
-      const matchesSearch = 
+      const matchesSearch =
         (user.full_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.email || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (user.phone || '').toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesRole = !filterRole || user.role === filterRole;
       return matchesSearch && matchesRole;
     });
@@ -447,11 +447,11 @@ const TenantViewPage = () => {
 
   const filteredCustomers = useMemo(() => {
     return customers.filter(customer => {
-      const matchesSearch = 
+      const matchesSearch =
         (customer.Firstname || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (customer.Surname || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (customer.mobile || '').toLowerCase().includes(searchQuery.toLowerCase());
-      
+
       const matchesStatus = !filterStatus || customer.status === filterStatus;
       return matchesSearch && matchesStatus;
     });
@@ -506,7 +506,7 @@ const TenantViewPage = () => {
             </span>
           </div>
         </div>
-        
+
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-6">
@@ -517,7 +517,7 @@ const TenantViewPage = () => {
                   <p className="text-lg font-semibold text-slate-600">{tenant.company_name || 'N/A'}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
                 <IdentificationIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
@@ -525,7 +525,7 @@ const TenantViewPage = () => {
                   <p className="text-lg font-semibold text-slate-600">{tenant.name}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
                 <GlobeAltIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
@@ -533,7 +533,7 @@ const TenantViewPage = () => {
                   <p className="text-lg font-mono font-semibold text-slate-600">{tenant.tenant_slug}</p>
                 </div>
               </div>
-              
+
               <div className="flex items-start">
                 <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
                 <div>
@@ -544,8 +544,8 @@ const TenantViewPage = () => {
                 </div>
               </div>
             </div>
-            
-         
+
+
           </div>
         </div>
       </div>
@@ -556,14 +556,14 @@ const TenantViewPage = () => {
           <h2 className="text-sm  text-slate-600">Activity Summary</h2>
           <p className="text-sm text-gray-600 mt-1">Key metrics for this tenant</p>
         </div>
-        
+
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { label: 'Total Users', value: stats.totalUsers || 0, icon: UsersIcon },
               { label: 'Total Customers', value: stats.totalCustomers || 0, icon: UserGroupIcon },
               { label: 'Total Loans', value: stats.totalLoans || 0, icon: DocumentTextIcon },
-              { label: 'Active ROs', value: stats.activeROs || 0, icon:  UserIcon},
+              { label: 'Active ROs', value: stats.activeROs || 0, icon: UserIcon },
               { label: 'Total Branches', value: stats.totalBranches || 0, icon: BuildingOfficeIcon },
               { label: 'Total Regions', value: stats.totalRegions || 0, icon: MapPinIcon },
               { label: 'Total Repayments', value: stats.totalRepayments || 0, icon: BanknotesIcon },
@@ -601,7 +601,7 @@ const TenantViewPage = () => {
               </button>
             </div>
           </div>
-          
+
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {[
@@ -625,7 +625,7 @@ const TenantViewPage = () => {
                 </div>
               ))}
             </div>
-            
+
             <div className="mt-6 pt-6 border-t border-gray-200">
               <p className="text-sm text-gray-500">
                 Configured on: {mpesaConfig.created_at ? format(new Date(mpesaConfig.created_at), 'MMMM d, yyyy h:mm a') : 'N/A'}
@@ -647,10 +647,10 @@ const TenantViewPage = () => {
               {filteredUsers.length} users found
             </p>
           </div>
-      
+
         </div>
       </div>
-      
+
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
@@ -721,7 +721,7 @@ const TenantViewPage = () => {
             ))}
           </tbody>
         </table>
-        
+
         {filteredUsers.length === 0 && (
           <div className="text-center py-12">
             <UserCircleIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -783,11 +783,10 @@ const TenantViewPage = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     disabled={loading && tab.id !== activeTab}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${
-                      activeTab === tab.id
+                    className={`py-4 px-1 border-b-2 font-medium text-sm ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === tab.id
                         ? 'border-[#586ab1] text-[#586ab1]'
                         : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <Icon className="h-5 w-5 inline-block mr-2" />
                     {tab.label}
@@ -830,7 +829,7 @@ const TenantViewPage = () => {
                   )}
                 </button>
               )}
-             
+
               {['customers', 'loans', 'mpesa'].includes(activeTab) && (
                 <button className="flex items-center px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
                   Export
@@ -914,10 +913,10 @@ const TenantViewPage = () => {
                         {filteredBranches.length} branches found
                       </p>
                     </div>
-                 
+
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -974,7 +973,7 @@ const TenantViewPage = () => {
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {filteredBranches.length === 0 && (
                     <div className="text-center py-12">
                       <BuildingOfficeIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -995,10 +994,10 @@ const TenantViewPage = () => {
                         {filteredRegions.length} regions found
                       </p>
                     </div>
-                
+
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1055,7 +1054,7 @@ const TenantViewPage = () => {
                       })}
                     </tbody>
                   </table>
-                  
+
                   {filteredRegions.length === 0 && (
                     <div className="text-center py-12">
                       <MapPinIcon className="h-12 w-12 mx-auto text-gray-400" />
@@ -1076,10 +1075,10 @@ const TenantViewPage = () => {
                         {filteredCustomers.length} customers found
                       </p>
                     </div>
-                 
+
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1136,7 +1135,7 @@ const TenantViewPage = () => {
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {filteredCustomers.length === 0 && (
                     <div className="text-center py-12">
                       <UserGroupIcon className="mx-auto h-12 w-12 text-gray-400" />
@@ -1162,7 +1161,7 @@ const TenantViewPage = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1193,15 +1192,14 @@ const TenantViewPage = () => {
                             </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              loan.status === 'disbursed'
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${loan.status === 'disbursed'
                                 ? 'bg-green-100 text-green-800'
                                 : loan.status === 'approved'
-                                ? 'bg-blue-100 text-blue-800'
-                                : loan.status === 'rejected'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : loan.status === 'rejected'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {loan.status || 'pending'}
                             </span>
                           </td>
@@ -1225,7 +1223,7 @@ const TenantViewPage = () => {
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {filteredLoans.length === 0 && (
                     <div className="text-center py-12">
                       <CreditCardIcon className="h-12 w-12 mx-auto text-gray-400" />
@@ -1251,7 +1249,7 @@ const TenantViewPage = () => {
                     </button>
                   </div>
                 </div>
-                
+
                 <div className="overflow-x-auto">
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
@@ -1281,13 +1279,12 @@ const TenantViewPage = () => {
                             <div className="text-sm text-gray-900">{transaction.phone_number}</div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                              transaction.status === 'applied'
+                            <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.status === 'applied'
                                 ? 'bg-green-100 text-green-800'
                                 : transaction.status === 'failed'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
-                            }`}>
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
+                              }`}>
                               {transaction.status || 'pending'}
                             </span>
                           </td>
@@ -1301,7 +1298,7 @@ const TenantViewPage = () => {
                       ))}
                     </tbody>
                   </table>
-                  
+
                   {filteredMpesaTransactions.length === 0 && (
                     <div className="text-center py-12">
                       <CurrencyDollarIcon className="h-12 w-12 mx-auto text-gray-400" />
@@ -1318,7 +1315,7 @@ const TenantViewPage = () => {
                   <h2 className="text-lg font-semibold text-gray-900">Tenant Settings</h2>
                   <p className="text-sm text-gray-600 mt-1">Manage tenant settings and actions</p>
                 </div>
-                
+
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
@@ -1330,7 +1327,7 @@ const TenantViewPage = () => {
                         </div>
                       </div>
                     </button>
-                    
+
                     <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
                       <div className="flex items-center">
                         <ShieldCheckIcon className="h-5 w-5 text-amber-600 mr-3" />
@@ -1340,7 +1337,7 @@ const TenantViewPage = () => {
                         </div>
                       </div>
                     </button>
-                    
+
                     <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
                       <div className="flex items-center">
                         <KeyIcon className="h-5 w-5 text-purple-600 mr-3" />
@@ -1350,7 +1347,7 @@ const TenantViewPage = () => {
                         </div>
                       </div>
                     </button>
-                    
+
                     <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
                       <div className="flex items-center">
                         <ClockIcon className="h-5 w-5 text-gray-600 mr-3" />
@@ -1361,7 +1358,7 @@ const TenantViewPage = () => {
                       </div>
                     </button>
                   </div>
-                  
+
                   <div className="pt-6 mt-6 border-t border-gray-200">
                     <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2">
                       <TrashIcon className="h-4 w-4" />

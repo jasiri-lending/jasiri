@@ -1,5 +1,5 @@
-// src/components/PenaltySettingsManager.jsx
 import { useState, useEffect } from 'react';
+import { useAuth } from "../../../hooks/userAuth";
 import { supabase } from "../../../supabaseClient";
 import {
   CogIcon,
@@ -21,6 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 const PenaltySettingsManager = () => {
+  const { profile } = useAuth();
   // State management
   const [settings, setSettings] = useState([]);
   const [filteredSettings, setFilteredSettings] = useState([]);
@@ -51,8 +52,10 @@ const PenaltySettingsManager = () => {
 
   // Fetch initial data
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (profile?.tenant_id) {
+      fetchData();
+    }
+  }, [profile]);
 
   // Filter settings when search or filters change
   useEffect(() => {
@@ -83,10 +86,10 @@ const PenaltySettingsManager = () => {
         const branchName = setting.branches?.name?.toLowerCase() || '';
         const regionName = setting.regions?.name?.toLowerCase() || '';
         const penaltyType = setting.penalty_type?.toLowerCase() || '';
-        
-        return branchName.includes(term) || 
-               regionName.includes(term) || 
-               penaltyType.includes(term);
+
+        return branchName.includes(term) ||
+          regionName.includes(term) ||
+          penaltyType.includes(term);
       });
     }
 
@@ -94,6 +97,7 @@ const PenaltySettingsManager = () => {
   }, [settings, searchTerm, filterType, filterStatus]);
 
   const fetchData = async () => {
+    if (!profile?.tenant_id) return;
     setLoading(true);
     try {
       // Fetch penalty settings with branch and region data
@@ -111,6 +115,7 @@ const PenaltySettingsManager = () => {
             name
           )
         `)
+        .eq('tenant_id', profile.tenant_id)
         .order('updated_at', { ascending: false });
 
       if (settingsError) throw settingsError;
@@ -119,12 +124,14 @@ const PenaltySettingsManager = () => {
       const { data: branchesData } = await supabase
         .from("branches")
         .select("id, name, region_id")
+        .eq('tenant_id', profile.tenant_id)
         .order("name");
 
       // Fetch regions for dropdown
       const { data: regionsData } = await supabase
         .from("regions")
         .select("id, name")
+        .eq('tenant_id', profile.tenant_id)
         .order("name");
 
       setSettings(settingsData || []);
@@ -193,6 +200,7 @@ const PenaltySettingsManager = () => {
     try {
       const payload = {
         ...formData,
+        tenant_id: profile.tenant_id,
         branch_id: formData.branch_id || null,
         region_id: formData.region_id || null,
         max_penalty_amount: formData.max_penalty_amount || null,
@@ -204,7 +212,8 @@ const PenaltySettingsManager = () => {
         const { error } = await supabase
           .from("penalty_settings")
           .update(payload)
-          .eq("id", editingSetting.id);
+          .eq("id", editingSetting.id)
+          .eq("tenant_id", profile.tenant_id);
 
         if (error) throw error;
       } else {
@@ -253,10 +262,11 @@ const PenaltySettingsManager = () => {
       const { error } = await supabase
         .from("penalty_settings")
         .delete()
-        .eq("id", id);
+        .eq("id", id)
+        .eq("tenant_id", profile.tenant_id);
 
       if (error) throw error;
-      
+
       fetchData(); // Refresh the list
     } catch (error) {
       console.error("Error deleting penalty setting:", error);
@@ -649,7 +659,7 @@ const PenaltySettingsManager = () => {
                 <CogIcon className="h-8 w-8 text-blue-500" />
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -661,7 +671,7 @@ const PenaltySettingsManager = () => {
                 <CheckCircleIcon className="h-8 w-8 text-green-500" />
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -673,7 +683,7 @@ const PenaltySettingsManager = () => {
                 <BuildingLibraryIcon className="h-8 w-8 text-purple-500" />
               </div>
             </div>
-            
+
             <div className="bg-white rounded-xl p-4 border border-gray-200 shadow-sm">
               <div className="flex items-center justify-between">
                 <div>
@@ -700,7 +710,7 @@ const PenaltySettingsManager = () => {
                   className="w-full p-2 border border-gray-300 rounded-lg"
                 />
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Scope Type</label>
                 <select
@@ -713,7 +723,7 @@ const PenaltySettingsManager = () => {
                   <option value="region">Region Only</option>
                 </select>
               </div>
-              
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Status</label>
                 <select
@@ -726,7 +736,7 @@ const PenaltySettingsManager = () => {
                   <option value="inactive">Inactive Only</option>
                 </select>
               </div>
-              
+
               <div className="flex items-end">
                 <button
                   onClick={() => {
@@ -781,8 +791,8 @@ const PenaltySettingsManager = () => {
                         <ExclamationTriangleIcon className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                         <p className="text-gray-900 font-medium">No penalty settings found</p>
                         <p className="text-gray-600 mt-1">
-                          {searchTerm || filterType !== 'all' || filterStatus !== 'all' 
-                            ? 'Try adjusting your filters' 
+                          {searchTerm || filterType !== 'all' || filterStatus !== 'all'
+                            ? 'Try adjusting your filters'
                             : 'Create your first penalty setting'}
                         </p>
                       </td>
