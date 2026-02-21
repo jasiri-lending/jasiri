@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from "../.../../../../supabaseClient";
 import axios from "axios";
 import { useAuth } from "../../../hooks/userAuth";
-import { API_BASE_URL } from "../../../config.js";
+import { API_BASE_URL } from "../../../../config";
 import {
   CheckCircleIcon,
   XCircleIcon,
