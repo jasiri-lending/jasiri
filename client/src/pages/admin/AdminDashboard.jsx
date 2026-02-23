@@ -50,13 +50,13 @@ const StatCard = ({
               {name}
             </p>
             <div className="flex items-baseline gap-2 mb-1">
-              <p className="text-2xl font-bold tracking-tight" style={{ color: "#586ab1" }}>
+              <div className="text-2xl font-bold tracking-tight" style={{ color: "#586ab1" }}>
                 {loading ? (
                   <div className="h-8 w-32 bg-white/40 rounded-lg animate-pulse"></div>
                 ) : (
                   value
                 )}
-              </p>
+              </div>
               {change && (
                 <span className={`text-xs font-medium flex items-center gap-1 px-2 py-1 rounded-full backdrop-blur-sm ${changeType === 'positive'
                   ? 'bg-emerald-500/10 text-emerald-700 border border-emerald-500/20'
@@ -497,7 +497,7 @@ const AdminDashboard = () => {
 
   // Event handlers
   const handleViewTenant = useCallback((tenant) => {
-    navigate(`/tenants/${tenant.id}`);
+    navigate(`/tenants_details/${tenant.id}`);
   }, [navigate]);
 
   const handleAddTenant = useCallback(() => {

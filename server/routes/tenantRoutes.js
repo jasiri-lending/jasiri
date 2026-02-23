@@ -18,7 +18,7 @@ const supabase = createClient(
 async function sendTenantEmail(adminEmail, adminPassword, tenantSlug, companyName) {
   const loginUrl = `https://jasirilending.software/login?tenant=${tenantSlug}`;
   await transporter.sendMail({
-      from: '"Jasiri" <noreply@jasirilending.software>',
+    from: '"Jasiri" <noreply@jasirilending.software>',
     to: adminEmail,
     subject: `Your Tenant Platform is Ready`,
     html: baseEmailTemplate("Welcome to Jasiri", `
@@ -279,6 +279,53 @@ tenantRouter.delete("/delete-tenant/:id", async (req, res) => {
 
   } catch (err) {
     console.error("❌ Delete Tenant Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Upsert tenant SMS settings
+tenantRouter.post("/sms-config", async (req, res) => {
+  try {
+    const { tenant_id, base_url, api_key, partner_id, shortcode } = req.body;
+
+    if (!tenant_id || !base_url || !api_key || !partner_id || !shortcode) {
+      return res.status(400).json({ error: "Missing required SMS config fields" });
+    }
+
+    const { data, error } = await supabase
+      .from("tenant_sms_settings")
+      .upsert(
+        { tenant_id, base_url, api_key, partner_id, shortcode, updated_at: new Date().toISOString() },
+        { onConflict: "tenant_id" }
+      )
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    res.status(200).json({ message: "SMS config saved successfully", data });
+  } catch (err) {
+    console.error("❌ SMS Config Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get tenant SMS settings
+tenantRouter.get("/sms-config/:tenantId", async (req, res) => {
+  try {
+    const { tenantId } = req.params;
+
+    const { data, error } = await supabase
+      .from("tenant_sms_settings")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .maybeSingle();
+
+    if (error) throw error;
+
+    res.status(200).json({ data });
+  } catch (err) {
+    console.error("❌ Fetch SMS Config Error:", err);
     res.status(500).json({ error: err.message });
   }
 });

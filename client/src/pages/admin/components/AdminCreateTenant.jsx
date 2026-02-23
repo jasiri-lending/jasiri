@@ -37,6 +37,11 @@ export default function AdminCreateTenant() {
     license: "",
     tenant_id_number: "",
     phone_number: "",
+    // SMS config fields
+    sms_base_url: "",
+    sms_api_key: "",
+    sms_partner_id: "",
+    sms_shortcode: "",
   });
 
   const navigate = useNavigate();
@@ -176,6 +181,38 @@ export default function AdminCreateTenant() {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Failed to save Mpesa config");
 
+      // Advance to step 3 (SMS config)
+      setCurrentStep(3);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmitStep3 = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+
+    try {
+      const smsData = {
+        tenant_id: newTenantId,
+        base_url: formData.sms_base_url,
+        api_key: formData.sms_api_key,
+        partner_id: formData.sms_partner_id,
+        shortcode: formData.sms_shortcode,
+      };
+
+      const res = await fetch(`${API_BASE_URL}/api/tenant/sms-config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(smsData),
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save SMS config");
+
       setSuccess(true);
       setTimeout(() => {
         closeForm();
@@ -231,19 +268,82 @@ export default function AdminCreateTenant() {
     }
   };
 
-  const openEditForm = (tenant) => {
+  const openEditForm = async (tenant) => {
     setEditingTenant(tenant);
-    setFormData({
-      ...formData,
+    // Pre-fill basic tenant fields immediately
+    setFormData(prev => ({
+      ...prev,
       name: tenant.name || "",
       company_name: tenant.company_name || "",
+      cr12: tenant.cr12 || "",
+      company_certificate: tenant.company_certificate || "",
+      license: tenant.license || "",
+      tenant_id_number: tenant.tenant_id_number || "",
+      phone_number: tenant.phone_number || "",
       admin_full_name: "",
       admin_email: "",
-    });
+      // reset config fields until fetched
+      payment_type: "paybill",
+      paybill_number: "",
+      till_number: "",
+      consumer_key: "",
+      consumer_secret: "",
+      passkey: "",
+      shortcode: "",
+      confirmation_url: "",
+      validation_url: "",
+      callback_url: "",
+      sms_base_url: "",
+      sms_api_key: "",
+      sms_partner_id: "",
+      sms_shortcode: "",
+    }));
     setCurrentStep(1);
     setShowForm(true);
     setError("");
     setSuccess(false);
+
+    // Fetch MPESA config and SMS config in parallel
+    try {
+      const [mpesaRes, smsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/tenant-mpesa-config/${tenant.id}`),
+        fetch(`${API_BASE_URL}/api/tenant/sms-config/${tenant.id}`),
+      ]);
+
+      const updates = {};
+
+      if (mpesaRes.ok) {
+        const { data: mpesa } = await mpesaRes.json();
+        if (mpesa) {
+          updates.payment_type = mpesa.paybill_number ? "paybill" : "till";
+          updates.paybill_number = mpesa.paybill_number || "";
+          updates.till_number = mpesa.till_number || "";
+          updates.consumer_key = mpesa.consumer_key || "";
+          updates.consumer_secret = mpesa.consumer_secret || "";
+          updates.passkey = mpesa.passkey || "";
+          updates.shortcode = mpesa.shortcode || "";
+          updates.confirmation_url = mpesa.confirmation_url || "";
+          updates.validation_url = mpesa.validation_url || "";
+          updates.callback_url = mpesa.callback_url || "";
+        }
+      }
+
+      if (smsRes.ok) {
+        const { data: sms } = await smsRes.json();
+        if (sms) {
+          updates.sms_base_url = sms.base_url || "";
+          updates.sms_api_key = sms.api_key || "";
+          updates.sms_partner_id = sms.partner_id || "";
+          updates.sms_shortcode = sms.shortcode || "";
+        }
+      }
+
+      if (Object.keys(updates).length > 0) {
+        setFormData(prev => ({ ...prev, ...updates }));
+      }
+    } catch (err) {
+      console.warn("Could not pre-fill configs:", err);
+    }
   };
 
   const openCreateForm = () => {
@@ -271,6 +371,10 @@ export default function AdminCreateTenant() {
       license: "",
       tenant_id_number: "",
       phone_number: "",
+      sms_base_url: "",
+      sms_api_key: "",
+      sms_partner_id: "",
+      sms_shortcode: "",
     });
     setCurrentStep(1);
     setNewTenantId(null);
@@ -292,18 +396,82 @@ export default function AdminCreateTenant() {
     e.preventDefault();
 
     if (editingTenant) {
-      const updates = {
-        name: formData.name,
-        company_name: formData.company_name,
-      };
+      setLoading(true);
+      setError("");
+      try {
+        // 1. Update basic tenant info + optional fields
+        const { error: updateErr } = await supabase
+          .from("tenants")
+          .update({
+            name: formData.name,
+            company_name: formData.company_name,
+            cr12: formData.cr12 || null,
+            company_certificate: formData.company_certificate || null,
+            license: formData.license || null,
+            tenant_id_number: formData.tenant_id_number || null,
+            phone_number: formData.phone_number || null,
+          })
+          .eq("id", editingTenant.id);
+        if (updateErr) throw updateErr;
 
-      await handleUpdateTenant(editingTenant.id, updates);
-      closeForm();
+        // 2. Save MPESA config if any credential is filled
+        if (formData.consumer_key || formData.consumer_secret || formData.passkey) {
+          const mpesaRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenant_id: editingTenant.id,
+              paybill_number: formData.payment_type === "paybill" ? formData.paybill_number : null,
+              till_number: formData.payment_type === "till" ? formData.till_number : null,
+              consumer_key: formData.consumer_key,
+              consumer_secret: formData.consumer_secret,
+              passkey: formData.passkey,
+              shortcode: formData.shortcode,
+              confirmation_url: formData.confirmation_url,
+              validation_url: formData.validation_url,
+              callback_url: formData.callback_url,
+              admin_id: (await supabase.auth.getUser()).data.user?.id,
+            }),
+          });
+          const mpesaData = await mpesaRes.json();
+          if (!mpesaRes.ok) throw new Error(mpesaData.error || "Failed to save MPESA config");
+        }
+
+        // 3. Save SMS config if any field is filled
+        if (formData.sms_base_url || formData.sms_api_key || formData.sms_partner_id || formData.sms_shortcode) {
+          const smsRes = await fetch(`${API_BASE_URL}/api/tenant/sms-config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenant_id: editingTenant.id,
+              base_url: formData.sms_base_url,
+              api_key: formData.sms_api_key,
+              partner_id: formData.sms_partner_id,
+              shortcode: formData.sms_shortcode,
+            }),
+          });
+          const smsData = await smsRes.json();
+          if (!smsRes.ok) throw new Error(smsData.error || "Failed to save SMS config");
+        }
+
+        await fetchTenants();
+        setSuccess(true);
+        setTimeout(() => {
+          closeForm();
+          setSuccess(false);
+        }, 1500);
+      } catch (err) {
+        setError(`Failed to update tenant: ${err.message}`);
+      } finally {
+        setLoading(false);
+      }
     } else {
       if (currentStep === 1) {
         await handleSubmitStep1(e);
-      } else {
+      } else if (currentStep === 2) {
         await handleSubmitStep2(e);
+      } else {
+        await handleSubmitStep3(e);
       }
     }
   };
@@ -637,13 +805,23 @@ export default function AdminCreateTenant() {
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${currentStep === 1 ? 'bg-white text-brand-primary' : 'bg-white/20 text-white'}`}>Step 1</span>
                           <div className="h-px w-4 bg-white/30"></div>
                           <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${currentStep === 2 ? 'bg-white text-brand-primary' : 'bg-white/20 text-white'}`}>Step 2</span>
+                          <div className="h-px w-4 bg-white/30"></div>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${currentStep === 3 ? 'bg-white text-brand-primary' : 'bg-white/20 text-white'}`}>Step 3</span>
                         </div>
                       )}
                       <h2 className="text-lg font-bold">
-                        {editingTenant ? `Edit ${editingTenant.name}` : currentStep === 1 ? 'Tenant Onboarding' : 'Mpesa Gateway Configuration'}
+                        {editingTenant
+                          ? `Edit ${editingTenant.name}`
+                          : currentStep === 1 ? 'Tenant Onboarding'
+                            : currentStep === 2 ? 'Mpesa Gateway Configuration'
+                              : 'SMS Gateway Configuration'}
                       </h2>
                       <p className="text-white/90 text-xs mt-1">
-                        {editingTenant ? 'Update tenant details' : currentStep === 1 ? 'Step 1: Company & Admin details' : 'Step 2: Payment credentials'}
+                        {editingTenant
+                          ? 'Update tenant details & SMS config'
+                          : currentStep === 1 ? 'Step 1: Company & Admin details'
+                            : currentStep === 2 ? 'Step 2: Payment credentials'
+                              : 'Step 3: SMS gateway credentials'}
                       </p>
                     </div>
                     <button
@@ -823,6 +1001,222 @@ export default function AdminCreateTenant() {
                               </div>
                             </div>
                           )}
+
+                          {/* SMS Config - shown when editing */}
+                          {editingTenant && (
+                            <>
+                              {/* Optional Details */}
+                              <div className="space-y-4 pt-4 border-t border-gray-100">
+                                <div className="pb-2">
+                                  <h3 className="text-sm font-semibold text-gray-900">Additional Details</h3>
+                                  <p className="text-gray-500 text-xs mt-1">Legal documents and contact info</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">CR12 Number</label>
+                                    <input type="text" placeholder="e.g. CR12-12345" value={formData.cr12}
+                                      onChange={e => setFormData({ ...formData, cr12: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Company Certificate</label>
+                                    <input type="text" placeholder="Certificate number" value={formData.company_certificate}
+                                      onChange={e => setFormData({ ...formData, company_certificate: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">License Number</label>
+                                    <input type="text" placeholder="License number" value={formData.license}
+                                      onChange={e => setFormData({ ...formData, license: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">ID Number</label>
+                                    <input type="text" placeholder="Tenant ID / KRA PIN" value={formData.tenant_id_number}
+                                      onChange={e => setFormData({ ...formData, tenant_id_number: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Phone Number</label>
+                                    <input type="tel" placeholder="+254..." value={formData.phone_number}
+                                      onChange={e => setFormData({ ...formData, phone_number: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* MPESA Config */}
+                              <div className="space-y-4 pt-4 border-t border-gray-100">
+                                <div className="pb-2">
+                                  <h3 className="text-sm font-semibold text-gray-900">MPESA Configuration</h3>
+                                  <p className="text-gray-500 text-xs mt-1">Update payment gateway credentials</p>
+                                </div>
+                                {/* Payment type toggle */}
+                                <div className="flex gap-3">
+                                  {['paybill', 'till'].map(type => (
+                                    <button key={type} type="button"
+                                      onClick={() => setFormData({ ...formData, payment_type: type })}
+                                      className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${formData.payment_type === type
+                                          ? 'bg-brand-primary text-white border-brand-primary'
+                                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                        }`}>
+                                      {type === 'paybill' ? 'Paybill' : 'Till Number'}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                                      {formData.payment_type === 'paybill' ? 'Paybill Number' : 'Till Number'}
+                                    </label>
+                                    <input type="text"
+                                      placeholder={formData.payment_type === 'paybill' ? 'e.g. 4157991' : 'e.g. 521234'}
+                                      value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number}
+                                      onChange={e => setFormData({ ...formData, [formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number']: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Shortcode</label>
+                                    <input type="text" value={formData.shortcode}
+                                      onChange={e => setFormData({ ...formData, shortcode: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Key</label>
+                                    <input type="text" value={formData.consumer_key}
+                                      onChange={e => setFormData({ ...formData, consumer_key: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono text-[10px] focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Secret</label>
+                                    <input type="password" value={formData.consumer_secret}
+                                      onChange={e => setFormData({ ...formData, consumer_secret: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Passkey</label>
+                                    <input type="password" value={formData.passkey}
+                                      onChange={e => setFormData({ ...formData, passkey: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Callback URL</label>
+                                    <input type="url" placeholder="https://..." value={formData.callback_url}
+                                      onChange={e => setFormData({ ...formData, callback_url: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* SMS Gateway */}
+                              <div className="space-y-4 pt-4 border-t border-gray-100">
+                                <div className="pb-2">
+                                  <h3 className="text-sm font-semibold text-gray-900">SMS Gateway Configuration</h3>
+                                  <p className="text-gray-500 text-xs mt-1">Set or update the SMS provider credentials</p>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                  <div className="md:col-span-2">
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Base URL</label>
+                                    <input
+                                      type="url"
+                                      placeholder="https://sms-gateway.example.com/api"
+                                      value={formData.sms_base_url}
+                                      onChange={e => setFormData({ ...formData, sms_base_url: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">API Key</label>
+                                    <input
+                                      type="password"
+                                      placeholder="Enter API key"
+                                      value={formData.sms_api_key}
+                                      onChange={e => setFormData({ ...formData, sms_api_key: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Partner ID</label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. 1234"
+                                      value={formData.sms_partner_id}
+                                      onChange={e => setFormData({ ...formData, sms_partner_id: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                    />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Shortcode (SMS)</label>
+                                    <input
+                                      type="text"
+                                      placeholder="e.g. COMPANY or 12345"
+                                      value={formData.sms_shortcode}
+                                      onChange={e => setFormData({ ...formData, sms_shortcode: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                    />
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      ) : currentStep === 3 ? (
+                        /* Step 3: SMS Gateway Configuration */
+                        <div className="space-y-6">
+                          <div className="bg-brand-surface/40 rounded-xl p-6 border border-brand-surface">
+                            <h3 className="text-sm font-bold text-brand-primary uppercase tracking-widest mb-1">SMS Gateway</h3>
+                            <p className="text-xs text-gray-500 mb-4">Configure the SMS provider credentials for this tenant</p>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="md:col-span-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">Base URL *</label>
+                                <input
+                                  type="url"
+                                  required
+                                  placeholder="https://sms-gateway.example.com/api"
+                                  value={formData.sms_base_url}
+                                  onChange={e => setFormData({ ...formData, sms_base_url: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">API Key *</label>
+                                <input
+                                  type="password"
+                                  required
+                                  placeholder="Enter API key"
+                                  value={formData.sms_api_key}
+                                  onChange={e => setFormData({ ...formData, sms_api_key: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">Partner ID *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  placeholder="e.g. 1234"
+                                  value={formData.sms_partner_id}
+                                  onChange={e => setFormData({ ...formData, sms_partner_id: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-xs font-medium text-gray-700 mb-2">Shortcode *</label>
+                                <input
+                                  type="text"
+                                  required
+                                  placeholder="e.g. COMPANY or 12345"
+                                  value={formData.sms_shortcode}
+                                  onChange={e => setFormData({ ...formData, sms_shortcode: e.target.value })}
+                                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none"
+                                />
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       ) : (
                         <div className="space-y-6">
@@ -891,10 +1285,14 @@ export default function AdminCreateTenant() {
                       <div className="flex flex-col sm:flex-row gap-3 pt-5 border-t border-gray-200">
                         <button
                           type="button"
-                          onClick={() => currentStep === 2 ? setCurrentStep(1) : closeForm()}
+                          onClick={() => {
+                            if (currentStep === 3) setCurrentStep(2);
+                            else if (currentStep === 2) setCurrentStep(1);
+                            else closeForm();
+                          }}
                           className="flex-1 py-2.5 px-4 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 text-sm font-medium transition-colors"
                         >
-                          {currentStep === 2 ? 'Back' : 'Cancel'}
+                          {currentStep > 1 ? 'Back' : 'Cancel'}
                         </button>
                         <button
                           type="submit"
@@ -907,7 +1305,10 @@ export default function AdminCreateTenant() {
                               {editingTenant ? 'Updating...' : 'Processing...'}
                             </>
                           ) : (
-                            editingTenant ? 'Update Tenant' : currentStep === 1 ? 'Continue to Mpesa' : 'Complete Onboarding'
+                            editingTenant ? 'Update Tenant'
+                              : currentStep === 1 ? 'Continue to Mpesa'
+                                : currentStep === 2 ? 'Continue to SMS'
+                                  : 'Complete Onboarding'
                           )}
                         </button>
                       </div>

@@ -46,6 +46,68 @@ import {
 import { supabase } from "../../../supabaseClient";
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
+import { exportToCSV, exportToExcel, exportToPDF, exportToWord } from '../../../utils/exportUtils';
+
+// Export Dropdown Component
+const ExportMenu = ({ data, filename, title }) => {
+  const [isOpen, setIsOpen] = useState(false);
+
+  if (!data || data.length === 0) return null;
+
+  return (
+    <div className="relative inline-block text-left">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="px-4 py-2 bg-brand-btn text-white text-sm rounded-lg hover:bg-brand-primary transition-colors flex items-center gap-2"
+      >
+        <ArrowUpRightIcon className="h-4 w-4" />
+        Export
+        <ChevronDownIcon className="h-3 w-3" />
+      </button>
+
+      {isOpen && (
+        <>
+          <div
+            className="fixed inset-0 z-10"
+            onClick={() => setIsOpen(false)}
+          ></div>
+          <div className="absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-20 overflow-hidden">
+            <div className="py-1">
+              <button
+                onClick={() => { exportToPDF(data, filename, title); setIsOpen(false); }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-brand-surface hover:text-brand-primary transition-colors"
+              >
+                <DocumentTextIcon className="h-4 w-4 mr-3 text-red-500" />
+                Export as PDF
+              </button>
+              <button
+                onClick={() => { exportToExcel(data, filename); setIsOpen(false); }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-brand-surface hover:text-brand-primary transition-colors"
+              >
+                <CurrencyDollarIcon className="h-4 w-4 mr-3 text-green-600" />
+                Export as Excel
+              </button>
+              <button
+                onClick={() => { exportToWord(data, filename, title); setIsOpen(false); }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-brand-surface hover:text-brand-primary transition-colors"
+              >
+                <PhoneIcon className="h-4 w-4 mr-3 text-blue-600" />
+                Export as Word
+              </button>
+              <button
+                onClick={() => { exportToCSV(data, filename); setIsOpen(false); }}
+                className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-brand-surface hover:text-brand-primary transition-colors"
+              >
+                <DocumentTextIcon className="h-4 w-4 mr-3 text-gray-500" />
+                Export as CSV
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 // Optimized Stat Card Component
 const StatCard = ({ name, value, change, icon: Icon, color, changeType, description, loading }) => {
@@ -140,16 +202,7 @@ const customerStatuses = [
   { value: "rejected", label: "Rejected" },
 ];
 
-const tabs = [
-  { id: 'overview', label: 'Overview', icon: ChartBarIcon },
-  { id: 'users', label: 'Users', icon: UserCircleIcon },
-  { id: 'branches', label: 'Branches', icon: BuildingOfficeIcon },
-  { id: 'regions', label: 'Regions', icon: MapPinIcon },
-  { id: 'customers', label: 'Customers', icon: UserGroupIcon },
-  { id: 'loans', label: 'Loans', icon: CreditCardIcon },
-  { id: 'mpesa', label: 'MPESA', icon: CurrencyDollarIcon },
-  { id: 'settings', label: 'Settings', icon: CogIcon },
-];
+// No longer using static tabs array outside component
 
 const TenantViewPage = () => {
   const { tenantId } = useParams();
@@ -157,6 +210,7 @@ const TenantViewPage = () => {
 
   const [tenant, setTenant] = useState(null);
   const [mpesaConfig, setMpesaConfig] = useState(null);
+  const [smsConfig, setSmsConfig] = useState(null);
   const [stats, setStats] = useState({});
   const [users, setUsers] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -173,22 +227,41 @@ const TenantViewPage = () => {
   const [filterBranch, setFilterBranch] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
 
+  const tabs = useMemo(() => [
+    { id: 'overview', label: 'Overview', icon: ChartBarIcon },
+    { id: 'users', label: 'Users', icon: UserCircleIcon, count: stats.totalUsers },
+    { id: 'branches', label: 'Branches', icon: BuildingOfficeIcon, count: stats.totalBranches },
+    { id: 'regions', label: 'Regions', icon: MapPinIcon, count: stats.totalRegions },
+    { id: 'customers', label: 'Customers', icon: UserGroupIcon, count: stats.totalCustomers },
+    { id: 'loans', label: 'Loans', icon: CreditCardIcon, count: stats.totalLoans },
+    { id: 'mpesa', label: 'MPESA', icon: CurrencyDollarIcon, count: stats.totalMpesa },
+    { id: 'sms', label: 'SMS Config', icon: DevicePhoneMobileIcon },
+    { id: 'settings', label: 'Settings', icon: CogIcon },
+  ], [stats]);
+
   // Fetch tenant basic info first (fastest to load)
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         setLoading(true);
 
-        // Fetch tenant and mpesa config in parallel (fast queries)
-        const [tenantResponse, mpesaResponse] = await Promise.all([
+        // Fetch tenant and config info
+        const [tenantResponse, mpesaResponse, smsResponse] = await Promise.all([
           supabase.from('tenants').select('*').eq('id', tenantId).single(),
-          supabase.from('tenant_mpesa_config').select('*').eq('tenant_id', tenantId).maybeSingle()
+          supabase.from('tenant_mpesa_config').select('*').eq('tenant_id', tenantId).maybeSingle(),
+          supabase.from('tenant_sms_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
         ]);
 
-        if (tenantResponse.error) throw tenantResponse.error;
+        if (tenantResponse.error) {
+          console.error('Tenant fetch error:', tenantResponse.error);
+          throw tenantResponse.error;
+        }
+
 
         setTenant(tenantResponse.data);
         setMpesaConfig(mpesaResponse.data);
+        // If smsConfig state exists, set it (added for completeness)
+        if (typeof setSmsConfig === 'function') setSmsConfig(smsResponse.data);
 
         // Fetch stats in background
         calculateStats();
@@ -210,6 +283,7 @@ const TenantViewPage = () => {
     const fetchTabData = async () => {
       try {
         setLoading(true);
+        console.log(`Fetching data for tab: ${activeTab} for tenantId: ${tenantId}`);
 
         switch (activeTab) {
           case 'users':
@@ -251,47 +325,52 @@ const TenantViewPage = () => {
 
   const calculateStats = useCallback(async () => {
     try {
-      // Execute all count queries in parallel
-      const [
-        usersCount,
-        branchesCount,
-        regionsCount,
-        roUsers,
-        repaymentsCount
-      ] = await Promise.all([
-        supabase.from('users').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('branches').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('regions').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId),
-        supabase.from('users').select('id, role').eq('tenant_id', tenantId).eq('role', 'relationship_officer'),
-        supabase.from('loan_payments').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId)
+     
+
+     
+
+      // Execute all count queries in parallel - testing WITHOUT head: true
+      const results = await Promise.allSettled([
+        supabase.from('users').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('branches').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('regions').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('users').select('id').eq('tenant_id', tenantId).eq('role', 'relationship_officer'),
+        supabase.from('loan_payments').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('customers').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('loans').select('id', { count: 'exact' }).eq('tenant_id', tenantId),
+        supabase.from('mpesa_c2b_transactions').select('id', { count: 'exact' }).eq('tenant_id', tenantId)
       ]);
 
-      const roIds = roUsers.data?.map(u => u.id) || [];
-      let customerCount = 0;
-      let loanCount = 0;
+   
 
-      // Only fetch counts if there are relationship officers
-      if (roIds.length > 0) {
-        const [customersCount, loansCount] = await Promise.all([
-          supabase.from('customers').select('id', { count: 'exact', head: true }).in('created_by', roIds),
-          supabase.from('loans').select('id', { count: 'exact', head: true }).in('booked_by', roIds)
-        ]);
+      // Helper to extract count or 0, with better error logging
+      const getCount = (res, label) => {
+        if (res.status === 'fulfilled') {
+          if (res.value.error) {
+            console.error(`${label} query error:`, res.value.error);
+            return 0;
+          }
+          // Supabase count can be null if no records found or query fails quietly
+          return res.value.count !== null ? res.value.count : 0;
+        }
+        return 0;
+      };
 
-        customerCount = customersCount.count || 0;
-        loanCount = loansCount.count || 0;
-      }
+      const finalStats = {
+        totalUsers: getCount(results[0], 'Users'),
+        totalBranches: getCount(results[1], 'Branches'),
+        totalRegions: getCount(results[2], 'Regions'),
+        activeROs: results[3].status === 'fulfilled' ? (results[3].value.data?.length || 0) : 0,
+        totalRepayments: getCount(results[4], 'Repayments'),
+        totalCustomers: getCount(results[5], 'Customers'),
+        totalLoans: getCount(results[6], 'Loans'),
+        totalMpesa: getCount(results[7], 'MPESA')
+      };
 
-      setStats({
-        totalUsers: usersCount.count || 0,
-        totalCustomers: customerCount,
-        totalLoans: loanCount,
-        totalRepayments: repaymentsCount.count || 0,
-        totalBranches: branchesCount.count || 0,
-        totalRegions: regionsCount.count || 0,
-        activeROs: roUsers.data?.length || 0
-      });
+   
+      setStats(finalStats);
     } catch (error) {
-      console.error('Error calculating stats:', error);
+      console.error('Error in calculateStats:', error);
     }
   }, [tenantId]);
 
@@ -332,14 +411,6 @@ const TenantViewPage = () => {
   }, [tenantId]);
 
   const fetchCustomers = useCallback(async () => {
-    const { data: roUsers } = await supabase
-      .from('users')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('role', 'relationship_officer');
-
-    if (!roUsers?.length) return [];
-
     const { data, error } = await supabase
       .from('customers')
       .select(`
@@ -354,23 +425,19 @@ const TenantViewPage = () => {
         branch_id,
         branches:branch_id(name)
       `)
-      .in('created_by', roUsers.map(u => u.id))
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) console.error('Error fetching customers:', error);
+    if (error) {
+      console.error('Error fetching customers:', error);
+      return [];
+    }
     return data;
   }, [tenantId]);
 
   const fetchLoans = useCallback(async () => {
-    const { data: roUsers } = await supabase
-      .from('users')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .eq('role', 'relationship_officer');
-
-    if (!roUsers?.length) return [];
-
+    console.log('Fetching loans for tenantId:', tenantId);
     const { data, error } = await supabase
       .from('loans')
       .select(`
@@ -378,11 +445,14 @@ const TenantViewPage = () => {
         customers:customer_id(Firstname, Surname, mobile),
         users:booked_by(full_name)
       `)
-      .in('booked_by', roUsers.map(u => u.id))
+      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(50);
 
-    if (error) console.error('Error fetching loans:', error);
+    if (error) {
+      console.error('Error fetching loans:', error);
+      return [];
+    }
     return data;
   }, [tenantId]);
 
@@ -476,7 +546,7 @@ const TenantViewPage = () => {
     return (
       <div className="min-h-screen bg-gray-50 p-6 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#586ab1] mx-auto"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
           <p className="mt-4 text-gray-600">Loading tenant information...</p>
         </div>
       </div>
@@ -498,63 +568,59 @@ const TenantViewPage = () => {
     <div className="space-y-6">
       {/* Tenant Profile Card */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+        <div className="p-6 border-b border-gray-200 bg-brand-surface/20">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-slate-600">Tenant Profile</h2>
-            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full">
+            <h2 className="text-sm font-semibold text-brand-primary uppercase tracking-wider">Tenant Profile</h2>
+            <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-medium rounded-full border border-green-200">
               Active
             </span>
           </div>
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <div className="flex items-start">
-                <BuildingOfficeIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Company Name</p>
-                  <p className="text-lg font-semibold text-slate-600">{tenant.company_name || 'N/A'}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                <IdentificationIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Tenant Owner</p>
-                  <p className="text-lg font-semibold text-slate-600">{tenant.name}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                <GlobeAltIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Tenant Slug</p>
-                  <p className="text-lg font-mono font-semibold text-slate-600">{tenant.tenant_slug}</p>
-                </div>
-              </div>
-
-              <div className="flex items-start">
-                <CalendarIcon className="h-5 w-5 text-gray-400 mr-3 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-gray-500">Date Created</p>
-                  <p className="text-lg font-semibold text-slate-600">
-                    {format(new Date(tenant.created_at), 'MMMM d, yyyy')}
-                  </p>
-                </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="flex items-start">
+              <BuildingOfficeIcon className="h-5 w-5 text-brand-secondary mr-3 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Company Name</p>
+                <p className="text-lg font-bold text-gray-900">{tenant.company_name || 'N/A'}</p>
               </div>
             </div>
 
+            <div className="flex items-start">
+              <IdentificationIcon className="h-5 w-5 text-brand-secondary mr-3 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Tenant Owner</p>
+                <p className="text-lg font-bold text-gray-900">{tenant.name}</p>
+              </div>
+            </div>
 
+            <div className="flex items-start">
+              <GlobeAltIcon className="h-5 w-5 text-brand-secondary mr-3 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Tenant Slug</p>
+                <p className="text-lg font-mono font-bold text-brand-primary">{tenant.tenant_slug}</p>
+              </div>
+            </div>
+
+            <div className="flex items-start">
+              <CalendarIcon className="h-5 w-5 text-brand-secondary mr-3 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium text-gray-500">Date Created</p>
+                <p className="text-lg font-bold text-gray-900">
+                  {format(new Date(tenant.created_at), 'MMMM d, yyyy')}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Activity Summary */}
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
-          <h2 className="text-sm  text-slate-600">Activity Summary</h2>
-          <p className="text-sm text-gray-600 mt-1">Key metrics for this tenant</p>
+        <div className="p-6 border-b border-gray-200 bg-brand-surface/20">
+          <h2 className="text-sm font-semibold text-brand-primary uppercase tracking-wider">Activity Summary</h2>
+          <p className="text-sm text-gray-500 mt-1">Key metrics for this tenant</p>
         </div>
 
         <div className="p-6">
@@ -568,6 +634,7 @@ const TenantViewPage = () => {
               { label: 'Total Regions', value: stats.totalRegions || 0, icon: MapPinIcon },
               { label: 'Total Repayments', value: stats.totalRepayments || 0, icon: BanknotesIcon },
               { label: 'MPESA Config', value: mpesaConfig ? 'Configured' : 'Not Set', icon: CheckBadgeIcon },
+              { label: 'SMS Config', value: smsConfig ? 'Configured' : 'Not Set', icon: DevicePhoneMobileIcon },
             ].map((stat, index) => {
               const color = statsColors[index % statsColors.length];
               const Icon = stat.icon;
@@ -594,8 +661,8 @@ const TenantViewPage = () => {
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm text-slate-600">MPESA Configuration</h2>
-              <button className="px-4 py-2 bg-[#586ab1] text-white text-sm rounded-lg hover:bg-[#4a5a9a] transition-colors flex items-center gap-2">
+              <h2 className="text-sm text-slate-600 font-semibold uppercase tracking-wider">MPESA Configuration</h2>
+              <button className="px-4 py-2 bg-brand-btn text-white text-sm rounded-lg hover:bg-brand-primary transition-colors flex items-center gap-2">
                 <PencilIcon className="h-4 w-4" />
                 Edit Config
               </button>
@@ -637,17 +704,86 @@ const TenantViewPage = () => {
     </div>
   );
 
+  const renderSms = () => {
+    const maskKey = (val) => val ? val.substring(0, 4) + '••••••••••••' : '—';
+    return (
+      <div className="bg-white rounded-lg shadow overflow-hidden">
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-sm text-slate-600">SMS Gateway Configuration</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                {smsConfig ? 'Credentials for the SMS provider assigned to this tenant' : 'No SMS configuration has been set'}
+              </p>
+            </div>
+            <DevicePhoneMobileIcon className="h-8 w-8 text-gray-300" />
+          </div>
+        </div>
+
+        <div className="p-6">
+          {smsConfig ? (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="md:col-span-2 lg:col-span-3">
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Base URL</p>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-800 break-all">{smsConfig.base_url || '—'}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Partner ID</p>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-800">{smsConfig.partner_id || '—'}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Shortcode</p>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-800">{smsConfig.shortcode || '—'}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">API Key</p>
+                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
+                    <p className="text-sm text-gray-800 font-mono">{maskKey(smsConfig.api_key)}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 pt-6 border-t border-gray-200 flex items-center gap-2">
+                <CheckBadgeIcon className="h-4 w-4 text-green-500" />
+                <p className="text-sm text-gray-500">
+                  Configured on: {smsConfig.created_at ? format(new Date(smsConfig.created_at), 'MMMM d, yyyy h:mm a') : 'N/A'}
+                </p>
+              </div>
+            </>
+          ) : (
+            <div className="text-center py-12">
+              <DevicePhoneMobileIcon className="mx-auto h-12 w-12 text-gray-300" />
+              <h3 className="mt-4 text-sm font-medium text-gray-900">SMS Not Configured</h3>
+              <p className="mt-1 text-sm text-gray-500">No SMS gateway credentials have been saved for this tenant.</p>
+              <p className="mt-3 text-xs text-gray-400">Use the Edit Tenant form to add SMS configuration.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   const renderUsers = () => (
     <div className="bg-white rounded-lg shadow overflow-hidden">
       <div className="p-6 border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-sm  text-slate-600">Tenant Users</h2>
-            <p className="text-sm text-gray-600 mt-1">
+            <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Tenant Users</h2>
+            <p className="text-sm text-gray-500 mt-1">
               {filteredUsers.length} users found
             </p>
           </div>
-
+          <ExportMenu data={filteredUsers} filename={`${tenant.company_name}_users`} title="Tenant Users List" />
         </div>
       </div>
 
@@ -762,36 +898,28 @@ const TenantViewPage = () => {
         </div>
 
         {/* Main Tabs Navigation */}
-        <div className="bg-white rounded-lg shadow mb-6">
+        <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6" aria-label="Tabs">
+            <nav className="flex space-x-8 px-6 overflow-x-auto scrollbar-hide" aria-label="Tabs">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const count = {
-                  overview: null,
-                  users: users.length,
-                  branches: branches.length,
-                  regions: regions.length,
-                  customers: customers.length,
-                  loans: loans.length,
-                  mpesa: mpesaTransactions.length,
-                  settings: null,
-                }[tab.id];
+                const count = tab.count ?? null;
 
                 return (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     disabled={loading && tab.id !== activeTab}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === tab.id
-                        ? 'border-[#586ab1] text-[#586ab1]'
-                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                    className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === tab.id
+                      ? 'border-brand-primary text-brand-primary'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
-                    <Icon className="h-5 w-5 inline-block mr-2" />
+                    <Icon className={`h-5 w-5 inline-block mr-2 ${activeTab === tab.id ? 'text-brand-primary' : 'text-gray-400'}`} />
                     {tab.label}
                     {count !== null && (
-                      <span className="ml-2 bg-gray-100 text-gray-600 text-xs font-semibold px-2 py-1 rounded-full">
+                      <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-brand-surface text-brand-primary' : 'bg-gray-100 text-gray-500'
+                        }`}>
                         {count}
                       </span>
                     )}
@@ -807,10 +935,10 @@ const TenantViewPage = () => {
               <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
                 type="text"
-                placeholder={`Search ${activeTab}...`}
+                placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
                 disabled={loading}
               />
             </div>
@@ -818,10 +946,10 @@ const TenantViewPage = () => {
               {['users', 'customers', 'loans'].includes(activeTab) && (
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-colors ${showFilters ? 'bg-brand-surface border-brand-primary text-brand-primary' : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'}`}
                 >
-                  <FunnelIcon className="h-5 w-5 mr-2" />
-                  Filters
+                  <FunnelIcon className="h-4 w-4" />
+                  <span>Filters</span>
                   {(filterRole || filterRegion || filterBranch || filterStatus) && (
                     <span className="ml-2 bg-[#586ab1] text-white text-xs font-semibold px-2 py-1 rounded-full">
                       Active
@@ -867,7 +995,7 @@ const TenantViewPage = () => {
                       <select
                         value={filterStatus}
                         onChange={(e) => setFilterStatus(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] appearance-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary appearance-none"
                       >
                         <option value="">All Statuses</option>
                         {customerStatuses.map(status => (
@@ -882,7 +1010,7 @@ const TenantViewPage = () => {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={clearFilters}
-                  className="text-sm text-[#586ab1] hover:text-[#4a5a9a] font-medium"
+                  className="text-sm text-brand-primary hover:text-brand-btn font-medium"
                 >
                   Clear all filters
                 </button>
@@ -895,7 +1023,7 @@ const TenantViewPage = () => {
         {loading && activeTab !== 'overview' ? (
           <div className="bg-white rounded-lg shadow p-12 flex items-center justify-center">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#586ab1] mx-auto"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto"></div>
               <p className="mt-4 text-gray-600">Loading {activeTab} data...</p>
             </div>
           </div>
@@ -908,12 +1036,12 @@ const TenantViewPage = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Branches</h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Branches</h2>
+                      <p className="text-sm text-gray-500 mt-1">
                         {filteredBranches.length} branches found
                       </p>
                     </div>
-
+                    <ExportMenu data={filteredBranches} filename={`${tenant.company_name}_branches`} title="Tenant Branches List" />
                   </div>
                 </div>
 
@@ -989,12 +1117,12 @@ const TenantViewPage = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Regions</h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Regions</h2>
+                      <p className="text-sm text-gray-500 mt-1">
                         {filteredRegions.length} regions found
                       </p>
                     </div>
-
+                    <ExportMenu data={filteredRegions} filename={`${tenant.company_name}_regions`} title="Tenant Regions List" />
                   </div>
                 </div>
 
@@ -1070,12 +1198,12 @@ const TenantViewPage = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Customers</h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Customers</h2>
+                      <p className="text-sm text-gray-500 mt-1">
                         {filteredCustomers.length} customers found
                       </p>
                     </div>
-
+                    <ExportMenu data={filteredCustomers} filename={`${tenant.company_name}_customers`} title="Tenant Customers List" />
                   </div>
                 </div>
 
@@ -1151,14 +1279,12 @@ const TenantViewPage = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-gray-900">Loans</h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">Loans</h2>
+                      <p className="text-sm text-gray-500 mt-1">
                         {filteredLoans.length} loans found
                       </p>
                     </div>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                      Export
-                    </button>
+                    <ExportMenu data={filteredLoans} filename={`${tenant.company_name}_loans`} title="Tenant Loans List" />
                   </div>
                 </div>
 
@@ -1193,12 +1319,12 @@ const TenantViewPage = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${loan.status === 'disbursed'
-                                ? 'bg-green-100 text-green-800'
-                                : loan.status === 'approved'
-                                  ? 'bg-blue-100 text-blue-800'
-                                  : loan.status === 'rejected'
-                                    ? 'bg-red-100 text-red-800'
-                                    : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-green-100 text-green-800'
+                              : loan.status === 'approved'
+                                ? 'bg-blue-100 text-blue-800'
+                                : loan.status === 'rejected'
+                                  ? 'bg-red-100 text-red-800'
+                                  : 'bg-yellow-100 text-yellow-800'
                               }`}>
                               {loan.status || 'pending'}
                             </span>
@@ -1239,14 +1365,12 @@ const TenantViewPage = () => {
                 <div className="p-6 border-b border-gray-200">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h2 className="text-lg font-semibold text-slate-600">MPESA Transactions</h2>
-                      <p className="text-sm text-gray-600 mt-1">
+                      <h2 className="text-sm font-semibold text-slate-600 uppercase tracking-wider">MPESA Transactions</h2>
+                      <p className="text-sm text-gray-500 mt-1">
                         {filteredMpesaTransactions.length} transactions found
                       </p>
                     </div>
-                    <button className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">
-                      Export
-                    </button>
+                    <ExportMenu data={filteredMpesaTransactions} filename={`${tenant.company_name}_mpesa_transactions`} title="MPESA Transactions Log" />
                   </div>
                 </div>
 
@@ -1280,10 +1404,10 @@ const TenantViewPage = () => {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${transaction.status === 'applied'
-                                ? 'bg-green-100 text-green-800'
-                                : transaction.status === 'failed'
-                                  ? 'bg-red-100 text-red-800'
-                                  : 'bg-yellow-100 text-yellow-800'
+                              ? 'bg-green-100 text-green-800'
+                              : transaction.status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                               }`}>
                               {transaction.status || 'pending'}
                             </span>
@@ -1309,6 +1433,7 @@ const TenantViewPage = () => {
                 </div>
               </div>
             )}
+            {activeTab === 'sms' && renderSms()}
             {activeTab === 'settings' && (
               <div className="bg-white rounded-lg shadow overflow-hidden">
                 <div className="p-6 border-b border-gray-200">
@@ -1318,41 +1443,41 @@ const TenantViewPage = () => {
 
                 <div className="p-6">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
+                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group">
                       <div className="flex items-center">
-                        <PencilIcon className="h-5 w-5 text-[#586ab1] mr-3" />
+                        <PencilIcon className="h-5 w-5 text-brand-primary mr-3 group-hover:scale-110 transition-transform" />
                         <div>
-                          <p className="font-medium text-gray-900">Edit Tenant</p>
+                          <p className="font-medium text-gray-900 group-hover:text-brand-primary transition-colors">Edit Tenant</p>
                           <p className="text-sm text-gray-500">Update tenant information and settings</p>
                         </div>
                       </div>
                     </button>
 
-                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
+                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group">
                       <div className="flex items-center">
-                        <ShieldCheckIcon className="h-5 w-5 text-amber-600 mr-3" />
+                        <ShieldCheckIcon className="h-5 w-5 text-amber-600 mr-3 group-hover:scale-110 transition-transform" />
                         <div>
-                          <p className="font-medium text-gray-900">Suspend Tenant</p>
+                          <p className="font-medium text-gray-900 group-hover:text-amber-600 transition-colors">Suspend Tenant</p>
                           <p className="text-sm text-gray-500">Temporarily disable tenant access</p>
                         </div>
                       </div>
                     </button>
 
-                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
+                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group">
                       <div className="flex items-center">
-                        <KeyIcon className="h-5 w-5 text-purple-600 mr-3" />
+                        <KeyIcon className="h-5 w-5 text-purple-600 mr-3 group-hover:scale-110 transition-transform" />
                         <div>
-                          <p className="font-medium text-gray-900">Reset Passwords</p>
+                          <p className="font-medium text-gray-900 group-hover:text-purple-600 transition-colors">Reset Passwords</p>
                           <p className="text-sm text-gray-500">Reset passwords for all tenant users</p>
                         </div>
                       </div>
                     </button>
 
-                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-gray-50 text-left transition-colors">
+                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group">
                       <div className="flex items-center">
-                        <ClockIcon className="h-5 w-5 text-gray-600 mr-3" />
+                        <ClockIcon className="h-5 w-5 text-gray-600 mr-3 group-hover:scale-110 transition-transform" />
                         <div>
-                          <p className="font-medium text-gray-900">View Logs</p>
+                          <p className="font-medium text-gray-900 group-hover:text-gray-900 transition-colors">View Logs</p>
                           <p className="text-sm text-gray-500">View tenant activity logs</p>
                         </div>
                       </div>
