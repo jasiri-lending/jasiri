@@ -11,6 +11,7 @@ import {
   RefreshCw, ThumbsUp, UserCog, AlertCircle
 } from 'lucide-react';
 import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { useAuth } from "../hooks/userAuth";
 
 // Color System
 const COLORS = {
@@ -244,7 +245,7 @@ const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
       <Icon className="w-4 h-4" style={{ color: COLORS.primary }} strokeWidth={2.4} />
     </div>
     <select
-      value={value}
+      value={value || ""} // Added fallback to empty string to avoid React null value warning
       onChange={(e) => onChange(e.target.value)}
       className="w-full pl-9 pr-3 py-2 rounded-md text-sm font-normal appearance-none cursor-pointer outline-none"
       style={{
@@ -464,7 +465,7 @@ const PendingActionCard = ({
 
 // ========== MAIN DASHBOARD COMPONENT ==========
 const Dashboard = () => {
-  const [userProfile, setUserProfile] = useState(null);
+  const { profile: userProfile, initializing: authInitializing } = useAuth();
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(new Date());
   const navigate = useNavigate();
@@ -552,89 +553,13 @@ const Dashboard = () => {
     }
   });
   // ========== DATA FETCHING & CALCULATION FUNCTIONS ==========
-  // Key fix: Added tenant_id to the users query
-  const fetchUserProfile = async () => {
+  const fetchRegions = async (tenantId) => {
     try {
-      // Multi-layer user ID discovery (resilient to custom auth flow)
-      const storedUserId = localStorage.getItem("userId");
-      const { data: authData } = await supabase.auth.getUser().catch(() => ({ data: { user: null } }));
-
-      const userId = authData?.user?.id || storedUserId;
-      if (!userId) return null;
-
-      const tenantIdFromStorage = (() => {
-        try {
-          const profile = JSON.parse(localStorage.getItem("profile") || "{}");
-          return profile.tenant_id;
-        } catch { return null; }
-      })();
-
-      const finalTenantId = authData?.user?.app_metadata?.tenant_id || tenantIdFromStorage;
-
-      // Fetch base user data
-      let userQuery = supabase
-        .from("users")
-        .select("id, role, full_name, tenant_id")
-        .eq("id", userId);
-
-      if (finalTenantId) userQuery = userQuery.eq("tenant_id", finalTenantId);
-
-      const { data: userData, error: userError } = await userQuery.single();
-      if (userError) throw userError;
-
-      // Fetch profile details
-      let profileQuery = supabase
-        .from("profiles")
-        .select(`
-          region_id,
-          branch_id,
-          branches!inner(name, code, region_id),
-          regions!inner(name, code)
-        `)
-        .eq("id", userId);
-
-      if (finalTenantId) profileQuery = profileQuery.eq("tenant_id", finalTenantId);
-
-      const { data: profileData, error: profileError } = await profileQuery.single();
-
-      if (profileError) {
-        const profile = {
-          id: userId,
-          role: userData.role,
-          fullName: userData.full_name,
-          regionId: null,
-          branchId: null,
-          regionName: null,
-          branchName: null,
-          tenantId: userData.tenant_id || finalTenantId,
-        };
-        setUserProfile(profile);
-        return profile;
-      }
-
-      const profile = {
-        id: userId,
-        role: userData.role,
-        fullName: userData.full_name,
-        regionId: profileData.region_id,
-        branchId: profileData.branch_id,
-        regionName: profileData.regions?.name ?? null,
-        branchName: profileData.branches?.name ?? null,
-        tenantId: userData.tenant_id || finalTenantId,
-      };
-
-      setUserProfile(profile);
-      return profile;
-    } catch (error) {
-      console.error("Error fetching user profile:", error);
-      return null;
-    }
-  };
-  const fetchRegions = async () => {
-    try {
+      if (!tenantId) return [];
       const { data, error } = await supabase
         .from("regions")
         .select("id, name, code")
+        .eq("tenant_id", tenantId)
         .order("name");
 
       if (error) throw error;
@@ -645,14 +570,16 @@ const Dashboard = () => {
     }
   };
 
-  const fetchBranches = async (regionFilter = "all") => {
+  const fetchBranches = async (tenantId, regionFilter = "all") => {
     try {
+      if (!tenantId) return [];
       let query = supabase
         .from("branches")
         .select("id, name, code, address, region_id")
+        .eq("tenant_id", tenantId)
         .order("name");
 
-      if (regionFilter !== "all") {
+      if (regionFilter !== "all" && regionFilter) {
         query = query.eq("region_id", regionFilter);
       }
 
@@ -666,39 +593,49 @@ const Dashboard = () => {
   };
 
   const fetchRelationshipOfficers = async (
+    tenantId,
     branchFilter = "all",
+    regionFilter = "all",
     userRole = null,
     userBranchId = null,
     userRegionId = null
   ) => {
     try {
+      if (!tenantId) return [];
+
       let query = supabase
         .from("profiles")
-        .select(
-          `
+        .select(`
           id,
           region_id,
           branch_id,
-          users!inner(
-            id,
-            full_name,
-            role
-          )
-        `
-        )
+          users!inner(id, full_name, role)
+        `)
+        .eq("tenant_id", tenantId)
         .eq("users.role", "relationship_officer")
         .order("users(full_name)");
 
+      // Role and Filter Logic
       if (userRole === "branch_manager" && userBranchId) {
         query = query.eq("branch_id", userBranchId);
-      } else if (userRole === "regional_manager") {
-        if (branchFilter !== "all") {
+      } else if (userRole === "regional_manager" && userRegionId) {
+        if (branchFilter !== "all" && branchFilter) {
           query = query.eq("branch_id", branchFilter);
         } else {
           query = query.eq("region_id", userRegionId);
         }
-      } else if (branchFilter !== "all") {
-        query = query.eq("branch_id", branchFilter);
+      } else {
+        // Administrative or higher level filtering
+        if (regionFilter !== "all" && regionFilter) {
+          query = query.eq("region_id", regionFilter);
+        }
+
+        if (branchFilter !== "all" && branchFilter) {
+          query = query.eq("branch_id", branchFilter);
+        } else if (branchFilter === null) {
+          // Explicitly handle null for UUID columns to avoid 400 error
+          query = query.is("branch_id", null);
+        }
       }
 
       const { data, error } = await query;
@@ -720,7 +657,7 @@ const Dashboard = () => {
 
   // ========== UPDATED INITIALIZATION ==========
   const initializeFilters = async (profile) => {
-    if (!profile) return;
+    if (!profile || !profile.tenant_id) return;
 
     setSelectedRegion("all");
     setSelectedBranch("all");
@@ -729,89 +666,112 @@ const Dashboard = () => {
     setAvailableBranches([]);
     setAvailableROs([]);
 
-    // Fetch regions based on user profile
-    const regions = await fetchRegions();
-    setAvailableRegions(regions);
+    const tId = profile.tenant_id;
 
     if (profile.role === "regional_manager") {
-      setSelectedRegion(profile.regionId);
+      // RM sees ONLY their region in the region filter list
+      setAvailableRegions([{ id: profile.region_id, name: profile.region || "My Region" }]);
 
-      const regionBranches = await fetchBranches(profile.regionId);
+      const regionBranches = await fetchBranches(tId, profile.region_id);
       setAvailableBranches(regionBranches);
 
-      const regionROs = await fetchRelationshipOfficers("all", profile.regionId);
+      const regionROs = await fetchRelationshipOfficers(tId, "all", profile.region_id, profile.role, null, profile.region_id);
       setAvailableROs([{ id: "all", full_name: "All ROs" }, ...regionROs]);
 
-    } else if (profile.role === "branch_manager") {
-      setSelectedRegion(profile.regionId);
-      setSelectedBranch(profile.branchId);
+    } else if (profile.role === "branch_manager" || profile.role === "customer_service_officer") {
+      // BM/CSO see ONLY their region and branch
+      setSelectedRegion(profile.region_id);
+      setSelectedBranch(profile.branch_id);
 
-      const userBranch = await fetchBranches("all");
-      setAvailableBranches(userBranch);
+      setAvailableRegions([{ id: profile.region_id, name: profile.region || "My Region" }]);
+      setAvailableBranches([{ id: profile.branch_id, name: profile.branch || "My Branch" }]);
 
-      const branchROs = await fetchRelationshipOfficers(profile.branchId, "all");
+      const branchROs = await fetchRelationshipOfficers(tId, profile.branch_id, "all", profile.role, profile.branch_id);
       setAvailableROs([{ id: "all", full_name: "All ROs" }, ...branchROs]);
 
     } else if (profile.role === "relationship_officer") {
-      setSelectedRegion(profile.regionId);
-      setSelectedBranch(profile.branchId);
-
-      const userBranch = await fetchBranches("all");
-      setAvailableBranches(userBranch);
-
-      const selfRO = await fetchRelationshipOfficers("all", "all");
-
-      if (selfRO.length > 0) {
-        setAvailableROs(selfRO.map(ro => ({ id: ro.id, full_name: ro.full_name })));
-        setSelectedRO(selfRO[0].id);
-      }
+      setSelectedRegion(profile.region_id);
+      setSelectedBranch(profile.branch_id);
+      const branches = await fetchBranches(tId, profile.region_id);
+      setAvailableBranches(branches);
+      const selfRO = await fetchRelationshipOfficers(tId, profile.branch_id, profile.region_id);
+      const filteredSelf = selfRO.filter(ro => String(ro.id) === String(profile.id));
+      setAvailableROs(filteredSelf.length > 0 ? filteredSelf : [{ id: profile.id, full_name: profile.full_name || "N/A" }]);
+      setSelectedRO(profile.id);
 
     } else {
-      const branches = await fetchBranches("all");
+      // Admin, Superadmin, Credit Analyst, etc. - Full Access
+      const regions = await fetchRegions(tId);
+      setAvailableRegions(regions);
+      const branches = await fetchBranches(tId, "all");
       setAvailableBranches(branches);
-
-      const ros = await fetchRelationshipOfficers("all", "all");
+      const ros = await fetchRelationshipOfficers(tId, "all", "all");
       setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
     }
   };
 
   const applyFilters = useCallback((data, tableName = "loans") => {
     if (!userProfile || !Array.isArray(data)) return [];
-    const { role, regionId: userRegionId, branchId: userBranchId, id: userId } = userProfile;
+    const { role, region_id: userRegionId, branch_id: userBranchId, id: userId } = userProfile;
 
-    let result = [...data];
+    const result = [...data];
+    const initialCount = result.length;
+    let filtered = result;
 
     if (role === "relationship_officer") {
       if (tableName === "loans") {
-        return result.filter(item => String(item.booked_by) === String(userId));
-      }
-      if (tableName === "customers") {
-        // Table relationship: Customers created by me OR having a loan booked by me
+        filtered = filtered.filter(item => String(item.booked_by) === String(userId));
+      } else if (tableName === "customers") {
         const myLoanCustomerIds = new Set(allLoans.filter(l => String(l.booked_by) === String(userId)).map(l => l.customer_id));
-        return result.filter(item => String(item.created_by) === String(userId) || myLoanCustomerIds.has(item.id));
+        filtered = filtered.filter(item => String(item.created_by) === String(userId) || myLoanCustomerIds.has(item.id));
+      } else {
+        filtered = filtered.filter(item => String(item.created_by) === String(userId));
       }
-      // For leads, search results etc.
-      return result.filter(item => String(item.created_by) === String(userId));
-    }
-    if (role === "branch_manager") {
-      result = result.filter(item => item.branch_id === userBranchId);
-    }
-    if (role === "regional_manager") {
-      result = result.filter(item => item.region_id === userRegionId);
+    } else if (role === "branch_manager" || role === "customer_service_officer") {
+      // Strict: Branch managers ONLY see their branch data
+      if (userBranchId) {
+        filtered = filtered.filter(item => item.branch_id === userBranchId);
+      } else {
+        console.warn(`[applyFilters] ${role} has no assigned branch ID. Filter blocked.`);
+        return []; // Block access if they should have a branch but don't
+      }
+    } else if (role === "regional_manager") {
+      // Strict: Regional managers ONLY see their region data
+      if (userRegionId) {
+        filtered = filtered.filter(item => item.region_id === userRegionId);
+      } else {
+        console.warn(`[applyFilters] Regional Manager has no assigned region ID. Filter blocked.`);
+        return []; // Block access if they should have a region but don't
+      }
     }
 
     if (selectedRegion !== "all") {
-      result = result.filter(item => item.region_id === selectedRegion);
+      filtered = filtered.filter(item => item.region_id === selectedRegion);
     }
     if (selectedBranch !== "all") {
-      result = result.filter(item => item.branch_id === selectedBranch);
+      filtered = filtered.filter(item => item.branch_id === selectedBranch);
     }
     if (selectedRO !== "all" && tableName !== "leads") {
       const field = tableName === "loans" ? "booked_by" : "created_by";
-      result = result.filter(item => String(item[field]) === String(selectedRO));
+      filtered = filtered.filter(item => String(item[field]) === String(selectedRO));
     }
 
-    return result;
+    if (initialCount > 0 && filtered.length === 0) {
+      console.warn(`[applyFilters] Filter cleared all data for ${tableName}.`, {
+        role,
+        userBranchId,
+        userRegionId,
+        selectedRegion,
+        selectedBranch,
+        selectedRO,
+        initialCount,
+        sampleKeys: result[0] ? Object.keys(result[0]) : [],
+        sampleFirstBranch: result[0]?.branch_id,
+        sampleFirstRegion: result[0]?.region_id
+      });
+    }
+
+    return filtered;
   }, [userProfile, selectedRegion, selectedBranch, selectedRO, allLoans]);
 
 
@@ -1170,13 +1130,10 @@ const Dashboard = () => {
   ]);
 
   const fetchAllData = async () => {
+    if (!userProfile) return;
     try {
       setLoading(true);
-      const profile = await fetchUserProfile();
-      if (!profile) {
-        setLoading(false);
-        return;
-      }
+      const profile = userProfile;
 
       await initializeFilters(profile);
 
@@ -1185,25 +1142,44 @@ const Dashboard = () => {
         { data: customersData },
         { data: leadsData },
         { data: paymentsData },
-        { data: installmentsData }
+        { data: installmentsData },
+        { data: branchesData }
       ] = await Promise.all([
-        supabase.from("loans").select("*"),
-        supabase.from("customers").select("*").neq("form_status", "draft"),
-        supabase.from("leads").select("*"),
-        supabase.from("loan_payments").select("*"),
-        supabase.from("loan_installments").select("*")
+        supabase.from("loans").select("*").eq("tenant_id", profile.tenant_id),
+        supabase.from("customers").select("*").neq("form_status", "draft").eq("tenant_id", profile.tenant_id),
+        supabase.from("leads").select("*").eq("tenant_id", profile.tenant_id),
+        supabase.from("loan_payments").select("*").eq("tenant_id", profile.tenant_id),
+        supabase.from("loan_installments").select("*").eq("tenant_id", profile.tenant_id),
+        supabase.from("branches").select("id, region_id").eq("tenant_id", profile.tenant_id)
       ]);
 
-      setAllLoans(loansData || []);
-      setAllCustomers(customersData || []);
-      setAllLeads(leadsData || []);
-      setAllPayments(paymentsData || []);
-      setAllInstallments(installmentsData || []);
+      const branchRegionMap = {};
+      branchesData?.forEach(b => {
+        branchRegionMap[b.id] = b.region_id;
+      });
+
+      // Enrich data with region_id from branch
+      const enrichedLoans = (loansData || []).map(loan => ({
+        ...loan,
+        region_id: loan.region_id || branchRegionMap[loan.branch_id]
+      }));
 
       const enrichedCustomers = (customersData || []).map(customer => ({
         ...customer,
+        region_id: customer.region_id || branchRegionMap[customer.branch_id],
         displayName: `${customer.Firstname || ''} ${customer.Surname || ''}`.trim(),
       }));
+
+      const enrichedLeads = (leadsData || []).map(lead => ({
+        ...lead,
+        region_id: lead.region_id || branchRegionMap[lead.branch_id]
+      }));
+
+      setAllLoans(enrichedLoans);
+      setAllCustomers(enrichedCustomers);
+      setAllLeads(enrichedLeads);
+      setAllPayments(paymentsData || []);
+      setAllInstallments(installmentsData || []);
       setAllCustomersForSearch(enrichedCustomers);
 
       recalculateDashboardMetrics();
@@ -1216,22 +1192,34 @@ const Dashboard = () => {
   };
 
   const handleRegionChange = async (regionId) => {
+    const profile = userProfile;
+    if (!profile || !profile.tenant_id) return;
+
+    const tId = profile.tenant_id;
     setSelectedRegion(regionId);
     setSelectedBranch("all");
     setSelectedRO("all");
 
-    const branches = await fetchBranches(regionId);
+    // Cascading: Fetch branches for the selected region
+    const branches = await fetchBranches(tId, regionId);
     setAvailableBranches(branches);
 
-    const ros = await fetchRelationshipOfficers("all", regionId);
+    // Cascading: Fetch ROs for the selected region
+    const ros = await fetchRelationshipOfficers(tId, "all", regionId, profile.role, null, profile.region_id);
     setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
   };
 
   const handleBranchChange = async (branchId) => {
+    const profile = userProfile;
+    if (!profile || !profile.tenant_id) return;
+
+    const tId = profile.tenant_id;
     setSelectedBranch(branchId);
     setSelectedRO("all");
 
-    const ros = await fetchRelationshipOfficers(branchId, selectedRegion);
+    // Cascading: Fetch ROs for the selected branch
+    // Use selectedRegion as parent context
+    const ros = await fetchRelationshipOfficers(tId, branchId, selectedRegion, profile.role, profile.branch_id, profile.region_id);
     setAvailableROs([{ id: "all", full_name: "All ROs" }, ...ros]);
   };
 
@@ -1271,11 +1259,14 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    fetchAllData();
-  }, []);
+    if (!authInitializing && userProfile) {
+      fetchAllData();
+    }
+  }, [authInitializing, userProfile]);
 
   useEffect(() => {
     if (userProfile) {
+      console.log(`[Dashboard] Logged in as: ${userProfile.full_name || userProfile.fullName} | Role: ${userProfile.role} | Tenant: ${userProfile.tenant_id}`);
       recalculateDashboardMetrics();
     }
   }, [userProfile, allLoans, allCustomers, selectedRegion, selectedBranch, selectedRO, recalculateDashboardMetrics]);
@@ -1325,12 +1316,12 @@ const Dashboard = () => {
   };
 
 
-  if (loading) {
+  if (loading || authInitializing) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
-            <Spinner text="Loading Dashboard..." />
+            <Spinner text={authInitializing ? "Authenticating..." : "Loading Dashboard..."} />
           </div>
         </div>
       </div>
@@ -1359,40 +1350,48 @@ const Dashboard = () => {
       {/* Filters Bar */}
       <div className="mb-5 px-3 py-2">
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 items-center">
-          {/* Region Filter - for credit_analyst_officer, customer_service_officer, regional_manager */}
-          {["credit_analyst_officer", "customer_service_officer", "regional_manager"].includes(userProfile?.role) && (
+          {/* Region Filter - Admin, Superadmin, Analyst see all. RM sees only their region. */}
+          {["superadmin", "admin", "credit_analyst_officer", "regional_manager"].includes(userProfile?.role) && (
             <FilterSelectCompact
               icon={Home}
               value={selectedRegion}
-              onChange={handleRegionChange}
-              options={[
-                { value: "all", label: "All Regions" },
-                ...availableRegions.map(region => ({
-                  value: region.id,
-                  label: region.name
-                }))
-              ]}
+              onChange={userProfile.role === "regional_manager" ? () => { } : handleRegionChange}
+              options={
+                userProfile.role === "regional_manager"
+                  ? [{ value: userProfile.region_id, label: userProfile.region || "My Region" }]
+                  : [
+                    { value: "all", label: "All Regions" },
+                    ...availableRegions.map(region => ({
+                      value: region.id,
+                      label: region.name
+                    }))
+                  ]
+              }
             />
           )}
 
-          {/* Branch Filter - for all except relationship_officer */}
-          {["credit_analyst_officer", "customer_service_officer", "regional_manager", "branch_manager"].includes(userProfile?.role) && (
+          {/* Branch Filter - Administrative roles and intermediate managers see all/restricted. BM/CSO see ONLY their branch */}
+          {["superadmin", "admin", "credit_analyst_officer", "regional_manager", "branch_manager", "customer_service_officer"].includes(userProfile?.role) && (
             <FilterSelectCompact
               icon={Building}
               value={selectedBranch}
-              onChange={handleBranchChange}
-              options={[
-                { value: "all", label: "All Branches" },
-                ...availableBranches.map(branch => ({
-                  value: branch.id,
-                  label: branch.name
-                }))
-              ]}
+              onChange={["branch_manager", "customer_service_officer"].includes(userProfile.role) ? () => { } : handleBranchChange}
+              options={
+                ["branch_manager", "customer_service_officer"].includes(userProfile.role)
+                  ? [{ value: userProfile.branch_id, label: userProfile.branch || "My Branch" }]
+                  : [
+                    { value: "all", label: "All Branches" },
+                    ...availableBranches.map(branch => ({
+                      value: branch.id,
+                      label: branch.name
+                    }))
+                  ]
+              }
             />
           )}
 
           {/* RO Filter - for all except relationship_officer */}
-          {["credit_analyst_officer", "customer_service_officer", "regional_manager", "branch_manager"].includes(userProfile?.role) && (
+          {["superadmin", "admin", "credit_analyst_officer", "customer_service_officer", "regional_manager", "branch_manager"].includes(userProfile?.role) && (
             <FilterSelectCompact
               icon={UserCircle}
               value={selectedRO}
