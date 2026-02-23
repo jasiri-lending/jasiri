@@ -26,138 +26,108 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
 import Spinner from "../../components/Spinner.jsx";
 
-// SMS Service Configuration
-const CELCOM_AFRICA_CONFIG = {
-  baseUrl: "https://isms.celcomafrica.com/api/services/sendsms",
-  apiKey: "17323514aa8ce2613e358ee029e65d99",
-  partnerID: "928",
-  defaultShortcode: "MularCredit",
-};
+// ─── Tenant SMS Config Cache ───────────────────────────────────────────────
+const _smsConfigCache = new Map();
 
-// SMS Service Functions
 const SMSService = {
-  formatPhoneNumberForSMS(phone) {
-    if (!phone) {
-      console.warn("Empty phone number provided");
-      return "";
+  async getConfig(tenantId) {
+    if (!tenantId) throw new Error('tenantId is required to load SMS configuration');
+
+    if (_smsConfigCache.has(tenantId)) {
+      return _smsConfigCache.get(tenantId);
     }
 
-    let cleaned = String(phone).replace(/\D/g, "");
+    const { data, error } = await supabase
+      .from('tenant_sms_settings')
+      .select('base_url, api_key, partner_id, shortcode')
+      .eq('tenant_id', tenantId)
+      .single();
 
-    console.log("Formatting phone:", phone, "-> cleaned:", cleaned);
-
-    if (cleaned.startsWith("254")) {
-      if (cleaned.length === 12) {
-        return cleaned;
-      } else if (cleaned.length === 13 && cleaned.startsWith("2540")) {
-        return "254" + cleaned.substring(4);
-      }
-    } else if (cleaned.startsWith("0")) {
-      if (cleaned.length === 10) {
-        return "254" + cleaned.substring(1);
-      } else if (cleaned.length === 11 && cleaned.startsWith("07")) {
-        return "254" + cleaned.substring(2);
-      }
-    } else if (cleaned.startsWith("7") || cleaned.startsWith("1")) {
-      if (cleaned.length === 9) {
-        return "254" + cleaned;
-      } else if (
-        cleaned.length === 10 &&
-        (cleaned.startsWith("70") ||
-          cleaned.startsWith("71") ||
-          cleaned.startsWith("72") ||
-          cleaned.startsWith("11"))
-      ) {
-        return "254" + cleaned.substring(1);
-      }
+    if (error || !data) {
+      throw new Error(`SMS configuration not found for tenant: ${tenantId}`);
     }
 
-    console.error("Invalid phone number format:", phone, "cleaned:", cleaned);
-    return "";
+    const config = {
+      baseUrl: data.base_url,
+      apiKey: data.api_key,
+      partnerID: data.partner_id,
+      defaultShortcode: data.shortcode,
+    };
+
+    _smsConfigCache.set(tenantId, config);
+    console.log(`[SMSService] Config cached for tenant: ${tenantId}`);
+    return config;
   },
 
-  async sendSMS(
-    phoneNumber,
-    message,
-    shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode,
-    customerId = null
-  ) {
+  clearConfigCache(tenantId = null) {
+    if (tenantId) {
+      _smsConfigCache.delete(tenantId);
+    } else {
+      _smsConfigCache.clear();
+    }
+  },
+
+  formatPhoneNumberForSMS(phone) {
+    if (!phone) return '';
+    let cleaned = String(phone).replace(/\D/g, '');
+
+    if (cleaned.startsWith('254')) {
+      if (cleaned.length === 12) return cleaned;
+      if (cleaned.length === 13 && cleaned.startsWith('2540')) return '254' + cleaned.substring(4);
+    } else if (cleaned.startsWith('0')) {
+      if (cleaned.length === 10) return '254' + cleaned.substring(1);
+      if (cleaned.length === 11 && cleaned.startsWith('07')) return '254' + cleaned.substring(2);
+    } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
+      if (cleaned.length === 9) return '254' + cleaned;
+      if (cleaned.length === 10 && /^(70|71|72|11)/.test(cleaned)) return '254' + cleaned.substring(1);
+    }
+
+    console.error(`[SMSService] Invalid phone number: ${phone}`);
+    return '';
+  },
+
+  async sendSMS(phoneNumber, message, tenantId, shortcode = null) {
+    let formattedPhone = '';
     try {
-      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (!tenantId) throw new Error('tenantId is required to send SMS');
 
-      if (!formattedPhone) {
-        const errorMsg = `Invalid phone number format: ${phoneNumber}`;
-        console.error(" SMS Error:", errorMsg);
-        throw new Error(errorMsg);
-      }
+      const config = await this.getConfig(tenantId);
+      const effectiveShortcode = shortcode || config.defaultShortcode;
 
-      if (!message || message.trim().length === 0) {
-        throw new Error("Message cannot be empty");
-      }
+      formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (!formattedPhone) throw new Error(`Invalid phone number format: ${phoneNumber}`);
+      if (!message?.trim()) throw new Error('Message cannot be empty');
 
       const encodedMessage = encodeURIComponent(message.trim());
-      const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
+      const endpoint = `${config.baseUrl}/?apikey=${config.apiKey}&partnerID=${config.partnerID}&message=${encodedMessage}&shortcode=${effectiveShortcode}&mobile=${formattedPhone}`;
 
-      console.log(" Sending SMS via Celcom Africa to:", formattedPhone);
+      await fetch(endpoint, { method: 'GET', mode: 'no-cors' });
 
-      const response = await fetch(endpoint, {
-        method: "GET",
-        mode: "no-cors",
-      });
+      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      return { success: true, messageId, recipient: formattedPhone };
 
-      console.log("✅ SMS request sent successfully to:", formattedPhone);
-
-      const messageId = `msg-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
-
-      return {
-        success: true,
-        message: "SMS sent successfully",
-        messageId: messageId,
-        cost: 0,
-        recipient: formattedPhone,
-      };
     } catch (error) {
-      console.error(" SMS sending error:", error);
-
-      return {
-        success: false,
-        error: error.message,
-        originalNumber: phoneNumber,
-      };
+      console.error(`[SMSService] ❌ Failed to send SMS:`, error.message);
+      return { success: false, error: error.message, originalNumber: phoneNumber };
     }
   },
 
-  async logSMS(
-    recipientPhone,
-    message,
-    status,
-    senderId,
-    errorMessage,
-    messageId,
-    cost,
-    customerId,
-    tenantId
-  ) {
+  async logSMS({ recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId, tenantId }) {
     try {
-      const { error } = await supabase.from("sms_logs").insert({
+      const { error } = await supabase.from('sms_logs').insert({
         recipient_phone: recipientPhone,
-        message: message,
-        status: status,
-        error_message: errorMessage,
-        message_id: messageId,
-        sender_id: senderId,
-        customer_id: customerId,
-        cost: cost,
-        tenant_id: tenantId,
+        message,
+        status,
+        sender_id: senderId || null,
+        error_message: errorMessage || null,
+        message_id: messageId || null,
+        customer_id: customerId || null,
+        cost: cost ?? null,
+        tenant_id: tenantId || null,
       });
-
-      if (error) {
-        console.error("Failed to log SMS:", error);
-      }
-    } catch (error) {
-      console.error("Error logging SMS:", error);
+      if (error) console.error('[SMSService] Failed to log SMS:', error);
+    } catch (err) {
+      console.error('[SMSService] Error logging SMS:', err);
     }
   },
 };
@@ -1851,106 +1821,80 @@ const Customer360View = () => {
     //   loadSmsLogs();
     // }, [customerId]);
 
-    const handleSendSms = async () => {
-      if (!smsMessage.trim() || !customer?.mobile) {
-        alert("Please enter a message and ensure customer has a mobile number");
-        return;
-      }
+  const handleSendSms = async () => {
+  if (!smsMessage.trim() || !customer?.mobile) {
+    alert("Please enter a message and ensure customer has a mobile number");
+    return;
+  }
 
-      // CRITICAL: Verify user is logged in
-      if (!profile?.id) {
-        console.error("❌ BLOCKED: No logged-in user profile");
-        setSmsStatus("Failed: You must be logged in to send SMS");
-        return;
-      }
+  if (!profile?.id) {
+    setSmsStatus("Failed: You must be logged in to send SMS");
+    return;
+  }
 
-      console.log("=== SENDING SMS ===");
-      console.log("Sender (Profile ID):", profile.id);
-      console.log("Sender Name:", profile.full_name);
-      console.log("Sender Email:", profile.email);
+  if (!profile?.tenant_id) {
+    setSmsStatus("Failed: No tenant associated with your account");
+    return;
+  }
 
-      const today = new Date().toISOString().split("T")[0];
+  const today = new Date().toISOString().split("T")[0];
+  const { count } = await supabase
+    .from("sms_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("customer_id", customerId)
+    .gte("created_at", `${today}T00:00:00`)
+    .lte("created_at", `${today}T23:59:59`);
 
-      // Check daily SMS limit (2 per customer per day)
-      const { count } = await supabase
-        .from("sms_logs")
-        .select("*", { count: "exact", head: true })
-        .eq("customer_id", customerId)
-        .gte("created_at", `${today}T00:00:00`)
-        .lte("created_at", `${today}T23:59:59`);
+  if ((count ?? 0) >= 2) {
+    alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
+    return;
+  }
 
-      if ((count ?? 0) >= 2) {
-        alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
-        return;
-      }
+  setSendingSms(true);
+  setSmsStatus("Sending...");
 
-      setSendingSms(true);
-      setSmsStatus("Sending...");
+  try {
+    //  Pass tenantId — no hardcoded config
+    const result = await SMSService.sendSMS(
+      customer.mobile,
+      smsMessage,
+      profile.tenant_id  // tenant aware 
+    );
 
-      try {
-        const result = await SMSService.sendSMS(
-          customer.mobile,
-          smsMessage,
-          CELCOM_AFRICA_CONFIG.defaultShortcode,
-          customerId
-        );
-
-        // CRITICAL: Always set sent_by to the current user's ID
-        const insertData = {
-          customer_id: customerId,
-          recipient_phone: customer.mobile,
-          message: smsMessage,
-          status: result.success ? "sent" : "failed",
-          message_id: result.messageId ?? null,
-          error_message: result.success ? null : (result.error || "Unknown error"),
-          sent_by: profile.id, // ✅ MUST be the logged-in user's UUID
-          tenant_id: profile.tenant_id
-        };
-
-        console.log("=== INSERTING SMS LOG ===");
-        console.log("Data to insert:", insertData);
-
-        // Insert SMS log
-        const { data: insertedData, error: insertError } = await supabase
-          .from("sms_logs")
-          .insert(insertData)
-          .select(`
-          id,
-          message,
-          status,
-          created_at,
-          error_message,
-          sent_by,
-          users!sent_by (
-            id,
-            full_name,
-            email
-          )
-        `)
-          .single();
-
-        if (insertError) {
-          console.error("❌ Insert Error:", insertError);
-          throw insertError;
-        }
-
-        console.log("✅ Inserted SMS Log:", insertedData);
-        console.log("Inserted user data:", insertedData?.users);
-
-        // Reload all SMS logs to refresh the list
-        await loadSmsLogs();
-
-        setSmsMessage("");
-        setSmsStatus("Message sent successfully!");
-        setTimeout(() => setSmsStatus(""), 5000);
-
-      } catch (error) {
-        console.error("❌ SMS send error:", error);
-        setSmsStatus("Failed to send message");
-      } finally {
-        setSendingSms(false);
-      }
+    const insertData = {
+      customer_id: customerId,
+      recipient_phone: customer.mobile,
+      message: smsMessage,
+      status: result.success ? "sent" : "failed",
+      message_id: result.messageId ?? null,
+      error_message: result.success ? null : (result.error || "Unknown error"),
+      sent_by: profile.id,
+      tenant_id: profile.tenant_id,  //  tenant-aware
     };
+
+    const { data: insertedData, error: insertError } = await supabase
+      .from("sms_logs")
+      .insert(insertData)
+      .select(`
+        id, message, status, created_at, error_message, sent_by,
+        users!sent_by ( id, full_name, email )
+      `)
+      .single();
+
+    if (insertError) throw insertError;
+
+    setSmsLogs((prev) => [insertedData, ...prev]);
+    setSmsMessage("");
+    setSmsStatus(result.success ? "Message sent successfully!" : `Failed: ${result.error}`);
+    setTimeout(() => setSmsStatus(""), 5000);
+
+  } catch (error) {
+    console.error(" SMS send error:", error);
+    setSmsStatus("Failed to send message");
+  } finally {
+    setSendingSms(false);
+  }
+};
 
     // Debug function to check for data issues
     const checkOrphanedLogs = async () => {
@@ -1971,7 +1915,7 @@ const Customer360View = () => {
 
       // Check for NULL sent_by (should not exist)
       const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
-      console.log("⚠️ Logs with NULL sent_by:", logsWithNullSentBy.length);
+      console.log(" Logs with NULL sent_by:", logsWithNullSentBy.length);
 
       if (logsWithNullSentBy.length > 0) {
         console.log("These logs have NULL sent_by (BAD - should not happen):");
@@ -1995,20 +1939,20 @@ const Customer360View = () => {
           .in("id", uniqueIds);
 
         if (userError) {
-          console.error("❌ Error fetching users:", userError);
+          console.error(" Error fetching users:", userError);
           console.error("This could be an RLS (Row Level Security) policy issue!");
           return;
         }
 
-        console.log("✅ Users found in database:", existingUsers);
+        console.log(" Users found in database:", existingUsers);
 
         const existingUserIds = existingUsers?.map(u => u.id) || [];
         const missingUserIds = uniqueIds.filter(id => !existingUserIds.includes(id));
 
         if (missingUserIds.length > 0) {
-          console.error("⚠️ These user IDs in SMS logs don't exist in users table:", missingUserIds);
+          console.error(" These user IDs in SMS logs don't exist in users table:", missingUserIds);
         } else {
-          console.log("✅ All user IDs exist in users table");
+          console.log(" All user IDs exist in users table");
         }
       }
     };
@@ -2059,8 +2003,7 @@ const Customer360View = () => {
                     {smsMessage.length}/160 characters
                   </span>
                   <span className="text-xs text-gray-500">
-                    Sender ID: {CELCOM_AFRICA_CONFIG.defaultShortcode}
-                  </span>
+Max 160 characters                  </span>
                 </div>
               </div>
 

@@ -1,8 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import crypto from "crypto";
-import nodemailer from "nodemailer";
+
 import supabase, { supabaseAdmin } from "./supabaseClient.js";
 import { baseEmailTemplate, styledHighlightBox, infoBox } from "./utils/emailTemplates.js";
 import transporter from "./utils/mailer.js";

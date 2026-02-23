@@ -21,153 +21,176 @@ import {
 } from "@heroicons/react/24/outline";
 import { toast } from "react-toastify";
 
-// SMS Service Configuration
-const CELCOM_AFRICA_CONFIG = {
-  baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
-  apiKey: '17323514aa8ce2613e358ee029e65d99',
-  partnerID: '928',
-  defaultShortcode: 'MularCredit'
-};
+// // SMS Service Configuration
+// const CELCOM_AFRICA_CONFIG = {
+//   baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
+//   apiKey: '17323514aa8ce2613e358ee029e65d99',
+//   partnerID: '928',
+//   defaultShortcode: 'MularCredit'
+// };
+// ─── Tenant SMS Config Cache ───────────────────────────────────────────────
+const _smsConfigCache = new Map();
 
-// SMS Service Functions
 const SMSService = {
+  // ── Config Loader (with in-memory cache) ──────────────────────────────────
+  async getConfig(tenantId) {
+    if (!tenantId) throw new Error('tenantId is required to load SMS configuration');
+
+    // Return cached config if available
+    if (_smsConfigCache.has(tenantId)) {
+      return _smsConfigCache.get(tenantId);
+    }
+
+    const { data, error } = await supabase
+      .from('tenant_sms_settings')
+      .select('base_url, api_key, partner_id, shortcode')
+      .eq('tenant_id', tenantId)
+      .single();
+
+    if (error || !data) {
+      console.error(`[SMSService] Failed to load config for tenant ${tenantId}:`, error);
+      throw new Error(`SMS configuration not found for tenant: ${tenantId}`);
+    }
+
+    const config = {
+      baseUrl: data.base_url,
+      apiKey: data.api_key,
+      partnerID: data.partner_id,
+      defaultShortcode: data.shortcode,
+    };
+
+    // Store in cache
+    _smsConfigCache.set(tenantId, config);
+    console.log(`[SMSService] Config loaded and cached for tenant: ${tenantId}`);
+
+    return config;
+  },
+
+  // ── Clear cache for a tenant (call this if credentials are updated) ────────
+  clearConfigCache(tenantId = null) {
+    if (tenantId) {
+      _smsConfigCache.delete(tenantId);
+      console.log(`[SMSService] Cache cleared for tenant: ${tenantId}`);
+    } else {
+      _smsConfigCache.clear();
+      console.log('[SMSService] Entire SMS config cache cleared');
+    }
+  },
+
+  // ── Phone Number Formatter ─────────────────────────────────────────────────
   formatPhoneNumberForSMS(phone) {
     if (!phone) {
-      console.warn('Empty phone number provided');
+      console.warn('[SMSService] Empty phone number provided');
       return '';
     }
 
     let cleaned = String(phone).replace(/\D/g, '');
-
-    console.log('Formatting phone:', phone, '-> cleaned:', cleaned);
+    console.log(`[SMSService] Formatting phone: ${phone} -> cleaned: ${cleaned}`);
 
     if (cleaned.startsWith('254')) {
-      if (cleaned.length === 12) {
-        return cleaned;
-      } else if (cleaned.length === 13 && cleaned.startsWith('2540')) {
-        return '254' + cleaned.substring(4);
-      }
+      if (cleaned.length === 12) return cleaned;
+      if (cleaned.length === 13 && cleaned.startsWith('2540')) return '254' + cleaned.substring(4);
     } else if (cleaned.startsWith('0')) {
-      if (cleaned.length === 10) {
-        return '254' + cleaned.substring(1);
-      } else if (cleaned.length === 11 && cleaned.startsWith('07')) {
-        return '254' + cleaned.substring(2);
-      }
+      if (cleaned.length === 10) return '254' + cleaned.substring(1);
+      if (cleaned.length === 11 && cleaned.startsWith('07')) return '254' + cleaned.substring(2);
     } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
-      if (cleaned.length === 9) {
-        return '254' + cleaned;
-      } else if (cleaned.length === 10 && (cleaned.startsWith('70') || cleaned.startsWith('71') || cleaned.startsWith('72') || cleaned.startsWith('11'))) {
-        return '254' + cleaned.substring(1);
-      }
+      if (cleaned.length === 9) return '254' + cleaned;
+      if (cleaned.length === 10 && /^(70|71|72|11)/.test(cleaned)) return '254' + cleaned.substring(1);
     }
 
-    console.error('Invalid phone number format:', phone, 'cleaned:', cleaned);
+    console.error(`[SMSService] Invalid phone number format: ${phone} (cleaned: ${cleaned})`);
     return '';
   },
 
-  async sendSMS(phoneNumber, message, shortcode = CELCOM_AFRICA_CONFIG.defaultShortcode) {
+  // ── Core Send Function ─────────────────────────────────────────────────────
+  async sendSMS(phoneNumber, message, tenantId, shortcode = null) {
+    let formattedPhone = '';
+
     try {
-      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (!tenantId) throw new Error('tenantId is required to send SMS');
 
-      if (!formattedPhone) {
-        const errorMsg = `Invalid phone number format: ${phoneNumber}`;
-        console.error('❌ SMS Error:', errorMsg);
-        throw new Error(errorMsg);
-      }
+      const config = await this.getConfig(tenantId);
+      const effectiveShortcode = shortcode || config.defaultShortcode;
 
-      if (!message || message.trim().length === 0) {
-        throw new Error('Message cannot be empty');
-      }
+      formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
+      if (!formattedPhone) throw new Error(`Invalid phone number format: ${phoneNumber}`);
+      if (!message?.trim()) throw new Error('Message cannot be empty');
 
       const encodedMessage = encodeURIComponent(message.trim());
-      const endpoint = `${CELCOM_AFRICA_CONFIG.baseUrl}/?apikey=${CELCOM_AFRICA_CONFIG.apiKey}&partnerID=${CELCOM_AFRICA_CONFIG.partnerID}&message=${encodedMessage}&shortcode=${shortcode}&mobile=${formattedPhone}`;
+      const endpoint = `${config.baseUrl}/?apikey=${config.apiKey}&partnerID=${config.partnerID}&message=${encodedMessage}&shortcode=${effectiveShortcode}&mobile=${formattedPhone}`;
 
-      console.log('🚀 Sending SMS via Celcom Africa to:', formattedPhone);
+      console.log(`[SMSService] Sending SMS to ${formattedPhone} via tenant ${tenantId}`);
 
-      const response = await fetch(endpoint, {
-        method: 'GET',
-        mode: 'no-cors',
-      });
-
-      console.log('✅ SMS request sent successfully to:', formattedPhone);
+      await fetch(endpoint, { method: 'GET', mode: 'no-cors' });
 
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
-      await this.logSMS(
-        formattedPhone,
+      await this.logSMS({
+        recipientPhone: formattedPhone,
         message,
-        'sent',
-        shortcode,
-        undefined,
+        status: 'sent',
+        senderId: effectiveShortcode,
         messageId,
-        0
-      );
-
-      return {
-        success: true,
-        message: 'SMS sent successfully',
-        messageId: messageId,
         cost: 0,
-        recipient: formattedPhone
-      };
+        tenantId,
+      });
+
+      console.log(`[SMSService] ✅ SMS sent successfully to ${formattedPhone}`);
+      return { success: true, messageId, recipient: formattedPhone };
 
     } catch (error) {
-      console.error(' SMS sending error:', error);
+      console.error(`[SMSService] ❌ Failed to send SMS to ${phoneNumber}:`, error.message);
 
-      const formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
       if (formattedPhone) {
-        await this.logSMS(
-          formattedPhone,
+        await this.logSMS({
+          recipientPhone: formattedPhone,
           message,
-          'failed',
-          shortcode,
-          error.message
-        );
+          status: 'failed',
+          errorMessage: error.message,
+          tenantId,
+        });
       }
 
-      return {
-        success: false,
-        error: error.message,
-        originalNumber: phoneNumber
-      };
+      return { success: false, error: error.message, originalNumber: phoneNumber };
     }
   },
 
-  async logSMS(recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId) {
+  // ── SMS Logger ─────────────────────────────────────────────────────────────
+  async logSMS({ recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId, tenantId }) {
     try {
       const { error } = await supabase
         .from('sms_logs')
         .insert({
           recipient_phone: recipientPhone,
-          message: message,
-          status: status,
-          error_message: errorMessage,
-          message_id: messageId,
-          sender_id: senderId,
-          customer_id: customerId,
-          cost: cost
+          message,
+          status,
+          sender_id: senderId || null,
+          error_message: errorMessage || null,
+          message_id: messageId || null,
+          customer_id: customerId || null,
+          cost: cost ?? null,
+          tenant_id: tenantId || null,
         });
 
-      if (error) {
-        console.error('Failed to log SMS:', error);
-      }
-    } catch (error) {
-      console.error('Error logging SMS:', error);
+      if (error) console.error('[SMSService] Failed to log SMS:', error);
+    } catch (err) {
+      console.error('[SMSService] Error logging SMS:', err);
     }
   },
 
-  async sendLoanDisbursementNotification(customerName, phoneNumber, amount, loanId, transactionId) {
-    const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing Mular Credit!`;
-
-    return await this.sendSMS(phoneNumber, message);
+  // ── Notification Helpers ───────────────────────────────────────────────────
+  async sendLoanDisbursementNotification({ customerName, phoneNumber, amount, loanId, transactionId, tenantId }) {
+    const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing us!`;
+    return await this.sendSMS(phoneNumber, message, tenantId);
   },
 
-  async sendLoanApprovalNotification(customerName, phoneNumber, amount, loanId) {
-    const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly. - Mular Credit`;
-
-    return await this.sendSMS(phoneNumber, message);
-  }
+  async sendLoanApprovalNotification({ customerName, phoneNumber, amount, loanId, tenantId }) {
+    const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly.`;
+    return await this.sendSMS(phoneNumber, message, tenantId);
+  },
 };
+
+
 
 // PRODUCTION M-Pesa Service - REAL TRANSACTIONS ONLY
 const MpesaService = {
