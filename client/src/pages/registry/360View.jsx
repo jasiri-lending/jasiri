@@ -1898,7 +1898,6 @@ const Customer360View = () => {
 
     // Debug function to check for data issues
     const checkOrphanedLogs = async () => {
-      console.log("\n=== CHECKING FOR DATA ISSUES ===");
 
       // Get all SMS logs for this customer
       const { data: allLogs, error } = await supabase
@@ -1911,7 +1910,6 @@ const Customer360View = () => {
         return;
       }
 
-      console.log("Total SMS logs:", allLogs?.length);
 
       // Check for NULL sent_by (should not exist)
       const logsWithNullSentBy = allLogs?.filter(log => !log.sent_by) || [];
