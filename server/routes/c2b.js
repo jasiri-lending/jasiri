@@ -1,90 +1,112 @@
+// backend/routes/c2b.js
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
-import { getTenantMpesaToken } from "./mpesa.js";
+import { supabaseAdmin }      from "../supabaseClient.js";
+import { resolveTransaction } from "../services/tenantResolver.js";
+import { enqueueJob }         from "../queue/paymentQueue.js";
+import { JOB_TYPES }          from "../config/env.js";
+import { createLogger }       from "../utils/logger.js";
 
 const c2b = express.Router();
-const supabaseAdmin = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+const log = createLogger({ service: "c2b" });
 
-// Validation endpoint
-c2b.post("/c2b/validation", (req, res) => {
-  return res.json({ ResultCode: 0, ResultDesc: "Validation Passed" });
+/**
+ * Convert Safaricom timestamp (YYYYMMDDHHmmss) to ISO 8601 string
+ * @param {string} timestamp - e.g., "20250101120000"
+ * @returns {string} ISO date string (UTC)
+ */
+function parseMpesaTimestamp(timestamp) {
+  if (!timestamp || timestamp.length !== 14) return new Date().toISOString();
+  const year = timestamp.slice(0, 4);
+  const month = timestamp.slice(4, 6);
+  const day = timestamp.slice(6, 8);
+  const hour = timestamp.slice(8, 10);
+  const minute = timestamp.slice(10, 12);
+  const second = timestamp.slice(12, 14);
+  // Month is 0-indexed in Date.UTC, so subtract 1
+  return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
+}
+
+c2b.post("/validation", (req, res) => {
+  log.info("C2B validation received");
+  res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
 
-// C2B Confirmation endpoint
-c2b.post("/c2b/confirmation", async (req, res) => {
-  try {
-    const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-    const { TransID, TransAmount, MSISDN, BillRefNumber, FirstName } = body;
+c2b.post("/confirmation", async (req, res) => {
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  const {
+    TransID, TransAmount, MSISDN, BillRefNumber,
+    FirstName, BusinessShortCode, TransactionType, TransTime,
+  } = body;
 
-    if (!TransID || !MSISDN || !TransAmount || !BillRefNumber)
-      throw new Error("Missing required transaction fields");
+  log.info({ TransID, MSISDN, TransAmount, BillRefNumber }, "C2B confirmation received");
 
-    // Normalize MSISDN
-    const localNumber = MSISDN.replace(/^254/, "0");
+  // Respond to Safaricom immediately
+  res.json({ ResultCode: 0, ResultDesc: "Received" });
 
-    // Find customer & tenant
-    const { data: customer } = await supabaseAdmin
-      .from("customers")
-      .select("id, tenant_id")
-      .in("mobile", [MSISDN, localNumber])
-      .maybeSingle();
+  setImmediate(async () => {
+    try {
+      // Idempotency check
+      const { data: existing } = await supabaseAdmin
+        .from("mpesa_c2b_transactions")
+        .select("id, status")
+        .eq("transaction_id", TransID)
+        .maybeSingle();
 
-    if (!customer) {
-      // Move to suspense if customer not found
-      await supabaseAdmin.from("suspense_transactions").insert([
-        {
-          payer_name: FirstName || "Unknown",
-          phone_number: MSISDN,
-          amount: TransAmount,
-          transaction_id: TransID,
-          status: "suspense",
-          reason: "Customer not found",
-        }
-      ]);
-      return res.json({ ResultCode: 0, ResultDesc: "Moved to suspense" });
-    }
-
-    const tenantId = customer.tenant_id;
-
-    // Get tenant token
-    const tenantConfig = await supabaseAdmin
-      .from("tenant_mpesa_config")
-      .select("*")
-      .eq("tenant_id", tenantId)
-      .single()
-      .then(r => {
-        if (r.error || !r.data) throw new Error("Tenant MPESA config not found");
-        return r.data;
-      });
-
-    const token = await getTenantMpesaToken(tenantConfig);
-
-    // Log transaction
-    await supabaseAdmin.from("mpesa_c2b_transactions").insert([
-      {
-        tenant_id: tenantId,
-        customer_id: customer.id,
-        transaction_id: TransID,
-        phone_number: MSISDN,
-        amount: TransAmount,
-        raw_payload: body,
-        status: "pending",
-        billref: BillRefNumber,
-        firstname: FirstName
+      if (existing && existing.status !== "pending") {
+        log.info({ TransID, status: existing.status }, "Duplicate — skipping");
+        return;
       }
-    ]);
 
-    // TODO: Apply repayment allocation logic here per tenant
-    await supabaseAdmin
-      .from("mpesa_c2b_transactions")
-      .update({ status: "applied" })
-      .eq("transaction_id", TransID);
+      // Resolve tenant from BusinessShortCode (or phone fallback)
+      const tenantConfig = await resolveTransaction(BusinessShortCode, MSISDN);
 
-    res.json({ ResultCode: 0, ResultDesc: "Transaction processed successfully" });
-  } catch (err) {
-    console.error("C2B Error:", err.message);
-    res.json({ ResultCode: 1, ResultDesc: `Processing failed: ${err.message}` });
-  }
+      if (!tenantConfig) {
+        log.warn({ TransID, BusinessShortCode, MSISDN }, "Tenant not resolved — suspense");
+        await supabaseAdmin.from("suspense_transactions").upsert({
+          payer_name:       FirstName || "Unknown",
+          phone_number:     MSISDN,
+          amount:           TransAmount,
+          transaction_id:   TransID,
+          transaction_time: parseMpesaTimestamp(TransTime),
+          billref:          BillRefNumber,
+          status:           "suspense",
+          reason:           "Tenant not resolved from shortcode or phone",
+        }, { onConflict: "transaction_id" });
+        return;
+      }
+
+      const tenantId = tenantConfig.tenant_id;
+
+      // Determine job type from billref
+      const ref = (BillRefNumber || "").toLowerCase();
+      let jobType  = JOB_TYPES.C2B_REPAYMENT;
+      let priority = 5;
+      if (ref.startsWith("registration")) { jobType = JOB_TYPES.REGISTRATION;   priority = 2; }
+      else if (ref.startsWith("processing")) { jobType = JOB_TYPES.PROCESSING_FEE; priority = 3; }
+
+      // Insert transaction record (idempotent)
+      await supabaseAdmin.from("mpesa_c2b_transactions").upsert({
+        transaction_id:     TransID,
+        phone_number:       MSISDN,
+        amount:             TransAmount,
+        transaction_time:   parseMpesaTimestamp(TransTime),
+        status:             "pending",
+        raw_payload:        body,
+        billref:            BillRefNumber,
+        firstname:          FirstName,
+        business_shortcode: BusinessShortCode,
+        transaction_type:   TransactionType,
+        tenant_id:          tenantId,
+      }, { onConflict: "transaction_id", ignoreDuplicates: true });
+
+      // Enqueue for processing
+      await enqueueJob({ tenantId, jobType, payload: { transaction_id: TransID }, priority });
+      log.info({ TransID, tenantId, jobType }, "Transaction queued");
+
+    } catch (err) {
+      log.error({ err: err.message, TransID }, "Failed to queue C2B transaction");
+    }
+  });
 });
 
 export default c2b;

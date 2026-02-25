@@ -18,28 +18,28 @@ import "react-datepicker/dist/react-datepicker.css";
 
 // ========== BRAND COLORS ==========
 const BRAND = {
-  primary:   '#2E5E99',
-  btn:       '#586ab1',
+  primary: '#2E5E99',
+  btn: '#586ab1',
   secondary: '#7BA4D0',
-  surface:   '#E7F0FA',
-  accent:    '#10B981',
+  surface: '#E7F0FA',
+  accent: '#10B981',
   highlight: '#FACC15',
-  text:      '#111827',
-  muted:     '#6B7280',
-  danger:    '#EF4444',
-  warning:   '#F59E0B',
-  navy:      '#1E3A8A',
+  text: '#111827',
+  muted: '#6B7280',
+  danger: '#EF4444',
+  warning: '#F59E0B',
+  navy: '#1E3A8A',
 };
 
 const CHART_COLORS = {
-  interest:      BRAND.accent,
-  processing:    BRAND.btn,
-  registration:  BRAND.secondary,
-  penalties:     BRAND.danger,
-  writeoffs:     '#B91C1C',
+  interest: BRAND.accent,
+  processing: BRAND.btn,
+  registration: BRAND.secondary,
+  penalties: BRAND.danger,
+  writeoffs: '#B91C1C',
   disbursements: BRAND.navy,
-  repayments:    BRAND.accent,
-  portfolio:     BRAND.primary,
+  repayments: BRAND.accent,
+  portfolio: BRAND.primary,
 };
 
 // ========== FORMATTING ==========
@@ -53,23 +53,23 @@ const formatNumber = (amount) => {
 // ========== DATE UTILITIES ==========
 const toKenyaDateStr = (d = new Date()) => {
   const kenya = new Date(new Date(d).getTime() + 3 * 60 * 60 * 1000);
-  const y  = kenya.getUTCFullYear();
+  const y = kenya.getUTCFullYear();
   const mo = String(kenya.getUTCMonth() + 1).padStart(2, '0');
   const dy = String(kenya.getUTCDate()).padStart(2, '0');
   return `${y}-${mo}-${dy}`;
 };
-const getMonthStart   = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); };
+const getMonthStart = () => { const n = new Date(); return new Date(n.getFullYear(), n.getMonth(), 1); };
 const getQuarterStart = () => { const n = new Date(); return new Date(n.getFullYear(), Math.floor(n.getMonth() / 3) * 3, 1); };
-const getYearStart    = () => new Date(new Date().getFullYear(), 0, 1);
+const getYearStart = () => new Date(new Date().getFullYear(), 0, 1);
 
 const resolveDateRange = (filters) => {
   const end = filters.dateRange === 'custom' ? filters.endDate : new Date();
   let start;
   switch (filters.dateRange) {
-    case 'qtd':    start = getQuarterStart(); break;
-    case 'ytd':    start = getYearStart();    break;
+    case 'qtd': start = getQuarterStart(); break;
+    case 'ytd': start = getYearStart(); break;
     case 'custom': start = filters.startDate; break;
-    default:       start = getMonthStart();
+    default: start = getMonthStart();
   }
   return { start, end };
 };
@@ -193,13 +193,13 @@ const ProfitSummaryCard = ({ metrics, loading }) => {
   const max = Math.max(totalRevenue, 1);
 
   const rows = [
-    { label: 'Interest Paid',             sub: 'loan_payments.interest_paid',    value: interestRevenue,           color: BRAND.accent },
-    { label: 'Processing Fees',           sub: 'loans.processing_fee',           value: processingRevenue,         color: BRAND.btn },
-    { label: 'Registration Fees',         sub: 'loans.registration_fee',         value: registrationRevenue,       color: BRAND.secondary },
-    { label: 'Penalties (loan-level)',    sub: 'loans.net_penalties accrued',    value: penaltiesFromLoans,        color: BRAND.warning },
-    { label: 'Penalties (installments)',  sub: 'installments.net_penalty',       value: penaltiesFromInstallments, color: BRAND.danger },
-    { label: 'Operational Costs',         sub: 'Actual expenses',                value: operationalCosts,          color: BRAND.primary },
-    { label: 'Write-offs',                sub: 'Defaulted loans',                value: writeOffs,                 color: '#B91C1C' },
+    { label: 'Interest Paid', sub: 'loan_payments.interest_paid', value: interestRevenue, color: BRAND.accent },
+    { label: 'Processing Fees', sub: 'loans.processing_fee', value: processingRevenue, color: BRAND.btn },
+    { label: 'Registration Fees', sub: 'loans.registration_fee', value: registrationRevenue, color: BRAND.secondary },
+    { label: 'Penalties (loan-level)', sub: 'loans.net_penalties accrued', value: penaltiesFromLoans, color: BRAND.warning },
+    { label: 'Penalties (installments)', sub: 'installments.net_penalty', value: penaltiesFromInstallments, color: BRAND.danger },
+    { label: 'Operational Costs', sub: 'Actual expenses', value: operationalCosts, color: BRAND.primary },
+    { label: 'Write-offs', sub: 'Defaulted loans', value: writeOffs, color: '#B91C1C' },
   ];
 
   return (
@@ -365,32 +365,32 @@ const FinancialDashboard = () => {
   const [filters, setFilters] = useState({
     dateRange: 'mtd',
     startDate: getMonthStart(),
-    endDate:   new Date(),
-    region:    'all',
-    branch:    'all',
+    endDate: new Date(),
+    region: 'all',
+    branch: 'all',
   });
 
-  const [loading, setLoading]         = useState(true);
+  const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const [kpis, setKpis] = useState({
-    interestPaid:            0,
-    principalPaid:           0,
-    penaltiesPaid:           0,
-    totalPaymentsAmount:     0,
-    processingFeesCharged:   0,
+    interestPaid: 0,
+    principalPaid: 0,
+    penaltiesPaid: 0,
+    totalPaymentsAmount: 0,
+    processingFeesCharged: 0,
     registrationFeesCharged: 0,
-    netPenaltiesOnLoans:        0,
+    netPenaltiesOnLoans: 0,
     netPenaltiesOnInstallments: 0,
-    outstandingPrincipal:    0,
-    writeOffs:               0,
-    totalRevenue:            0,
+    outstandingPrincipal: 0,
+    writeOffs: 0,
+    totalRevenue: 0,
   });
 
-  const [cashFlowData, setCashFlowData]     = useState([]);
+  const [cashFlowData, setCashFlowData] = useState([]);
   const [portfolioTrend, setPortfolioTrend] = useState([]);
-  const [pieBreakdown, setPieBreakdown]     = useState([]);
-  const [profitability, setProfitability]   = useState({
+  const [pieBreakdown, setPieBreakdown] = useState([]);
+  const [profitability, setProfitability] = useState({
     interestRevenue: 0, processingRevenue: 0, registrationRevenue: 0,
     penaltiesFromLoans: 0, penaltiesFromInstallments: 0,
     operationalCosts: 0, totalRevenue: 0, writeOffs: 0, netProfit: 0,
@@ -418,9 +418,12 @@ const FinancialDashboard = () => {
     try {
       const { start, end } = resolveDateRange(currentFilters);
       const startStr = toKenyaDateStr(start);
-      const endStr   = toKenyaDateStr(end);
+      const endStr = toKenyaDateStr(end);
 
-      const geo = (q) => {
+      const geo = (q, table = null) => {
+        // Skip branch/region filtering for payments as the columns are not on the table
+        if (table === 'loan_payments' || table === 'loan_installments') return q;
+
         if (currentFilters.region !== 'all') q = q.eq('region_id', currentFilters.region);
         if (currentFilters.branch !== 'all') q = q.eq('branch_id', currentFilters.branch);
         return q;
@@ -444,8 +447,9 @@ const FinancialDashboard = () => {
           supabase.from('loan_payments')
             .select('paid_amount, interest_paid, principal_paid, penalty_paid, created_at, loan_id, payment_type')
             .eq('tenant_id', tenantId)
-            .gte('created_at', startStr)
-            .lte('created_at', endStr)
+            .gte('created_at', startStr + 'T00:00:00Z')
+            .lte('created_at', endStr + 'T23:59:59Z')
+          , 'loan_payments'
         ),
 
         geo(
@@ -491,8 +495,9 @@ const FinancialDashboard = () => {
           supabase.from('loan_payments')
             .select('paid_amount, created_at')
             .eq('tenant_id', tenantId)
-            .gte('created_at', startStr)
-            .lte('created_at', endStr)
+            .gte('created_at', startStr + 'T00:00:00Z')
+            .lte('created_at', endStr + 'T23:59:59Z')
+          , 'loan_payments'
         ),
 
         geo(
@@ -527,22 +532,19 @@ const FinancialDashboard = () => {
       let interestPaid = 0, principalPaid = 0, penaltiesPaid = 0, totalPaymentsAmount = 0;
       paymentsRes.data?.forEach(p => {
         const paidAmt = Number(p.paid_amount) || 0;
-        const interest = Number(p.interest_paid) || 0;
-        const principal = Number(p.principal_paid) || 0;
-        const penalty = Number(p.penalty_paid) || 0;
 
-        if (interest === 0 && principal === 0 && penalty === 0 && p.payment_type) {
-          if (p.payment_type === 'interest') {
-            interestPaid += paidAmt;
-          } else if (p.payment_type === 'principal') {
-            principalPaid += paidAmt;
-          } else if (p.payment_type === 'penalty') {
-            penaltiesPaid += paidAmt;
-          }
+        // Sum based on payment_type as the primary classification
+        if (p.payment_type === 'interest') {
+          interestPaid += paidAmt;
+        } else if (p.payment_type === 'principal') {
+          principalPaid += paidAmt;
+        } else if (p.payment_type === 'penalty' || p.payment_type === 'penalties') {
+          penaltiesPaid += paidAmt;
         } else {
-          interestPaid += interest;
-          principalPaid += principal;
-          penaltiesPaid += penalty;
+          // Fallback to split columns if payment_type is missing or 'repayment' (total)
+          interestPaid += Number(p.interest_paid) || 0;
+          principalPaid += Number(p.principal_paid) || 0;
+          penaltiesPaid += Number(p.penalty_paid) || 0;
         }
         totalPaymentsAmount += paidAmt;
       });
@@ -550,9 +552,9 @@ const FinancialDashboard = () => {
       // Fee income from disbursed loans in period
       let processingFees = 0, registrationFees = 0, netPenaltiesOnLoans = 0;
       disbursedLoansRes.data?.forEach(l => {
-        processingFees      += Number(l.processing_fee)   || 0;
-        registrationFees    += Number(l.registration_fee) || 0;
-        netPenaltiesOnLoans += Number(l.net_penalties)    || 0;
+        processingFees += Number(l.processing_fee) || 0;
+        registrationFees += Number(l.registration_fee) || 0;
+        netPenaltiesOnLoans += Number(l.net_penalties) || 0;
       });
 
       // Installment-level penalties
@@ -607,7 +609,7 @@ const FinancialDashboard = () => {
       setCashFlowData(allDates.map(date => ({
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         disbursements: disByDay[date] || 0,
-        repayments:    repByDay[date] || 0,
+        repayments: repByDay[date] || 0,
       })));
 
       // Portfolio trend
@@ -637,18 +639,18 @@ const FinancialDashboard = () => {
 
       // Revenue pie
       setPieBreakdown([
-        { name: 'Interest',        value: interestPaid,    color: CHART_COLORS.interest },
-        { name: 'Processing Fees', value: processingFees,  color: CHART_COLORS.processing },
-        { name: 'Reg. Fees',       value: registrationFees,color: CHART_COLORS.registration },
-        { name: 'Penalties',       value: penaltiesPaid,   color: CHART_COLORS.penalties },
+        { name: 'Interest', value: interestPaid, color: CHART_COLORS.interest },
+        { name: 'Processing Fees', value: processingFees, color: CHART_COLORS.processing },
+        { name: 'Reg. Fees', value: registrationFees, color: CHART_COLORS.registration },
+        { name: 'Penalties', value: penaltiesPaid, color: CHART_COLORS.penalties },
       ].filter(i => i.value > 0));
 
       // Profitability (operationalCosts now from DB)
       setProfitability({
-        interestRevenue:           interestPaid,
-        processingRevenue:         processingFees,
-        registrationRevenue:       registrationFees,
-        penaltiesFromLoans:        netPenaltiesOnLoans,
+        interestRevenue: interestPaid,
+        processingRevenue: processingFees,
+        registrationRevenue: registrationFees,
+        penaltiesFromLoans: netPenaltiesOnLoans,
         penaltiesFromInstallments: netPenaltiesOnInstallments,
         operationalCosts,           // dynamic value
         totalRevenue,
@@ -691,7 +693,7 @@ const FinancialDashboard = () => {
           <SectionHeader icon={Banknote} title="Revenue & Income" />
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             <KpiCard title="Total Revenue" value={kpis.totalRevenue}
-              icon={DollarSign} accentColor={BRAND.primary}  loading={loading} highlight />
+              icon={DollarSign} accentColor={BRAND.primary} loading={loading} highlight />
             <KpiCard title="Interest Paid" value={kpis.interestPaid}
               icon={Percent} accentColor={BRAND.accent} loading={loading} />
             <KpiCard title="Processing Fees" value={kpis.processingFeesCharged}
@@ -761,7 +763,7 @@ const FinancialDashboard = () => {
                     <AreaChart data={portfolioTrend} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                       <defs>
                         <linearGradient id="portfolioGrad" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%"  stopColor={BRAND.primary} stopOpacity={0.25} />
+                          <stop offset="5%" stopColor={BRAND.primary} stopOpacity={0.25} />
                           <stop offset="95%" stopColor={BRAND.primary} stopOpacity={0} />
                         </linearGradient>
                       </defs>

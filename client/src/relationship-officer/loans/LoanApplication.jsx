@@ -61,7 +61,7 @@ function LoanApplication() {
         customersData.map(async (cust) => {
           const { data: lastLoan } = await supabase
             .from("loans")
-            .select("status")
+.select("status, repayment_state")
             .eq("customer_id", cust.id)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -88,6 +88,7 @@ function LoanApplication() {
           return {
             ...cust,
             lastLoanStatus: lastLoan?.status || null,
+              lastRepaymentState: lastLoan?.repayment_state || null,
             bmScoredAmount: bmRow?.branch_manager_loan_scored_amount || 0,
             caScoredAmount: rmRow?.credit_analyst_officer_loan_scored_amount || 0,
           };
@@ -256,40 +257,78 @@ function LoanApplication() {
                   </td>
 
                   {/* Actions */}
-                  <td className="px-4 py-3 text-center whitespace-nowrap">
-                    {application.lastLoanStatus === "bm_review" ||
-                      application.lastLoanStatus === "rm_review" ||
-                      application.lastLoanStatus === "ca_review" ||
-                      application.lastLoanStatus === "disbursed" ? (
-                      <button
-                        disabled
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
-                        style={{ backgroundColor: "#9ca3af" }}
-                      >
-                        Booked
-                      </button>
-                    ) : application.lastLoanStatus === "rejected" ? (
-                      <button
-                        disabled
-                        className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
-                        style={{ backgroundColor: "#ef4444" }}
-                      >
-                        Rejected
-                      </button>
-                    ) : (
-                      <button
-                        onClick={() =>
-                          navigate(`/officer/loan-booking/${application.id}`, {
-                            state: { customerData: application },
-                          })
-                        }
-                        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm mx-auto"
-                      >
-                        <BanknotesIcon className="h-4 w-4" />
-                        Book Loan
-                      </button>
-                    )}
-                  </td>
+<td className="px-4 py-3 text-center whitespace-nowrap">
+  {(() => {
+    const status = application.lastLoanStatus?.toLowerCase()?.trim();
+    const repayment = application.lastRepaymentState?.toLowerCase()?.trim();
+
+    // Allow booking if fully paid
+    if (repayment === "completed") {
+      return (
+        <button
+          onClick={() =>
+            navigate(`/officer/loan-booking/${application.id}`, {
+              state: { customerData: application },
+            })
+          }
+          className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm mx-auto"
+        >
+          <BanknotesIcon className="h-4 w-4" />
+          Book Loan
+        </button>
+      );
+    }
+
+    // Block if active loan exists
+    const blockedStatuses = [
+      "bm_review",
+      "rm_review",
+      "ca_review",
+      "disbursed",
+      "approved",
+      "ready_for_disbursement"
+    ];
+
+    if (blockedStatuses.includes(status)) {
+      return (
+        <button
+          disabled
+          className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
+          style={{ backgroundColor: "#9ca3af" }}
+        >
+          Active Loan
+        </button>
+      );
+    }
+
+    if (status === "rejected") {
+      return (
+        <button
+          disabled
+          className="px-3 py-1.5 text-xs font-medium rounded-md text-white cursor-not-allowed"
+          style={{ backgroundColor: "#ef4444" }}
+        >
+          Rejected
+        </button>
+      );
+    }
+
+    // No loan or safe state → allow
+    return (
+      <button
+        onClick={() =>
+          navigate(`/officer/loan-booking/${application.id}`, {
+            state: { customerData: application },
+          })
+        }
+        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm mx-auto"
+      >
+        <BanknotesIcon className="h-4 w-4" />
+        Book Loan
+      </button>
+    );
+  })()}
+</td>
                 </tr>
               ))}
             </tbody>
