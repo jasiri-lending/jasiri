@@ -238,7 +238,7 @@ const Customer360View = () => {
       // Fetch wallet transactions and calculate balance
       const { data: walletTxns } = await supabase
         .from("customer_wallets")
-        .select("created_at, credit, debit, transaction_type, mpesa_reference")
+        .select("created_at, credit, debit, transaction_type, mpesa_reference, narration, description, amount, type")
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
@@ -1172,13 +1172,19 @@ const Customer360View = () => {
               Date
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+              Narration
+            </th>
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               Type
             </th>
             <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
               MPESA Ref
             </th>
             <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-              Amount
+              Credit
+            </th>
+            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+              Debit
             </th>
           </tr>
         </thead>
@@ -1190,28 +1196,33 @@ const Customer360View = () => {
                 {new Date(txn.created_at).toLocaleString()}
               </td>
 
-              <td className="px-4 py-3 text-sm">
+              <td className="px-4 py-3 text-sm text-slate-600">
+                <div className="max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title={txn.narration || txn.description}>
+                  {txn.narration || txn.description || "—"}
+                </div>
+              </td>
+
+              <td className="px-4 py-3 text-sm whitespace-nowrap">
                 <span
-                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.transaction_type === "credit"
-                    ? "bg-green-100 text-green-800"
-                    : "bg-red-100 text-red-800"
+                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${parseFloat(txn.credit || 0) > 0 || txn.type === "credit" || txn.transaction_type === "credit"
+                    ? "text-green-600"
+                    : " text-red-600"
                     }`}
                 >
-                  {txn.transaction_type}
+                  {txn.transaction_type || txn.type || "—"}
                 </span>
               </td>
 
-              <td className="px-4 py-3 text-sm text-gray-600">
+              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
                 {txn.mpesa_reference || "—"}
               </td>
 
-              <td
-                className={`px-4 py-3 text-sm font-medium text-right ${txn.transaction_type === "credit" ? "text-green-600" : "text-red-600"
-                  }`}
-              >
-                {txn.transaction_type === "credit"
-                  ? formatCurrency(txn.credit)
-                  : formatCurrency(txn.debit)}
+              <td className="px-4 py-3 text-sm font-medium text-right text-green-600  whitespace-nowrap">
+                {parseFloat(txn.credit || 0) > 0 ? formatCurrency(txn.credit) : "—"}
+              </td>
+
+              <td className="px-4 py-3 text-sm font-medium text-right text-red-600 whitespace-nowrap">
+                {parseFloat(txn.debit || 0) > 0 ? formatCurrency(txn.debit) : "—"}
               </td>
             </tr>
           ))}
@@ -1821,80 +1832,80 @@ const Customer360View = () => {
     //   loadSmsLogs();
     // }, [customerId]);
 
-  const handleSendSms = async () => {
-  if (!smsMessage.trim() || !customer?.mobile) {
-    alert("Please enter a message and ensure customer has a mobile number");
-    return;
-  }
+    const handleSendSms = async () => {
+      if (!smsMessage.trim() || !customer?.mobile) {
+        alert("Please enter a message and ensure customer has a mobile number");
+        return;
+      }
 
-  if (!profile?.id) {
-    setSmsStatus("Failed: You must be logged in to send SMS");
-    return;
-  }
+      if (!profile?.id) {
+        setSmsStatus("Failed: You must be logged in to send SMS");
+        return;
+      }
 
-  if (!profile?.tenant_id) {
-    setSmsStatus("Failed: No tenant associated with your account");
-    return;
-  }
+      if (!profile?.tenant_id) {
+        setSmsStatus("Failed: No tenant associated with your account");
+        return;
+      }
 
-  const today = new Date().toISOString().split("T")[0];
-  const { count } = await supabase
-    .from("sms_logs")
-    .select("*", { count: "exact", head: true })
-    .eq("customer_id", customerId)
-    .gte("created_at", `${today}T00:00:00`)
-    .lte("created_at", `${today}T23:59:59`);
+      const today = new Date().toISOString().split("T")[0];
+      const { count } = await supabase
+        .from("sms_logs")
+        .select("*", { count: "exact", head: true })
+        .eq("customer_id", customerId)
+        .gte("created_at", `${today}T00:00:00`)
+        .lte("created_at", `${today}T23:59:59`);
 
-  if ((count ?? 0) >= 2) {
-    alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
-    return;
-  }
+      if ((count ?? 0) >= 2) {
+        alert("Daily SMS limit reached: You can only send 2 SMS messages per customer per day.");
+        return;
+      }
 
-  setSendingSms(true);
-  setSmsStatus("Sending...");
+      setSendingSms(true);
+      setSmsStatus("Sending...");
 
-  try {
-    //  Pass tenantId — no hardcoded config
-    const result = await SMSService.sendSMS(
-      customer.mobile,
-      smsMessage,
-      profile.tenant_id  // tenant aware 
-    );
+      try {
+        //  Pass tenantId — no hardcoded config
+        const result = await SMSService.sendSMS(
+          customer.mobile,
+          smsMessage,
+          profile.tenant_id  // tenant aware 
+        );
 
-    const insertData = {
-      customer_id: customerId,
-      recipient_phone: customer.mobile,
-      message: smsMessage,
-      status: result.success ? "sent" : "failed",
-      message_id: result.messageId ?? null,
-      error_message: result.success ? null : (result.error || "Unknown error"),
-      sent_by: profile.id,
-      tenant_id: profile.tenant_id,  //  tenant-aware
-    };
+        const insertData = {
+          customer_id: customerId,
+          recipient_phone: customer.mobile,
+          message: smsMessage,
+          status: result.success ? "sent" : "failed",
+          message_id: result.messageId ?? null,
+          error_message: result.success ? null : (result.error || "Unknown error"),
+          sent_by: profile.id,
+          tenant_id: profile.tenant_id,  //  tenant-aware
+        };
 
-    const { data: insertedData, error: insertError } = await supabase
-      .from("sms_logs")
-      .insert(insertData)
-      .select(`
+        const { data: insertedData, error: insertError } = await supabase
+          .from("sms_logs")
+          .insert(insertData)
+          .select(`
         id, message, status, created_at, error_message, sent_by,
         users!sent_by ( id, full_name, email )
       `)
-      .single();
+          .single();
 
-    if (insertError) throw insertError;
+        if (insertError) throw insertError;
 
-    setSmsLogs((prev) => [insertedData, ...prev]);
-    setSmsMessage("");
-    setSmsStatus(result.success ? "Message sent successfully!" : `Failed: ${result.error}`);
-    setTimeout(() => setSmsStatus(""), 5000);
+        setSmsLogs((prev) => [insertedData, ...prev]);
+        setSmsMessage("");
+        setSmsStatus(result.success ? "Message sent successfully!" : `Failed: ${result.error}`);
+        setTimeout(() => setSmsStatus(""), 5000);
 
-  } catch (error) {
-    console.error(" SMS send error:", error);
-    setSmsStatus("Failed to send message");
-  } finally {
-    setSendingSms(false);
-  }
-};
+      } catch (error) {
+        console.error(" SMS send error:", error);
+        setSmsStatus("Failed to send message");
+      } finally {
+        setSendingSms(false);
+      }
+    };
 
     // Debug function to check for data issues
     const checkOrphanedLogs = async () => {
@@ -2001,7 +2012,7 @@ const Customer360View = () => {
                     {smsMessage.length}/160 characters
                   </span>
                   <span className="text-xs text-gray-500">
-Max 160 characters                  </span>
+                    Max 160 characters                  </span>
                 </div>
               </div>
 

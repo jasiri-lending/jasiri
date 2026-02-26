@@ -145,7 +145,7 @@ const CustomerStatementModal = () => {
 
         // Create a set of M-Pesa codes that are loan payments (to exclude from deposits)
         const loanPaymentMpesaCodes = new Set(
-          loanPayments.map(p => p.mpesa_receipt).filter(Boolean)
+          (loanPayments || []).map(p => p.mpesa_receipt).filter(Boolean)
         );
 
         // 5️ C2B Payments (excluding those already in loan_payments)
@@ -168,99 +168,96 @@ const CustomerStatementModal = () => {
           .in("loan_id", loans.map(l => l.id))
           .order("processed_at", { ascending: true });
 
-        // 7️ Wallet credits
-        const { data: walletCreditsData = [], error: walletError } = await supabase
+        // 7️ Wallet Transactions (Credits and Debits)
+        const { data: walletTransactions, error: walletError } = await supabase
           .from("customer_wallets")
-          .select("id, amount, created_at, mpesa_reference")
+          .select("id, amount, created_at, mpesa_reference, type, narration, transaction_type")
           .eq("customer_id", customerId)
-          .eq("type", "credit")
-          .not("mpesa_reference", "is", null);
+          .eq("tenant_id", tenant?.id)
+          .order("created_at", { ascending: true });
 
         if (walletError) console.error(" Wallet fetch failed:", walletError.message);
 
         // Track processed transaction IDs to prevent duplicates
         const processedTransactionIds = new Set();
 
-        // STEP 1: JOINING FEE (Customer Creation)
-        const regFee = loans[0]?.registration_fee || 0;
-
-        if (regFee > 0) {
-          runningBalance -= regFee;
-          events.push({
-            id: `reg-fee-${customer.id}`,
-            date: new Date(customer.created_at),
-            description: "Joining Fee",
-            reference: "-",
-            debit: regFee,
-            credit: 0,
-            balance: runningBalance,
-            sequence: 0,
-            timestamp: new Date(customer.created_at).getTime(),
-          });
-        }
-
-        // STEP 2: MOBILE MONEY DEPOSITS (excluding loan payments)
-        // Combine wallet and C2B deposits
-        const walletDeposits = walletCreditsData.map(w => ({
-          id: w.id,
-          amount: w.amount,
-          date: new Date(w.created_at),
-          mpesaCode: w.mpesa_reference || "-",
-          type: "wallet",
-        }));
-
-        // Filter out C2B transactions that are loan payments
-        const c2bDeposits = c2b
-          .filter(c => !loanPaymentMpesaCodes.has(c.transaction_id))
-          .map(c => ({
-            id: c.id,
-            amount: c.amount,
-            type: "c2b",
-            date: new Date(c.transaction_time),
-            mpesaCode: c.transaction_id
-          }));
-
-        const allDeposits = [...walletDeposits, ...c2bDeposits]
-          .sort((a, b) => a.date - b.date);
-
-        // Process deposits
-        allDeposits.forEach(d => {
-          const transactionKey = `deposit-${d.mpesaCode}`;
-
-          if (processedTransactionIds.has(transactionKey)) {
-            console.log(` Skipping duplicate deposit: ${transactionKey}`);
-            return;
-          }
-
+        // STEP 1: WALLET TRANSACTIONS (Including Joining Fee, Processing Fee, Deposits)
+        (walletTransactions || []).forEach(w => {
+          const transactionKey = `wallet-${w.id}`;
+          if (processedTransactionIds.has(transactionKey)) return;
           processedTransactionIds.add(transactionKey);
 
-          const depositAmount = Number(d.amount);
-          runningBalance += depositAmount;
+          const amt = Number(w.amount || 0);
 
+          // Standardize Naming based on transaction_type or narration
+          let description = w.narration || "Wallet Transaction";
+          let sequence = 10; // Default sequence for other wallet movements
+
+          if (w.transaction_type === "registration") {
+            description = "Joining Fee";
+            sequence = 0; // First in history
+          } else if (w.transaction_type === "processing") {
+            description = "Processing Fee";
+            sequence = 2; // Part of disbursement block
+          } else if (w.narration?.toLowerCase().includes("credited to wallet")) {
+            description = "Mobile Money Deposit";
+            sequence = 4; // Treated as a deposit
+          }
+
+          // Balance = Prev + Credit - Debit
+          // User wants wallet deposits as Debits (reducing debt? or just how their DB is)
+          // 0 - 802 = -802. -802 - (-500) = -302.
           events.push({
-            id: `${d.type}-${d.id}`,
-            date: d.date,
+            id: transactionKey,
+            date: new Date(w.created_at),
+            description: description,
+            reference: w.mpesa_reference || "-",
+            debit: amt, // Show raw amount (can be negative for fees)
+            credit: 0,
+            amount: -amt, // Subtract debit from balance
+            sequence: sequence,
+            timestamp: new Date(w.created_at).getTime(),
+          });
+        });
+
+        // STEP 2: MOBILE MONEY DEPOSITS (C2B - excluding those already handled in wallet or loan payments)
+        (c2b || []).forEach(c => {
+          // Check if this M-Pesa code was already handled in loan_payments or wallet
+          const mpesaCode = c.transaction_id;
+          const isLoanPayment = loanPaymentMpesaCodes.has(mpesaCode);
+          const isWalletCredit = (walletTransactions || []).some(w => w.mpesa_reference === mpesaCode);
+
+          if (isLoanPayment || isWalletCredit) return;
+
+          const transactionKey = `c2b-${mpesaCode}`;
+          if (processedTransactionIds.has(transactionKey)) return;
+          processedTransactionIds.add(transactionKey);
+
+          const depositAmount = Number(c.amount || 0);
+          const txDate = new Date(c.transaction_time);
+          events.push({
+            id: transactionKey,
+            date: txDate,
             description: "Mobile Money Deposit",
-            reference: d.mpesaCode,
+            reference: mpesaCode,
             debit: 0,
             credit: depositAmount,
-            balance: runningBalance,
-            sequence: 1,
-            timestamp: d.date.getTime(),
+            amount: depositAmount,
+            sequence: 4, // Repayment credit
+            timestamp: txDate.getTime(),
           });
         });
 
         // STEP 3: LOAN DISBURSEMENTS
-        loans.forEach(loan => {
-          const disb = disbursements.find(d => d.loan_id === loan.id);
+        (loans || []).forEach(loan => {
+          const disb = (disbursements || []).find(d => d.loan_id === loan.id);
           if (!disb) return;
 
           const loanDate = new Date(disb.processed_at);
           const baseTimestamp = loanDate.getTime();
 
-          // 3a. Credit: Mobile Money Disbursement (loan amount coming in)
+          // 3a. Credit: Mobile Money Disbursement (sending funds to customer)
           const disbAmount = Number(disb.amount);
-          runningBalance += disbAmount;
 
           events.push({
             id: `disb-credit-${disb.id}`,
@@ -269,32 +266,14 @@ const CustomerStatementModal = () => {
             reference: disb.transaction_id || "-",
             debit: 0,
             credit: disbAmount,
-            balance: runningBalance,
-            sequence: 2,
-            timestamp: baseTimestamp + 1,
+            amount: disbAmount, // Increases balance
+            sequence: 1, // Follows Joining Fee
+            timestamp: baseTimestamp,
           });
 
-          // 3b. Debit: Processing Fee
-          if (loan.processing_fee > 0) {
-            const procFee = Number(loan.processing_fee);
-            runningBalance -= procFee;
+          // Processing Fee (sequence 2) comes from Wallet STEP 1
 
-            events.push({
-              id: `proc-fee-${loan.id}`,
-              date: loanDate,
-              description: "Processing Fee",
-              reference: "-",
-              debit: procFee,
-              credit: 0,
-              balance: runningBalance,
-              sequence: 3,
-              timestamp: baseTimestamp + 2,
-            });
-          }
-
-          // 3c. Debit: Loan Disbursement (actual loan given out)
-          runningBalance -= disbAmount;
-
+          // 3b. Debit: Loan Disbursement (booking the debt obligation)
           events.push({
             id: `loan-disb-${loan.id}`,
             date: loanDate,
@@ -302,9 +281,9 @@ const CustomerStatementModal = () => {
             reference: "-",
             debit: disbAmount,
             credit: 0,
-            balance: runningBalance,
-            sequence: 4,
-            timestamp: baseTimestamp + 3,
+            amount: -disbAmount, // Decreases balance
+            sequence: 3, // Follows Processing Fee
+            timestamp: baseTimestamp,
           });
         });
 
@@ -324,35 +303,36 @@ const CustomerStatementModal = () => {
             const baseTimestamp = paymentDate.getTime();
             const totalPaid = payments.reduce((sum, p) => sum + Number(p.paid_amount || 0), 0);
 
-            // Skip duplicate credit by checking transaction reference
-            const transactionKey = `loanpayment-${ref}`;
-            if (processedTransactionIds.has(transactionKey)) continue;
-            processedTransactionIds.add(transactionKey);
+            // 4a. Credit once: Mobile Money Deposit (if not already handled via wallet/C2B)
+            const transactionKey = `loanpayment-credit-${ref}`;
+            if (!processedTransactionIds.has(`wallet-${ref}`) &&
+              !processedTransactionIds.has(`c2b-${ref}`) &&
+              !processedTransactionIds.has(transactionKey)) {
 
-            // 4a. Credit once: Mobile Money Deposit
-            runningBalance += totalPaid;
-            events.push({
-              id: `payment-credit-${ref}`,
-              date: paymentDate,
-              description: "Mobile Money Deposit",
-              reference: ref,
-              debit: 0,
-              credit: totalPaid,
-              balance: runningBalance,
-              sequence: 5,
-              timestamp: baseTimestamp,
-            });
+              processedTransactionIds.add(transactionKey);
+              events.push({
+                id: transactionKey,
+                date: paymentDate,
+                description: "Mobile Money Deposit",
+                reference: ref,
+                debit: 0,
+                credit: totalPaid,
+                amount: totalPaid,
+                sequence: 4, // Repayment credit
+                timestamp: baseTimestamp,
+              });
+            }
 
-            // 4b. Debit for each payment type (principal, interest, etc.)
+            // 4b. Debit for each payment allocation (principal, interest, penalty)
             payments.forEach((p, idx) => {
               const amt = Number(p.paid_amount || 0);
               if (!amt) return;
 
-              runningBalance -= amt;
-
+              // Naming Overrides
               let desc = "Loan Repayment";
               if (p.payment_type === "principal") desc = "Principal Repayment";
               else if (p.payment_type === "interest") desc = "Interest Repayment";
+              else if (p.payment_type === "penalty") desc = "Penalty Repayment";
 
               events.push({
                 id: `payment-debit-${p.id}`,
@@ -361,17 +341,52 @@ const CustomerStatementModal = () => {
                 reference: ref,
                 debit: amt,
                 credit: 0,
-                balance: runningBalance,
-                sequence: 6 + idx,
-                timestamp: baseTimestamp + (idx + 1),
+                amount: -amt, // Decreases balance
+                sequence: 5 + idx, // Details after Credit
+                timestamp: baseTimestamp,
               });
             });
           }
         }
 
-        // STEP 5: SORT & ADD BALANCE B/F
-        // Sort chronologically (oldest first)
-        events.sort((a, b) => a.timestamp - b.timestamp);
+        // STEP 4b: PENALTIES (from installments)
+        (loanInstallments || []).forEach(inst => {
+          const penalty = Number(inst.net_penalty || inst.penalty_amount || 0);
+          if (penalty > 0) {
+            const penaltyDate = new Date(inst.due_date);
+            // Penalties are usually charged the day after due date
+            penaltyDate.setDate(penaltyDate.getDate() + 1);
+
+            const transactionKey = `penalty-${inst.id}`;
+            if (processedTransactionIds.has(transactionKey)) return;
+            processedTransactionIds.add(transactionKey);
+
+            events.push({
+              id: transactionKey,
+              date: penaltyDate,
+              description: "Late Payment Penalty",
+              reference: "-",
+              debit: penalty,
+              credit: 0,
+              amount: -penalty,
+              sequence: 8, // Penalties usually late in the sequence
+              timestamp: penaltyDate.getTime(),
+            });
+          }
+        });
+
+        // STEP 5: SORT & CALCULATE RUNNING BALANCE
+        // Sort chronologically (oldest first) by timestamp and then sequence
+        events.sort((a, b) => {
+          if (a.timestamp !== b.timestamp) return a.timestamp - b.timestamp;
+          return a.sequence - b.sequence;
+        });
+
+        // Calculate running balance in correctly sorted order
+        events.forEach(e => {
+          runningBalance += e.amount;
+          e.balance = runningBalance;
+        });
 
         // Add Balance B/F at the top (current date, showing final balance)
         const balanceBF = {
@@ -411,36 +426,43 @@ const CustomerStatementModal = () => {
         // 2️ Interest = total_interest for all this customer's loans
         const interest = customerLoans.reduce((sum, loan) => sum + (loan.total_interest || 0), 0);
 
-        // 3️ Total Payable (Loan Amount) = sum of total_payable (principal + interest)
-        const totalLoanAmount = customerLoans.reduce((sum, loan) => sum + (loan.total_payable || 0), 0);
+        // 3️ Total Payable (Loan Amount) = sum of total_payable (principal + interest) + penalties
+        const basePayable = (customerLoans || []).reduce((sum, loan) => sum + (loan.total_payable || 0), 0);
+        const totalPenalties = (loanInstallments || []).reduce((sum, i) => sum + Number(i.net_penalty || i.penalty_amount || 0), 0);
+        const totalLoanAmount = basePayable + totalPenalties;
 
-        // 4️ Total Paid - FIXED: Use either loan_payments OR sum of principal_paid + interest_paid from installments
+        // 4️ Total Paid - Source primarily from loan_payments
         let totalPaid = 0;
+        let interestPaidTotal = 0;
+        let principalPaidTotal = 0;
+        let penaltyPaidTotal = 0;
 
-        // Option 1: Sum all loan_payments (most direct approach)
-        if (loanPayments.length > 0) {
-          totalPaid = loanPayments.reduce((sum, payment) => sum + Number(payment.paid_amount || 0), 0);
-        }
-        // Option 2: If no loan_payments, use installments (principal_paid + interest_paid)
-        else if (loanInstallments.length > 0) {
-          totalPaid = loanInstallments.reduce((sum, installment) =>
-            sum + Number(installment.principal_paid || 0) + Number(installment.interest_paid || 0), 0);
-        }
-        // Option 3: Fallback to paid_amount from installments
-        else if (loanInstallments.length > 0) {
-          totalPaid = loanInstallments.reduce((sum, installment) => sum + Number(installment.paid_amount || 0), 0);
+        if ((loanPayments || []).length > 0) {
+          loanPayments.forEach(p => {
+            const amt = Number(p.paid_amount || 0);
+            if (p.payment_type === "interest") {
+              interestPaidTotal += amt;
+            } else if (p.payment_type === "principal") {
+              principalPaidTotal += amt;
+            } else if (p.payment_type === "penalty") {
+              penaltyPaidTotal += amt;
+            }
+            // Sum all for total paid against the loan
+            totalPaid += amt;
+          });
+        } else if ((loanInstallments || []).length > 0) {
+          totalPaid = (loanInstallments || []).reduce((sum, i) => sum + (i.paid_amount || 0), 0);
         }
 
-        console.log('Summary Calculation:', {
+        console.log('Summary Calculation (AccountList):', {
           totalLoanAmount,
           principal,
-          interest,
+          interest: (interest || 0),
+          totalPenalties,
           totalPaid,
-          loanPaymentsCount: loanPayments.length,
-          loanInstallmentsCount: loanInstallments.length,
-          totalFromPayments: loanPayments.reduce((sum, p) => sum + Number(p.paid_amount || 0), 0),
-          totalFromInstallments: loanInstallments.reduce((sum, i) =>
-            sum + Number(i.principal_paid || 0) + Number(i.interest_paid || 0), 0)
+          interestPaidTotal,
+          principalPaidTotal,
+          penaltyPaidTotal
         });
 
         // 5️ Outstanding Balance = Total Payable - Total Paid
@@ -980,34 +1002,34 @@ const CustomerStatementModal = () => {
     <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
 
-      {/* Customer Statement Header */}
-<div className="mb-6 p-6 text-center flex flex-col items-center">
-  {/* Customer Name */}
-  <h2 className="text-2xl font-bold text-slate-600">
-    {customerName}
-  </h2>
+        {/* Customer Statement Header */}
+        <div className="mb-6 p-6 text-center flex flex-col items-center">
+          {/* Customer Name */}
+          <h2 className="text-2xl font-bold text-slate-600">
+            {customerName}
+          </h2>
 
-  {/* Statement Title */}
-  <p className="text-sm text-stone-600 mt-1 uppercase">
-    Customer Account Statement
-  </p>
+          {/* Statement Title */}
+          <p className="text-sm text-stone-600 mt-1 uppercase">
+            Customer Account Statement
+          </p>
 
-  {/* Statement Period */}
-  <p className="text-base text-gray-700 leading-relaxed mt-4">
-    This report is for the{" "}
-    <span className="font-bold text-blue-800">
-      {statementPeriod.period}
-    </span>{" "}
-    period, starting on{" "}
-    <span className="font-bold text-blue-800">
-      {statementPeriod.startDate}
-    </span>{" "}
-    and ending on{" "}
-    <span className="font-bold text-blue-800">
-      {statementPeriod.endDate}
-    </span>.
-  </p>
-</div>
+          {/* Statement Period */}
+          <p className="text-base text-gray-700 leading-relaxed mt-4">
+            This report is for the{" "}
+            <span className="font-bold text-blue-800">
+              {statementPeriod.period}
+            </span>{" "}
+            period, starting on{" "}
+            <span className="font-bold text-blue-800">
+              {statementPeriod.startDate}
+            </span>{" "}
+            and ending on{" "}
+            <span className="font-bold text-blue-800">
+              {statementPeriod.endDate}
+            </span>.
+          </p>
+        </div>
 
 
 
@@ -1204,8 +1226,8 @@ const CustomerStatementModal = () => {
                       <tr
                         key={t.id}
                         className={`border-b border-gray-200 transition-colors ${t.isBalanceBF
-                            ? "bg-gray-100 font-bold"
-                            : "hover:bg-blue-50"
+                          ? "bg-gray-100 font-bold"
+                          : "hover:bg-blue-50"
                           }`}
                       >
                         <td className="px-4 py-3 text-sm font-medium text-gray-800">
@@ -1270,10 +1292,10 @@ const CustomerStatementModal = () => {
                         }
                         disabled={page === "..."}
                         className={`px-3 py-2 rounded-lg min-w-[40px] text-sm font-semibold transition-all shadow-sm ${currentPage === page
-                            ? "bg-blue-600 text-white shadow-md"
-                            : page === "..."
-                              ? "bg-transparent cursor-default shadow-none"
-                              : "bg-gray-100 hover:bg-gray-200 text-gray-700"
+                          ? "bg-blue-600 text-white shadow-md"
+                          : page === "..."
+                            ? "bg-transparent cursor-default shadow-none"
+                            : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
                       >
                         {page}

@@ -51,9 +51,6 @@ Deno.serve(async (req) => {
 // ═══════════════════════════════════════════════════════════════════
 // ACTION: process-pending
 // Scans mpesa_c2b_transactions for pending rows and processes them.
-// Optionally filtered by tenant_id.
-// Each transaction is atomically claimed before processing —
-// safe to call from multiple edge function instances simultaneously.
 // ═══════════════════════════════════════════════════════════════════
 async function processPending(
   db: SupabaseClient,
@@ -105,16 +102,13 @@ async function processSingle(db: SupabaseClient, workerId: string, transactionId
 
 // ═══════════════════════════════════════════════════════════════════
 // ACTION: process-queue
-// Drain the payment_queue table (enqueued by C2B webhook handler).
-// Uses claim_queue_job() which uses SELECT FOR UPDATE SKIP LOCKED.
-// Now also handles "send_sms" jobs.
+// Drain the payment_queue table – handles C2B, B2C, and SMS jobs.
 // ═══════════════════════════════════════════════════════════════════
 async function processQueue(db: SupabaseClient, workerId: string, tenantId?: string) {
   console.log(`[${workerId}] Draining payment queue...`);
 
-  const jobTypes = ["c2b_repayment", "registration", "processing_fee", "b2c_disbursement", "send_sms"];
-  let processed  = 0;
-  let failed     = 0;
+  const jobTypes = ["c2b_repayment", "registration", "processing_fee", "b2c_disbursement", "send_sms", "auto_repay"];
+  let processed = 0, failed = 0;
 
   while (true) {
     const { data: job, error: claimErr } = await db
@@ -122,9 +116,10 @@ async function processQueue(db: SupabaseClient, workerId: string, tenantId?: str
 
     if (claimErr || !job?.id) break;
 
+    // If tenant filtering is active and job doesn't belong, release it back
     if (tenantId && job.tenant_id !== tenantId) {
       await db.from("payment_queue").update({ status: "queued", claimed_at: null, claimed_by: null }).eq("id", job.id);
-      break;
+      continue; // continue to next job, don't break
     }
 
     const payload = typeof job.payload === "string" ? JSON.parse(job.payload) : job.payload;
@@ -139,8 +134,12 @@ async function processQueue(db: SupabaseClient, workerId: string, tenantId?: str
         await handleSmsJob(db, job);
         await db.from("payment_queue").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", job.id);
         processed++;
+      } else if (jobType === "auto_repay") {
+        await handleAutoRepay(db, job);
+        await db.from("payment_queue").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", job.id);
+        processed++;
       } else {
-        // C2B related (repayment, registration, processing_fee)
+        // C2B related jobs
         const txId = payload?.transaction_id;
         if (!txId) {
           await markJobFailed(db, job.id, job.attempts, job.max_attempts, "Missing transaction_id in payload");
@@ -168,8 +167,7 @@ async function processQueue(db: SupabaseClient, workerId: string, tenantId?: str
 
 // ═══════════════════════════════════════════════════════════════════
 // ACTION: recover-stuck
-// Resets processing jobs that have been stuck > 5 minutes.
-// Call from a cron job every minute.
+// Resets jobs stuck in 'processing' for >5 minutes.
 // ═══════════════════════════════════════════════════════════════════
 async function recoverStuck(db: SupabaseClient) {
   const { data, error } = await db.rpc("recover_stuck_queue_jobs");
@@ -180,9 +178,7 @@ async function recoverStuck(db: SupabaseClient) {
 
 // ═══════════════════════════════════════════════════════════════════
 // CORE: processOneTransaction
-// Atomically claims ONE mpesa_c2b_transactions row, then routes
-// to the correct handler based on payment intent (billref).
-// Returns a result object — never throws to the caller.
+// Atomically claims and processes one C2B transaction.
 // ═══════════════════════════════════════════════════════════════════
 async function processOneTransaction(
   db: SupabaseClient,
@@ -190,7 +186,7 @@ async function processOneTransaction(
   transactionId: string
 ): Promise<ProcessResult> {
   try {
-    // ── Atomic claim (PL/pgSQL FOR UPDATE) ──────────────────────
+    // ── Atomic claim ─────────────────────────────────────────────
     const { data: tx, error: claimErr } = await db
       .rpc("claim_c2b_transaction", {
         p_transaction_id: transactionId,
@@ -206,7 +202,6 @@ async function processOneTransaction(
 
     // ── Resolve tenant ───────────────────────────────────────────
     const tenantId = tenant_id ?? await resolveTenantFromPhone(db, phone_number);
-
     if (!tenantId) {
       await moveToSuspense(db, tx, "Could not resolve tenant");
       return { transaction_id: transactionId, status: "suspense", reason: "tenant_not_resolved" };
@@ -214,13 +209,12 @@ async function processOneTransaction(
 
     console.log(`[${workerId}] ${transactionId}: tenant=${tenantId} billref=${billref} amount=${amount}`);
 
-    // ── Detect payment intent from billref ───────────────────────
+    // ── Detect payment intent ────────────────────────────────────
     const intent = parseIntent(billref);
     console.log(`[${workerId}] Intent: ${intent.type}`);
 
     // ── Resolve customer ─────────────────────────────────────────
     const customer = await resolveCustomer(db, phone_number, intent);
-
     if (!customer) {
       await moveToSuspense(db, tx, "Customer not found in system");
       return { transaction_id: transactionId, status: "suspense", reason: "customer_not_found" };
@@ -228,25 +222,44 @@ async function processOneTransaction(
 
     // ── Route to correct handler ─────────────────────────────────
     let result: string;
+    let loanId: string | number | null = null;
 
     if (intent.type === "registration") {
-      result = await handleRegistration(db, tx, customer, tenantId, intent);
+      const handlerResult = await handleRegistration(db, tx, customer, tenantId, intent);
+      result = handlerResult.result;
+      loanId = handlerResult.loanId;
     } else if (intent.type === "processing") {
-      result = await handleProcessingFee(db, tx, customer, tenantId, intent);
+      const handlerResult = await handleProcessingFee(db, tx, customer, tenantId, intent);
+      result = handlerResult.result;
+      loanId = handlerResult.loanId;
     } else {
-      result = await handleRepayment(db, tx, customer, tenantId, parseFloat(amount));
+      const handlerResult = await handleRepayment(db, tx, customer, tenantId, parseFloat(amount));
+      result = handlerResult.result;
+      loanId = handlerResult.loanId;
+    }
+
+    // ── Prepare update data ──────────────────────────────────────
+    const updateData: any = {
+      status: "applied",
+      description: result,
+      customer_id: customer.id,
+    };
+    if (loanId) {
+      updateData.loan_id = loanId;  // explicitly set loan_id if present
+      console.log(`[${workerId}] Setting loan_id=${loanId} for transaction ${transactionId}`);
+    } else {
+      console.log(`[${workerId}] No loan_id to set for transaction ${transactionId}`);
     }
 
     // ── Mark applied ─────────────────────────────────────────────
-    await db
+    const { error: updateError } = await db
       .from("mpesa_c2b_transactions")
-      .update({
-        status:       "applied",
-        description:  result,
-        processed_at: new Date().toISOString(),
-        customer_id:  customer.id,
-      })
+      .update(updateData)
       .eq("transaction_id", transactionId);
+
+    if (updateError) {
+      throw new Error(`Failed to update transaction status: ${updateError.message}`);
+    }
 
     console.log(`[${workerId}] ${transactionId}: applied — ${result}`);
     return { transaction_id: transactionId, status: "applied", result };
@@ -254,21 +267,19 @@ async function processOneTransaction(
   } catch (err) {
     console.error(`[${workerId}] ${transactionId}: ERROR — ${err.message}`);
 
-    // Mark failed (don't re-throw — caller collects results)
+    // Mark failed
     await db
       .from("mpesa_c2b_transactions")
       .update({ status: "failed", last_error: err.message })
       .eq("transaction_id", transactionId)
-      .eq("status", "processing"); // Only update if WE own it
+      .eq("status", "processing");
 
     return { transaction_id: transactionId, status: "error", error: err.message };
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// HANDLER: Registration Fee
-// New customer  → deduct registration fee + processing fee
-// Repeat customer → deduct processing fee only
+// HANDLER: Registration Fee – returns { result, loanId? }
 // ═══════════════════════════════════════════════════════════════════
 async function handleRegistration(
   db: SupabaseClient,
@@ -276,13 +287,12 @@ async function handleRegistration(
   customer: Customer,
   tenantId: string,
   intent: PaymentIntent
-): Promise<string> {
+): Promise<{ result: string; loanId?: string | number }> {
   const { transaction_id, amount } = tx;
   const paidAmount = parseFloat(amount);
 
   console.log(`Registration fee: customer=${customer.id} new=${customer.is_new_customer}`);
 
-  // Find pending loan for this customer
   const { data: loan } = await db
     .from("loans")
     .select("id, registration_fee, processing_fee, registration_fee_paid, processing_fee_paid")
@@ -294,9 +304,8 @@ async function handleRegistration(
     .maybeSingle();
 
   if (!loan) {
-    // No pending loan — credit wallet
     await walletCredit(db, tenantId, customer.id, paidAmount, "Registration fee — no pending loan", transaction_id, "registration");
-    return "No pending loan — credited to wallet";
+    return { result: "No pending loan — credited to wallet" };
   }
 
   let remaining    = paidAmount;
@@ -306,44 +315,164 @@ async function handleRegistration(
   const registrationFee = parseFloat(loan.registration_fee ?? 0);
   const processingFee   = parseFloat(loan.processing_fee   ?? 0);
 
-  // ── New customer: registration fee first ────────────────────────
   if (isNewCustomer && !loan.registration_fee_paid && registrationFee > 0) {
     if (remaining < registrationFee) {
-      // Not enough — park in wallet
       await walletCredit(db, tenantId, customer.id, remaining, "Insufficient for registration fee", transaction_id, "registration");
-      return `Insufficient for registration fee (KES ${registrationFee}) — parked in wallet`;
+      return { result: `Insufficient for registration fee (KES ${registrationFee}) — parked in wallet` };
     }
 
     remaining    -= registrationFee;
     feesDeducted += registrationFee;
 
-    // Record in loan_payments
     await insertLoanPayment(db, { loanId: loan.id, amount: registrationFee, type: "registration", description: "Registration Fee", receipt: transaction_id, tenantId, customerId: customer.id });
-
     await db.from("customers").update({ registration_fee_paid: true, is_new_customer: false }).eq("id", customer.id);
     await db.from("loans").update({ registration_fee_paid: true }).eq("id", loan.id);
   }
 
-  // ── All customers: processing fee ───────────────────────────────
   if (!loan.processing_fee_paid && processingFee > 0 && remaining >= processingFee) {
     remaining    -= processingFee;
     feesDeducted += processingFee;
 
     await insertLoanPayment(db, { loanId: loan.id, amount: processingFee, type: "processing", description: "Loan Processing Fee", receipt: transaction_id, tenantId, customerId: customer.id });
-
     await db.from("loans").update({ processing_fee_paid: true }).eq("id", loan.id);
   }
 
-  // ── Any remaining → wallet ───────────────────────────────────────
   if (remaining > 0.005) {
     await walletCredit(db, tenantId, customer.id, remaining, "Excess after fees", transaction_id, "registration");
   }
 
-  return `Fees deducted KES ${feesDeducted}${remaining > 0.005 ? `, KES ${remaining.toFixed(2)} to wallet` : ""}`;
+  const result = `Fees deducted KES ${feesDeducted}${remaining > 0.005 ? `, KES ${remaining.toFixed(2)} to wallet` : ""}`;
+  return { result, loanId: loan.id };
 }
 
+
+
+// Add this helper after walletCredit
+async function getWalletBalance(db: SupabaseClient, tenantId: string, customerId: string): Promise<number> {
+  const { data, error } = await db
+    .from("customer_wallets")
+    .select("credit, debit")
+    .eq("customer_id", customerId)
+    .eq("tenant_id", tenantId);
+  if (error) {
+    console.error(`[getWalletBalance] Error: ${error.message}`);
+    throw error;
+  }
+  const balance = (data ?? []).reduce((acc, row) => acc + (row.credit || 0) - (row.debit || 0), 0);
+  return balance;
+}
+
+// Replace handleAutoRepay with the detailed version below
+async function handleAutoRepay(db: SupabaseClient, job: any) {
+  const { customer_id } = job.payload;
+  const tenantId = job.tenant_id;
+
+  console.log(`[AutoRepay] Starting auto repayment for customer ${customer_id}, tenant ${tenantId}`);
+
+  try {
+    // Get current wallet balance
+    console.log(`[AutoRepay] Fetching wallet balance for customer ${customer_id}`);
+    const balance = await getWalletBalance(db, tenantId, customer_id);
+    console.log(`[AutoRepay] Wallet balance: ${balance}`);
+    if (balance <= 0) {
+      console.log(`[AutoRepay] Wallet balance is zero – nothing to apply`);
+      return;
+    }
+
+    // Find active loan
+    console.log(`[AutoRepay] Looking for active loan for customer ${customer_id}`);
+    const { data: loan, error: loanErr } = await db
+      .from("loans")
+      .select("id, repayment_state")
+      .eq("customer_id", customer_id)
+      .eq("tenant_id", tenantId)
+      .eq("status", "disbursed")
+      .in("repayment_state", ["ongoing", "partial", "overdue"])
+      .order("disbursed_at", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+
+    if (loanErr) {
+      console.error(`[AutoRepay] Loan query error: ${loanErr.message}`);
+      throw loanErr;
+    }
+
+    if (!loan) {
+      console.log(`[AutoRepay] No active loan – nothing to apply`);
+      return;
+    }
+    console.log(`[AutoRepay] Active loan found: ${loan.id}`);
+
+    // Drain wallet atomically
+    console.log(`[AutoRepay] Draining wallet for customer ${customer_id}`);
+    const { data: drained, error: drainErr } = await db
+      .rpc("drain_wallet_for_repayment", {
+        p_tenant_id:   tenantId,
+        p_customer_id: customer_id,
+        p_reference:   `auto-${Date.now()}`,
+      });
+
+    if (drainErr) {
+      console.error(`[AutoRepay] Wallet drain failed: ${drainErr.message}`);
+      throw new Error(`Wallet drain failed: ${drainErr.message}`);
+    }
+
+    const walletDrained = parseFloat(drained ?? 0);
+    console.log(`[AutoRepay] Drained KES ${walletDrained} from wallet`);
+
+    if (walletDrained <= 0) {
+      console.log(`[AutoRepay] Nothing drained – probably race condition`);
+      return;
+    }
+
+    // Fetch installments
+    const loanId = loan.id;
+    let remaining = walletDrained;
+    console.log(`[AutoRepay] Fetching installments for loan ${loanId}`);
+    const { data: installments, error: instErr } = await db
+      .from("loan_installments")
+      .select("*")
+      .eq("loan_id", loanId)
+      .in("status", ["pending", "partial", "overdue"])
+      .order("installment_number", { ascending: true });
+
+    if (instErr) {
+      console.error(`[AutoRepay] Failed to fetch installments: ${instErr.message}`);
+      throw new Error(`Failed to fetch installments: ${instErr.message}`);
+    }
+
+    console.log(`[AutoRepay] Found ${installments?.length || 0} installments`);
+
+    let totalApplied = 0;
+    for (const inst of installments ?? []) {
+      if (remaining <= 0) break;
+      console.log(`[AutoRepay] Applying to installment #${inst.installment_number}, remaining: ${remaining}`);
+      const applied = await allocateInstallment(db, {
+        inst, loanId, tenantId, customerId: customer_id,
+        available: remaining,
+        transactionId: `auto-${Date.now()}`,
+        phoneNumber: null,
+      });
+      remaining -= applied;
+      totalApplied += applied;
+      console.log(`[AutoRepay] Applied ${applied} to installment #${inst.installment_number}`);
+    }
+
+    if (remaining > 0.005) {
+      console.log(`[AutoRepay] Overpayment of ${remaining} – crediting back to wallet`);
+      await walletCredit(db, tenantId, customer_id, remaining, `Auto-repay overpayment on loan #${loanId}`, `auto-${Date.now()}`, "overpayment");
+    }
+
+    console.log(`[AutoRepay] Completed: total applied KES ${totalApplied} to loan #${loanId}`);
+  } catch (err) {
+    console.error(`[AutoRepay] Unhandled error: ${err.message}`);
+    throw err; // rethrow to mark job failed
+  }
+}
+
+// The rest of the file remains unchanged.
 // ═══════════════════════════════════════════════════════════════════
-// HANDLER: Processing Fee (standalone payment)
+// HANDLER: Processing Fee (standalone) – returns { result, loanId }
 // ═══════════════════════════════════════════════════════════════════
 async function handleProcessingFee(
   db: SupabaseClient,
@@ -351,12 +480,10 @@ async function handleProcessingFee(
   customer: Customer,
   tenantId: string,
   intent: PaymentIntent
-): Promise<string> {
+): Promise<{ result: string; loanId: string | number }> {
   const { transaction_id, amount } = tx;
-  const loanId    = intent.loanId;
+  const loanId    = intent.loanId!; // already validated
   const paidAmount = parseFloat(amount);
-
-  if (!loanId) throw new Error("loanId missing from processing fee intent");
 
   const { data: loan } = await db
     .from("loans")
@@ -366,17 +493,16 @@ async function handleProcessingFee(
     .single();
 
   if (!loan) throw new Error(`Loan ${loanId} not found`);
-  if (loan.processing_fee_paid) return "Processing fee already paid";
+  if (loan.processing_fee_paid) return { result: "Processing fee already paid", loanId };
 
   const fee = parseFloat(loan.processing_fee ?? 0);
 
   if (paidAmount < fee) {
     await walletCredit(db, tenantId, customer.id, paidAmount, "Insufficient for processing fee", transaction_id, "fee");
-    return `Insufficient (paid KES ${paidAmount}, need KES ${fee}) — credited to wallet`;
+    return { result: `Insufficient (paid KES ${paidAmount}, need KES ${fee}) — credited to wallet`, loanId };
   }
 
   await insertLoanPayment(db, { loanId, amount: fee, type: "processing", description: "Loan Processing Fee", receipt: transaction_id, tenantId, customerId: customer.id });
-
   await db.from("loans").update({ processing_fee_paid: true }).eq("id", loanId);
 
   const excess = paidAmount - fee;
@@ -384,15 +510,12 @@ async function handleProcessingFee(
     await walletCredit(db, tenantId, customer.id, excess, "Excess processing fee payment", transaction_id, "fee");
   }
 
-  return `Processing fee KES ${fee} deducted${excess > 0.005 ? `, KES ${excess.toFixed(2)} to wallet` : ""}`;
+  const result = `Processing fee KES ${fee} deducted${excess > 0.005 ? `, KES ${excess.toFixed(2)} to wallet` : ""}`;
+  return { result, loanId };
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// HANDLER: Loan Repayment
-// Priority order: Penalty → Interest → Principal
-// Wallet is drained first and combined with incoming amount.
-// Overpayment is credited back to wallet.
-// Each allocation creates a row in loan_payments.
+// HANDLER: Loan Repayment – returns { result, loanId }
 // ═══════════════════════════════════════════════════════════════════
 async function handleRepayment(
   db: SupabaseClient,
@@ -400,11 +523,10 @@ async function handleRepayment(
   customer: Customer,
   tenantId: string,
   mpesaAmount: number
-): Promise<string> {
+): Promise<{ result: string; loanId: string | number | null }> {
   const { transaction_id, phone_number } = tx;
   const customerId = customer.id;
 
-  // ── Find active disbursed loan (tenant-scoped) ────────────────
   const { data: loan } = await db
     .from("loans")
     .select("id, repayment_state")
@@ -417,14 +539,12 @@ async function handleRepayment(
     .maybeSingle();
 
   if (!loan) {
-    // No active loan — credit everything to wallet
     await walletCredit(db, tenantId, customerId, mpesaAmount, "Payment with no active loan", transaction_id, "mpesa");
-    return `No active loan — KES ${mpesaAmount} credited to wallet`;
+    return { result: `No active loan — KES ${mpesaAmount} credited to wallet`, loanId: null };
   }
 
   const loanId = loan.id;
 
-  // ── Drain wallet first (atomic DB function) ───────────────────
   const { data: drained, error: drainErr } = await db
     .rpc("drain_wallet_for_repayment", {
       p_tenant_id:   tenantId,
@@ -437,7 +557,6 @@ async function handleRepayment(
 
   console.log(`Loan ${loanId}: mpesa=${mpesaAmount} wallet=${walletDrained} total=${remaining}`);
 
-  // ── Fetch unpaid installments (ascending — never skip ahead) ─────
   const { data: installments, error: instErr } = await db
     .from("loan_installments")
     .select("*")
@@ -463,18 +582,16 @@ async function handleRepayment(
     totalApplied += applied;
   }
 
-  // ── Overpayment → wallet ────────────────────────────────────────
   if (remaining > 0.005) {
     await walletCredit(db, tenantId, customerId, remaining, `Overpayment on loan #${loanId}`, transaction_id, "overpayment");
   }
 
-  return `Applied KES ${totalApplied.toFixed(2)} to loan #${loanId}${walletDrained > 0 ? ` (incl. KES ${walletDrained} from wallet)` : ""}${remaining > 0.005 ? `, KES ${remaining.toFixed(2)} overpayment to wallet` : ""}`;
+  const result = `Applied KES ${totalApplied.toFixed(2)} to loan #${loanId}${walletDrained > 0 ? ` (incl. KES ${walletDrained} from wallet)` : ""}${remaining > 0.005 ? `, KES ${remaining.toFixed(2)} overpayment to wallet` : ""}`;
+  return { result, loanId };
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// ALLOCATOR: One installment — Penalty → Interest → Principal
-// Inserts one loan_payments row per payment type bucket.
-// Updates installment paid totals and status atomically.
+// ALLOCATOR: One installment – Penalty → Interest → Principal
 // ═══════════════════════════════════════════════════════════════════
 async function allocateInstallment(
   db: SupabaseClient,
@@ -482,14 +599,12 @@ async function allocateInstallment(
 ): Promise<number> {
   const { inst, loanId, tenantId, customerId, available, transactionId, phoneNumber } = ctx;
 
-  // Compute what's still owed
   const penaltyDue   = parseFloat(inst.net_penalty     ?? inst.penalty_amount ?? 0);
   const interestDue  = parseFloat(inst.interest_amount ?? 0);
   const principalDue = parseFloat(inst.principal_amount ?? 0);
   const interestPaid = parseFloat(inst.interest_paid   ?? 0);
   const principalPaid = parseFloat(inst.principal_paid ?? 0);
 
-  // Get penalty already paid for this installment (from loan_payments)
   const { data: paidRows } = await db
     .from("loan_payments")
     .select("penalty_paid")
@@ -508,23 +623,18 @@ async function allocateInstallment(
   let budget  = available;
   let applied = 0;
 
-  // ── Priority 1: Penalties ──────────────────────────────────────
   if (budget > 0 && unpaidPenalty > 0) {
     const pay = Math.min(budget, unpaidPenalty);
     buckets.push({ type: "penalty", amount: pay, penaltyPaid: pay, interestPaid: 0, principalPaid: 0 });
     budget  -= pay;
     applied += pay;
   }
-
-  // ── Priority 2: Interest ───────────────────────────────────────
   if (budget > 0 && unpaidInterest > 0) {
     const pay = Math.min(budget, unpaidInterest);
     buckets.push({ type: "interest", amount: pay, penaltyPaid: 0, interestPaid: pay, principalPaid: 0 });
     budget  -= pay;
     applied += pay;
   }
-
-  // ── Priority 3: Principal ──────────────────────────────────────
   if (budget > 0 && unpaidPrincipal > 0) {
     const pay = Math.min(budget, unpaidPrincipal);
     buckets.push({ type: "principal", amount: pay, penaltyPaid: 0, interestPaid: 0, principalPaid: pay });
@@ -534,7 +644,6 @@ async function allocateInstallment(
 
   if (buckets.length === 0) return 0;
 
-  // ── Insert loan_payments rows ──────────────────────────────────
   let balanceBefore = totalUnpaid;
   for (const b of buckets) {
     const balanceAfter = balanceBefore - b.amount;
@@ -562,7 +671,6 @@ async function allocateInstallment(
     balanceBefore = balanceAfter;
   }
 
-  // ── Update installment totals ──────────────────────────────────
   const newInterestPaid  = interestPaid  + (buckets.find(b => b.type === "interest")?.amount  ?? 0);
   const newPrincipalPaid = principalPaid + (buckets.find(b => b.type === "principal")?.amount ?? 0);
   const newPenaltyPaid   = penaltyPaid   + (buckets.find(b => b.type === "penalty")?.amount   ?? 0);
@@ -588,8 +696,9 @@ async function allocateInstallment(
   return applied;
 }
 
+
 // ═══════════════════════════════════════════════════════════════════
-// B2C result handler (unchanged)
+// B2C result handler
 // ═══════════════════════════════════════════════════════════════════
 async function handleB2cResult(db: SupabaseClient, payload: any) {
   const { Result } = payload;
@@ -601,7 +710,6 @@ async function handleB2cResult(db: SupabaseClient, payload: any) {
   } = Result;
   const isSuccess = ResultCode === 0;
 
-  // Extract loan ID from Occasion field (format "loan-123")
   const items = ReferenceData?.ReferenceItem;
   const occasion = Array.isArray(items)
     ? items.find(i => i.Key === "Occasion")?.Value
@@ -646,7 +754,7 @@ async function handleB2cResult(db: SupabaseClient, payload: any) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// UPDATED: Multitenant SMS handler using customer_id column
+// SMS Handler – sends SMS only if a loan exists, logs to sms_logs
 // ═══════════════════════════════════════════════════════════════════
 async function handleSmsJob(db: SupabaseClient, job: any) {
   const { transaction_id } = job.payload;
@@ -654,7 +762,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
 
   console.log(`[SMS] Processing SMS for transaction ${transaction_id}, tenant ${tenantId}`);
 
-  // Fetch transaction with all needed fields
   const { data: tx, error: txErr } = await db
     .from("mpesa_c2b_transactions")
     .select(`
@@ -680,7 +787,9 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     return;
   }
 
-  // If no loan_id, no SMS should be sent (wallet payment)
+  // Debug: log the fetched transaction
+  console.log(`[SMS] Fetched transaction: loan_id=${tx.loan_id}, customer_id=${tx.customer_id}, payment_sms_sent=${tx.payment_sms_sent}`);
+
   if (!tx.loan_id) {
     console.log(`[SMS] No loan associated – marking as sent without SMS`);
     await db
@@ -690,7 +799,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     return;
   }
 
-  // Determine customer mobile – first try using customer_id
   let customerMobile: string | null = null;
   let customerId = tx.customer_id;
 
@@ -704,7 +812,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     if (cust) customerMobile = cust.mobile;
   }
 
-  // Fallback: try to find customer by phone number from transaction
   if (!customerMobile && tx.phone_number) {
     const phoneFormats = normalizePhone(tx.phone_number);
     if (phoneFormats.length) {
@@ -723,7 +830,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
 
   if (!customerMobile) {
     console.error(`[SMS] No customer mobile found for transaction ${transaction_id}`);
-    // Mark as sent to avoid infinite retries, but log failure
     await db
       .from("mpesa_c2b_transactions")
       .update({ payment_sms_sent: true })
@@ -731,7 +837,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     throw new Error("Customer mobile not found");
   }
 
-  // Calculate outstanding loan balance
   let outstandingBalance = 0;
   if (tx.loan_id) {
     const { data: loan } = await db
@@ -749,12 +854,10 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     outstandingBalance = Math.max(0, Number(loan?.total_payable || 0) - totalPaid);
   }
 
-  // Compose SMS message
   const amount = Number(tx.amount).toLocaleString();
   const balance = outstandingBalance.toLocaleString();
   const message = `Dear Customer,\nWe have received your payment of KES ${amount}.\nYour outstanding loan balance is KES ${balance}.\nThank you for being our valued client.`;
 
-  // Fetch tenant SMS settings
   const { data: smsConfig, error: cfgErr } = await db
     .from("tenant_sms_settings")
     .select("*")
@@ -766,7 +869,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     throw new Error(`SMS config missing for tenant ${tenantId}`);
   }
 
-  // Send SMS using tenant's provider
   const encodedMsg = encodeURIComponent(message.trim());
   const url = `${smsConfig.base_url}?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
 
@@ -778,7 +880,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     throw new Error(`SMS send failed (${response.status})`);
   }
 
-  // Log SMS in sms_logs table
   await db.from("sms_logs").insert({
     customer_id: customerId,
     recipient_phone: customerMobile,
@@ -789,7 +890,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
     created_at: new Date().toISOString()
   });
 
-  // Mark SMS as sent and optionally attach customer_id if it was missing
   const updateData: any = { payment_sms_sent: true };
   if (customerId && !tx.customer_id) updateData.customer_id = customerId;
   await db.from("mpesa_c2b_transactions").update(updateData).eq("id", tx.id);
@@ -801,7 +901,6 @@ async function handleSmsJob(db: SupabaseClient, job: any) {
 // UTILITIES
 // ═══════════════════════════════════════════════════════════════════
 
-// Atomic wallet credit via PL/pgSQL function
 async function walletCredit(
   db: SupabaseClient,
   tenantId: string,
@@ -823,7 +922,6 @@ async function walletCredit(
   if (error) throw new Error(`Wallet credit failed: ${error.message}`);
 }
 
-// Insert a loan_payments row
 async function insertLoanPayment(db: SupabaseClient, opts: {
   loanId: string | number;
   amount: number;
@@ -850,7 +948,6 @@ async function insertLoanPayment(db: SupabaseClient, opts: {
   if (error) throw new Error(`loan_payments insert failed: ${error.message}`);
 }
 
-// Move a transaction to suspense (customer unknown or unresolvable)
 async function moveToSuspense(db: SupabaseClient, tx: Transaction, reason: string) {
   console.log(`Moving ${tx.transaction_id} to suspense: ${reason}`);
 
@@ -872,7 +969,6 @@ async function moveToSuspense(db: SupabaseClient, tx: Transaction, reason: strin
     .eq("transaction_id", tx.transaction_id);
 }
 
-// Detect payment intent from billref
 function parseIntent(billref: string | null): PaymentIntent {
   if (!billref) return { type: "repayment" };
   const ref = billref.trim().toLowerCase();
@@ -882,7 +978,6 @@ function parseIntent(billref: string | null): PaymentIntent {
   return { type: "repayment", accountRef: billref.trim() };
 }
 
-// Resolve tenant from phone number (fallback when tenant_id not on transaction)
 async function resolveTenantFromPhone(db: SupabaseClient, phone: string | null): Promise<string | null> {
   if (!phone) return null;
   const formats = normalizePhone(phone);
@@ -890,9 +985,7 @@ async function resolveTenantFromPhone(db: SupabaseClient, phone: string | null):
   return data?.tenant_id ?? null;
 }
 
-// Resolve customer by billref (ID number) or phone (all formats)
 async function resolveCustomer(db: SupabaseClient, phone: string, intent: PaymentIntent): Promise<Customer | null> {
-  // 1. By national ID number (most reliable for repayments)
   if (intent.type === "repayment" && intent.accountRef) {
     const { data } = await db
       .from("customers")
@@ -901,8 +994,6 @@ async function resolveCustomer(db: SupabaseClient, phone: string, intent: Paymen
       .maybeSingle();
     if (data) return data as Customer;
   }
-
-  // 2. By explicit customer ID embedded in billref
   if (intent.customerId) {
     const { data } = await db
       .from("customers")
@@ -911,8 +1002,6 @@ async function resolveCustomer(db: SupabaseClient, phone: string, intent: Paymen
       .maybeSingle();
     if (data) return data as Customer;
   }
-
-  // 3. By phone — try all Kenyan format variants
   const formats = normalizePhone(phone);
   if (formats.length) {
     const { data } = await db
@@ -922,30 +1011,27 @@ async function resolveCustomer(db: SupabaseClient, phone: string, intent: Paymen
       .maybeSingle();
     if (data) return data as Customer;
   }
-
   return null;
 }
 
-// Generate all phone format variants for matching
 function normalizePhone(phone: string): string[] {
   if (!phone) return [];
   const clean = String(phone).replace(/[\s\-\(\)\+]/g, "");
   const out   = new Set<string>();
   if (clean.startsWith("254") && clean.length === 12) {
-    out.add(clean);                      // 254711000000
-    out.add("0" + clean.slice(3));       // 0711000000
-    out.add("+" + clean);               // +254711000000
+    out.add(clean);
+    out.add("0" + clean.slice(3));
+    out.add("+" + clean);
   } else if (clean.startsWith("0") && clean.length === 10) {
-    out.add(clean);                      // 0711000000
-    out.add("254" + clean.slice(1));     // 254711000000
-    out.add("+254" + clean.slice(1));    // +254711000000
+    out.add(clean);
+    out.add("254" + clean.slice(1));
+    out.add("+254" + clean.slice(1));
   } else {
     out.add(clean);
   }
   return [...out];
 }
 
-// Mark a queue job as failed or dead
 async function markJobFailed(db: SupabaseClient, jobId: string, attempts: number, maxAttempts: number, error: string) {
   const isDead = attempts >= maxAttempts;
   await db.from("payment_queue").update({
