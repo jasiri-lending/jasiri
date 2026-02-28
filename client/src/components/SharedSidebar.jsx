@@ -2,26 +2,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
-  Home,
-  Calculator,
-  Users,
-  FileText,
-  BarChart3,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  ChevronUp,
-  BookOpen,
-  Book,
-  CreditCard,
-  Landmark,
-  FolderOpen,
-  UserCheck,
-  PhoneCall,
-  Handshake,
-  UserPlus,
-  ClipboardList,
-  FileSpreadsheet,
   X,
   Menu,
   Settings,
@@ -40,13 +23,28 @@ import {
   Building,
   Gauge,
   Shield,
-  FileBarChart,
   Database,
   Network,
   History,
   LogOut,
   Bell,
   Eye,
+  Users,
+  FileText,
+  Calculator,
+  BookOpen,
+  Book,
+  CreditCard,
+  Landmark,
+  FolderOpen,
+  UserCheck,
+  PhoneCall,
+  Handshake,
+  UserPlus,
+  ClipboardList,
+  FileSpreadsheet,
+  Home,
+  BarChart3
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 
@@ -81,9 +79,12 @@ const SharedSidebar = () => {
     return () => window.removeEventListener("resize", checkMobile);
   }, []);
 
+  /* -----------------------------------------------------
+   Exclusive Accordion Logic
+  ----------------------------------------------------- */
   const toggleItem = (itemName) => {
     setExpandedItems((prev) => ({
-      ...prev,
+      // Clear all other expansions to ensure only one is open
       [itemName]: !prev[itemName],
     }));
   };
@@ -102,7 +103,7 @@ const SharedSidebar = () => {
   };
 
   /* -----------------------------------------------------
-   Navigation builder - REORGANIZED FOR SUPERADMIN
+   Navigation builder
   ----------------------------------------------------- */
   const getNavigation = () => {
     const isOfficer = profile?.role === "relationship_officer";
@@ -110,9 +111,7 @@ const SharedSidebar = () => {
     const isAdmin = profile?.role === "admin";
     const isCreditAnalyst = profile?.role === "credit_analyst_officer";
 
-    // ==================== DASHBOARD MODULE ====================
     const dashboardChildren = [];
-
     if (isSuperAdmin) {
       dashboardChildren.push(
         { name: "SuperAdmin Dashboard", href: "/dashboard/superadmin", icon: Home },
@@ -126,26 +125,17 @@ const SharedSidebar = () => {
       dashboardChildren.push(
         { name: "Admin Dashboard", href: "/dashboard/admin", icon: Home },
         { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
-        // { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
         { name: "General Analysis", href: "/dashboard", icon: PieChart },
         { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
       );
     } else {
       dashboardChildren.push(
         { name: "Main Dashboard", href: "/dashboard", icon: Home },
-        // { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
         { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
-
         { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
-
-
       );
-
-      // Add analytics for credit analyst officer (linked to /analytics)
       if (isCreditAnalyst) {
-        dashboardChildren.push(
-          { name: "Analytics", href: "/analytics", icon: BarChart3 }
-        );
+        dashboardChildren.push({ name: "Analytics", href: "/analytics", icon: BarChart3 });
       }
     }
 
@@ -158,20 +148,13 @@ const SharedSidebar = () => {
       },
     ];
 
-    // ==================== OFFICER-SPECIFIC ====================
     const officerNavigation = isOfficer
       ? [
         { name: "Leads", href: "/officer/leads", icon: UserPlus },
-        {
-          name: "Loan Applications",
-          href: "/officer/loans/applications",
-          icon: FileText,
-        },
+        { name: "Loan Applications", href: "/officer/loans/applications", icon: FileText },
       ]
       : [];
 
-    // ==================== ACCOUNTS & FINANCE MODULE ====================
-    // Now accessible to: admin, superadmin, and credit_analyst_officer
     const accountsFinanceNavigation = (isAdmin || isCreditAnalyst)
       ? [
         {
@@ -179,34 +162,16 @@ const SharedSidebar = () => {
           href: "/accounts-finance",
           icon: Calculator,
           children: [
-            {
-              name: "Accounts Setup",
-              href: "/accounting/chart-of-accounts",
-              icon: BookOpen,
-            },
+            { name: "Accounts Setup", href: "/accounting/chart-of-accounts", icon: BookOpen },
             { name: "Accounting Journals", href: "/accounting/journals", icon: Book },
-            {
-              name: "Financial Transactions",
-              href: "/accounting/transactions",
-              icon: CreditCard,
-            },
-            {
-              name: "Bank Reconciliations",
-              href: "/accounting/bank-reconciliations",
-              icon: Landmark,
-            },
-
-            {
-              name: "Penalty Settings",
-              href: "/loaning/penalty-settings",
-              icon: Settings,
-            },
+            { name: "Financial Transactions", href: "/accounting/transactions", icon: CreditCard },
+            { name: "Bank Reconciliations", href: "/accounting/bank-reconciliations", icon: Landmark },
+            { name: "Penalty Settings", href: "/loaning/penalty-settings", icon: Settings },
           ],
         },
       ]
       : [];
 
-    // ==================== TENANT MANAGEMENT MODULE (SuperAdmin only) ====================
     const tenantManagementNavigation = isSuperAdmin
       ? [
         {
@@ -224,7 +189,6 @@ const SharedSidebar = () => {
       ]
       : [];
 
-    // ==================== SYSTEM SETTINGS MODULE (SuperAdmin only) ====================
     const systemSettingsNavigation = isSuperAdmin
       ? [
         {
@@ -245,7 +209,6 @@ const SharedSidebar = () => {
       ]
       : [];
 
-    // ==================== AUDIT & LOGS MODULE (SuperAdmin only) ====================
     const auditLogsNavigation = isSuperAdmin
       ? [
         {
@@ -265,7 +228,6 @@ const SharedSidebar = () => {
       ]
       : [];
 
-    // ==================== ADMINISTRATION MODULE (for admin & superadmin) ====================
     const administrationNavigation = (isAdmin || isSuperAdmin)
       ? [
         {
@@ -288,55 +250,20 @@ const SharedSidebar = () => {
       ]
       : [];
 
-    // ==================== REGISTRY MODULE ====================
     const registryChildren = [
-      { name: "Customers", href: "/registry/customers", icon: Users }
+      { name: "Customers", href: "/registry/customers", icon: Users },
+      { name: "Pending Amendments", href: isOfficer ? "/officer/customers/amendments" : "/registry/pending-amendments", icon: ClipboardList },
+      { name: "BM Pending", href: "/registry/bm-pending", icon: UserCheck },
+      { name: "Callbacks Pending", href: "/registry/callbacks-pending", icon: PhoneCall },
+      { name: "HQ Pending", href: "/registry/hq-pending", icon: UserCheck },
+      { name: "Approvals Pending", href: "/registry/approvals-pending", icon: UserCheck },
+      { name: "Customer Transfer", href: "/registry/customer-transfer", icon: Users },
+      { name: "Customer Categories", href: "/registry/customer-categories", icon: FolderOpen },
+      { name: "Customer Edits", href: "/registry/customer-edits", icon: FileSpreadsheet },
+      { name: "Prequalified Amount Edit", href: "/registry/prequalified-amount-edit", icon: CreditCard },
+      { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
     ];
 
-    registryChildren.push(
-      {
-        name: "Pending Amendments",
-        href: isOfficer
-          ? "/officer/customers/amendments"
-          : "/registry/pending-amendments",
-        icon: ClipboardList,
-      },
-      { name: "BM Pending", href: "/registry/bm-pending", icon: UserCheck },
-      {
-        name: "Callbacks Pending",
-        href: "/registry/callbacks-pending",
-        icon: PhoneCall,
-      },
-      { name: "HQ Pending", href: "/registry/hq-pending", icon: UserCheck },
-      {
-        name: "Approvals Pending",
-        href: "/registry/approvals-pending",
-        icon: UserCheck,
-      },
-      {
-        name: "Customer Transfer",
-        href: "/registry/customer-transfer",
-        icon: Users,
-      },
-      {
-        name: "Customer Categories",
-        href: "/registry/customer-categories",
-        icon: FolderOpen,
-      },
-      {
-        name: "Customer Edits",
-        href: "/registry/customer-edits",
-        icon: FileSpreadsheet,
-      },
-      {
-        name: "Prequalified Amount Edit",
-        href: "/registry/prequalified-amount-edit",
-        icon: CreditCard,
-      },
-      { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
-    );
-
-    // ==================== LOANING MODULE ====================
     const loaningNavigation = [
       {
         name: "Loaning",
@@ -345,62 +272,23 @@ const SharedSidebar = () => {
         children: [
           { name: "Loan Products", href: "/loaning/products", icon: FileText },
           { name: "All Loans", href: "/loaning/all", icon: FileText },
-          {
-            name: "Pending Branch Manager",
-            href: "/loaning/pending-branch-manager",
-            icon: FileText,
-          },
-          {
-            name: "Pending Regional Manager",
-            href: "/loaning/pending-regional-manager",
-            icon: FileText,
-          },
-          {
-            name: "Pending HQ",
-            href: "/loaning/pending-hq",
-            icon: FileText,
-          },
-          {
-            name: "Pending Disbursement",
-            href: "/loaning/pending-disbursement",
-            icon: FileText,
-          },
-          {
-            name: "Disbursed Loans",
-            href: "/loaning/disbursed-loans",
-            icon: FileText,
-          },
-          {
-            name: "Rejected Loans",
-            href: "/loaning/rejected-loans",
-            icon: FileText,
-          },
-          {
-            name: "Limit Adjustment",
-            href: "/loaning/limit-adjustment",
-            icon: Sliders,
-            roles: ["credit_analyst_officer", "admin", "superadmin"],
-          },
+          { name: "Pending Branch Manager", href: "/loaning/pending-branch-manager", icon: FileText },
+          { name: "Pending Regional Manager", href: "/loaning/pending-regional-manager", icon: FileText },
+          { name: "Pending HQ", href: "/loaning/pending-hq", icon: FileText },
+          { name: "Pending Disbursement", href: "/loaning/pending-disbursement", icon: FileText },
+          { name: "Disbursed Loans", href: "/loaning/disbursed-loans", icon: FileText },
+          { name: "Rejected Loans", href: "/loaning/rejected-loans", icon: FileText },
+          { name: "Limit Adjustment", href: "/loaning/limit-adjustment", icon: Sliders, roles: ["credit_analyst_officer", "admin", "superadmin"] },
         ],
       },
     ];
 
-    // ==================== DRAFTS MODULE ====================
     const draftsChildren = [
       isOfficer
-        ? {
-          name: "Customer Drafts",
-          href: "/officer/customers/drafts",
-          icon: FileText,
-        }
-        : {
-          name: "Customer Verification Drafts",
-          href: "/drafts/customers",
-          icon: UserCheck,
-        },
+        ? { name: "Customer Drafts", href: "/officer/customers/drafts", icon: FileText }
+        : { name: "Customer Verification Drafts", href: "/drafts/customers", icon: UserCheck },
     ];
 
-    // ==================== REPORTS MODULE ====================
     const reportsNavigation = [
       {
         name: "Reports",
@@ -408,93 +296,46 @@ const SharedSidebar = () => {
         icon: BarChart3,
         children: [
           { name: "All Reports", href: "/reports/all", icon: FileText },
-                   { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
+          { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
         ],
       },
     ];
 
-    // ==================== COMBINE ALL MODULES ====================
     const sharedNavigation = [
-      {
-        name: "Registry",
-        href: "/registry",
-        icon: Users,
-        children: registryChildren,
-      },
+      { name: "Registry", href: "/registry", icon: Users, children: registryChildren },
       ...loaningNavigation,
-      {
-        name: "Drafts",
-        href: "/drafts",
-        icon: FileText,
-        children: draftsChildren,
-      },
+      { name: "Drafts", href: "/drafts", icon: FileText, children: draftsChildren },
       ...reportsNavigation,
     ];
 
-    // Return navigation based on role
     if (isSuperAdmin) {
-      return [
-        ...dashboardNavigation,
-        ...tenantManagementNavigation,
-        ...accountsFinanceNavigation,
-        ...systemSettingsNavigation,
-        ...auditLogsNavigation,
-        ...administrationNavigation,
-        ...sharedNavigation,
-      ];
+      return [...dashboardNavigation, ...tenantManagementNavigation, ...accountsFinanceNavigation, ...systemSettingsNavigation, ...auditLogsNavigation, ...administrationNavigation, ...sharedNavigation];
     } else if (isAdmin) {
-      return [
-        ...dashboardNavigation,
-        ...accountsFinanceNavigation,
-        ...administrationNavigation,
-        ...sharedNavigation,
-      ];
+      return [...dashboardNavigation, ...accountsFinanceNavigation, ...administrationNavigation, ...sharedNavigation];
     } else if (isOfficer) {
-      return [
-        ...dashboardNavigation,
-        ...officerNavigation,
-        ...sharedNavigation,
-      ];
+      return [...dashboardNavigation, ...officerNavigation, ...sharedNavigation];
     } else if (isCreditAnalyst) {
-      return [
-        ...dashboardNavigation,
-        ...accountsFinanceNavigation,
-        ...sharedNavigation,
-      ];
+      return [...dashboardNavigation, ...accountsFinanceNavigation, ...sharedNavigation];
     } else {
-      return [
-        ...dashboardNavigation,
-        ...sharedNavigation,
-      ];
+      return [...dashboardNavigation, ...sharedNavigation];
     }
   };
 
-  /* -----------------------------------------------------
-   Filter navigation by role (TOP + CHILDREN)
-  ----------------------------------------------------- */
   const navigation = useMemo(() => {
     return getNavigation()
       .filter(hasAccess)
       .map((item) =>
         item.children
-          ? {
-            ...item,
-            children: item.children.filter(hasAccess),
-          }
+          ? { ...item, children: item.children.filter(hasAccess) }
           : item
       );
   }, [profile?.role]);
 
-  /* -----------------------------------------------------
-   Auto-expand active parent
-  ----------------------------------------------------- */
   useEffect(() => {
     navigation.forEach((item) => {
       if (!item.children) return;
       const active = item.children.some(
-        (child) =>
-          location.pathname === child.href ||
-          location.pathname.startsWith(child.href + "/")
+        (child) => location.pathname === child.href || location.pathname.startsWith(child.href + "/")
       );
       if (active) {
         setExpandedItems((prev) => ({ ...prev, [item.name]: true }));
@@ -502,107 +343,74 @@ const SharedSidebar = () => {
     });
   }, [location.pathname, navigation]);
 
+  const sidebarStyles = {
+    bg: "bg-muted", // Light bluish-gray from tailwind config
+    text: "text-slate-600",
+    activeText: "text-brand-primary",
+    hoverBg: "hover:bg-brand-primary/10",
+    activeBg: "bg-brand-primary/10",
+    border: "border-slate-200",
+    icon: "text-slate-500",
+    activeIcon: "text-brand-primary"
+  };
+
   // Mobile View
   if (isMobile) {
     return (
       <>
-        {/* Floating Menu Button - ALWAYS visible on mobile */}
         <button
           onClick={() => setIsMobileOpen(true)}
-          className="fixed top-4 left-4 z-50 p-3 bg-white rounded-lg shadow-lg hover:shadow-xl transition-all border border-gray-200 lg:hidden font-sans"
+          className="fixed top-4 left-4 z-50 p-2 bg-white rounded-lg shadow-md border border-stone-200 lg:hidden"
           style={{ display: isMobileOpen ? "none" : "block" }}
         >
-          <Menu className="h-6 w-6 text-slate-700 hover:text-brand-primary" />
+          <Menu className="h-5 w-5 text-stone-600" />
         </button>
 
-        {/* Overlay - only visible when sidebar is open */}
         {isMobileOpen && (
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40 transition-opacity"
-            onClick={() => setIsMobileOpen(false)}
-          />
+          <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileOpen(false)} />
         )}
 
-        {/* Sidebar - Reduced width from w-72 to w-64 */}
-        <div
-          className={`fixed inset-y-0 left-0 w-64 bg-brand-surface shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"
-            }`}
-        >
-          {/* Header with Logo at the beginning (far left) */}
-          <div className="flex items-center justify-between p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20">
-            <div className="flex items-center justify-start">
-              <img
-                src="/jasiri.png"
-                alt="Jasiri Logo"
-                className="w-32 h-auto object-contain"
-              />
-            </div>
-            <button
-              onClick={() => setIsMobileOpen(false)}
-              className="p-2 rounded-lg hover:bg-brand-secondary/10 transition-colors"
-            >
-              <X className="h-5 w-5 text-slate-700 hover:text-brand-primary" />
+        <div className={`fixed inset-y-0 left-0 w-64 ${sidebarStyles.bg} shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+          <div className="flex items-center justify-between p-4 border-b border-black/5 flex-shrink-0 h-20">
+            <img src="/jasiri.png" alt="Jasiri Logo" className="w-28 h-auto object-contain opacity-90" />
+            <button onClick={() => setIsMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-black/5 transition-colors">
+              <X className="h-5 w-5 text-slate-500" />
             </button>
           </div>
 
-          {/* Navigation */}
-          <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+          <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1 custom-scrollbar">
             {navigation.map((item) => (
               <div key={item.name}>
                 {item.children ? (
                   <div>
                     <div
                       onClick={() => toggleItem(item.name)}
-                      className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name]
-                          ? "bg-brand-secondary/10 text-brand-primary"
-                          : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                        }`}
+                      className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${expandedItems[item.name] ? sidebarStyles.activeBg + " " + sidebarStyles.activeText : sidebarStyles.text + " " + sidebarStyles.hoverBg}`}
                     >
                       <div className="flex items-center">
-                        <item.icon
-                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${expandedItems[item.name]
-                              ? "text-brand-primary"
-                              : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
-                        />
-                        <span className="text-base whitespace-nowrap truncate font-medium">
-                          {item.name}
-                        </span>
+                        <item.icon className={`h-4 w-4 mr-3 shrink-0 ${expandedItems[item.name] ? sidebarStyles.activeIcon : sidebarStyles.icon}`} />
+                        <span className="text-sm font-semibold tracking-tight">{item.name}</span>
                       </div>
                       {expandedItems[item.name] ? (
-                        <ChevronUp className="h-4 w-4 text-brand-primary" />
+                        <ChevronDown className="h-3.5 w-3.5 text-brand-primary" />
                       ) : (
-                        <ChevronDown className="h-4 w-4 text-slate-700 group-hover:text-brand-primary" />
+                        <ChevronRight className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100" />
                       )}
                     </div>
 
                     {expandedItems[item.name] && (
-                      <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-brand-secondary/20">
+                      <div className="ml-4 pl-3 mt-1 space-y-1 border-l border-slate-300">
                         {item.children.map((child) => (
                           <NavLink
                             key={child.name}
                             to={child.href}
                             onClick={handleNavClick}
                             className={({ isActive }) =>
-                              `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                                ? "text-brand-primary bg-brand-secondary/5"
-                                : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
-                              }`
+                              `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap text-xs font-medium ${isActive ? "text-brand-primary bg-brand-primary/5 shadow-sm" : "text-slate-500 hover:text-slate-900 hover:bg-black/5"}`
                             }
                           >
-                            {({ isActive }) => (
-                              <>
-                                <child.icon
-                                  className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive
-                                      ? "text-brand-primary"
-                                      : "text-slate-700 group-hover:text-brand-primary"
-                                    }`}
-                                />
-                                <span className="text-sm truncate">
-                                  {child.name}
-                                </span>
-                              </>
-                            )}
+                            <child.icon className="h-3.5 w-3.5 mr-2.5 shrink-0 opacity-70 group-hover:opacity-100" />
+                            <span className="truncate">{child.name}</span>
                           </NavLink>
                         ))}
                       </div>
@@ -613,23 +421,11 @@ const SharedSidebar = () => {
                     to={item.href}
                     onClick={handleNavClick}
                     className={({ isActive }) =>
-                      `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                        ? "text-brand-primary bg-brand-secondary/5"
-                        : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                      }`
+                      `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 whitespace-nowrap text-sm font-semibold ${isActive ? sidebarStyles.activeBg + " " + sidebarStyles.activeText : sidebarStyles.text + " " + sidebarStyles.hoverBg}`
                     }
                   >
-                    {({ isActive }) => (
-                      <>
-                        <item.icon
-                          className={`h-5 w-5 mr-3 flex-shrink-0 transition-colors duration-200 ${isActive
-                              ? "text-brand-primary"
-                              : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
-                        />
-                        <span className="text-base truncate">{item.name}</span>
-                      </>
-                    )}
+                    <item.icon className={`h-4 w-4 mr-3 shrink-0 ${location.pathname === item.href ? sidebarStyles.activeIcon : sidebarStyles.icon}`} />
+                    <span className="truncate">{item.name}</span>
                   </NavLink>
                 )}
               </div>
@@ -640,83 +436,62 @@ const SharedSidebar = () => {
     );
   }
 
-  // Desktop Sidebar - Reduced width from w-72 to w-64
+  // Desktop Sidebar
   return (
-    <div
-      className={`h-full bg-brand-surface border-r border-brand-secondary/20 transition-all duration-300 font-sans ${isCollapsed ? "w-20" : "w-64"
-        } flex-shrink-0 relative flex flex-col overflow-hidden`}
-    >
-      {/* Header - Logo at the beginning (far left) */}
-      <div className="flex items-center p-4 border-b border-brand-secondary/20 flex-shrink-0 h-20 relative">
-        {/* Logo - Left aligned when sidebar is expanded */}
+    <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-sans ${isCollapsed ? "w-16" : "w-60"} flex-shrink-0 relative flex flex-col overflow-hidden`}>
+      <div className="flex items-center p-4 border-b border-black/5 flex-shrink-0 h-20 relative">
         {!isCollapsed && (
-          <div className="flex items-start justify-start w-full">
-            <img
-              src="/jasirif.png"
-              alt="Jasiri Logo"
-              className="w-32 h-auto object-contain"
-            />
+          <div className="flex items-center justify-start w-full">
+            <img src="/jasirif.png" alt="Jasiri Logo" className="w-28 h-auto object-contain opacity-90" />
           </div>
         )}
 
-        {/* Collapse Button */}
         <button
           onClick={toggleSidebar}
-          className={`p-2 rounded-lg border border-brand-secondary/20 transition-all duration-200 ${isCollapsed
-              ? "absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"
-              : "absolute top-4 right-4"
-            }`}
-          style={{
-            backgroundColor: "#fff",
-            color: "#2E5E99",
-          }}
+          className={`p-1.5 rounded-lg border border-slate-200 transition-all duration-200 bg-white shadow-sm text-slate-400 hover:text-brand-primary ${isCollapsed ? "absolute left-1/2 -translate-x-1/2" : "absolute right-4"}`}
         >
-          {isCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
+          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </button>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-1">
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1 custom-scrollbar">
         {navigation.map((item) => (
           <div key={item.name}>
             {item.children ? (
-              <div
-                onClick={() => !isCollapsed && toggleItem(item.name)}
-                className={`group flex items-center justify-between px-3 py-3 rounded-xl cursor-pointer transition-all duration-200 ${expandedItems[item.name] && !isCollapsed
-                    ? "bg-brand-secondary/10 text-brand-primary"
-                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                  } ${isCollapsed ? "justify-center" : ""}`}
-              >
-                <div className="flex items-center">
-                  <div
-                    className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
-                      }`}
-                  >
-                    <item.icon
-                      className={`h-5 w-5 transition-colors duration-200 ${expandedItems[item.name] && !isCollapsed
-                          ? "text-brand-primary"
-                          : "text-slate-700 group-hover:text-brand-primary"
-                        }`}
-                    />
+              <div>
+                <div
+                  onClick={() => !isCollapsed && toggleItem(item.name)}
+                  className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 ${expandedItems[item.name] && !isCollapsed ? sidebarStyles.activeBg + " " + sidebarStyles.activeText : sidebarStyles.text + " " + sidebarStyles.hoverBg} ${isCollapsed ? "justify-center" : ""}`}
+                >
+                  <div className="flex items-center">
+                    <item.icon className={`h-4 w-4 shrink-0 transition-colors ${isCollapsed ? "mr-0" : "mr-3"} ${expandedItems[item.name] ? sidebarStyles.activeIcon : sidebarStyles.icon}`} />
+                    {!isCollapsed && <span className="text-sm font-semibold tracking-tight truncate">{item.name}</span>}
                   </div>
                   {!isCollapsed && (
-                    <span className="text-base whitespace-nowrap truncate font-medium">
-                      {item.name}
-                    </span>
+                    <div className="transition-transform duration-200">
+                      {expandedItems[item.name] ? (
+                        <ChevronDown className="h-3.5 w-3.5 text-brand-primary" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5 opacity-40 group-hover:opacity-100" />
+                      )}
+                    </div>
                   )}
                 </div>
 
-                {!isCollapsed && (
-                  <div className="transition-colors">
-                    {expandedItems[item.name] ? (
-                      <ChevronUp className="h-4 w-4 text-brand-primary" />
-                    ) : (
-                      <ChevronDown className="h-4 w-4 text-slate-700 group-hover:text-brand-primary" />
-                    )}
+                {!isCollapsed && expandedItems[item.name] && (
+                  <div className="ml-4 pl-3 mt-1 space-y-1 border-l border-slate-300 animate-in slide-in-from-top-1 duration-200">
+                    {item.children.map((child) => (
+                      <NavLink
+                        key={child.name}
+                        to={child.href}
+                        className={({ isActive }) =>
+                          `group flex items-center px-3 py-2 rounded-lg transition-all duration-200 whitespace-nowrap text-xs font-medium ${isActive ? "text-brand-primary bg-brand-primary/5 shadow-sm" : "text-slate-500 hover:text-slate-900 hover:bg-black/5"}`
+                        }
+                      >
+                        <child.icon className="h-3.5 w-3.5 mr-2.5 shrink-0 opacity-70 group-hover:opacity-100" />
+                        <span className="truncate">{child.name}</span>
+                      </NavLink>
+                    ))}
                   </div>
                 )}
               </div>
@@ -724,67 +499,34 @@ const SharedSidebar = () => {
               <NavLink
                 to={item.href}
                 className={({ isActive }) =>
-                  `group flex items-center px-3 py-3 rounded-xl transition-all duration-200 font-medium ${isActive
-                    ? "text-brand-primary bg-brand-secondary/5"
-                    : "text-slate-700 hover:bg-brand-secondary/5 hover:text-brand-primary"
-                  } ${isCollapsed ? "justify-center" : ""}`
+                  `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 font-semibold ${isActive ? sidebarStyles.activeBg + " " + sidebarStyles.activeText : sidebarStyles.text + " " + sidebarStyles.hoverBg} ${isCollapsed ? "justify-center" : ""}`
                 }
               >
-                {({ isActive }) => (
-                  <>
-                    <div
-                      className={`flex items-center justify-center ${isCollapsed ? "mr-0" : "mr-3"
-                        }`}
-                    >
-                      <item.icon
-                        className={`h-5 w-5 transition-colors duration-200 ${isActive
-                            ? "text-brand-primary"
-                            : "text-slate-700 group-hover:text-brand-primary"
-                          }`}
-                      />
-                    </div>
-                    {!isCollapsed && (
-                      <span className="text-base whitespace-nowrap truncate">
-                        {item.name}
-                      </span>
-                    )}
-                  </>
-                )}
+                <div className={`flex items-center justify-center shrink-0 ${isCollapsed ? "mr-0" : "mr-3"}`}>
+                  <item.icon className={`h-4 w-4 transition-colors ${location.pathname === item.href ? sidebarStyles.activeIcon : sidebarStyles.icon}`} />
+                </div>
+                {!isCollapsed && <span className="text-sm tracking-tight truncate">{item.name}</span>}
               </NavLink>
-            )}
-
-            {/* Submenu */}
-            {item.children && !isCollapsed && expandedItems[item.name] && (
-              <div className="ml-2 pl-4 mt-1 space-y-1 border-l-2 border-brand-secondary/20">
-                {item.children.map((child) => (
-                  <NavLink
-                    key={child.name}
-                    to={child.href}
-                    className={({ isActive }) =>
-                      `group flex items-center px-3 py-2 rounded-xl transition-all duration-200 whitespace-nowrap font-medium ${isActive
-                        ? "text-brand-primary bg-brand-secondary/5"
-                        : "text-slate-700 hover:text-brand-primary hover:bg-brand-secondary/5"
-                      }`
-                    }
-                  >
-                    {({ isActive }) => (
-                      <>
-                        <child.icon
-                          className={`h-3.5 w-3.5 mr-2 flex-shrink-0 transition-colors duration-200 ${isActive
-                              ? "text-brand-primary"
-                              : "text-slate-700 group-hover:text-brand-primary"
-                            }`}
-                        />
-                        <span className="text-sm truncate">{child.name}</span>
-                      </>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
             )}
           </div>
         ))}
       </nav>
+
+      <style>{`
+        .custom-scrollbar::-webkit-scrollbar {
+          width: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+          background: transparent;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 0, 0, 0.2);
+        }
+      `}</style>
     </div>
   );
 };

@@ -1,7 +1,9 @@
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
-import { Search, Eye, CheckCircle, Archive, Calendar, DollarSign, Phone, User, FileText } from 'lucide-react';
+import { Search, Eye, CheckCircle, Archive, Calendar, DollarSign, Phone, User, FileText, ArrowLeft } from 'lucide-react';
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 
 // Transaction Details Modal
 const TransactionDetailsModal = ({ transaction, onClose }) => {
@@ -387,6 +389,7 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
 // Main Transactions Component
 function Transactions() {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [selectedTransaction, setSelectedTransaction] = useState(null);
   const [activeTab, setActiveTab] = useState('successful');
 
@@ -394,25 +397,8 @@ function Transactions() {
     setSelectedTransaction(transaction);
   };
 
-  const handleReconcile = async (transaction) => {
-    if (confirm(`Reconcile transaction ${transaction.transaction_id}?`)) {
-      try {
-        // Update the transaction status
-        const { error } = await supabase
-          .from('suspense_transactions')
-          .update({ status: 'reconciled' })
-          .eq('id', transaction.id)
-          .eq('tenant_id', profile?.tenant_id);
-
-        if (error) throw error;
-
-        alert('Transaction reconciled successfully');
-        window.location.reload();
-      } catch (error) {
-        console.error('Error reconciling transaction:', error);
-        alert('Failed to reconcile transaction');
-      }
-    }
+  const handleReconcile = (transaction) => {
+    navigate(`/accounting/reconcile/${transaction.id}`);
   };
 
   const handleArchive = async (transaction) => {
@@ -447,8 +433,8 @@ function Transactions() {
           <button
             onClick={() => setActiveTab('successful')}
             className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${activeTab === 'successful'
-                ? 'text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              ? 'text-white shadow-lg'
+              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
               }`}
             style={activeTab === 'successful' ? { backgroundColor: "#586ab1" } : {}}
           >
@@ -457,8 +443,8 @@ function Transactions() {
           <button
             onClick={() => setActiveTab('suspense')}
             className={`px-6 py-2 rounded-xl text-sm transition-all duration-300 ${activeTab === 'suspense'
-                ? 'text-white shadow-lg'
-                : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
+              ? 'text-white shadow-lg'
+              : 'bg-white text-gray-700 hover:bg-gray-50 border border-gray-200'
               }`}
             style={activeTab === 'suspense' ? { backgroundColor: "#586ab1" } : {}}
           >

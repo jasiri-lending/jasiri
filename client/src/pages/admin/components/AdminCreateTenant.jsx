@@ -31,6 +31,9 @@ export default function AdminCreateTenant() {
     confirmation_url: "",
     validation_url: "",
     callback_url: "",
+    initiator_name: "",
+    initiator_password: "",
+    security_credential: "",
     // Optional fields
     cr12: "",
     company_certificate: "",
@@ -169,6 +172,9 @@ export default function AdminCreateTenant() {
         confirmation_url: formData.confirmation_url,
         validation_url: formData.validation_url,
         callback_url: formData.callback_url,
+        initiator_name: formData.initiator_name,
+        initiator_password: formData.initiator_password,
+        security_credential: formData.security_credential,
         admin_id: (await supabase.auth.getUser()).data.user?.id
       };
 
@@ -293,6 +299,9 @@ export default function AdminCreateTenant() {
       confirmation_url: "",
       validation_url: "",
       callback_url: "",
+      initiator_name: "",
+      initiator_password: "",
+      security_credential: "",
       sms_base_url: "",
       sms_api_key: "",
       sms_partner_id: "",
@@ -325,6 +334,9 @@ export default function AdminCreateTenant() {
           updates.confirmation_url = mpesa.confirmation_url || "";
           updates.validation_url = mpesa.validation_url || "";
           updates.callback_url = mpesa.callback_url || "";
+          updates.initiator_name = mpesa.initiator_name || "";
+          updates.initiator_password = mpesa.initiator_password || "";
+          updates.security_credential = mpesa.security_credential || "";
         }
       }
 
@@ -366,6 +378,9 @@ export default function AdminCreateTenant() {
       confirmation_url: "",
       validation_url: "",
       callback_url: "",
+      initiator_name: "",
+      initiator_password: "",
+      security_credential: "",
       cr12: "",
       company_certificate: "",
       license: "",
@@ -430,6 +445,9 @@ export default function AdminCreateTenant() {
               confirmation_url: formData.confirmation_url,
               validation_url: formData.validation_url,
               callback_url: formData.callback_url,
+              initiator_name: formData.initiator_name,
+              initiator_password: formData.initiator_password,
+              security_credential: formData.security_credential,
               admin_id: (await supabase.auth.getUser()).data.user?.id,
             }),
           });
@@ -1057,8 +1075,8 @@ export default function AdminCreateTenant() {
                                     <button key={type} type="button"
                                       onClick={() => setFormData({ ...formData, payment_type: type })}
                                       className={`flex-1 py-2 text-xs font-semibold rounded-lg border transition-colors ${formData.payment_type === type
-                                          ? 'bg-brand-primary text-white border-brand-primary'
-                                          : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                        ? 'bg-brand-primary text-white border-brand-primary'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
                                         }`}>
                                       {type === 'paybill' ? 'Paybill' : 'Till Number'}
                                     </button>
@@ -1104,6 +1122,29 @@ export default function AdminCreateTenant() {
                                     <input type="url" placeholder="https://..." value={formData.callback_url}
                                       onChange={e => setFormData({ ...formData, callback_url: e.target.value })}
                                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div className="md:col-span-2 pt-2 border-t border-gray-100">
+                                    <h4 className="text-[10px] font-bold text-brand-primary uppercase tracking-wider mb-3">Initiator Credentials (B2C)</h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Initiator Name</label>
+                                        <input type="text" placeholder="e.g. Jasiri_B2C" value={formData.initiator_name}
+                                          onChange={e => setFormData({ ...formData, initiator_name: e.target.value })}
+                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Initiator Password</label>
+                                        <input type="password" placeholder="••••••••" value={formData.initiator_password}
+                                          onChange={e => setFormData({ ...formData, initiator_password: e.target.value })}
+                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                      </div>
+                                      <div>
+                                        <label className="block text-[10px] font-medium text-gray-700 mb-1">Security Credential</label>
+                                        <input type="password" placeholder="••••••••" value={formData.security_credential}
+                                          onChange={e => setFormData({ ...formData, security_credential: e.target.value })}
+                                          className="w-full px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                      </div>
+                                    </div>
                                   </div>
                                 </div>
                               </div>

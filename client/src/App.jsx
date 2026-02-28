@@ -98,6 +98,7 @@ const CustomerStatementModal = lazy(() => import("./pages/reports/AccountList"))
 const OutstandingLoanBalanceReportEOM = lazy(() => import("./pages/reports/OLBatEOM"));
 const Customer360View = lazy(() => import("./pages/registry/360View"));
 const CustomerDetailsModal = lazy(() => import("./relationship-officer/components/CustomerDetailsModal.jsx"));
+const ReconcileTransaction = lazy(() => import("./pages/accounting/ReconcileTransaction"));
 const CustomerInteractions = lazy(() => import("./pages/registry/CustomerInteractions"));
 const LoanDetails = lazy(() => import("./pages/registry/LoanDetails.jsx"));
 const PromiseToPay = lazy(() => import("./pages/registry/PromiseToPay.jsx"));
@@ -253,7 +254,7 @@ function App() {
               <div className="flex-1 overflow-y-auto p-6">
                 <Suspense fallback={
                   <div className="flex items-center justify-center h-full">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
+                    <Spinner text="Loading component..." />
                   </div>
                 }>
                   <Routes>
@@ -262,11 +263,8 @@ function App() {
                       path="/"
                       element={
                         initializing ? (
-                          <div className="min-h-screen flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">Loading...</p>
-                            </div>
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Initializing application..." />
                           </div>
                         ) : user && profile ? (
                           <Navigate to={getDefaultRoute()} replace />
@@ -280,11 +278,8 @@ function App() {
                       path="/login"
                       element={
                         initializing ? (
-                          <div className="min-h-screen flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">Loading...</p>
-                            </div>
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Initializing application..." />
                           </div>
                         ) : user && profile ? (
                           <Navigate to={getDefaultRoute()} replace />
@@ -298,11 +293,8 @@ function App() {
                       path="/change-password"
                       element={
                         initializing ? (
-                          <div className="min-h-screen flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">Loading...</p>
-                            </div>
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Loading password reset..." />
                           </div>
                         ) : user ? (
                           <ChangePassword />
@@ -339,6 +331,14 @@ function App() {
                           element={
                             <ProtectedRoute>
                               <Transactions userRole={role} />
+                            </ProtectedRoute>
+                          }
+                        />
+                        <Route
+                          path="/accounting/reconcile/:id"
+                          element={
+                            <ProtectedRoute>
+                              <ReconcileTransaction userRole={role} />
                             </ProtectedRoute>
                           }
                         />
@@ -1189,11 +1189,8 @@ function App() {
                       path="*"
                       element={
                         initializing ? (
-                          <div className="min-h-screen flex items-center justify-center">
-                            <div className="text-center">
-                              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-                              <p className="mt-4 text-gray-600">Loading...</p>
-                            </div>
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Initializing application..." />
                           </div>
                         ) : user && profile ? (
                           <Navigate to={getDefaultRoute()} replace />

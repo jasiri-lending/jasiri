@@ -24,7 +24,47 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
-import Spinner from "../../components/Spinner.jsx";
+
+// ========== SKELETON COMPONENTS =======
+const SkeletonPulse = () => (
+  <div className="animate-pulse bg-slate-200 rounded-md" />
+);
+
+const Skeleton360 = () => (
+  <div className="p-6 h-screen flex flex-col bg-[#d9e2e8] space-y-6">
+    {/* Header Skeleton */}
+    <div className="flex-shrink-0">
+      <div className="w-48 h-10 bg-white/50 rounded-xl animate-pulse" />
+    </div>
+
+    {/* Tabs Skeleton */}
+    <div className="bg-white rounded-t-xl p-1 flex gap-1 flex-shrink-0">
+      {[1, 2, 3, 4, 5, 6].map((i) => (
+        <div key={i} className="flex-1 h-10 bg-slate-50 rounded-lg animate-pulse" />
+      ))}
+    </div>
+
+    {/* Content Skeleton */}
+    <div className="flex-1 bg-white/30 rounded-xl p-6 space-y-6 overflow-hidden">
+      <div className="flex gap-6">
+        <div className="w-24 h-24 rounded-full bg-white/50 animate-pulse" />
+        <div className="flex-1 space-y-4 pt-2">
+          <div className="w-1/3 h-6 bg-white/50 rounded animate-pulse" />
+          <div className="w-1/4 h-4 bg-white/50 rounded animate-pulse" />
+        </div>
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
+          <div key={i} className="h-24 bg-white/50 rounded-2xl animate-pulse" />
+        ))}
+      </div>
+      <div className="grid grid-cols-2 gap-6">
+        <div className="h-64 bg-white/50 rounded-xl animate-pulse" />
+        <div className="h-64 bg-white/50 rounded-xl animate-pulse" />
+      </div>
+    </div>
+  </div>
+);
 
 // ─── Tenant SMS Config Cache ───────────────────────────────────────────────
 const _smsConfigCache = new Map();
@@ -225,7 +265,7 @@ const Customer360View = () => {
 
         setLoanInstallments(installments || []);
 
-        // Fetch loan payments
+        // Fetch loan payments for the current loan tab
         const { data: payments } = await supabase
           .from("loan_payments")
           .select("*")
@@ -233,6 +273,25 @@ const Customer360View = () => {
           .order("paid_at", { ascending: false });
 
         setLoanPayments(payments || []);
+      }
+
+      // Fetch all loans to get all loan payments for this customer
+      const { data: allLoans } = await supabase
+        .from("loans")
+        .select("id")
+        .eq("customer_id", customerId);
+
+      const loanIds = (allLoans || []).map(l => l.id);
+
+      // Fetch all loan payments for all loans
+      let allLoanPayments = [];
+      if (loanIds.length > 0) {
+        const { data: lpData } = await supabase
+          .from("loan_payments")
+          .select("*")
+          .in("loan_id", loanIds)
+          .order("paid_at", { ascending: false });
+        allLoanPayments = lpData || [];
       }
 
       // Fetch wallet transactions and calculate balance
@@ -271,15 +330,66 @@ const Customer360View = () => {
 
       setWalletBalance(balance);
 
-      // Fetch M-Pesa C2B transactions
-      const { data: mpesaTxns } = await supabase
+      // Fetch M-Pesa C2B transactions for all customer mobile numbers
+      const mobileNumbers = [customerData.mobile, customerData.alternative_mobile].filter(Boolean);
+      const { data: mpesaC2B } = await supabase
         .from("mpesa_c2b_transactions")
         .select("*")
-        .eq("phone_number", customerData.mobile)
-        .order("created_at", { ascending: false })
-        .limit(20);
+        .in("phone_number", mobileNumbers)
+        .order("transaction_time", { ascending: false });
 
-      setMpesaTransactions(mpesaTxns || []);
+      // Consolidate M-Pesa transactions from all sources
+      const unifiedMpesa = [];
+      const seenRefs = new Set();
+
+      // 1. Start with C2B as the primary source
+      (mpesaC2B || []).forEach(tx => {
+        if (!tx.transaction_id) return;
+        seenRefs.add(tx.transaction_id);
+        unifiedMpesa.push({
+          id: `c2b-${tx.id}`,
+          transaction_id: tx.transaction_id,
+          amount: tx.amount,
+          transaction_time: tx.transaction_time || tx.created_at,
+          description: tx.description || "M-Pesa Payment",
+          status: tx.status,
+          source: 'c2b'
+        });
+      });
+
+      // 2. Add from Loan Payments (in case not in C2B or for clarity)
+      allLoanPayments.forEach(lp => {
+        if (!lp.mpesa_receipt || seenRefs.has(lp.mpesa_receipt)) return;
+        seenRefs.add(lp.mpesa_receipt);
+        unifiedMpesa.push({
+          id: `lp-${lp.id}`,
+          transaction_id: lp.mpesa_receipt,
+          amount: lp.paid_amount,
+          transaction_time: lp.paid_at || lp.created_at,
+          description: lp.description || "Loan Repayment",
+          status: 'applied',
+          source: 'loan_payment'
+        });
+      });
+
+      // 3. Add from Wallet history
+      (walletTxns || []).forEach(w => {
+        if (!w.mpesa_reference || seenRefs.has(w.mpesa_reference)) return;
+        seenRefs.add(w.mpesa_reference);
+        unifiedMpesa.push({
+          id: `w-${w.id}`,
+          transaction_id: w.mpesa_reference,
+          amount: w.amount,
+          transaction_time: w.created_at,
+          description: w.narration || w.description || "Wallet Deposit",
+          status: 'applied',
+          source: 'wallet'
+        });
+      });
+
+      // Sort unified list newest first
+      unifiedMpesa.sort((a, b) => new Date(b.transaction_time) - new Date(a.transaction_time));
+      setMpesaTransactions(unifiedMpesa);
 
       // Fetch interactions
       const { data: interactions } = await supabase
@@ -544,8 +654,8 @@ const Customer360View = () => {
     return (
       <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-brand-surface border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
-          <div className="bg-gray-50 p-6">
+        <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
+          <div className="p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
               <div className="flex-shrink-0">
@@ -936,68 +1046,81 @@ const Customer360View = () => {
 
           {/* Loan Installments */}
           {loanInstallments.length > 0 && (
-            <div className="bg-white border border-gray-200 rounded-lg p-5">
-              <h4 className=" text-slate-600 mb-4">Installment Schedule</h4>
+            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
+              <div className="px-8 py-6 border-b border-white/20 flex items-center justify-between">
+                <div>
+                  <h4 className="text-base font-black text-slate-700 uppercase tracking-tight">Installment Schedule</h4>
+                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Payment Roadmap & Alerts</p>
+                </div>
+                <div className="flex gap-2">
+                  <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-tight border border-rose-100">
+                    Overdue: {loanInstallments.filter(i => i.status === 'overdue').length}
+                  </span>
+                </div>
+              </div>
+
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        #
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Due Date
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Due Amount
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Paid Amount
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                        Days Overdue
-                      </th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">#</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Due Date</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Amount Due</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Paid</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
+                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Alerts</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {loanInstallments.map((installment) => (
-                      <tr key={installment.id} className="hover:bg-gray-50">
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {installment.installment_number}
+                      <tr
+                        key={installment.id}
+                        className="hover:bg-slate-50/50 transition-colors group"
+                      >
+                        <td className="px-6 py-4">
+                          <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 group-hover:bg-white transition-colors">
+                            {installment.installment_number}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
-                          {new Date(installment.due_date).toLocaleDateString()}
+                        <td className="px-6 py-4">
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-black text-slate-700">
+                              {new Date(installment.due_date).toLocaleDateString()}
+                            </span>
+                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Scheduled Arrival</span>
+                          </div>
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                          {formatCurrency(installment.due_amount)}
+                        <td className="px-6 py-4">
+                          <span className="text-[11px] font-black text-slate-700">
+                            {formatCurrency(installment.due_amount)}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-sm font-medium text-green-600">
-                          {formatCurrency(installment.paid_amount)}
+                        <td className="px-6 py-4">
+                          <span className={`${parseFloat(installment.paid_amount) > 0 ? 'text-emerald-600' : 'text-slate-400'} text-[11px] font-black`}>
+                            {formatCurrency(installment.paid_amount || 0)}
+                          </span>
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-6 py-4">
                           <span
-                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${installment.status === "paid"
-                              ? "bg-green-100 text-green-800"
+                            className={`inline-flex px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${installment.status === "paid"
+                              ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                               : installment.status === "partial"
-                                ? "bg-yellow-100 text-yellow-800"
+                                ? "bg-amber-50 text-amber-600 border-amber-100"
                                 : installment.status === "overdue"
-                                  ? "bg-red-100 text-red-800"
-                                  : "bg-gray-100 text-gray-800"
+                                  ? "bg-rose-50 text-rose-600 border-rose-100 animate-pulse"
+                                  : "bg-slate-50 text-slate-500 border-slate-100"
                               }`}
                           >
                             {installment.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-gray-900">
+                        <td className="px-6 py-4">
                           {installment.days_overdue > 0 ? (
-                            <span className="text-red-600 font-medium">
-                              {installment.days_overdue} days
+                            <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">
+                              {installment.days_overdue} Days Late
                             </span>
                           ) : (
-                            <span className="text-gray-500">-</span>
+                            <span className="text-[10px] text-slate-300 font-bold">—</span>
                           )}
                         </td>
                       </tr>
@@ -1035,65 +1158,82 @@ const Customer360View = () => {
       <div className="space-y-6">
         {/* Loan Summary Cards */}
         {loanDetails && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-blue-100 border-2 border-blue-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-blue-900">
-                  Loan Amount
-                </h4>
-                <BanknotesIcon className="h-5 w-5 text-blue-600" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Payable</p>
+                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                  <BanknotesIcon className="h-4 w-4 text-blue-600" />
+                </div>
               </div>
-              <p className="text-2xl font-bold text-blue-900">
+              <p className="text-2xl font-black text-slate-700">
                 {formatCurrency(loanDetails.total_payable)}
               </p>
-              <p className="text-xs text-blue-700 mt-1">Total Payable</p>
+              <div className="mt-4 flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }} />
+                </div>
+                <span className="text-[10px] font-black text-blue-600">100%</span>
+              </div>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-green-100 border-2 border-green-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-green-900">
-                  Total Paid
-                </h4>
-                <CheckCircleIcon className="h-5 w-5 text-green-600" />
+            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Cleared</p>
+                <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
+                  <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
+                </div>
               </div>
-              <p className="text-2xl font-bold text-green-900">
+              <p className="text-2xl font-black text-emerald-600">
                 {formatCurrency(totalPaidAmount)}
               </p>
-              <p className="text-xs text-green-700 mt-1">
-                {(
-                  (totalPaidAmount /
-                    parseFloat(loanDetails.total_payable || 1)) *
-                  100
-                ).toFixed(1)}
-                % Complete
-              </p>
+              <div className="mt-4 flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-emerald-500 rounded-full"
+                    style={{ width: `${Math.min(100, (totalPaidAmount / (parseFloat(loanDetails.total_payable) || 1)) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-black text-emerald-600">
+                  {((totalPaidAmount / parseFloat(loanDetails.total_payable || 1)) * 100).toFixed(1)}%
+                </span>
+              </div>
             </div>
 
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 border-2 border-orange-200 rounded-lg p-4">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-sm font-semibold text-orange-900">
-                  Outstanding Balance
-                </h4>
-                <ExclamationCircleIcon className="h-5 w-5 text-orange-600" />
+            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Arrears Balance</p>
+                <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
+                  <ExclamationCircleIcon className="h-4 w-4 text-rose-600" />
+                </div>
               </div>
-              <p className="text-2xl font-bold text-orange-900">
+              <p className="text-2xl font-black text-rose-600">
                 {formatCurrency(outstandingBalance)}
               </p>
-              <p className="text-xs text-orange-700 mt-1">Remaining to Pay</p>
+              <div className="mt-4 flex items-center gap-2">
+                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-rose-500 rounded-full"
+                    style={{ width: `${Math.min(100, (outstandingBalance / (parseFloat(loanDetails.total_payable) || 1)) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[10px] font-black text-rose-600">Pending</span>
+              </div>
             </div>
           </div>
         )}
 
         {/* Payment History Table */}
         {loanPayments.length > 0 ? (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-              <h3 className="text-base font-semibold text-slate-700">
-                Payment History
-              </h3>
-              <p className="text-xs text-gray-600 mt-1">
-                All payments received for this loan
-              </p>
+          <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
+            <div className="px-8 py-6 border-b border-white/20 flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-slate-700 uppercase tracking-tight">Payment Ledger</h3>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Verified Collections History</p>
+              </div>
+              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
+                <ClockIcon className="h-5 w-5 text-slate-400" />
+              </div>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -1158,10 +1298,21 @@ const Customer360View = () => {
 
   const renderWallet = () => (
     <div className="space-y-6">
-      <div className="bg-gradient-to-r from-green-500 to-emerald-600 rounded-lg p-6 text-white">
-        <h3 className="text-lg font-semibold mb-2">Wallet Balance</h3>
-        <p className="text-xl font-bold">{formatCurrency(walletBalance)}</p>
-        <p className="text-green-100 mt-2">Available for transactions</p>
+      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-100">
+        <div className="relative z-10">
+          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-50 mb-2">Verified Liquid Assets</p>
+          <div className="flex items-end justify-between">
+            <div>
+              <h3 className="text-3xl font-black tracking-tight">{formatCurrency(walletBalance)}</h3>
+              <p className="text-xs text-emerald-50 mt-2 font-medium">Available Wallet Balance</p>
+            </div>
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10">
+              <WalletIcon className="h-8 w-8 text-white" />
+            </div>
+          </div>
+        </div>
+        {/* Subtle decorative circle */}
+        <div className="absolute -right-10 -bottom-10 w-48 h-48 bg-white/10 rounded-full blur-3xl" />
       </div>
 
       {/* Wallet Transactions */}
@@ -1260,6 +1411,7 @@ const Customer360View = () => {
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Payment Type
                   </th>
+
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                     Status
                   </th>
@@ -1289,13 +1441,15 @@ const Customer360View = () => {
                         : "N/A"}
                     </td>
 
+
+
                     <td className="px-4 py-3 text-sm">
                       <span
                         className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.status === "applied"
                           ? "bg-green-100 text-green-800"
                           : txn.status === "pending"
-                            ? "bg-yellow-100 text-yellow-800"
-                            : "bg-red-100 text-red-800"
+                            ? " text-yellow-800"
+                            : " text-red-800"
                           }`}
                       >
                         {txn.status}
@@ -1799,11 +1953,11 @@ const Customer360View = () => {
         error_message,
         sent_by,
         users!sent_by (
-          id,
-          full_name,
-          email
+        id,
+        full_name,
+        email
         )
-      `)
+        `)
         .eq("customer_id", customerId)
         .order("created_at", { ascending: false });
 
@@ -1869,7 +2023,7 @@ const Customer360View = () => {
         const result = await SMSService.sendSMS(
           customer.mobile,
           smsMessage,
-          profile.tenant_id  // tenant aware 
+          profile.tenant_id  // tenant aware
         );
 
         const insertData = {
@@ -1889,7 +2043,7 @@ const Customer360View = () => {
           .select(`
         id, message, status, created_at, error_message, sent_by,
         users!sent_by ( id, full_name, email )
-      `)
+        `)
           .single();
 
         if (insertError) throw insertError;
@@ -2472,15 +2626,7 @@ const Customer360View = () => {
 
   // ========== LOADING STATE ==========
   if (loading) {
-    return (
-      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text="Loading 360 view..." />
-          </div>
-        </div>
-      </div>
-    );
+    return <Skeleton360 />;
   }
 
   if (!customer) {
@@ -2492,7 +2638,7 @@ const Customer360View = () => {
   }
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-brand-surface">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-[#d9e2e8]">
       {/* Header with Back Button */}
       <div className="mb-4 flex-shrink-0">
         <button

@@ -41,6 +41,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
     confirmation_url,
     validation_url,
     callback_url,
+    initiator_name,
+    initiator_password,
+    security_credential,
     admin_id // Passing admin_id to verify role
   } = req.body;
 
@@ -79,6 +82,8 @@ mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
     const encryptedKey = encrypt(consumer_key);
     const encryptedSecret = encrypt(consumer_secret);
     const encryptedPasskey = encrypt(passkey);
+    const encryptedInitiatorPassword = encrypt(initiator_password);
+    const encryptedSecurityCredential = encrypt(security_credential);
 
     // 4️⃣ Manual Upsert: check if config exists for this tenant
     const { data: existingConfig } = await supabaseAdmin
@@ -98,6 +103,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
       confirmation_url,
       validation_url,
       callback_url,
+      initiator_name,
+      initiator_password: encryptedInitiatorPassword,
+      security_credential: encryptedSecurityCredential,
       is_active: true
     };
 

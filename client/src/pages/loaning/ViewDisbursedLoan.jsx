@@ -19,6 +19,7 @@ import {
   ArrowLeftIcon,
   ChartBarIcon,
 } from "@heroicons/react/24/outline";
+import Spinner from "../../components/Spinner";
 import PromiseToPayForm from "../ptp/PromiseToPayForm";
 
 const ViewDisbursedLoan = () => {
@@ -36,10 +37,11 @@ const ViewDisbursedLoan = () => {
   const [showPTPForm, setShowPTPForm] = useState(false);
 
   useEffect(() => {
-    if (loanId) {
+    // Only fetch if we have a loanId and we haven't loaded this specific loan yet
+    if (loanId && (!loanDetails || loanDetails.id !== loanId)) {
       fetchLoanFullDetails(loanId);
     }
-  }, [loanId]);
+  }, [loanId, loanDetails?.id]);
 
   const fetchLoanFullDetails = async (loanId) => {
     try {
@@ -234,11 +236,8 @@ const ViewDisbursedLoan = () => {
 
   if (loading || permsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-indigo-200 border-t-indigo-600 mb-4 mx-auto"></div>
-          <p className="text-gray-600 font-medium">Loading loan details...</p>
-        </div>
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading loan details..." />
       </div>
     );
   }

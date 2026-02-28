@@ -19,293 +19,93 @@ import {
   DocumentTextIcon as NotesIcon,
   LockClosedIcon as LockIcon
 } from "@heroicons/react/24/outline";
-import { toast } from "react-toastify";
+import { useToast } from "../../components/Toast";
+import Spinner from "../../components/Spinner";
 
-// // SMS Service Configuration
-// const CELCOM_AFRICA_CONFIG = {
-//   baseUrl: 'https://isms.celcomafrica.com/api/services/sendsms',
-//   apiKey: '17323514aa8ce2613e358ee029e65d99',
-//   partnerID: '928',
-//   defaultShortcode: 'MularCredit'
-// };
-// ─── Tenant SMS Config Cache ───────────────────────────────────────────────
-const _smsConfigCache = new Map();
-
+// ================= Configuration =================
+// Use environment variable or fallback to your ngrok URL
+const BACKEND_URL = import.meta.env.VITE_API_BASE_URL || 'https://d6bf-154-159-237-243.ngrok-free.app';
+// ================= SMS Service (only for phone formatting) =================
 const SMSService = {
-  // ── Config Loader (with in-memory cache) ──────────────────────────────────
-  async getConfig(tenantId) {
-    if (!tenantId) throw new Error('tenantId is required to load SMS configuration');
-
-    // Return cached config if available
-    if (_smsConfigCache.has(tenantId)) {
-      return _smsConfigCache.get(tenantId);
-    }
-
-    const { data, error } = await supabase
-      .from('tenant_sms_settings')
-      .select('base_url, api_key, partner_id, shortcode')
-      .eq('tenant_id', tenantId)
-      .single();
-
-    if (error || !data) {
-      console.error(`[SMSService] Failed to load config for tenant ${tenantId}:`, error);
-      throw new Error(`SMS configuration not found for tenant: ${tenantId}`);
-    }
-
-    const config = {
-      baseUrl: data.base_url,
-      apiKey: data.api_key,
-      partnerID: data.partner_id,
-      defaultShortcode: data.shortcode,
-    };
-
-    // Store in cache
-    _smsConfigCache.set(tenantId, config);
-    console.log(`[SMSService] Config loaded and cached for tenant: ${tenantId}`);
-
-    return config;
-  },
-
-  // ── Clear cache for a tenant (call this if credentials are updated) ────────
-  clearConfigCache(tenantId = null) {
-    if (tenantId) {
-      _smsConfigCache.delete(tenantId);
-      console.log(`[SMSService] Cache cleared for tenant: ${tenantId}`);
-    } else {
-      _smsConfigCache.clear();
-      console.log('[SMSService] Entire SMS config cache cleared');
-    }
-  },
-
-  // ── Phone Number Formatter ─────────────────────────────────────────────────
   formatPhoneNumberForSMS(phone) {
-    if (!phone) {
-      console.warn('[SMSService] Empty phone number provided');
-      return '';
-    }
-
-    let cleaned = String(phone).replace(/\D/g, '');
-    console.log(`[SMSService] Formatting phone: ${phone} -> cleaned: ${cleaned}`);
-
-    if (cleaned.startsWith('254')) {
-      if (cleaned.length === 12) return cleaned;
-      if (cleaned.length === 13 && cleaned.startsWith('2540')) return '254' + cleaned.substring(4);
-    } else if (cleaned.startsWith('0')) {
-      if (cleaned.length === 10) return '254' + cleaned.substring(1);
-      if (cleaned.length === 11 && cleaned.startsWith('07')) return '254' + cleaned.substring(2);
-    } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
-      if (cleaned.length === 9) return '254' + cleaned;
-      if (cleaned.length === 10 && /^(70|71|72|11)/.test(cleaned)) return '254' + cleaned.substring(1);
-    }
-
-    console.error(`[SMSService] Invalid phone number format: ${phone} (cleaned: ${cleaned})`);
+    if (!phone) return '';
+    const cleaned = String(phone).replace(/\D/g, '');
+    if (cleaned.startsWith('254') && cleaned.length === 12) return cleaned;
+    if (cleaned.startsWith('0') && cleaned.length === 10) return '254' + cleaned.substring(1);
+    if (cleaned.length === 9 && /^[71]/.test(cleaned)) return '254' + cleaned;
     return '';
-  },
-
-  // ── Core Send Function ─────────────────────────────────────────────────────
-  async sendSMS(phoneNumber, message, tenantId, shortcode = null) {
-    let formattedPhone = '';
-
-    try {
-      if (!tenantId) throw new Error('tenantId is required to send SMS');
-
-      const config = await this.getConfig(tenantId);
-      const effectiveShortcode = shortcode || config.defaultShortcode;
-
-      formattedPhone = this.formatPhoneNumberForSMS(phoneNumber);
-      if (!formattedPhone) throw new Error(`Invalid phone number format: ${phoneNumber}`);
-      if (!message?.trim()) throw new Error('Message cannot be empty');
-
-      const encodedMessage = encodeURIComponent(message.trim());
-      const endpoint = `${config.baseUrl}/?apikey=${config.apiKey}&partnerID=${config.partnerID}&message=${encodedMessage}&shortcode=${effectiveShortcode}&mobile=${formattedPhone}`;
-
-      console.log(`[SMSService] Sending SMS to ${formattedPhone} via tenant ${tenantId}`);
-
-      await fetch(endpoint, { method: 'GET', mode: 'no-cors' });
-
-      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-
-      await this.logSMS({
-        recipientPhone: formattedPhone,
-        message,
-        status: 'sent',
-        senderId: effectiveShortcode,
-        messageId,
-        cost: 0,
-        tenantId,
-      });
-
-      console.log(`[SMSService] ✅ SMS sent successfully to ${formattedPhone}`);
-      return { success: true, messageId, recipient: formattedPhone };
-
-    } catch (error) {
-      console.error(`[SMSService] ❌ Failed to send SMS to ${phoneNumber}:`, error.message);
-
-      if (formattedPhone) {
-        await this.logSMS({
-          recipientPhone: formattedPhone,
-          message,
-          status: 'failed',
-          errorMessage: error.message,
-          tenantId,
-        });
-      }
-
-      return { success: false, error: error.message, originalNumber: phoneNumber };
-    }
-  },
-
-  // ── SMS Logger ─────────────────────────────────────────────────────────────
-  async logSMS({ recipientPhone, message, status, senderId, errorMessage, messageId, cost, customerId, tenantId }) {
-    try {
-      const { error } = await supabase
-        .from('sms_logs')
-        .insert({
-          recipient_phone: recipientPhone,
-          message,
-          status,
-          sender_id: senderId || null,
-          error_message: errorMessage || null,
-          message_id: messageId || null,
-          customer_id: customerId || null,
-          cost: cost ?? null,
-          tenant_id: tenantId || null,
-        });
-
-      if (error) console.error('[SMSService] Failed to log SMS:', error);
-    } catch (err) {
-      console.error('[SMSService] Error logging SMS:', err);
-    }
-  },
-
-  // ── Notification Helpers ───────────────────────────────────────────────────
-  async sendLoanDisbursementNotification({ customerName, phoneNumber, amount, loanId, transactionId, tenantId }) {
-    const message = `Dear ${customerName}, your loan of KES ${amount.toLocaleString()} has been disbursed successfully. Transaction ID: ${transactionId}. Loan ID: ${loanId}. Funds will reflect in your account shortly. Thank you for choosing us!`;
-    return await this.sendSMS(phoneNumber, message, tenantId);
-  },
-
-  async sendLoanApprovalNotification({ customerName, phoneNumber, amount, loanId, tenantId }) {
-    const message = `Dear ${customerName}, congratulations! Your loan application for KES ${amount.toLocaleString()} has been approved. Loan ID: ${loanId}. You will receive the funds shortly.`;
-    return await this.sendSMS(phoneNumber, message, tenantId);
-  },
+  }
 };
 
-
-
-// PRODUCTION M-Pesa Service - REAL TRANSACTIONS ONLY
+// ================= M-Pesa Service (calls your backend) =================
 const MpesaService = {
-  async processLoanDisbursement(phoneNumber, amount, customerName, loanId, notes = '', processedBy = null) {
+  async processLoanDisbursement({
+    phoneNumber,
+    amount,
+    loanId,
+    notes = '',
+    processedBy = null,
+    tenantId,
+    customerId
+  }) {
     try {
       const formattedPhone = SMSService.formatPhoneNumberForSMS(phoneNumber);
-
       if (!formattedPhone) {
         throw new Error(`Invalid phone number format: ${phoneNumber}`);
       }
 
-      console.log(` Processing M-Pesa loan disbursement:`, {
-        customer: customerName,
+      console.log(`📤 Processing M-Pesa loan disbursement via backend:`, {
+        tenantId,
+        loanId,
+        customerId,
         amount,
         phone: formattedPhone,
-        loanId,
-        notes
+        notes,
+        include_sms: true // Add this if needed by backend
       });
 
-      // PRODUCTION ENDPOINT ONLY
-      const MPESA_API_BASE = 'https://mpesa-22p0.onrender.com/api';
-
-      // EXACT PAYLOAD MATCHING YOUR BACKEND
       const payload = {
-        phoneNumber: formattedPhone,
+        tenant_id: tenantId,
+        loan_id: loanId,
+        customer_id: customerId,
+        phone: formattedPhone,
         amount: Math.round(amount),
-        employeeNumber: loanId,
-        fullName: customerName
+        processed_by: processedBy,
+        notes: notes,
+        include_sms: true
       };
 
-      console.log(' M-Pesa Payload:', payload);
-
-      const response = await fetch(`${MPESA_API_BASE}/mpesa/b2c`, {
+      const response = await fetch(`${BACKEND_URL}/mpesa/b2c/disburse`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('M-Pesa API Error Response:', errorText);
-        throw new Error(`M-Pesa API returned ${response.status}: ${errorText}`);
+        console.error('❌ Backend API Error Response:', errorText);
+        throw new Error(`Disbursement request failed: ${response.status} – ${errorText}`);
       }
 
       const result = await response.json();
+      console.log('✅ Backend response:', result);
 
-      console.log(' M-Pesa loan disbursement processed:', result);
-
-      // Log the successful transaction
-      await this.logMpesaTransaction({
-        loanId,
-        phoneNumber: formattedPhone,
-        amount,
-        customerName,
-        transactionId: result.transactionId || `B2C_${Date.now()}`,
-        status: 'success',
-        response: result,
-        notes: notes,
-        processedBy: processedBy
-      });
+      if (!result.success) {
+        throw new Error(result.error || 'Unknown error');
+      }
 
       return {
         success: true,
-        message: result.message || 'Disbursement processed successfully',
-        transactionId: result.transactionId || `B2C_${Date.now()}`,
+        message: result.message || 'Disbursement initiated successfully',
+        transactionId: result.data?.conversationId,
         rawResponse: result
       };
-
     } catch (error) {
       console.error('❌ M-Pesa loan disbursement error:', error);
-
-      // Log failed transaction - NO MOCK FALLBACK
-      await this.logMpesaTransaction({
-        loanId,
-        phoneNumber,
-        amount,
-        customerName,
-        status: 'failed',
-        error: error.message,
-        notes: notes,
-        processedBy: processedBy
-      });
-
-      throw new Error(`M-Pesa disbursement failed: ${error.message}`);
+      throw new Error(`Disbursement failed: ${error.message}`);
     }
   },
 
-  async logMpesaTransaction(transactionData) {
-    try {
-      const { error } = await supabase
-        .from('loan_disbursement_transactions')
-        .insert({
-          loan_id: transactionData.loanId,
-          customer_phone: transactionData.phoneNumber,
-          amount: transactionData.amount,
-          customer_name: transactionData.customerName,
-          transaction_id: transactionData.transactionId,
-          status: transactionData.status,
-          response_data: transactionData.response,
-          error_message: transactionData.error,
-          notes: transactionData.notes,
-          is_mock: false,
-          processed_by: transactionData.processedBy,
-          processed_at: new Date().toISOString()
-        });
-
-      if (error) {
-        console.error('Failed to log M-Pesa transaction:', error);
-      }
-    } catch (error) {
-      console.error('Error logging M-Pesa transaction:', error);
-    }
-  },
 
   async getLoanTransactions(loanId) {
     try {
@@ -331,15 +131,8 @@ const MpesaService = {
   }
 };
 
-// Disbursement Notes Modal Component
-const DisbursementNotesModal = ({
-  isOpen,
-  onClose,
-  onConfirm,
-  loanDetails,
-  customer,
-  isLoading = false
-}) => {
+// ================= Modals (unchanged) =================
+const DisbursementNotesModal = ({ isOpen, onClose, onConfirm, loanDetails, customer, isLoading }) => {
   const [notes, setNotes] = useState('');
   const [includeSMS, setIncludeSMS] = useState(true);
 
@@ -352,7 +145,7 @@ const DisbursementNotesModal = ({
 
   const handleConfirm = () => {
     if (!notes.trim()) {
-      toast.error('Please provide disbursement notes');
+      toastError('Please provide disbursement notes');
       return;
     }
     onConfirm(notes.trim(), includeSMS);
@@ -426,7 +219,7 @@ const DisbursementNotesModal = ({
             {isLoading ? (
               <>
                 <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                Processing...
+                Disbursing...
               </>
             ) : (
               <>
@@ -441,13 +234,7 @@ const DisbursementNotesModal = ({
   );
 };
 
-// Transaction History Modal Component
-const TransactionHistoryModal = ({
-  isOpen,
-  onClose,
-  transactions,
-  isLoading = false
-}) => {
+const TransactionHistoryModal = ({ isOpen, onClose, transactions, isLoading }) => {
   if (!isOpen) return null;
 
   const getStatusBadge = (status) => {
@@ -535,6 +322,7 @@ const TransactionHistoryModal = ({
   );
 };
 
+// ================= Main Component =================
 const ViewLoansPendingDisbursement = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -551,15 +339,14 @@ const ViewLoansPendingDisbursement = () => {
   const [loading, setLoading] = useState(true);
   const [processingDisbursement, setProcessingDisbursement] = useState(false);
   const [mpesaStatus, setMpesaStatus] = useState(null);
-  const [smsStatus, setSmsStatus] = useState(null);
   const [showNotesModal, setShowNotesModal] = useState(false);
   const [showTransactionHistory, setShowTransactionHistory] = useState(false);
   const [transactions, setTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
 
+  const { success, error: toastError, info, warning } = useToast();
   const { hasPermission, loading: permsLoading, permissions } = usePermissions();
   const canDisburse = hasPermission('loan.disburse');
-  const canViewReport = hasPermission('view_pending_disbursement_report');
 
   useEffect(() => {
     if (!authLoading && !permsLoading) {
@@ -573,10 +360,11 @@ const ViewLoansPendingDisbursement = () => {
   }, [profile, permissions, authLoading, permsLoading, canDisburse]);
 
   useEffect(() => {
-    if (id && profile) {
+    // Only fetch if we have an ID and profile, and we haven't loaded this specific loan yet
+    if (id && profile && (!loanDetails || loanDetails.id !== id)) {
       fetchLoanFullDetails(id);
     }
-  }, [id, profile]);
+  }, [id, profile?.id, loanDetails?.id]);
 
   const fetchWalletAndFeeStatus = async (loanData) => {
     try {
@@ -713,24 +501,11 @@ const ViewLoansPendingDisbursement = () => {
 
     } catch (error) {
       console.error("Error fetching loan details:", error);
-      toast.error("Failed to load loan details");
+      toastError("Failed to load loan details");
     } finally {
       setLoading(false);
     }
   };
-
-  if (loading || permsLoading) {
-    return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mb-4"></div>
-          <p className="text-gray-600">Verifying access...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Removed blocking canViewReport check. Page is now always accessible.
 
   const generateRepaymentSchedule = (loan) => {
     const schedule = [];
@@ -759,68 +534,62 @@ const ViewLoansPendingDisbursement = () => {
 
     setRepaymentSchedule(schedule);
   };
-
-  // PRODUCTION-ONLY DISBURSEMENT HANDLER
   const handleDisbursementWithNotes = async (notes, includeSMS) => {
+    console.log('🚀 handleDisbursementWithNotes called:', { notes, includeSMS });
+
     if (!areFeesFullyPaid()) {
-      toast.error("Cannot disburse loan. Required fees have not been fully paid.");
+      console.warn('❌ Disbursement blocked: Required fees not fully paid.', walletInfo);
+      toastError("Cannot disburse loan. Required fees have not been fully paid.");
       return;
     }
 
-    // Validate user session first
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
-    if (authError || !user) {
-      toast.error("Authentication error. Please log in again.");
+    // Use profile.id from useAuth instead of getUser() to be consistent with custom auth
+    const userId = profile?.id;
+    if (!userId) {
+      toastError("User profile not found. Please log in again.");
       navigate('/login');
       return;
     }
+    console.log('✅ Disbursing user ID:', userId);
 
     setProcessingDisbursement(true);
     setMpesaStatus(null);
-    setSmsStatus(null);
-    setShowNotesModal(false);
+    // Modal stays open until process finishes
 
     try {
-      // Step 1: Process REAL M-Pesa disbursement
       setMpesaStatus('processing');
-      toast.info("🔄 Processing M-Pesa disbursement...");
+      // Removed intermediate info toast
 
-      const mpesaResult = await MpesaService.processLoanDisbursement(
-        customer.mobile,
-        loanDetails.scored_amount,
-        `${customer.Firstname} ${customer.Surname}`,
-        loanDetails.id,
+      console.log("📤 Calling MpesaService.processLoanDisbursement with:", {
+        phoneNumber: customer.mobile,
+        amount: loanDetails.scored_amount,
+        loanId: loanDetails.id,
         notes,
-        user.id
-      );
+        processedBy: userId,
+        tenantId: profile.tenant_id,
+        customerId: customer.id,
+        includeSMS
+      });
+
+      const mpesaResult = await MpesaService.processLoanDisbursement({
+        phoneNumber: customer.mobile,
+        amount: loanDetails.scored_amount,
+        loanId: loanDetails.id,
+        notes,
+        processedBy: userId,
+        tenantId: profile.tenant_id,
+        customerId: customer.id,
+        includeSMS
+      });
+
+      console.log("✅ Backend response received:", mpesaResult);
 
       if (mpesaResult.success) {
         setMpesaStatus('success');
-        toast.success("💰 M-Pesa disbursement processed successfully! Money has been sent.");
+        // Removed intermediate success toast
 
-        // Step 2: Send SMS notification if requested
-        if (includeSMS) {
-          setSmsStatus('processing');
-          toast.info("📱 Sending disbursement notification...");
-
-          const smsResult = await SMSService.sendLoanDisbursementNotification(
-            `${customer.Firstname} ${customer.Surname}`,
-            customer.mobile,
-            loanDetails.scored_amount,
-            loanDetails.id,
-            mpesaResult.transactionId
-          );
-
-          if (smsResult.success) {
-            setSmsStatus('success');
-            toast.success("✅ SMS notification sent successfully!");
-          } else {
-            setSmsStatus('failed');
-            toast.warning("📱 Money sent but SMS notification failed");
-          }
-        }
-
-        // Step 3: Update loan status in database
+        // Update loan status in database
+        console.log("📝 Updating loan status in Supabase...");
         const { error } = await supabase
           .from("loans")
           .update({
@@ -828,71 +597,35 @@ const ViewLoansPendingDisbursement = () => {
             disbursed_at: new Date().toISOString(),
             mpesa_transaction_id: mpesaResult.transactionId,
             disbursement_notes: notes,
-            disbursed_by: user.id
+            disbursed_by: userId
           })
           .eq("id", id);
 
         if (error) {
-          console.error("Error updating loan status:", error);
+          console.error("❌ Error updating loan status:", error);
           throw new Error("Failed to update loan status in database");
         }
+        console.log("✅ Loan status updated successfully");
 
-        toast.success("✅ Loan disbursed successfully! Money has been transferred to customer.");
+        success("✅ Loan disbursed successfully! Money has been sent to customer.");
+        setShowNotesModal(false); // Close modal only on success
 
+        // Navigate back after a short delay
         setTimeout(() => {
-          navigate('/pending-disbursements');
-        }, 3000);
-
+          console.log('⏰ Navigating back to previous page');
+          navigate(-1);
+        }, 2000);
       } else {
+        console.error('❌ mpesaResult.success is false:', mpesaResult);
         setMpesaStatus('failed');
         throw new Error(mpesaResult.message || 'M-Pesa disbursement failed');
       }
-
     } catch (error) {
       console.error("❌ Error during loan disbursement:", error);
       setMpesaStatus('failed');
-
-      // Specific error messages for production
-      if (error.message.includes('Failed to fetch')) {
-        toast.error("🌐 Network error: Cannot connect to M-Pesa service. Please check your internet connection.");
-      } else if (error.message.includes('Invalid phone number')) {
-        toast.error("📱 Invalid customer phone number format. Please verify the mobile number.");
-      } else if (error.message.includes('insufficient funds')) {
-        toast.error("💸 Insufficient funds in M-Pesa business account. Please contact finance.");
-      } else if (error.message.includes('timeout')) {
-        toast.error("⏰ M-Pesa service timeout. Please try again.");
-      } else {
-        toast.error(`❌ Disbursement failed: ${error.message}`);
-      }
+      toastError(`❌ Disbursement failed: ${error.message}`);
     } finally {
       setProcessingDisbursement(false);
-    }
-  };
-
-  const sendTestSMS = async () => {
-    if (!customer) return;
-
-    try {
-      setSmsStatus('processing');
-      toast.info("Sending test SMS...");
-
-      const result = await SMSService.sendLoanApprovalNotification(
-        `${customer.Firstname} ${customer.Surname}`,
-        customer.mobile,
-        loanDetails.scored_amount,
-        loanDetails.id
-      );
-
-      if (result.success) {
-        setSmsStatus('success');
-        toast.success("Test SMS sent successfully!");
-      } else {
-        setSmsStatus('failed');
-        toast.error(`Failed to send SMS: ${result.error}`);
-      }
-    } catch (error) {
-      setSmsStatus('failed');
-      toast.error(`SMS error: ${error.message}`);
     }
   };
 
@@ -905,26 +638,26 @@ const ViewLoansPendingDisbursement = () => {
       setTransactions(transactionData);
     } catch (error) {
       console.error('Error fetching transaction history:', error);
-      toast.error('Failed to load transaction history');
+      toastError('Failed to load transaction history');
     } finally {
       setLoadingTransactions(false);
     }
   };
 
-  if (authLoading || loading) {
+  if (authLoading || loading || permsLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
-        <Spinner text="Loading loan details..." />
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+        <Spinner text="Loading loan details and permissions..." />
       </div>
     );
   }
 
   if (!loanDetails) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-sm font-semibold text-slate-600 mb-2">Loan Not Found</h3>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">Loan Not Found</h3>
           <p className="text-gray-600 mb-4">The requested loan could not be found.</p>
           <button
             onClick={() => navigate('/pending-disbursements')}
@@ -942,13 +675,10 @@ const ViewLoansPendingDisbursement = () => {
   return (
     <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-
-
         <div className="space-y-6">
           {/* Loan Summary */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
               <DocumentTextIcon className="h-6 w-6 text-indigo-600 mr-3" />
               Loan Summary Information
             </h3>
@@ -956,21 +686,15 @@ const ViewLoansPendingDisbursement = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Loan ID:</span>
-                  <span className="text-indigo-600 font-mono font-bold">
-                    #{loanDetails.id}
-                  </span>
+                  <span className="text-indigo-600 font-mono font-bold">#{loanDetails.id}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Customer:</span>
-                  <span className="text-gray-900 font-semibold">
-                    {customer?.Firstname} {customer?.Surname}
-                  </span>
+                  <span className="text-gray-900 font-semibold">{customer?.Firstname} {customer?.Surname}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">ID Number:</span>
-                  <span className="text-gray-900 font-semibold">
-                    {customer?.id_number}
-                  </span>
+                  <span className="text-gray-900 font-semibold">{customer?.id_number}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Mobile:</span>
@@ -984,21 +708,16 @@ const ViewLoansPendingDisbursement = () => {
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Product:</span>
-                  <span className="text-purple-600 font-semibold">
-                    {loanDetails.product_name}
-                  </span>
+                  <span className="text-purple-600 font-semibold">{loanDetails.product_name}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Branch:</span>
-                  <span className="text-gray-900 font-semibold">
-                    {customer?.branches?.name || 'N/A'}
-                  </span>
+                  <span className="text-gray-900 font-semibold">{customer?.branches?.name || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Loan Type:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                    {loanDetails.is_new_loan ? 'New Loan' : 'Repeat '}
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                    {loanDetails.is_new_loan ? 'New Loan' : 'Repeat Loan'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
@@ -1018,9 +737,7 @@ const ViewLoansPendingDisbursement = () => {
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Duration:</span>
-                  <span className="text-gray-900 font-semibold">
-                    {loanDetails.duration_weeks} weeks
-                  </span>
+                  <span className="text-gray-900 font-semibold">{loanDetails.duration_weeks} weeks</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 font-medium">Weekly Payment:</span>
@@ -1038,66 +755,30 @@ const ViewLoansPendingDisbursement = () => {
             </div>
           </div>
 
-          {/* M-Pesa & SMS Status */}
-          {(mpesaStatus || smsStatus) && (
+          {/* M-Pesa Status */}
+          {mpesaStatus && (
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-              <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
                 <EnvelopeIcon className="h-6 w-6 text-blue-600 mr-3" />
                 Disbursement Status
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* M-Pesa Status */}
-                <div className={`p-4 rounded-lg border-2 ${mpesaStatus === 'success' ? 'bg-green-50 border-green-200' :
-                  mpesaStatus === 'failed' ? 'bg-red-50 border-red-200' :
-                    'bg-blue-50 border-blue-200'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-700">M-Pesa Disbursement</span>
-                    {mpesaStatus === 'processing' && (
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-                    )}
-                    {mpesaStatus === 'success' && (
-                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                    )}
-                    {mpesaStatus === 'failed' && (
-                      <XCircleIcon className="h-5 w-5 text-red-500" />
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {mpesaStatus === 'processing' && 'Processing payment...'}
-                    {mpesaStatus === 'success' && 'Payment processed successfully'}
-                    {mpesaStatus === 'failed' && 'Payment processing failed'}
-                  </p>
+              <div className={`p-4 rounded-lg border-2 ${mpesaStatus === 'success' ? 'bg-green-50 border-green-200' :
+                mpesaStatus === 'processing' ? 'bg-blue-50 border-blue-200' :
+                  'bg-red-50 border-red-200'
+                }`}>
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-gray-700">M-Pesa Disbursement</span>
+                  {mpesaStatus === 'processing' && (
+                    <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
+                  )}
+                  {mpesaStatus === 'success' && <CheckCircleIcon className="h-5 w-5 text-green-500" />}
+                  {mpesaStatus === 'failed' && <XCircleIcon className="h-5 w-5 text-red-500" />}
                 </div>
-
-                {/* SMS Status */}
-                <div className={`p-4 rounded-lg border-2 ${smsStatus === 'success' ? 'bg-green-50 border-green-200' :
-                  smsStatus === 'failed' ? 'bg-red-50 border-red-200' :
-                    smsStatus === 'processing' ? 'bg-blue-50 border-blue-200' :
-                      'bg-gray-50 border-gray-200'
-                  }`}>
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-700">SMS Notification</span>
-                    {smsStatus === 'processing' && (
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-blue-500 border-t-transparent"></div>
-                    )}
-                    {smsStatus === 'success' && (
-                      <CheckCircleIcon className="h-5 w-5 text-green-500" />
-                    )}
-                    {smsStatus === 'failed' && (
-                      <XCircleIcon className="h-5 w-5 text-red-500" />
-                    )}
-                    {!smsStatus && (
-                      <ExclamationTriangleIcon className="h-5 w-5 text-gray-400" />
-                    )}
-                  </div>
-                  <p className="text-sm text-gray-600">
-                    {smsStatus === 'processing' && 'Sending notification...'}
-                    {smsStatus === 'success' && 'Notification sent successfully'}
-                    {smsStatus === 'failed' && 'Failed to send notification'}
-                    {!smsStatus && 'Not sent'}
-                  </p>
-                </div>
+                <p className="text-sm text-gray-600 mt-2">
+                  {mpesaStatus === 'processing' && 'Processing payment...'}
+                  {mpesaStatus === 'success' && 'Payment initiated successfully'}
+                  {mpesaStatus === 'failed' && 'Payment processing failed'}
+                </p>
               </div>
             </div>
           )}
@@ -1107,7 +788,7 @@ const ViewLoansPendingDisbursement = () => {
             ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
             : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
             }`}>
-            <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
               <BanknotesIcon className="h-6 w-6 text-emerald-600 mr-3" />
               Wallet & Fee Payment Status
             </h3>
@@ -1122,7 +803,7 @@ const ViewLoansPendingDisbursement = () => {
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="text-sm text-gray-600 mb-3">Processing Fee</div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-slate-900">
+                  <span className="text-sm font-semibold text-gray-900">
                     KES {loanDetails.processing_fee?.toLocaleString()}
                   </span>
                   {walletInfo.processing_fee_paid ? (
@@ -1143,7 +824,7 @@ const ViewLoansPendingDisbursement = () => {
                 <div className="bg-white rounded-xl p-5 shadow-sm">
                   <div className="text-sm text-gray-600 mb-3">Registration Fee</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-slate-600">
+                    <span className="text-sm font-semibold text-gray-900">
                       KES {loanDetails.registration_fee?.toLocaleString()}
                     </span>
                     {walletInfo.registration_fee_paid ? (
@@ -1174,20 +855,20 @@ const ViewLoansPendingDisbursement = () => {
 
           {/* Approval Trail */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
               <IdentificationIcon className="h-6 w-6 text-blue-600 mr-3" />
               Approval Audit Trail
             </h3>
             <div className="space-y-4">
               {approvalTrail.map((step, index) => (
-                <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border border-gray-200 hover:shadow-md transition-shadow">
+                <div key={index} className="flex items-start space-x-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
                   <div className={`w-3 h-3 rounded-full mt-2 flex-shrink-0 ${step.decision === 'approved' ? 'bg-green-500' :
                     step.decision === 'rejected' ? 'bg-red-500' : 'bg-blue-500'
                     }`}></div>
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <span className="font-semibold text-slate-600 text-sm">{step.role}</span>
+                        <span className="font-semibold text-gray-900 text-sm">{step.role}</span>
                         <p className="text-gray-700 font-medium mt-1">{step.name}</p>
                         {step.branch && <p className="text-sm text-gray-600">Branch: {step.branch}</p>}
                       </div>
@@ -1197,9 +878,7 @@ const ViewLoansPendingDisbursement = () => {
                     </div>
                     {step.decision && (
                       <div className="mb-2">
-                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${step.decision === 'approved'
-                          ? 'bg-green-100 text-green-800'
-                          : 'bg-red-100 text-red-800'
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${step.decision === 'approved' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                           }`}>
                           {step.decision === 'approved' ? (
                             <CheckCircleIcon className="h-4 w-4 mr-1" />
@@ -1223,7 +902,7 @@ const ViewLoansPendingDisbursement = () => {
 
           {/* Repayment Schedule */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
               <CalendarIcon className="h-6 w-6 text-green-600 mr-3" />
               Repayment Schedule Preview
             </h3>
@@ -1242,9 +921,7 @@ const ViewLoansPendingDisbursement = () => {
                 <tbody className="divide-y divide-gray-200">
                   {repaymentSchedule.map((payment, index) => (
                     <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">
-                        Week {payment.week}
-                      </td>
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">Week {payment.week}</td>
                       <td className="px-6 py-4 text-sm text-gray-900">
                         {new Date(payment.due_date).toLocaleDateString('en-GB', {
                           weekday: 'short',
@@ -1289,10 +966,10 @@ const ViewLoansPendingDisbursement = () => {
               ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
               : 'bg-gradient-to-r from-gray-50 to-blue-50 border-gray-300'
             }`}>
-            <h3 className="text-sm font-semibold text-slate-600 flex items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
               {canDisburse && feesPaid ? (
                 <>
-                  <CheckCircleIcon className="h-7 w-7 text-accent mr-3" />
+                  <CheckCircleIcon className="h-7 w-7 text-green-600 mr-3" />
                   Ready for Disbursement
                 </>
               ) : canDisburse && !feesPaid ? (
@@ -1307,7 +984,7 @@ const ViewLoansPendingDisbursement = () => {
                 </>
               )}
             </h3>
-            <p className="text-gray-700 mb-6 text-xs">
+            <p className="text-gray-700 mb-6">
               {canDisburse && feesPaid
                 ? "This loan has been fully approved and all required fees have been paid. You can now proceed with disbursement."
                 : canDisburse && !feesPaid
@@ -1322,7 +999,7 @@ const ViewLoansPendingDisbursement = () => {
                     <button
                       onClick={() => setShowNotesModal(true)}
                       disabled={processingDisbursement}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-accent text-white rounded-lg hover:from-green-700 hover:to-emerald-700 transition-all shadow-lg hover:shadow-xl font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-all shadow-lg hover:shadow-xl font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <CurrencyDollarIcon className="h-4 w-4" />
                       Process Disbursement
@@ -1330,22 +1007,13 @@ const ViewLoansPendingDisbursement = () => {
 
                     <button
                       onClick={viewTransactionHistory}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-primary text-white rounded-lg hover:bg-brand-primary transition-all font-medium text-sm"
+                      className="flex items-center gap-2 px-3 py-1.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-all font-medium text-sm"
                     >
                       <DocumentTextIcon className="h-4 w-4" />
                       View History
                     </button>
                   </>
                 )}
-
-                <button
-                  onClick={sendTestSMS}
-                  disabled={!customer?.mobile}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-brand-btn text-white rounded-lg transition-all font-medium text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <EnvelopeIcon className="h-4 w-4" />
-                  Send Test SMS
-                </button>
 
                 <button
                   onClick={() => navigate('/pending-disbursements')}
@@ -1359,7 +1027,7 @@ const ViewLoansPendingDisbursement = () => {
         </div>
       </div>
 
-      {/* Disbursement Notes Modal */}
+      {/* Modals */}
       <DisbursementNotesModal
         isOpen={showNotesModal}
         onClose={() => setShowNotesModal(false)}
@@ -1369,7 +1037,6 @@ const ViewLoansPendingDisbursement = () => {
         isLoading={processingDisbursement}
       />
 
-      {/* Transaction History Modal */}
       <TransactionHistoryModal
         isOpen={showTransactionHistory}
         onClose={() => setShowTransactionHistory(false)}

@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from "../supabaseClient";
 import { useNavigate } from "react-router-dom";
-import Spinner from "../components/Spinner";
 import {
   Briefcase, Receipt, CreditCard, Shield, Users, Clock,
   Home, Building, UserCircle, Search, TrendingUp, TrendingDown,
@@ -10,16 +9,16 @@ import {
   User, Target, BarChart3, CalendarDays, CalendarCheck,
   RefreshCw, ThumbsUp, UserCog, AlertCircle
 } from 'lucide-react';
-import { MagnifyingGlassIcon } from "@heroicons/react/24/outline";
+import { MagnifyingGlassIcon, XMarkIcon, IdentificationIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../hooks/userAuth";
 
 // Color System
 const COLORS = {
-  background: '#E7F0FA',
+  background: '#E7F0FA', // Restored premium background
   secondary: '#7BA4D0',
   primary: '#586ab1',
-  authority: '#0D2440',
-  surface: '#d9e2e8',
+  authority: '#1E3A8A',
+  surface: '#FFFFFF',
   success: '#10B981',
   warning: '#F59E0B',
   danger: '#EF4444'
@@ -57,6 +56,27 @@ const getMonthEndDate = () => {
 };
 
 // FULL currency formatting (no K/M/B)
+// SVG Background Pattern (Topography)
+const TopographyPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <path d="M0,20 Q25,10 50,20 T100,20 V100 H0 Z" fill="currentColor" />
+    <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,60 Q25,50 50,60 T100,60" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="currentColor" strokeWidth="0.5" />
+  </svg>
+);
+
+const GraphPattern = () => (
+  <svg className="absolute bottom-0 right-0 w-32 h-24 opacity-[0.03] pointer-events-none transform -rotate-12 translate-x-4 translate-y-4" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <path d="M0,80 L20,70 L40,75 L60,50 L80,60 L100,30" fill="none" stroke="currentColor" strokeWidth="2" />
+    <circle cx="20" cy="70" r="2" fill="currentColor" />
+    <circle cx="40" cy="75" r="2" fill="currentColor" />
+    <circle cx="60" cy="50" r="2" fill="currentColor" />
+    <circle cx="80" cy="60" r="2" fill="currentColor" />
+    <circle cx="100" cy="30" r="2" fill="currentColor" />
+  </svg>
+);
+
 const formatCurrency = (amount) => {
   if (amount === null || amount === undefined) return "0.00";
   const numAmount = Number(amount);
@@ -68,24 +88,28 @@ const formatCurrency = (amount) => {
 
 // ========== UI COMPONENTS ==========
 const SectionHeader = ({ icon: Icon, title }) => (
-  <div className="flex items-center gap-3 mb-6">
-    <div className="relative flex items-center">
-      <div
-        className="px-4 py-2 rounded-r-full flex items-center gap-2 shadow-sm"
-        style={{ backgroundColor: COLORS.primary }}
-      >
-        <Icon className="w-4 h-4 text-white" strokeWidth={2.5} />
-        <h2 className="text-white text-base whitespace-nowrap">
-          {title}
-        </h2>
-      </div>
+  <div className="flex items-center gap-0 mb-6 w-full group">
+    <div className="flex items-center bg-[#2E5E99] text-white px-4 py-1.5 rounded-l-md shadow-sm whitespace-nowrap min-w-[120px] justify-center font-bold text-[11px] uppercase tracking-wider">
+      {title}
     </div>
+    <div className="flex-grow h-[1px] bg-[#2E5E99] opacity-20 ml-0 shadow-sm" />
+  </div>
+);
+
+const SkeletonCard = () => (
+  <div className="animate-pulse p-6 bg-white rounded-2xl border border-slate-200 min-h-[160px]">
+    <div className="flex items-center gap-3 mb-5">
+      <div className="w-10 h-10 rounded-xl bg-slate-100" />
+      <div className="h-4 bg-slate-100 rounded w-24" />
+    </div>
+    <div className="h-8 bg-slate-100 rounded w-40 mb-3" />
+    <div className="h-3 bg-slate-100 rounded w-20" />
   </div>
 );
 
 const CircularProgress = ({
   percentage,
-  size = 120,
+  size = 140,
   strokeWidth = 14,
   activeStrokeWidth = 18,
   label,
@@ -100,8 +124,8 @@ const CircularProgress = ({
 
   const getColor = () => {
     if (isParMetric) {
-      if (percentage <= 40) return COLORS.success;
-      if (percentage <= 70) return COLORS.warning;
+      if (percentage <= 5) return COLORS.success;
+      if (percentage <= 15) return COLORS.warning;
       return COLORS.danger;
     } else {
       if (percentage <= 40) return COLORS.danger;
@@ -111,7 +135,7 @@ const CircularProgress = ({
   };
 
   return (
-    <div className="flex flex-col items-center">
+    <div className="flex items-center gap-8 w-full">
       <div className="relative" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle
@@ -119,7 +143,7 @@ const CircularProgress = ({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#E5E7EB"
+            stroke="#F1F5F9"
             strokeWidth={strokeWidth}
           />
           <circle
@@ -132,39 +156,29 @@ const CircularProgress = ({
             strokeDasharray={circumference}
             strokeDashoffset={strokeDashoffset}
             strokeLinecap="butt"
-            style={{ transition: "stroke-dashoffset 600ms ease" }}
+            style={{ transition: "stroke-dashoffset 800ms ease" }}
           />
         </svg>
 
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-2xl font-bold" style={{ color: getColor() }}>
-              {Math.round(percentage)}%
+            <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">{label}</div>
+            <div className="text-2xl font-black tracking-tighter" style={{ color: getColor() }}>
+              {percentage.toFixed(1)}%
             </div>
-            <div className="text-xs text-gray-500 mt-1">{label}</div>
           </div>
         </div>
       </div>
 
       {collected !== undefined && (
-        <div className="mt-4 space-y-2 w-full">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Collected:</span>
-            <span className="font-semibold" style={{ color: COLORS.success }}>
-              {formatCurrency(collected)}
-            </span>
+        <div className="flex-grow space-y-4 py-2 border-l border-slate-200/50 pl-6">
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">Collected</span>
+            <span className="text-lg font-black leading-none" style={{ color: "#10B981" }}>{formatCurrency(collected)}</span>
           </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Expected:</span>
-            <span className="font-semibold" style={{ color: COLORS.authority }}>
-              {formatCurrency(expected)}
-            </span>
-          </div>
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-600">Shortfall:</span>
-            <span className="font-semibold" style={{ color: COLORS.danger }}>
-              {formatCurrency(shortfall)}
-            </span>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">Expected</span>
+            <span className="text-lg font-black leading-none" style={{ color: "#1E3A8A" }}>{formatCurrency(expected)}</span>
           </div>
         </div>
       )}
@@ -239,27 +253,28 @@ const SemiCircleProgress = ({
   );
 };
 
-const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
-  <div className="relative">
-    <div className="absolute left-3 top-1/2 -translate-y-1/2">
-      <Icon className="w-4 h-4" style={{ color: COLORS.primary }} strokeWidth={2.4} />
+const FilterSelectCompact = ({ label, icon: Icon, value, onChange, options }) => (
+  <div className="flex items-center bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden flex-1 min-w-[120px]">
+    <div className="bg-[#2E5E99] text-white px-2 py-1.5 flex items-center gap-1.5 min-w-[70px] justify-center font-bold text-[11px] uppercase tracking-tight">
+      <Icon className="w-3 h-3" />
+      {label}
     </div>
-    <select
-      value={value || ""} // Added fallback to empty string to avoid React null value warning
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full pl-9 pr-3 py-2 rounded-md text-sm font-normal appearance-none cursor-pointer outline-none"
-      style={{
-        backgroundColor: COLORS.background,
-        color: COLORS.authority,
-        border: `1px solid ${COLORS.surface}`,
-      }}
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>
-          {opt.label}
-        </option>
-      ))}
-    </select>
+    <div className="relative flex-grow">
+      <select
+        value={value || ""}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full pl-2 pr-6 py-1.5 appearance-none cursor-pointer outline-none bg-transparent text-[11px] font-bold text-slate-700"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
+        <ChevronRight className="w-3 h-3 rotate-90" />
+      </div>
+    </div>
   </div>
 );
 
@@ -269,26 +284,32 @@ const StatCard = ({
   value,
   subtext,
   color = COLORS.primary,
-  bgColor = COLORS.background,
+  bgColor = COLORS.surface,
 }) => (
   <div
-    className="p-4 sm:p-5 rounded-xl shadow-sm"
-    style={{
-      backgroundColor: bgColor,
-      border: `1px solid #E5E7EB`
-    }}
+    className="p-5 rounded-xl shadow-sm relative overflow-hidden group bg-white border border-slate-200"
   >
-    <div className="space-y-1">
-      {subtext && (
-        <div className="text-2xl font-semibold " style={{ color: COLORS.primary }}>{subtext}</div>
-      )}
-      <div className="text-xs sm:text-sm font-medium text-gray-600">{label}</div>
-      <div className="h-px bg-gray-200 my-2" />
-
-      <div className="text-sm sm:text-sm font-bold" style={{ color }}>
-        {value}
+    <GraphPattern />
+    <div className="relative z-10 space-y-3">
+      <div className="flex items-center gap-3">
+        {Icon && (
+          <div className="p-2 transition-transform group-hover:scale-110" style={{ color }}>
+            <Icon size={20} />
+          </div>
+        )}
+        <div className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">{label}</div>
       </div>
 
+      <div className="h-px bg-slate-100 w-full" />
+
+      <div className="flex flex-col">
+        {subtext && (
+          <div className="text-2xl font-black tracking-tight" style={{ color: COLORS.authority }}>{subtext}</div>
+        )}
+        <div className="text-sm font-bold opacity-60 mt-1" style={{ color }}>
+          {value}
+        </div>
+      </div>
     </div>
   </div>
 );
@@ -297,57 +318,77 @@ const PortfolioStatCard = ({
   label,
   amount,
   details,
-  color = COLORS.authority,
-  bgColor = COLORS.background,
+  color = "#2E5E99",
+  bgClassName = "bg-white",
+  pattern: Pattern,
 }) => (
-  <div className="p-5 sm:p-6 min-h-[190px] rounded-xl shadow-sm flex flex-col justify-between"
-    style={{
-      backgroundColor: bgColor,
-      border: `1px solid #E5E7EB`
-    }}
+  <div
+    className={`p-8 rounded-[2.5rem] ${bgClassName} border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.03)] relative overflow-hidden group min-h-[220px] flex flex-col justify-center transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1`}
   >
-
-    <div className="text-3xl sm:text-3xl font-extrabold" style={{ color }}>
-      {amount}
-    </div>
-    <div>
-      <div className="text-sm font-medium text-gray-600 mt-2">{label}</div>
-    </div>
-    <div className="h-px bg-gray-300 mt-5" />
-
-    {details && (
-      <div className="text-sm mt-2 text-gray-600 text-right w-full ">
-        {details}
+    {Pattern && (
+      <div className="absolute inset-0 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+        <Pattern />
       </div>
     )}
+    <div className="relative z-10">
+      <div
+        className="text-[10px] font-black uppercase tracking-[0.25em] mb-4 opacity-70"
+        style={{ color }}
+      >
+        {label}
+      </div>
+      <div
+        className="text-4xl sm:text-5xl font-black mb-6 tracking-tighter leading-none"
+        style={{ color }}
+      >
+        {amount}
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="h-[2px] w-8 rounded-full" style={{ backgroundColor: color, opacity: 0.2 }} />
+        <div className="text-sm font-bold tracking-tight" style={{ color, opacity: 0.8 }}>
+          {details}
+        </div>
+      </div>
+    </div>
+    <div
+      className="absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full -mr-16 -mt-16 opacity-10 group-hover:opacity-20 transition-opacity"
+      style={{ backgroundColor: color }}
+    />
   </div>
 );
+
 
 const CollectionCard = ({
   title,
   percentage,
   collected,
   expected,
-  shortfall,
   label,
+  bgClassName = "bg-white",
+  pattern: Pattern,
 }) => (
   <div
-    className="p-6 rounded-xl flex flex-col items-center"
-    style={{
-      backgroundColor: COLORS.background,
-      border: `1px solid #E5E7EB`
-    }}
+    className={`p-6 rounded-3xl ${bgClassName} shadow-sm border border-slate-200 group transition-all hover:shadow-md h-full flex flex-col relative overflow-hidden`}
   >
-    <h3 className="text-sm mb-4 text-gray-600">
-      {title}
-    </h3>
-    <CircularProgress
-      percentage={percentage}
-      label={label}
-      collected={collected}
-      expected={expected}
-      shortfall={shortfall}
-    />
+    {Pattern && (
+      <div className="absolute inset-0 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+        <Pattern />
+      </div>
+    )}
+    <div className="relative z-10 flex flex-col h-full">
+      <div className="flex items-center justify-center bg-white/60 backdrop-blur-sm text-[#1E3A8A] px-4 py-1.5 rounded-lg mb-8 w-fit mx-auto font-black text-[10px] uppercase tracking-widest border border-slate-200/50">
+        {title}
+      </div>
+
+      <div className="flex-grow flex items-center">
+        <CircularProgress
+          percentage={percentage}
+          label={label}
+          collected={collected}
+          expected={expected}
+        />
+      </div>
+    </div>
   </div>
 );
 
@@ -356,21 +397,24 @@ const RiskMetricCard = ({
   amount,
   details,
   color = COLORS.danger,
-  bgColor = '#fee2e2',
+  bgClassName = "bg-white",
 }) => (
   <div
-    className="p-4 rounded-xl text-center"
-    style={{
-      backgroundColor: bgColor,
-      border: `1px solid #94a3b8`
-    }}
+    className={`p-5 rounded-2xl ${bgClassName} transition-all duration-200 hover:shadow-md relative overflow-hidden border border-slate-200 group`}
   >
-    <div className="text-xs mb-2 text-gray-600">{label}</div>
-    <div className="text-xl font-bold" style={{ color }}>
-      {amount}
+    <div className="absolute inset-0 opacity-[0.05]">
+      <GraphPattern />
     </div>
-    <div className="text-xs mt-1 text-gray-600">
-      {details}
+    <div className="relative z-10">
+      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 group-hover:text-slate-700">{label}</div>
+      <div className="text-2xl font-black font-mono tracking-tight mb-2" style={{ color }}>
+        {amount}
+      </div>
+      {details && (
+        <div className="text-[11px] font-bold text-slate-500 bg-black/5 px-2 py-0.5 rounded-full inline-block">
+          {details}
+        </div>
+      )}
     </div>
   </div>
 );
@@ -381,28 +425,20 @@ const LeadConversionCard = ({
   percentage,
   label,
   leadsText,
-  titleColor = COLORS.authority,
-  bgColor = COLORS.background,
-  borderColor = '#9ca3af',
-  leadsTextColor = '#6B7280'
 }) => (
   <div
-    className="p-4 rounded-xl"
-    style={{
-      backgroundColor: bgColor,
-      border: `1px solid ${borderColor}`
-    }}
+    className="p-6 rounded-3xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col items-center group transition-all hover:shadow-[0_15px_40px_rgba(0,0,0,0.04)]"
   >
-    <h4 className="text-sm text-center mb-3" style={{ color: titleColor }}>
+    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 group-hover:text-slate-600 transition-colors">
       {title}
     </h4>
-    <div className="flex justify-center">
+    <div className="mb-4">
       <SemiCircleProgress
         percentage={percentage}
         label={label}
       />
     </div>
-    <div className="mt-3 text-center text-sm" style={{ color: leadsTextColor }}>
+    <div className="mt-2 text-[11px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-tight">
       {leadsText}
     </div>
   </div>
@@ -412,16 +448,20 @@ const CustomerStatBox = ({
   value,
   label,
   color = COLORS.success,
-  bgColor = `${COLORS.success}15`,
+  bgClassName = "bg-white/80",
 }) => (
   <div
-    className="text-center p-3 rounded-lg"
-    style={{ backgroundColor: bgColor }}
+    className={`p-5 rounded-2xl ${bgClassName} backdrop-blur-sm border border-slate-200 relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 group`}
   >
-    <div className="text-2xl font-bold" style={{ color }}>
-      {value}
+    <div className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
+      <TopographyPattern />
     </div>
-    <div className="text-xs mt-1 text-gray-600">{label}</div>
+    <div className="pl-2 relative z-10">
+      <div className="text-2xl font-black font-mono tracking-tight leading-none mb-2" style={{ color }}>
+        {value}
+      </div>
+      <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-700">{label}</div>
+    </div>
   </div>
 );
 
@@ -430,33 +470,33 @@ const PendingActionCard = ({
   value,
   label,
   color = COLORS.primary,
-  bgColor = COLORS.background,
-  iconBgColor,
-  onClick, // 👈 add this
+  bgClassName = "bg-white",
+  onClick,
 }) => (
   <div
-    onClick={onClick} // 👈 attach here
-    className="p-5 rounded-xl cursor-pointer hover:shadow-lg transition-shadow"
-    style={{
-      backgroundColor: bgColor,
-      border: `1px solid #9ca3af`,
-    }}
+    onClick={onClick}
+    className={`group p-6 rounded-3xl cursor-pointer ${bgClassName} border border-slate-200 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center justify-between gap-4`}
   >
-    <div className="flex items-center justify-between mb-3">
-      <div
-        className="p-2 rounded-lg"
-        style={{ backgroundColor: iconBgColor || `${color}20` }}
-      >
-        <Icon className="w-5 h-5" style={{ color }} />
+    <div className="relative z-10 flex-grow">
+      <div className="flex items-center gap-4 mb-4">
+        <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm"
+          style={{ backgroundColor: `${color}20`, color }}>
+          <Icon className="w-6 h-6" />
+        </div>
+        <div className="text-5xl font-black font-mono tracking-tighter" style={{ color }}>
+          {value}
+        </div>
       </div>
-      <ChevronRight className="w-5 h-5 text-gray-400" />
+      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-700 transition-colors">
+        {label}
+      </div>
     </div>
-
-    <div className="text-3xl font-bold mb-1" style={{ color }}>
-      {value}
+    <div className="relative z-10 flex-shrink-0">
+      <div className="w-8 h-8 rounded-full bg-white/50 flex items-center justify-center shadow-inner group-hover:bg-white group-hover:translate-x-1 transition-all">
+        <ChevronRight className="w-5 h-5 opacity-40 group-hover:opacity-100" style={{ color }} />
+      </div>
     </div>
-
-    <div className="text-sm text-gray-600">{label}</div>
+    <div className="absolute -bottom-8 -right-8 w-24 h-24 rounded-full opacity-[0.03] blur-2xl group-hover:opacity-[0.08] transition-opacity" style={{ backgroundColor: color }} />
   </div>
 );
 
@@ -1316,12 +1356,13 @@ const Dashboard = () => {
   };
 
 
-  if (loading || authInitializing) {
+  if (authInitializing) {
     return (
       <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
         <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text={authInitializing ? "Authenticating..." : "Loading Dashboard..."} />
+          <div className="animate-pulse space-y-4">
+            <div className="w-16 h-16 bg-slate-200 rounded-full mx-auto" />
+            <div className="h-4 bg-slate-200 rounded w-32 mx-auto" />
           </div>
         </div>
       </div>
@@ -1348,11 +1389,12 @@ const Dashboard = () => {
       style={{ backgroundColor: COLORS.background }}
     >
       {/* Filters Bar */}
-      <div className="mb-5 px-3 py-2">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2.5 items-center">
-          {/* Region Filter - Admin, Superadmin, Analyst see all. RM sees only their region. */}
+      <div className="mb-8 px-4 py-4 bg-white/50 rounded-2xl border border-white/60 shadow-sm relative z-50 overflow-visible">
+        <div className="flex flex-wrap gap-4 items-end">
+          {/* Region Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "regional_manager"].includes(userProfile?.role) && (
             <FilterSelectCompact
+              label="Region"
               icon={Home}
               value={selectedRegion}
               onChange={userProfile.role === "regional_manager" ? () => { } : handleRegionChange}
@@ -1370,9 +1412,10 @@ const Dashboard = () => {
             />
           )}
 
-          {/* Branch Filter - Administrative roles and intermediate managers see all/restricted. BM/CSO see ONLY their branch */}
+          {/* Branch Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "regional_manager", "branch_manager", "customer_service_officer"].includes(userProfile?.role) && (
             <FilterSelectCompact
+              label="Branches"
               icon={Building}
               value={selectedBranch}
               onChange={["branch_manager", "customer_service_officer"].includes(userProfile.role) ? () => { } : handleBranchChange}
@@ -1390,9 +1433,10 @@ const Dashboard = () => {
             />
           )}
 
-          {/* RO Filter - for all except relationship_officer */}
+          {/* RO Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "customer_service_officer", "regional_manager", "branch_manager"].includes(userProfile?.role) && (
             <FilterSelectCompact
+              label="RO"
               icon={UserCircle}
               value={selectedRO}
               onChange={handleROChange}
@@ -1403,366 +1447,393 @@ const Dashboard = () => {
             />
           )}
 
-          {/* Search */}
-          <div className="relative col-span-1 sm:col-span-2 lg:col-span-2" ref={searchContainerRef}>
-            <div className="absolute left-3 top-1/2 -translate-y-1/2">
-              <Search className="w-4 h-4" style={{ color: COLORS.primary }} strokeWidth={2.4} />
-            </div>
-            <input
-              type="text"
-              placeholder="Search customer, phone, ID…"
-              value={quickSearchTerm}
-              onChange={(e) => setQuickSearchTerm(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 rounded-md text-sm font-normal outline-none"
-              style={{
-                backgroundColor: COLORS.background,
-                color: COLORS.authority,
-                border: `1px solid ${COLORS.surface}`,
-              }}
-            />
+          <button
+            onClick={() => {
+              setSelectedRegion("all");
+              setSelectedBranch("all");
+              setSelectedRO("all");
+            }}
+            className="px-3 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] text-white font-black text-[9px] uppercase tracking-widest rounded-md shadow-md transition-all active:scale-95 whitespace-nowrap"
+          >
+            Clear
+          </button>
 
-            {quickSearchTerm && quickSearchResults.length > 0 && (
-              <div className="absolute z-50 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-xl max-h-96 overflow-y-auto">
-                {quickSearchResults.map((customer) => (
-                  <div
-                    key={customer.id}
-                    onClick={() => handleOpen360View(customer)}
-                    className="p-3 cursor-pointer border-b border-gray-100 last:border-b-0 hover:bg-slate-100 transition-colors"
-                  >
-                    <p className="text-slate-600 truncate">
-                      {customer.displayName || "Unnamed Customer"}
-                    </p>
-                    <p className="text-xs text-slate-600 opacity-80 truncate">
-                      {customer.mobile} • ID: {customer.id_number || "N/A"}
-                    </p>
-                  </div>
-                ))}
+          {/* Search Integrated into the same row */}
+          <div className="flex-grow min-w-[250px]">
+            <div className="relative group" ref={searchContainerRef}>
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
+                <Search className="w-4 h-4 text-[#2E5E99]" strokeWidth={2.5} />
               </div>
-            )}
+              <input
+                type="text"
+                placeholder="Search name, phone, ID…"
+                value={quickSearchTerm}
+                onChange={(e) => setQuickSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-10 py-2 rounded-lg text-[11px] font-bold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                style={{
+                  color: COLORS.authority,
+                }}
+              />
+              {quickSearchTerm && (
+                <button
+                  onClick={() => {
+                    setQuickSearchTerm("");
+                    setQuickSearchResults([]);
+                  }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full transition-colors z-10"
+                >
+                  <XMarkIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                </button>
+              )}
+
+              {quickSearchTerm && quickSearchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 z-[9999] mt-2 bg-white border border-slate-200 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden">
+                  <div className="max-h-72 overflow-y-auto">
+                    {quickSearchResults.map((customer) => (
+                      <div
+                        key={customer.id}
+                        onClick={() => handleOpen360View(customer)}
+                        className="p-3 cursor-pointer border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group/item flex items-center justify-between"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[11px] font-black text-slate-700 truncate group-hover/item:text-[#2E5E99]">
+                            {customer.displayName || "Unnamed Customer"}
+                          </p>
+                          <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+                            {customer.mobile} • <span className="text-slate-500">ID: {customer.id_number || "N/A"}</span>
+                          </p>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-[#2E5E99] group-hover/item:translate-x-0.5 transition-all" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
 
       <div className="space-y-8">
-        {/* Section 1: Portfolio Overview */}
-        <div
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <SectionHeader icon={Briefcase} title="Portfolio Overview" />
+        {/* Section 1: Portfolio */}
+        <section className="relative">
+          <SectionHeader icon={Briefcase} title="Portfolio" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <PortfolioStatCard
-              label="Outstanding Loan Balance"
-              amount={formatCurrency(dashboardData.portfolio.outstandingBalance)}
-              details={`${dashboardData.portfolio.totalLoans.toLocaleString()} loans`}
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <PortfolioStatCard
-              label="Clean Book"
-              amount={formatCurrency(dashboardData.portfolio.cleanBook)}
-              details={
-                <span style={{ color: cleanBookMetaInfo.color }}>
-                  {`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
-                </span>
-              }
-              color={COLORS.success}
-              bgColor={COLORS.background}
-            />
-
-            {/* <PortfolioStatCard
-              label="Non-Performing Loans"
-              amount={`${dashboardData.portfolio.nplPercentage.toFixed(1)}%`}
-              details={`${formatCurrency(dashboardData.portfolio.nplAmount)} • ${dashboardData.portfolio.nplLoans} loans`}
-              color={COLORS.danger}
-              bgColor={COLORS.background}
-            /> */}
-            <PortfolioStatCard
-              label="Total Customers"
-              amount={dashboardData.customers.total.toLocaleString()}
-              details={`(YTD) ${dashboardData.customers.newYTD}`}
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+            {loading ? (
+              <>
+                <SkeletonCard /> <SkeletonCard /> <SkeletonCard />
+              </>
+            ) : (
+              <>
+                <PortfolioStatCard
+                  label="Outstanding Loan Balance"
+                  amount={formatCurrency(dashboardData.portfolio.outstandingBalance)}
+                  details={`${dashboardData.portfolio.totalLoans.toLocaleString()} Active Loans`}
+                  color="#1E3A8A"
+                  bgClassName="bg-blue-50/50"
+                  pattern={GraphPattern}
+                />
+                <PortfolioStatCard
+                  label="Clean Book"
+                  amount={formatCurrency(dashboardData.portfolio.cleanBook)}
+                  details={`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
+                  color="#10B981"
+                  bgClassName="bg-emerald-50/50"
+                  pattern={TopographyPattern}
+                />
+                <PortfolioStatCard
+                  label="Total Customers"
+                  amount={dashboardData.customers.total.toLocaleString()}
+                  details={`${dashboardData.customers.newYTD.toLocaleString()} YTD New`}
+                  color="#7C3AED"
+                  bgClassName="bg-violet-50/50"
+                  pattern={TopographyPattern}
+                />
+              </>
+            )}
           </div>
-        </div>
+        </section>
 
         {/* Section 2: Collection Performance */}
-        <div
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <SectionHeader icon={Receipt} title="Collection Performance" />
+        {/* Section 2: Collection Overview */}
+        <section className="relative">
+          <SectionHeader icon={Receipt} title="Collections Overview" />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-            <CollectionCard
-              title="Today's Collection"
-              percentage={dashboardData.collections.today.rate}
-              label="Rate"
-              collected={dashboardData.collections.today.collected}
-              expected={dashboardData.collections.today.expected}
-              shortfall={dashboardData.collections.today.expected - dashboardData.collections.today.collected}
-            />
-            <CollectionCard
-              title="Monthly Collection"
-              percentage={dashboardData.collections.month.rate}
-              label="Rate"
-              collected={dashboardData.collections.month.collected}
-              expected={dashboardData.collections.month.expected}
-              shortfall={dashboardData.collections.month.expected - dashboardData.collections.month.collected}
-            />
-            <CollectionCard
-              title="Tomorrow's Collection"
-              percentage={dashboardData.collections.tomorrow.rate}
-              label="Prepaid"
-              collected={dashboardData.collections.tomorrow.prepaid}
-              expected={dashboardData.collections.tomorrow.expected}
-              shortfall={dashboardData.collections.tomorrow.expected - dashboardData.collections.tomorrow.prepaid}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+            {loading ? (
+              <>
+                <SkeletonCard /> <SkeletonCard /> <SkeletonCard />
+              </>
+            ) : (
+              <>
+                <CollectionCard
+                  title="Today's Collection"
+                  percentage={dashboardData.collections.today.rate}
+                  label="Rate"
+                  collected={dashboardData.collections.today.collected}
+                  expected={dashboardData.collections.today.expected}
+                  bgClassName="bg-emerald-50/50"
+                  pattern={TopographyPattern}
+                />
+                <CollectionCard
+                  title="Monthly Collection"
+                  percentage={dashboardData.collections.month.rate}
+                  label="Rate"
+                  collected={dashboardData.collections.month.collected}
+                  expected={dashboardData.collections.month.expected}
+                  bgClassName="bg-blue-50/50"
+                  pattern={GraphPattern}
+                />
+                <CollectionCard
+                  title="Tomorrow's Collection"
+                  percentage={dashboardData.collections.tomorrow.rate}
+                  label="Prepaid"
+                  collected={dashboardData.collections.tomorrow.prepaid}
+                  expected={dashboardData.collections.tomorrow.expected}
+                  bgClassName="bg-violet-50/50"
+                  pattern={TopographyPattern}
+                />
+              </>
+            )}
           </div>
-        </div>
+        </section>
 
         {/* Section 3: Loan Disbursement */}
-        <div
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
+        <section className="relative">
           <SectionHeader icon={CreditCard} title="Loan Disbursement" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <StatCard
-              icon={Database}
-              label="Total Loans"
-              value={dashboardData.disbursements.total.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
-              color={COLORS.authority}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={Calendar}
-              label="Today"
-              value={dashboardData.disbursements.today.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
-              color={COLORS.success}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={Calendar}
-              label="This Month"
-              value={dashboardData.disbursements.thisMonth.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="MTD Disbursement"
-              value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-              subtext={`${dashboardData.disbursements.thisMonth} `}
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={TrendingUp}
-              label="Avg. Loan Size"
-              value={dashboardData.disbursements.total > 0
-                ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
-                : "0.00"
-              }
-              color={COLORS.primary}
-              bgColor={COLORS.background}
-            />
-            <StatCard
-              icon={CalendarCheck} // Changed from CheckCircle
-              label="YTD Disbursement"
-              value={dashboardData.disbursements.ytd.toLocaleString()}
-              subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
-              color={COLORS.secondary}
-              bgColor={COLORS.background}
-            />
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 relative z-10">
+            {loading ? (
+              <>
+                {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+              </>
+            ) : (
+              <>
+                <StatCard
+                  icon={Database}
+                  label="Total Loans"
+                  value={dashboardData.disbursements.total.toLocaleString()}
+                  subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
+                  color={COLORS.authority}
+                />
+                <StatCard
+                  icon={Calendar}
+                  label="Today"
+                  value={dashboardData.disbursements.today.toLocaleString()}
+                  subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
+                  color={COLORS.success}
+                />
+                <StatCard
+                  icon={CalendarCheck}
+                  label="This Month"
+                  value={dashboardData.disbursements.thisMonth.toLocaleString()}
+                  subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+                  color={COLORS.primary}
+                />
+                <StatCard
+                  icon={TrendingUp}
+                  label="MTD Disbursement"
+                  value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
+                  subtext={`${dashboardData.disbursements.thisMonth}`}
+                  color={COLORS.secondary}
+                />
+                <StatCard
+                  icon={Target}
+                  label="Avg. Loan Size"
+                  value={dashboardData.disbursements.total > 0
+                    ? formatCurrency(dashboardData.disbursements.totalAmount / dashboardData.disbursements.total)
+                    : "0.00"
+                  }
+                  color={COLORS.primary}
+                />
+                <StatCard
+                  icon={Briefcase}
+                  label="YTD Disbursement"
+                  value={dashboardData.disbursements.ytd.toLocaleString()}
+                  subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
+                  color={COLORS.secondary}
+                />
+              </>
+            )}
           </div>
-        </div>
+        </section>
 
-        {/* Sections 4 & 5: Risk Metrics and Customer Analytics */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          {/* Section 4: Risk Metrics */}
-          <div
-            className="rounded-2xl p-6 shadow-md"
-            style={{ backgroundColor: COLORS.surface }}
-          >
-            <SectionHeader icon={Shield} title="Risk Metrics" />
+        <section className="relative">
+          <SectionHeader icon={Shield} title="Risk Performance" />
 
-            <div className="space-y-6">
-              <div className="flex justify-center">
+          <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 relative z-10 overflow-hidden group">
+            <div className="absolute inset-0 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
+              <GraphPattern />
+            </div>
+            <div className="flex flex-col lg:flex-row items-center gap-12 relative z-20">
+              <div className="flex items-center gap-6 bg-white/40 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm">
                 <CircularProgress
                   percentage={dashboardData.risk.par}
-                  size={140}
-                  strokeWidth={14}
-                  label="PAR"
+                  label="PAR Ratio"
                   isParMetric={true}
+                  size={180}
                 />
+                <div className="hidden sm:flex flex-col border-l border-slate-200 pl-6 space-y-2">
+                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">PAR Formula</div>
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-500">Arrears</span>
+                    <span className="text-sm font-black text-[#EF4444]">{formatCurrency(dashboardData.risk.totalArrears)}</span>
+                  </div>
+                  <div className="h-px bg-slate-200 w-12" />
+                  <div className="flex flex-col">
+                    <span className="text-xs font-bold text-slate-500">OLB</span>
+                    <span className="text-sm font-black text-[#1E3A8A]">{formatCurrency(dashboardData.risk.outstandingBalance)}</span>
+                  </div>
+                </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex-grow grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
                 <RiskMetricCard
-                  label="Total Arrears"
+                  label="Total Arrears Amount"
                   amount={formatCurrency(dashboardData.risk.totalArrears)}
-                  details={`${dashboardData.risk.arrearsLoans} loans affected`}
-                  color={COLORS.danger}
+                  details={`${dashboardData.risk.arrearsLoans} Loans in Arrears`}
+                  color="#B91C1C"
+                  bgClassName="bg-red-50/80"
                 />
                 <RiskMetricCard
-                  label="MTD Arrears"
+                  label="Monthly Arrears Amount"
                   amount={formatCurrency(dashboardData.risk.mtdArrears)}
-                  details={`${dashboardData.risk.mtdArrearsLoans} loans this month`}
-                  color={COLORS.warning}
-                  bgColor="#fef3c7"
+                  details={`${dashboardData.risk.mtdArrearsLoans} Loans this month`}
+                  color="#B45309"
+                  bgClassName="bg-amber-50/80"
                 />
               </div>
             </div>
           </div>
+        </section>
 
-          {/* Section 5: Customer Analytics */}
-          <div
-            className="rounded-2xl p-6 shadow-md"
-            style={{ backgroundColor: COLORS.surface }}
-          >
-            <SectionHeader icon={Users} title="Customer Analytics" />
+        <section className="relative">
+          <SectionHeader icon={Users} title="Customer Analytics" />
 
-            <div className="space-y-6">
-              <div className="grid grid-cols-4 gap-3">
-                <CustomerStatBox
-                  value={dashboardData.customers.active.toLocaleString()}
-                  label="Active"
-                  color={COLORS.success}
-                  bgColor={`${COLORS.success}15`}
-                />
-                <CustomerStatBox
-                  value={dashboardData.customers.inactive.toLocaleString()}
-                  label="Inactive"
-                  color={COLORS.danger}
-                  bgColor={`${COLORS.danger}15`}
-                />
-                <CustomerStatBox
-                  value={dashboardData.customers.newToday.toLocaleString()}
-                  label="New Today"
-                  color={COLORS.primary}
-                  bgColor={`${COLORS.primary}15`}
-                />
-                <CustomerStatBox
-                  value={dashboardData.customers.newMonth.toLocaleString()}
-                  label="New This Month"
-                  color={COLORS.secondary}
-                  bgColor={`${COLORS.secondary}15`}
-                />
+          <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-200 relative z-10 overflow-hidden">
+            <TopographyPattern />
+
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-20">
+              {/* Row 1: Active/Inactive (Left) & Leads Today (Right) */}
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                <div className="grid grid-cols-1 gap-4 w-full md:w-1/2">
+                  <CustomerStatBox
+                    value={dashboardData.customers.active.toLocaleString()}
+                    label="Active Customers"
+                    color="#047857"
+                    bgClassName="bg-emerald-50/80"
+                  />
+                  <CustomerStatBox
+                    value={dashboardData.customers.inactive.toLocaleString()}
+                    label="Inactive Customers"
+                    color="#B91C1C"
+                    bgClassName="bg-rose-50/80"
+                  />
+                </div>
+                <div className="w-full md:w-1/2">
+                  <LeadConversionCard
+                    title="Leads Conversion Today"
+                    percentage={Math.round(dashboardData.customers.conversionRateToday)}
+                    label="Conversion"
+                    leadsText={`${dashboardData.customers.leadsToday} Leads generated today`}
+                  />
+                </div>
               </div>
 
-
-
-
-
-
-
-              <div className="grid grid-cols-2 gap-6">
-                <LeadConversionCard
-                  title="Leads Today"
-                  percentage={Math.round(dashboardData.customers.conversionRateToday)}
-                  label="Conversion"
-                  leadsText={`${dashboardData.customers.leadsToday} leads generated`}
-                  titleColor={COLORS.authority}
-                  bgColor={COLORS.background}
-                  borderColor="#9ca3af"
-                  leadsTextColor="#6B7280"
-                />
-
-                <LeadConversionCard
-                  title="Leads This Month"
-                  percentage={Math.round(dashboardData.customers.conversionRateMonth)}
-                  label="Conversion"
-                  leadsText={`${dashboardData.customers.leadsMonth} leads generated`}
-                  titleColor={COLORS.authority}
-                  bgColor={COLORS.background}
-                  borderColor="#9ca3af"
-                  leadsTextColor="#6B7280"
-                />
+              {/* Row 2: Leads Month (Left) & New Today/Month (Right) */}
+              <div className="flex flex-col md:flex-row gap-6 items-center">
+                <div className="w-full md:w-1/2">
+                  <LeadConversionCard
+                    title="Lead Conversion This Month"
+                    percentage={Math.round(dashboardData.customers.conversionRateMonth)}
+                    label="Conversion"
+                    leadsText={`${dashboardData.customers.leadsMonth} Leads generated this month`}
+                  />
+                </div>
+                <div className="grid grid-cols-1 gap-4 w-full md:w-1/2">
+                  <CustomerStatBox
+                    value={dashboardData.customers.newToday.toLocaleString()}
+                    label="New Customers Today"
+                    color="#1D4ED8"
+                    bgClassName="bg-blue-50/80"
+                  />
+                  <CustomerStatBox
+                    value={dashboardData.customers.newMonth.toLocaleString()}
+                    label="New This Month"
+                    color="#7C3AED"
+                    bgClassName="bg-violet-50/80"
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Section 6: Pending Actions */}
-        <div
-          className="rounded-2xl p-6 shadow-md"
-          style={{ backgroundColor: COLORS.surface }}
-        >
-          <SectionHeader icon={Clock} title="Pending Actions" />
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
-
-            {/* Pending Disbursement */}
-            <PendingActionCard
-              icon={FileCheck}
-              value={dashboardData.pending.disbursement}
-              label="Pending Disbursement"
-              color={PENDING_COLORS.disbursement}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/loaning/pending-disbursement")}
-            />
-
-            {/* Loan BM Approval */}
-            <PendingActionCard
-              icon={ThumbsUp}
-              value={dashboardData.pending.loanBM}
-              label="Loan Pending BM Approval"
-              color={PENDING_COLORS.loanBM}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/loaning/pending-branch-manager")}
-            />
-
-            {/* Loan RM Approval */}
-            <PendingActionCard
-              icon={ThumbsUp}
-              value={dashboardData.pending.loanRM}
-              label="Loan Pending RM Approval"
-              color={PENDING_COLORS.loanRM}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/loaning/pending-regional-manager")}
-            />
-
-            {/* Customer Callbacks */}
-            <PendingActionCard
-              icon={PhoneCall}
-              value={dashboardData.pending.customerCallbacks}
-              label="Customer Callbacks"
-              color={PENDING_COLORS.customerCallbacks}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/registry/callbacks-pending")}
-            />
-
-            {/* Customer BM Approval */}
-            <PendingActionCard
-              icon={ThumbsUp}
-              value={dashboardData.pending.customerBM}
-              label="Customer Pending BM Approval"
-              color={PENDING_COLORS.customerBM}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/registry/bm-pending")}
-            />
-
-            {/* Customer HQ Review */}
-            <PendingActionCard
-              icon={Building}
-              value={dashboardData.pending.customerHQ}
-              label="Customer HQ Review"
-              color={PENDING_COLORS.customerHQ}
-              bgColor={COLORS.background}
-              onClick={() => navigate("/registry/hq-pending")}
-            />
-          </div>
-        </div>
-
-
+        </section>
       </div>
+
+      {/* Section 6: Pending Actions */}
+      <section className="relative">
+        <SectionHeader icon={Clock} title="Critical Tasks & Alerts" />
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 relative z-10">
+          {loading ? (
+            <>
+              {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+            </>
+          ) : (
+            <>
+              <PendingActionCard
+                icon={FileCheck}
+                value={dashboardData.pending.disbursement}
+                label="Pending Disbursement"
+                color="#0D9488"
+                bgClassName="bg-teal-50/50"
+                onClick={() => navigate("/loaning/pending-disbursement")}
+              />
+              <PendingActionCard
+                icon={ThumbsUp}
+                value={dashboardData.pending.loanBM}
+                label="BM Loan Approvals"
+                color="#B45309"
+                bgClassName="bg-amber-50/50"
+                onClick={() => navigate("/loaning/pending-branch-manager")}
+              />
+              <PendingActionCard
+                icon={ThumbsUp}
+                value={dashboardData.pending.loanRM}
+                label="RM Loan Approvals"
+                color="#4338CA"
+                bgClassName="bg-indigo-50/50"
+                onClick={() => navigate("/loaning/pending-regional-manager")}
+              />
+              <PendingActionCard
+                icon={PhoneCall}
+                value={dashboardData.pending.customerCallbacks}
+                label="Pending Callbacks"
+                color="#15803D"
+                bgClassName="bg-emerald-50/50"
+                onClick={() => navigate("/registry/callbacks-pending")}
+              />
+              <PendingActionCard
+                icon={UserCog}
+                value={dashboardData.pending.customerBM}
+                label="BM Reg. Approvals"
+                color="#C2410C"
+                bgClassName="bg-orange-50/50"
+                onClick={() => navigate("/registry/bm-pending")}
+              />
+              <PendingActionCard
+                icon={Building}
+                value={dashboardData.pending.customerHQ}
+                label="HQ Review Queue"
+                color="#B91C1C"
+                bgClassName="bg-rose-50/50"
+                onClick={() => navigate("/registry/hq-pending")}
+              />
+            </>
+          )}
+        </div>
+      </section>
 
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-gray-200">

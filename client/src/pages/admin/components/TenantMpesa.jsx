@@ -19,6 +19,9 @@ export default function TenantMpesaForm() {
     confirmation_url: "",
     validation_url: "",
     callback_url: "",
+    initiator_name: "",
+    initiator_password: "",
+    security_credential: "",
   });
 
   // Fetch tenants from Supabase
@@ -82,6 +85,9 @@ export default function TenantMpesaForm() {
         confirmation_url: "",
         validation_url: "",
         callback_url: "",
+        initiator_name: "",
+        initiator_password: "",
+        security_credential: "",
       });
     } catch (err) {
       console.error(err);
@@ -272,6 +278,59 @@ export default function TenantMpesaForm() {
                       onChange={handleChange}
                       className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
                       required
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Disbursement / B2C Section */}
+              <div className="md:col-span-2 mt-4">
+                <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                  <svg className="w-5 h-5 mr-2 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                  </svg>
+                  B2C / Disbursement Credentials
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-indigo-50/50 rounded-xl border border-indigo-100">
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Initiator Name
+                    </label>
+                    <input
+                      type="text"
+                      name="initiator_name"
+                      placeholder="e.g., JASIRI_OFFICER"
+                      value={formData.initiator_name}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Initiator Password
+                    </label>
+                    <input
+                      type="password"
+                      name="initiator_password"
+                      placeholder="••••••••"
+                      value={formData.initiator_password}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Security Credential
+                    </label>
+                    <input
+                      type="password"
+                      name="security_credential"
+                      placeholder="••••••••"
+                      value={formData.security_credential}
+                      onChange={handleChange}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-colors duration-200"
                     />
                   </div>
                 </div>

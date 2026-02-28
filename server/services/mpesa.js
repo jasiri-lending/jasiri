@@ -42,6 +42,9 @@ export async function mpesaRequest(tenantConfig, method, path, payload) {
     : "https://sandbox.safaricom.co.ke";
   const url = `${baseUrl}${path}`;
 
+  console.log(`[mpesaRequest] URL: ${url}`);
+  console.log(`[mpesaRequest] Payload:`, JSON.stringify(payload, null, 2));
+
   try {
     const response = await axios({
       method,
@@ -55,7 +58,12 @@ export async function mpesaRequest(tenantConfig, method, path, payload) {
     });
     return response.data;
   } catch (err) {
-    log.error({ err: err.message, path }, "MPESA request failed");
+    if (err.response) {
+      console.error(`[mpesaRequest] Response status: ${err.response.status}`);
+      console.error(`[mpesaRequest] Response data:`, err.response.data);
+    } else {
+      console.error(`[mpesaRequest] Error:`, err.message);
+    }
     throw err;
   }
 }

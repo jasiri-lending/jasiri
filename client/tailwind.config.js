@@ -17,7 +17,7 @@ export default {
         highlight: "#FACC15",   // Gold – Premium Highlight
         text: "#111827",        // Default text color
         background: "#FFFFFF",  // Clean white background
-        muted: "#6B7280",       // Subtle gray for secondary text
+        muted: "#d9e2e8",       // Subtle gray for secondary text
         brand: {
           surface: "#E7F0FA",   // Backgrounds / surfaces
           secondary: "#7BA4D0", // Secondary elements

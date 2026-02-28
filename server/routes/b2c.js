@@ -12,7 +12,7 @@ const log = createLogger({ service: "b2c" });
 
 // ── Initiate disbursement ───────────────────────────────────────
 b2c.post("/disburse", async (req, res) => {
-  const { tenant_id, loan_id, customer_id, phone, amount } = req.body;
+  const { tenant_id, loan_id, customer_id, phone, amount, processed_by, notes, include_sms } = req.body;
 
   if (!tenant_id || !loan_id || !customer_id || !phone || !amount) {
     return res.status(400).json({
@@ -21,35 +21,51 @@ b2c.post("/disburse", async (req, res) => {
     });
   }
 
+  let record; // Declare outside try so it's accessible in catch
+
   try {
     const tenantConfig = await getTenantConfig(tenant_id);
 
-    // Log disbursement record
-    const { data: record, error: insertErr } = await supabaseAdmin
-      .from("mpesa_b2c_transactions")
+    // Fetch customer name for logging (optional)
+    const { data: customer, error: custErr } = await supabaseAdmin
+      .from("customers")
+      .select("Firstname, Surname")
+      .eq("id", customer_id)
+      .maybeSingle();
+    if (custErr || !customer) {
+      log.warn({ customer_id }, "Customer not found for name lookup");
+    }
+    const customerName = customer ? `${customer.Firstname} ${customer.Surname}`.trim() : null;
+
+    // Log disbursement record in loan_disbursement_transactions
+    const insertResult = await supabaseAdmin
+      .from("loan_disbursement_transactions")
       .insert({
-        tenant_id,
         loan_id,
-        customer_id,
-        phone_number: phone,
+        customer_phone: phone,
         amount,
-        description: `Loan Disbursement #${loan_id}`,
+        customer_name: customerName,
         status: "pending",
+        tenant_id,
+        processed_by: processed_by || null,
+        notes: notes || `Loan Disbursement #${loan_id}`,
+        customer_id, // ✅ Add this to link the record to the customer
       })
       .select("id")
       .single();
 
-    if (insertErr) throw new Error(`Failed to create B2C record: ${insertErr.message}`);
+    if (insertResult.error) throw new Error(`Failed to create disbursement record: ${insertResult.error.message}`);
+    record = insertResult.data;
 
-    // Prepare B2C request payload
+    // Prepare B2C request payload using per‑tenant initiator credentials
     const payload = {
-      InitiatorName: process.env.MPESA_INITIATOR,
-      SecurityCredential: process.env.MPESA_SECURITY_CREDENTIAL,
+      InitiatorName: tenantConfig.initiator_name,               // from tenant config
+      SecurityCredential: tenantConfig.security_credential,     // from tenant config
       CommandID: "BusinessPayment",
       Amount: Math.round(amount),
       PartyA: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,
       PartyB: phone,
-      Remarks: `Loan Disbursement #${loan_id}`,
+      Remarks: notes || `Loan Disbursement #${loan_id}`,
       QueueTimeOutURL: `${tenantConfig.callback_url}/mpesa/b2c/timeout`,
       ResultURL: `${tenantConfig.callback_url}/mpesa/b2c/result`,
       Occasion: `loan-${loan_id}`,
@@ -59,11 +75,12 @@ b2c.post("/disburse", async (req, res) => {
     const convId = mpesaRes?.ConversationID;
     const originatorId = mpesaRes?.OriginatorConversationID;
 
+    // Update the record with conversation IDs and set status to "processing"
     await supabaseAdmin
-      .from("mpesa_b2c_transactions")
+      .from("loan_disbursement_transactions")
       .update({
         conversation_id: convId,
-        originator_id: originatorId,
+        originator_conversation_id: originatorId,
         status: "processing"
       })
       .eq("id", record.id);
@@ -76,6 +93,18 @@ b2c.post("/disburse", async (req, res) => {
 
   } catch (err) {
     log.error({ err: err.message, tenant_id, loan_id }, "Disbursement failed");
+
+    // If a record was created, mark it as failed
+    if (record?.id) {
+      await supabaseAdmin
+        .from("loan_disbursement_transactions")
+        .update({
+          status: "failed",
+          error_message: err.message
+        })
+        .eq("id", record.id);
+    }
+
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -83,18 +112,33 @@ b2c.post("/disburse", async (req, res) => {
 // ── B2C Result callback ─────────────────────────────────────────
 b2c.post("/result", async (req, res) => {
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  log.info({
-    resultCode: body?.Result?.ResultCode,
-    convId: body?.Result?.ConversationID
-  }, "B2C result received");
+  const { Result } = body;
+  if (!Result) return res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  const convId = Result.ConversationID;
+  const originatorId = Result.OriginatorConversationID;
+
+  log.info({ resultCode: Result?.ResultCode, convId }, "B2C result received");
 
   // Always ACK Safaricom immediately
   res.json({ ResultCode: 0, ResultDesc: "Received" });
 
   setImmediate(async () => {
     try {
+      // Find the original transaction using either conversation_id or originator_conversation_id
+      const { data: tx, error } = await supabaseAdmin
+        .from("loan_disbursement_transactions")
+        .select("tenant_id")
+        .or(`conversation_id.eq.${convId},originator_conversation_id.eq.${originatorId}`)
+        .maybeSingle();
+
+      if (error || !tx) {
+        log.error({ error, convId, originatorId }, "Could not find disbursement transaction for callback");
+        return;
+      }
+
       await enqueueJob({
-        tenantId: "system", // or extract from body if possible
+        tenantId: tx.tenant_id,
         jobType: JOB_TYPES.B2C_DISBURSEMENT,
         payload: body,
         priority: 1,
@@ -108,13 +152,28 @@ b2c.post("/result", async (req, res) => {
 // ── B2C Timeout callback ────────────────────────────────────────
 b2c.post("/timeout", async (req, res) => {
   const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  log.warn({ convId: body?.Result?.ConversationID }, "B2C timeout received");
+  const { Result } = body;
+  const convId = Result?.ConversationID;
+  const originatorId = Result?.OriginatorConversationID;
+
+  log.warn({ convId }, "B2C timeout received");
   res.json({ ResultCode: 0, ResultDesc: "Received" });
 
   setImmediate(async () => {
     try {
+      const { data: tx, error } = await supabaseAdmin
+        .from("loan_disbursement_transactions")
+        .select("tenant_id")
+        .or(`conversation_id.eq.${convId},originator_conversation_id.eq.${originatorId}`)
+        .maybeSingle();
+
+      if (error || !tx) {
+        log.error({ error, convId }, "Could not find disbursement transaction for timeout");
+        return;
+      }
+
       await enqueueJob({
-        tenantId: "system",
+        tenantId: tx.tenant_id,
         jobType: JOB_TYPES.B2C_DISBURSEMENT,
         payload: { ...body, timeout: true },
         priority: 1,
