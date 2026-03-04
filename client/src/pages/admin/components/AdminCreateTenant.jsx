@@ -20,8 +20,8 @@ export default function AdminCreateTenant() {
     secondary_color: "#6366f1",
     admin_full_name: "",
     admin_email: "",
-    // Mpesa config fields
-    payment_type: "paybill", // 'paybill' or 'till'
+    // C2B (Collections / Repayments)
+    payment_type: "paybill",
     paybill_number: "",
     till_number: "",
     consumer_key: "",
@@ -31,9 +31,16 @@ export default function AdminCreateTenant() {
     confirmation_url: "",
     validation_url: "",
     callback_url: "",
+    c2b_environment: "sandbox",
+    // B2C (Disbursements / Refunds)
+    b2c_shortcode: "",
+    b2c_consumer_key: "",
+    b2c_consumer_secret: "",
     initiator_name: "",
     initiator_password: "",
     security_credential: "",
+    b2c_callback_url: "",
+    b2c_environment: "sandbox",
     // Optional fields
     cr12: "",
     company_certificate: "",
@@ -161,31 +168,53 @@ export default function AdminCreateTenant() {
     setError("");
 
     try {
-      const mpesaData = {
-        tenant_id: newTenantId,
-        paybill_number: formData.payment_type === "paybill" ? formData.paybill_number : null,
-        till_number: formData.payment_type === "till" ? formData.till_number : null,
-        consumer_key: formData.consumer_key,
-        consumer_secret: formData.consumer_secret,
-        passkey: formData.passkey,
-        shortcode: formData.shortcode,
-        confirmation_url: formData.confirmation_url,
-        validation_url: formData.validation_url,
-        callback_url: formData.callback_url,
-        initiator_name: formData.initiator_name,
-        initiator_password: formData.initiator_password,
-        security_credential: formData.security_credential,
-        admin_id: (await supabase.auth.getUser()).data.user?.id
-      };
+      const adminId = (await supabase.auth.getUser()).data.user?.id;
 
-      const res = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+      // Save C2B config (repayments)
+      const c2bRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(mpesaData),
+        body: JSON.stringify({
+          tenant_id: newTenantId,
+          service_type: "c2b",
+          paybill_number: formData.payment_type === "paybill" ? formData.paybill_number : null,
+          till_number: formData.payment_type === "till" ? formData.till_number : null,
+          consumer_key: formData.consumer_key,
+          consumer_secret: formData.consumer_secret,
+          passkey: formData.passkey,
+          shortcode: formData.shortcode,
+          confirmation_url: formData.confirmation_url,
+          validation_url: formData.validation_url,
+          callback_url: formData.callback_url,
+          environment: formData.c2b_environment,
+          admin_id: adminId,
+        }),
       });
+      const c2bData = await c2bRes.json();
+      if (!c2bRes.ok) throw new Error(c2bData.error || "Failed to save C2B config");
 
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Failed to save Mpesa config");
+      // Save B2C config (disbursements & refunds) — only if any B2C field is filled
+      if (formData.b2c_shortcode || formData.initiator_name || formData.b2c_consumer_key) {
+        const b2cRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            tenant_id: newTenantId,
+            service_type: "b2c",
+            shortcode: formData.b2c_shortcode,
+            consumer_key: formData.b2c_consumer_key,
+            consumer_secret: formData.b2c_consumer_secret,
+            initiator_name: formData.initiator_name,
+            initiator_password: formData.initiator_password,
+            security_credential: formData.security_credential,
+            callback_url: formData.b2c_callback_url,
+            environment: formData.b2c_environment,
+            admin_id: adminId,
+          }),
+        });
+        const b2cData = await b2cRes.json();
+        if (!b2cRes.ok) throw new Error(b2cData.error || "Failed to save B2C config");
+      }
 
       // Advance to step 3 (SMS config)
       setCurrentStep(3);
@@ -288,7 +317,7 @@ export default function AdminCreateTenant() {
       phone_number: tenant.phone_number || "",
       admin_full_name: "",
       admin_email: "",
-      // reset config fields until fetched
+      // reset C2B fields
       payment_type: "paybill",
       paybill_number: "",
       till_number: "",
@@ -299,9 +328,16 @@ export default function AdminCreateTenant() {
       confirmation_url: "",
       validation_url: "",
       callback_url: "",
+      c2b_environment: "sandbox",
+      // reset B2C fields
+      b2c_shortcode: "",
+      b2c_consumer_key: "",
+      b2c_consumer_secret: "",
       initiator_name: "",
       initiator_password: "",
       security_credential: "",
+      b2c_callback_url: "",
+      b2c_environment: "sandbox",
       sms_base_url: "",
       sms_api_key: "",
       sms_partner_id: "",
@@ -312,31 +348,57 @@ export default function AdminCreateTenant() {
     setError("");
     setSuccess(false);
 
-    // Fetch MPESA config and SMS config in parallel
+    // Fetch all MPESA configs and SMS config
     try {
-      const [mpesaRes, smsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/tenant-mpesa-config/${tenant.id}`),
+      const [mpesaAllRes, smsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/tenant-mpesa-config/${tenant.id}/all`),
         fetch(`${API_BASE_URL}/api/tenant/sms-config/${tenant.id}`),
       ]);
 
       const updates = {};
 
-      if (mpesaRes.ok) {
-        const { data: mpesa } = await mpesaRes.json();
-        if (mpesa) {
-          updates.payment_type = mpesa.paybill_number ? "paybill" : "till";
-          updates.paybill_number = mpesa.paybill_number || "";
-          updates.till_number = mpesa.till_number || "";
-          updates.consumer_key = mpesa.consumer_key || "";
-          updates.consumer_secret = mpesa.consumer_secret || "";
-          updates.passkey = mpesa.passkey || "";
-          updates.shortcode = mpesa.shortcode || "";
-          updates.confirmation_url = mpesa.confirmation_url || "";
-          updates.validation_url = mpesa.validation_url || "";
-          updates.callback_url = mpesa.callback_url || "";
-          updates.initiator_name = mpesa.initiator_name || "";
-          updates.initiator_password = mpesa.initiator_password || "";
-          updates.security_credential = mpesa.security_credential || "";
+      if (mpesaAllRes.ok) {
+        const { data: configs } = await mpesaAllRes.json();
+        if (Array.isArray(configs)) {
+          const c2b = configs.find(c => c.service_type === "c2b");
+          const b2c = configs.find(c => c.service_type === "b2c");
+          if (c2b) {
+            updates.payment_type = c2b.paybill_number ? "paybill" : "till";
+            updates.paybill_number = c2b.paybill_number || "";
+            updates.till_number = c2b.till_number || "";
+            updates.consumer_key = c2b.consumer_key || "";
+            updates.consumer_secret = c2b.consumer_secret || "";
+            updates.passkey = c2b.passkey || "";
+            updates.shortcode = c2b.shortcode || "";
+            updates.confirmation_url = c2b.confirmation_url || "";
+            updates.validation_url = c2b.validation_url || "";
+            updates.callback_url = c2b.callback_url || "";
+            updates.c2b_environment = c2b.environment || "sandbox";
+          }
+          if (b2c) {
+            updates.b2c_shortcode = b2c.shortcode || "";
+            updates.b2c_consumer_key = b2c.consumer_key || "";
+            updates.b2c_consumer_secret = b2c.consumer_secret || "";
+            updates.initiator_name = b2c.initiator_name || "";
+            updates.initiator_password = b2c.initiator_password || "";
+            updates.security_credential = b2c.security_credential || "";
+            updates.b2c_callback_url = b2c.callback_url || "";
+            updates.b2c_environment = b2c.environment || "sandbox";
+          }
+        } else if (configs) {
+          // Fallback: single config object (old API)
+          const c = configs;
+          updates.payment_type = c.paybill_number ? "paybill" : "till";
+          updates.paybill_number = c.paybill_number || "";
+          updates.till_number = c.till_number || "";
+          updates.consumer_key = c.consumer_key || "";
+          updates.consumer_secret = c.consumer_secret || "";
+          updates.passkey = c.passkey || "";
+          updates.shortcode = c.shortcode || "";
+          updates.confirmation_url = c.confirmation_url || "";
+          updates.validation_url = c.validation_url || "";
+          updates.callback_url = c.callback_url || "";
+          updates.c2b_environment = c.environment || "sandbox";
         }
       }
 
@@ -368,6 +430,7 @@ export default function AdminCreateTenant() {
       secondary_color: "#6366f1",
       admin_full_name: "",
       admin_email: "",
+      // C2B
       payment_type: "paybill",
       paybill_number: "",
       till_number: "",
@@ -378,9 +441,16 @@ export default function AdminCreateTenant() {
       confirmation_url: "",
       validation_url: "",
       callback_url: "",
+      c2b_environment: "sandbox",
+      // B2C
+      b2c_shortcode: "",
+      b2c_consumer_key: "",
+      b2c_consumer_secret: "",
       initiator_name: "",
       initiator_password: "",
       security_credential: "",
+      b2c_callback_url: "",
+      b2c_environment: "sandbox",
       cr12: "",
       company_certificate: "",
       license: "",
@@ -429,13 +499,15 @@ export default function AdminCreateTenant() {
           .eq("id", editingTenant.id);
         if (updateErr) throw updateErr;
 
-        // 2. Save MPESA config if any credential is filled
-        if (formData.consumer_key || formData.consumer_secret || formData.passkey) {
-          const mpesaRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+        // 2. Save C2B config (repayments)
+        const adminId = (await supabase.auth.getUser()).data.user?.id;
+        if (formData.consumer_key || formData.passkey || formData.paybill_number || formData.till_number) {
+          const c2bRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tenant_id: editingTenant.id,
+              service_type: "c2b",
               paybill_number: formData.payment_type === "paybill" ? formData.paybill_number : null,
               till_number: formData.payment_type === "till" ? formData.till_number : null,
               consumer_key: formData.consumer_key,
@@ -445,14 +517,35 @@ export default function AdminCreateTenant() {
               confirmation_url: formData.confirmation_url,
               validation_url: formData.validation_url,
               callback_url: formData.callback_url,
+              environment: formData.c2b_environment,
+              admin_id: adminId,
+            }),
+          });
+          const c2bData = await c2bRes.json();
+          if (!c2bRes.ok) throw new Error(c2bData.error || "Failed to save C2B config");
+        }
+
+        // 3. Save B2C config (disbursements & refunds)
+        if (formData.b2c_shortcode || formData.initiator_name || formData.b2c_consumer_key) {
+          const b2cRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              tenant_id: editingTenant.id,
+              service_type: "b2c",
+              shortcode: formData.b2c_shortcode,
+              consumer_key: formData.b2c_consumer_key,
+              consumer_secret: formData.b2c_consumer_secret,
               initiator_name: formData.initiator_name,
               initiator_password: formData.initiator_password,
               security_credential: formData.security_credential,
-              admin_id: (await supabase.auth.getUser()).data.user?.id,
+              callback_url: formData.b2c_callback_url,
+              environment: formData.b2c_environment,
+              admin_id: adminId,
             }),
           });
-          const mpesaData = await mpesaRes.json();
-          if (!mpesaRes.ok) throw new Error(mpesaData.error || "Failed to save MPESA config");
+          const b2cData = await b2cRes.json();
+          if (!b2cRes.ok) throw new Error(b2cData.error || "Failed to save B2C config");
         }
 
         // 3. Save SMS config if any field is filled
@@ -1123,6 +1216,34 @@ export default function AdminCreateTenant() {
                                       onChange={e => setFormData({ ...formData, callback_url: e.target.value })}
                                       className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
                                   </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Confirmation URL</label>
+                                    <input type="url" placeholder="https://..." value={formData.confirmation_url}
+                                      onChange={e => setFormData({ ...formData, confirmation_url: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Validation URL</label>
+                                    <input type="url" placeholder="https://..." value={formData.validation_url}
+                                      onChange={e => setFormData({ ...formData, validation_url: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Environment</label>
+                                    <select value={formData.environment} onChange={e => setFormData({ ...formData, environment: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none bg-white">
+                                      <option value="sandbox">Sandbox</option>
+                                      <option value="production">Production</option>
+                                    </select>
+                                  </div>
+                                  <div>
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">Service Type</label>
+                                    <select value={formData.service_type} onChange={e => setFormData({ ...formData, service_type: e.target.value })}
+                                      className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none bg-white">
+                                      <option value="c2b">C2B (Customer to Business)</option>
+                                      <option value="b2c">B2C (Business to Customer)</option>
+                                    </select>
+                                  </div>
                                   <div className="md:col-span-2 pt-2 border-t border-gray-100">
                                     <h4 className="text-[10px] font-bold text-brand-primary uppercase tracking-wider mb-3">Initiator Credentials (B2C)</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1261,17 +1382,15 @@ export default function AdminCreateTenant() {
                         </div>
                       ) : (
                         <div className="space-y-6">
-                          {/* Step 2: Mpesa Configuration */}
-                          <div className="bg-brand-surface/40 rounded-xl p-6 border border-brand-surface">
-                            <h3 className="text-sm font-bold text-brand-primary uppercase tracking-widest mb-4">Mpesa Gateway Type</h3>
-
+                          {/* Collection method toggle */}
+                          <div className="bg-brand-surface/40 rounded-xl p-5 border border-brand-surface">
+                            <h3 className="text-sm font-bold text-brand-primary uppercase tracking-widest mb-3">Collection Method</h3>
                             <div className="flex gap-4">
                               <label className={`flex-1 flex flex-col items-center justify-center p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'paybill' ? 'border-brand-primary bg-brand-surface/20 shadow-sm' : 'border-gray-100 hover:border-gray-200'}`}>
                                 <input type="radio" name="payment_type" value="paybill" checked={formData.payment_type === 'paybill'} onChange={e => setFormData({ ...formData, payment_type: e.target.value })} className="hidden" />
                                 <span className={`text-xs font-black uppercase tracking-widest ${formData.payment_type === 'paybill' ? 'text-brand-primary' : 'text-gray-500'}`}>Paybill</span>
                                 <p className="text-[10px] text-gray-400 mt-1">Corporate Collections</p>
                               </label>
-
                               <label className={`flex-1 flex flex-col items-center justify-center p-4 bg-white border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'till' ? 'border-brand-primary bg-brand-surface/20 shadow-sm' : 'border-gray-100 hover:border-gray-200'}`}>
                                 <input type="radio" name="payment_type" value="till" checked={formData.payment_type === 'till'} onChange={e => setFormData({ ...formData, payment_type: e.target.value })} className="hidden" />
                                 <span className={`text-xs font-black uppercase tracking-widest ${formData.payment_type === 'till' ? 'text-brand-primary' : 'text-gray-500'}`}>Buy Goods Till</span>
@@ -1280,43 +1399,115 @@ export default function AdminCreateTenant() {
                             </div>
                           </div>
 
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div className="md:col-span-2">
-                              <label className="block text-xs font-medium text-gray-700 mb-2">
-                                {formData.payment_type === 'paybill' ? 'Paybill Number' : 'Till Number'} *
-                              </label>
-                              <input
-                                type="text" required
-                                placeholder={formData.payment_type === 'paybill' ? "e.g. 4157991" : "e.g. 521234"}
-                                value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number}
-                                onChange={(e) => setFormData({ ...formData, [formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number']: e.target.value })}
-                                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary focus:border-brand-primary outline-none"
-                              />
+                          {/* C2B Card */}
+                          <div className="rounded-xl border-2 border-green-100 overflow-hidden">
+                            <div className="bg-green-50 px-5 py-3 flex items-center gap-2 border-b border-green-100">
+                              <div className="h-5 w-5 rounded-full bg-green-500 flex items-center justify-center flex-shrink-0">
+                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 10l7-7m0 0l7 7m-7-7v18" /></svg>
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-green-800 uppercase tracking-wider">C2B &mdash; Collections (Repayments)</p>
+                                <p className="text-[10px] text-green-600">Customer pays to business &middot; Used for loan repayments</p>
+                              </div>
                             </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-2">Shortcode *</label>
-                              <input type="text" required value={formData.shortcode} onChange={e => setFormData({ ...formData, shortcode: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                            <div className="p-5 bg-white">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="md:col-span-2">
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">{formData.payment_type === 'paybill' ? 'Paybill Number' : 'Till Number'} *</label>
+                                  <input type="text" required
+                                    placeholder={formData.payment_type === 'paybill' ? 'e.g. 4157991' : 'e.g. 521234'}
+                                    value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number}
+                                    onChange={(e) => setFormData({ ...formData, [formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number']: e.target.value })}
+                                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Shortcode *</label>
+                                  <input type="text" required value={formData.shortcode} onChange={e => setFormData({ ...formData, shortcode: e.target.value })} placeholder="Same as paybill/till" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Environment *</label>
+                                  <select value={formData.c2b_environment} onChange={e => setFormData({ ...formData, c2b_environment: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none bg-white">
+                                    <option value="sandbox">Sandbox</option>
+                                    <option value="production">Production</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Key *</label>
+                                  <input type="text" required value={formData.consumer_key} onChange={e => setFormData({ ...formData, consumer_key: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono text-[10px] focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Secret *</label>
+                                  <input type="password" required value={formData.consumer_secret} onChange={e => setFormData({ ...formData, consumer_secret: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Passkey *</label>
+                                  <input type="password" required value={formData.passkey} onChange={e => setFormData({ ...formData, passkey: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Callback URL *</label>
+                                  <input type="url" required value={formData.callback_url} onChange={e => setFormData({ ...formData, callback_url: e.target.value })} placeholder="https://your-api.com/mpesa/c2b/callback" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Confirmation URL</label>
+                                  <input type="url" value={formData.confirmation_url} onChange={e => setFormData({ ...formData, confirmation_url: e.target.value })} placeholder="https://your-api.com/mpesa/confirm" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                                <div className="md:col-span-2">
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Validation URL</label>
+                                  <input type="url" value={formData.validation_url} onChange={e => setFormData({ ...formData, validation_url: e.target.value })} placeholder="https://your-api.com/mpesa/validate" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-green-400 outline-none" />
+                                </div>
+                              </div>
                             </div>
+                          </div>
 
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Key *</label>
-                              <input type="text" required value={formData.consumer_key} onChange={e => setFormData({ ...formData, consumer_key: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono text-[10px] focus:ring-1 focus:ring-brand-primary outline-none" />
+                          {/* B2C Card */}
+                          <div className="rounded-xl border-2 border-blue-100 overflow-hidden">
+                            <div className="bg-blue-50 px-5 py-3 flex items-center gap-2 border-b border-blue-100">
+                              <div className="h-5 w-5 rounded-full bg-blue-500 flex items-center justify-center flex-shrink-0">
+                                <svg className="h-3 w-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" /></svg>
+                              </div>
+                              <div>
+                                <p className="text-xs font-bold text-blue-800 uppercase tracking-wider">B2C &mdash; Disbursements &amp; Refunds</p>
+                                <p className="text-[10px] text-blue-600">Business pays to customer &middot; Used for loan disbursements and refunds</p>
+                              </div>
                             </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Secret *</label>
-                              <input type="password" required value={formData.consumer_secret} onChange={e => setFormData({ ...formData, consumer_secret: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
-                            </div>
-
-                            <div>
-                              <label className="block text-xs font-medium text-gray-700 mb-2">Passkey *</label>
-                              <input type="password" required value={formData.passkey} onChange={e => setFormData({ ...formData, passkey: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
-                            </div>
-
-                            <div className="md:col-span-2">
-                              <label className="block text-xs font-medium text-gray-700 mb-2">Main Callback URL *</label>
-                              <input type="url" required value={formData.callback_url} onChange={e => setFormData({ ...formData, callback_url: e.target.value })} placeholder="https://your-api.com/mpesa/callback" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-brand-primary outline-none" />
+                            <div className="p-5 bg-white">
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">B2C Shortcode</label>
+                                  <input type="text" value={formData.b2c_shortcode} onChange={e => setFormData({ ...formData, b2c_shortcode: e.target.value })} placeholder="e.g. 600XXX" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Environment</label>
+                                  <select value={formData.b2c_environment} onChange={e => setFormData({ ...formData, b2c_environment: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none bg-white">
+                                    <option value="sandbox">Sandbox</option>
+                                    <option value="production">Production</option>
+                                  </select>
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Key</label>
+                                  <input type="text" value={formData.b2c_consumer_key} onChange={e => setFormData({ ...formData, b2c_consumer_key: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono text-[10px] focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Consumer Secret</label>
+                                  <input type="password" value={formData.b2c_consumer_secret} onChange={e => setFormData({ ...formData, b2c_consumer_secret: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Initiator Name</label>
+                                  <input type="text" placeholder="e.g. JasiriAPI" value={formData.initiator_name} onChange={e => setFormData({ ...formData, initiator_name: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Initiator Password</label>
+                                  <input type="password" placeholder="••••••••" value={formData.initiator_password} onChange={e => setFormData({ ...formData, initiator_password: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">Security Credential</label>
+                                  <input type="password" placeholder="••••••••" value={formData.security_credential} onChange={e => setFormData({ ...formData, security_credential: e.target.value })} className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                                <div>
+                                  <label className="block text-xs font-medium text-gray-700 mb-2">B2C Callback URL</label>
+                                  <input type="url" value={formData.b2c_callback_url} onChange={e => setFormData({ ...formData, b2c_callback_url: e.target.value })} placeholder="https://your-api.com/mpesa/b2c/result" className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-blue-400 outline-none" />
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>

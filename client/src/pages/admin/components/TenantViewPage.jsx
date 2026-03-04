@@ -567,7 +567,7 @@ const TenantViewPage = () => {
   const renderOverview = () => (
     <div className="space-y-6">
       {/* Tenant Profile Card */}
-      <div className="bg-white rounded-lg shadow overflow-hidden">
+      <div className="bg-muted rounded-lg shadow overflow-hidden">
         <div className="p-6 border-b border-gray-200 bg-brand-surface/20">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold text-brand-primary uppercase tracking-wider">Tenant Profile</h2>
@@ -870,12 +870,11 @@ const TenantViewPage = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <div className="flex justify-between items-center">
             <div>
-              <h1 className="text-sm text-slate-600">Tenant Management</h1>
               <h2 className="text-lg  text-slate-600">{tenant.company_name || tenant.name}</h2>
             </div>
             <div className="flex items-center gap-3">
@@ -900,7 +899,7 @@ const TenantViewPage = () => {
         {/* Main Tabs Navigation */}
         <div className="bg-white rounded-lg shadow mb-6 overflow-hidden">
           <div className="border-b border-gray-200">
-            <nav className="flex space-x-8 px-6 overflow-x-auto scrollbar-hide" aria-label="Tabs">
+            <nav className="flex space-x-4 px-4 overflow-x-auto scrollbar-hide" aria-label="Tabs">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
                 const count = tab.count ?? null;
@@ -910,12 +909,12 @@ const TenantViewPage = () => {
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
                     disabled={loading && tab.id !== activeTab}
-                    className={`py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === tab.id
+                    className={`py-2 px-2 border-b-2 font-medium text-sm whitespace-nowrap ${loading && tab.id !== activeTab ? 'opacity-50 cursor-not-allowed' : ''} ${activeTab === tab.id
                       ? 'border-brand-primary text-brand-primary'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                       }`}
                   >
-                    <Icon className={`h-5 w-5 inline-block mr-2 ${activeTab === tab.id ? 'text-brand-primary' : 'text-gray-400'}`} />
+                    <Icon className={`h-3 w-3 inline-block mr-2 ${activeTab === tab.id ? 'text-brand-primary' : 'text-gray-400'}`} />
                     {tab.label}
                     {count !== null && (
                       <span className={`ml-2 text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tab.id ? 'bg-brand-surface text-brand-primary' : 'bg-gray-100 text-gray-500'
@@ -930,7 +929,7 @@ const TenantViewPage = () => {
           </div>
 
           {/* Search and Actions Bar */}
-          <div className="p-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="p-3 flex flex-col sm:flex-row gap-3 justify-between items-start sm:items-center">
             <div className="relative flex-1 max-w-md">
               <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
               <input
@@ -938,7 +937,7 @@ const TenantViewPage = () => {
                 placeholder="Search..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
+                className="w-full pl-9 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-brand-primary transition-all outline-none"
                 disabled={loading}
               />
             </div>
@@ -968,7 +967,7 @@ const TenantViewPage = () => {
 
           {/* Filters Section */}
           {showFilters && (
-            <div className="px-6 pb-6 pt-0 border-t border-gray-200">
+            <div className="px-4 pb-4 pt-0 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 {activeTab === 'users' && (
                   <div>
@@ -977,7 +976,7 @@ const TenantViewPage = () => {
                       <select
                         value={filterRole}
                         onChange={(e) => setFilterRole(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] appearance-none"
+                        className="w-full px-3 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#586ab1] appearance-none"
                       >
                         <option value="">All Roles</option>
                         {roles.map(role => (
