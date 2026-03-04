@@ -35,7 +35,7 @@ const AnalyticsDashboard = () => {
     customerDistribution: [],
     payerTypePieData: [] // New state for pie chart data
   });
-  
+
   const [loading, setLoading] = useState(true);
   const [dateRange, setDateRange] = useState('all');
   const [selectedRegion, setSelectedRegion] = useState('all');
@@ -166,7 +166,7 @@ const AnalyticsDashboard = () => {
     loansData.forEach(loan => {
       const branchName = loan.branches?.name || 'Unknown';
       const branchCode = loan.branches?.code || 'N/A';
-      
+
       if (!branchMap[branchCode]) {
         branchMap[branchCode] = {
           name: branchName,
@@ -177,21 +177,21 @@ const AnalyticsDashboard = () => {
           totalExpected: 0
         };
       }
-      
+
       branchMap[branchCode].disbursed += Number(loan.scored_amount) || 0;
       branchMap[branchCode].activeLoans++;
       branchMap[branchCode].totalExpected += Number(loan.total_payable) || 0;
-      
+
       const loanPaid = paymentsByLoan[loan.id] || 0;
       branchMap[branchCode].collected += loanPaid;
     });
 
     return Object.values(branchMap).map(branch => ({
       ...branch,
-      collectionRate: branch.totalExpected > 0 ? 
+      collectionRate: branch.totalExpected > 0 ?
         Math.round((branch.collected / branch.totalExpected) * 100) : 0,
       outstanding: branch.totalExpected - branch.collected,
-      avgLoanSize: branch.activeLoans > 0 ? 
+      avgLoanSize: branch.activeLoans > 0 ?
         Math.round(branch.disbursed / branch.activeLoans) : 0
     })).sort((a, b) => b.disbursed - a.disbursed);
   }, [dateRange, selectedBranch]);
@@ -236,7 +236,7 @@ const AnalyticsDashboard = () => {
     const regionMap = {};
     data.forEach(loan => {
       const regionName = loan.regions?.name || 'Unknown';
-      
+
       if (!regionMap[regionName]) {
         regionMap[regionName] = {
           name: regionName,
@@ -245,7 +245,7 @@ const AnalyticsDashboard = () => {
           branches: new Set()
         };
       }
-      
+
       regionMap[regionName].disbursed += Number(loan.scored_amount) || 0;
       regionMap[regionName].loanCount++;
     });
@@ -255,9 +255,9 @@ const AnalyticsDashboard = () => {
       disbursed: region.disbursed,
       loanCount: region.loanCount,
       branchCount: region.branches.size,
-      avgLoanSize: region.loanCount > 0 ? 
+      avgLoanSize: region.loanCount > 0 ?
         Math.round(region.disbursed / region.loanCount) : 0,
-      share: data.length > 0 ? 
+      share: data.length > 0 ?
         Math.round((region.loanCount / data.length) * 100) : 0
     })).sort((a, b) => b.disbursed - a.disbursed);
   }, [dateRange, selectedRegion]);
@@ -298,7 +298,7 @@ const AnalyticsDashboard = () => {
         .from('loans')
         .select('id')
         .eq('region_id', selectedRegion);
-      
+
       if (loansInRegion?.length > 0) {
         const loanIds = loansInRegion.map(loan => loan.id);
         query = query.in('loan_id', loanIds);
@@ -310,7 +310,7 @@ const AnalyticsDashboard = () => {
         .from('loans')
         .select('id')
         .eq('branch_id', selectedBranch);
-      
+
       if (loansInBranch?.length > 0) {
         const loanIds = loansInBranch.map(loan => loan.id);
         query = query.in('loan_id', loanIds);
@@ -339,7 +339,7 @@ const AnalyticsDashboard = () => {
     data.forEach(payment => {
       const payerType = payment.payer_type;
       const amount = Number(payment.paid_amount) || 0;
-      
+
       if (payerTypeTotals[payerType]) {
         payerTypeTotals[payerType].amount += amount;
         payerTypeTotals[payerType].count++;
@@ -372,47 +372,47 @@ const AnalyticsDashboard = () => {
       }));
 
     const guarantorCoverage = [
-      { 
-        name: 'Paid by Guarantor', 
+      {
+        name: 'Paid by Guarantor',
         value: payerTypeTotals['guarantor'].amount,
         count: payerTypeTotals['guarantor'].count,
-        color: COLORS[0] 
+        color: COLORS[0]
       },
-      { 
-        name: 'Paid by Others', 
+      {
+        name: 'Paid by Others',
         value: totalAmount - payerTypeTotals['guarantor'].amount,
         count: totalCount - payerTypeTotals['guarantor'].count,
-        color: COLORS[1] 
+        color: COLORS[1]
       }
     ];
 
     const nextOfKinAssistance = [
-      { 
-        name: 'Paid by Next of Kin', 
+      {
+        name: 'Paid by Next of Kin',
         value: payerTypeTotals['next-of-kin'].amount,
         count: payerTypeTotals['next-of-kin'].count,
-        color: COLORS[2] 
+        color: COLORS[2]
       },
-      { 
-        name: 'Paid by Others', 
+      {
+        name: 'Paid by Others',
         value: totalAmount - payerTypeTotals['next-of-kin'].amount,
         count: totalCount - payerTypeTotals['next-of-kin'].count,
-        color: COLORS[3] 
+        color: COLORS[3]
       }
     ];
 
     const thirdPartyAssistance = [
-      { 
-        name: 'Paid by Third Party', 
+      {
+        name: 'Paid by Third Party',
         value: payerTypeTotals['third-party'].amount,
         count: payerTypeTotals['third-party'].count,
-        color: COLORS[4] 
+        color: COLORS[4]
       },
-      { 
-        name: 'Paid by Others', 
+      {
+        name: 'Paid by Others',
         value: totalAmount - payerTypeTotals['third-party'].amount,
         count: totalCount - payerTypeTotals['third-party'].count,
-        color: COLORS[5] 
+        color: COLORS[5]
       }
     ];
 
@@ -442,7 +442,7 @@ const AnalyticsDashboard = () => {
     const now = new Date();
     const trends = {};
     let periods = [];
-    
+
     if (dateRange === 'week') {
       for (let i = 6; i >= 0; i--) {
         const date = new Date(now);
@@ -489,13 +489,13 @@ const AnalyticsDashboard = () => {
     data.forEach(payment => {
       const date = new Date(payment.created_at);
       let period;
-      
+
       if (dateRange === 'week' || dateRange === 'month') {
         period = date.toISOString().split('T')[0];
       } else {
         period = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
       }
-      
+
       if (trends[period]) {
         trends[period].amount += Number(payment.paid_amount) || 0;
         trends[period].count++;
@@ -527,7 +527,7 @@ const AnalyticsDashboard = () => {
           totalIncome: 0
         };
       }
-      
+
       businessMap[businessType].count++;
       businessMap[businessType].totalIncome += Number(customer.daily_Sales) || 0;
     });
@@ -550,7 +550,7 @@ const AnalyticsDashboard = () => {
 
     const distribution = [];
     const ageGroups = ['18-25', '26-35', '36-45', '46-55', '56+'];
-    
+
     ageGroups.forEach(group => {
       distribution.push({
         ageGroup: group,
@@ -564,7 +564,7 @@ const AnalyticsDashboard = () => {
       if (guarantor.date_of_birth && guarantor.gender) {
         const birthDate = new Date(guarantor.date_of_birth);
         const age = new Date().getFullYear() - birthDate.getFullYear();
-        
+
         let ageGroup;
         if (age <= 25) ageGroup = '18-25';
         else if (age <= 35) ageGroup = '26-35';
@@ -605,7 +605,7 @@ const AnalyticsDashboard = () => {
           totalAmount: 0
         };
       }
-      
+
       customerLoans[loan.customer_id].loanCount++;
       customerLoans[loan.customer_id].totalAmount += Number(loan.scored_amount) || 0;
     });
@@ -650,7 +650,7 @@ const AnalyticsDashboard = () => {
 
     const dailyCollections = {};
     const now = new Date();
-    
+
     for (let i = 29; i >= 0; i--) {
       const date = new Date(now);
       date.setDate(date.getDate() - i);
@@ -682,14 +682,14 @@ const AnalyticsDashboard = () => {
     }
 
     const overdueAnalysis = [];
-    
+
     loans.forEach(loan => {
       const weeksSinceStart = Math.floor((new Date() - new Date(loan.created_at)) / (7 * 24 * 60 * 60 * 1000));
       const expectedPayment = weeksSinceStart * Number(loan.weekly_payment) || 0;
-      
+
       const randomPaid = expectedPayment * (0.7 + Math.random() * 0.3);
       const overdueAmount = Math.max(0, expectedPayment - randomPaid);
-      
+
       if (overdueAmount > 0 && Math.random() > 0.7) {
         overdueAnalysis.push({
           loanId: loan.id,
@@ -726,7 +726,7 @@ const AnalyticsDashboard = () => {
           totalDailySales: 0
         };
       }
-      
+
       countyMap[county].customerCount++;
       countyMap[county].totalDailySales += Number(customer.daily_Sales) || 0;
     });
@@ -734,7 +734,7 @@ const AnalyticsDashboard = () => {
     return Object.values(countyMap)
       .map(county => ({
         ...county,
-        avgDailySales: county.customerCount > 0 ? 
+        avgDailySales: county.customerCount > 0 ?
           Math.round(county.totalDailySales / county.customerCount) : 0
       }))
       .sort((a, b) => b.customerCount - a.customerCount);
@@ -803,12 +803,12 @@ const AnalyticsDashboard = () => {
       if (customer.date_of_birth) {
         const birthDate = new Date(customer.date_of_birth);
         const age = new Date().getFullYear() - birthDate.getFullYear();
-        
+
         const group = ageGroups.find(g => age >= g.min && age <= g.max);
         if (group) {
           const index = ageGroups.indexOf(group);
           distribution[index].count++;
-          
+
           const dailySales = Number(customer.daily_Sales) || 0;
           distribution[index].totalDailySales += dailySales;
         }
@@ -906,11 +906,9 @@ const AnalyticsDashboard = () => {
   // ========== LOADING STATE ==========
   if (loading) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: CHART_BG }}>
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text="Loading Analytics Dashboard..." />
-          </div>
+      <div className="min-h-screen bg-muted flex items-center justify-center">
+        <div className="text-center">
+          <Spinner text="Loading Analytics Dashboard..." />
         </div>
       </div>
     );
@@ -987,13 +985,13 @@ const AnalyticsDashboard = () => {
           <p className="font-semibold text-gray-900">{label}</p>
           {payload.map((entry, index) => (
             <p key={index} className="flex items-center gap-2 text-sm">
-              <span 
-                className="w-3 h-3 rounded-full" 
+              <span
+                className="w-3 h-3 rounded-full"
                 style={{ backgroundColor: entry.color }}
               />
               <span className="text-gray-600">{entry.name}:</span>
               <span className="font-medium text-gray-900">
-                {entry.dataKey.includes('amount') || entry.dataKey.includes('Amount') 
+                {entry.dataKey.includes('amount') || entry.dataKey.includes('Amount')
                   ? formatCurrencyCompact(entry.value)
                   : entry.dataKey.includes('Rate') || entry.dataKey.includes('percentage')
                     ? `${entry.value}%`
@@ -1008,13 +1006,13 @@ const AnalyticsDashboard = () => {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-6" style={{ backgroundColor: CHART_BG }}>
+    <div className="min-h-screen p-4 md:p-6 bg-muted">
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-sm md:text-sm font-bold text-slate-600 mb-2">
           Loan Portfolio Analytics
         </h1>
-        
+
         {/* Filters */}
         <div className="flex flex-wrap gap-4 mt-6">
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm">
@@ -1031,7 +1029,7 @@ const AnalyticsDashboard = () => {
               <option value="year">Last 1 Year</option>
             </select>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm">
             <MapPin className="w-4 h-4 text-gray-500" />
             <select
@@ -1045,7 +1043,7 @@ const AnalyticsDashboard = () => {
               ))}
             </select>
           </div>
-          
+
           <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm">
             <Building className="w-4 h-4 text-gray-500" />
             <select
@@ -1073,7 +1071,7 @@ const AnalyticsDashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <CreditCard className="w-5 h-5 text-amber-600" />
@@ -1083,7 +1081,7 @@ const AnalyticsDashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-3">
             <Building className="w-5 h-5 text-violet-600" />
@@ -1093,7 +1091,7 @@ const AnalyticsDashboard = () => {
             </div>
           </div>
         </div>
-        
+
         <div className={`rounded-xl shadow-sm border border-gray-200 p-4 ${status.bg}`}>
           <div className="flex items-center gap-3">
             <div>
@@ -1111,7 +1109,7 @@ const AnalyticsDashboard = () => {
 
       {/* Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* 1. Product Overview */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
@@ -1278,7 +1276,7 @@ const AnalyticsDashboard = () => {
               </div>
             </div>
           </div>
-          
+
           {/* Payer Type Breakdown Bar Chart */}
           <div className="h-64 mb-6">
             <ResponsiveContainer width="100%" height="100%">
@@ -1288,22 +1286,22 @@ const AnalyticsDashboard = () => {
                 <YAxis />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Bar 
-                  dataKey="amount" 
-                  name="Amount Paid" 
-                  fill={HEADER_COLOR} 
+                <Bar
+                  dataKey="amount"
+                  name="Amount Paid"
+                  fill={HEADER_COLOR}
                   radius={[4, 4, 0, 0]}
                 />
-                <Bar 
-                  dataKey="count" 
-                  name="Payment Count" 
-                  fill={COLORS[2]} 
+                <Bar
+                  dataKey="count"
+                  name="Payment Count"
+                  fill={COLORS[2]}
                   radius={[4, 4, 0, 0]}
                 />
               </BarChart>
             </ResponsiveContainer>
           </div>
-          
+
           {/* NEW: Payer Type Pie Chart */}
           <div className="mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
@@ -1327,7 +1325,7 @@ const AnalyticsDashboard = () => {
                         <Cell key={`cell-${index}`} fill={entry.color || COLORS[index % COLORS.length]} />
                       ))}
                     </Pie>
-                    <Tooltip 
+                    <Tooltip
                       content={({ active, payload }) => {
                         if (active && payload && payload.length) {
                           const data = payload[0].payload;
@@ -1356,14 +1354,14 @@ const AnalyticsDashboard = () => {
             </div>
           </div>
 
-          
+
           {/* Summary Stats */}
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-2">
             {analyticsData.payerTypeBreakdown.map((payer, index) => (
               <div key={payer.type} className="bg-white p-3 rounded-lg border border-gray-200">
                 <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
+                  <div
+                    className="w-3 h-3 rounded-full"
                     style={{ backgroundColor: COLORS[index] }}
                   />
                   <p className="text-xs font-medium text-gray-700">{payer.type}</p>
@@ -1463,7 +1461,7 @@ const AnalyticsDashboard = () => {
 
       {/* Additional Metrics Section */}
       <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
+
         {/* Daily Collections */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
           <div className="flex items-center justify-between mb-6">
@@ -1481,11 +1479,11 @@ const AnalyticsDashboard = () => {
                 <YAxis />
                 <Tooltip content={<CustomTooltip />} />
                 <Legend />
-                <Line 
-                  type="monotone" 
-                  dataKey="amount" 
-                  name="Daily Collection" 
-                  stroke={HEADER_COLOR} 
+                <Line
+                  type="monotone"
+                  dataKey="amount"
+                  name="Daily Collection"
+                  stroke={HEADER_COLOR}
                   strokeWidth={2}
                   dot={{ r: 2 }}
                   activeDot={{ r: 6 }}
@@ -1509,11 +1507,10 @@ const AnalyticsDashboard = () => {
               {analyticsData.overdueLoans.slice(0, 5).map((loan, index) => (
                 <div key={loan.loanId} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      index === 0 ? 'bg-red-100 text-red-600' :
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center ${index === 0 ? 'bg-red-100 text-red-600' :
                       index === 1 ? 'bg-orange-100 text-orange-600' :
-                      'bg-amber-100 text-amber-600'
-                    }`}>
+                        'bg-amber-100 text-amber-600'
+                      }`}>
                       {index + 1}
                     </div>
                     <div>
@@ -1560,7 +1557,7 @@ const AnalyticsDashboard = () => {
               {analyticsData.productOverview[0]?.count || 0} loans ({formatCurrencyCompact(analyticsData.productOverview[0]?.totalAmount || 0)})
             </p>
           </div>
-          
+
           <div className="p-4 bg-emerald-50 rounded-lg">
             <p className="text-sm font-medium text-emerald-700">Top Performing Branch</p>
             <p className="text-xl font-bold text-emerald-900">
@@ -1570,7 +1567,7 @@ const AnalyticsDashboard = () => {
               {analyticsData.branchPerformance[0]?.collectionRate || 0}% collection rate
             </p>
           </div>
-          
+
           <div className="p-4 bg-amber-50 rounded-lg">
             <p className="text-sm font-medium text-amber-700">Customer Loyalty</p>
             <p className="text-xl font-bold text-amber-900">

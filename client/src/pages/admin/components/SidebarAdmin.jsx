@@ -118,7 +118,7 @@ const SidebarAdmin = ({ sidebarOpen, setSidebarOpen }) => {
         { name: 'All Loans', href: '/loans/all/admin', icon: FileText },
         { name: 'Pending Disbursement', href: '/loans/pending/admin', icon: Clock },
         { name: 'Rejected Loans', href: '/loans/rejected/admin', icon: XCircle },
-        { name: 'Disbursed Loans', href: '/loans/disbursed/admin', icon: CreditCard },
+        { name: 'Disbursed Loans', href: '/loaning/disbursement-loans', icon: CreditCard },
       ],
     },
 

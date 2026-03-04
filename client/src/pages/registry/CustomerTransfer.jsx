@@ -1,15 +1,24 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/userAuth.js';
+import { useToast } from '../../components/Toast.jsx';
+import { supabase } from '../../supabaseClient';
 import Spinner from '../../components/Spinner.jsx';
 
 const CustomerTransfer = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { profile } = useAuth();
+  const [currentUser, setCurrentUser] = useState(null);
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedTransfer, setExpandedTransfer] = useState(null);
   const [actionLoading, setActionLoading] = useState({});
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
 
   useEffect(() => {
     if (profile) {
@@ -350,7 +359,7 @@ const CustomerTransfer = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-surface p-4">
+    <div className="min-h-screen bg-muted p-4">
       <div className="h-full flex flex-col">
         {/* Header Section */}
         <div className="mb-4">

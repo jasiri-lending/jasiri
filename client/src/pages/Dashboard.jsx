@@ -58,11 +58,21 @@ const getMonthEndDate = () => {
 // FULL currency formatting (no K/M/B)
 // SVG Background Pattern (Topography)
 const TopographyPattern = () => (
-  <svg className="absolute inset-0 w-full h-full opacity-[0.05] pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <path d="M0,20 Q25,10 50,20 T100,20 V100 H0 Z" fill="currentColor" />
-    <path d="M0,40 Q25,30 50,40 T100,40" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <path d="M0,60 Q25,50 50,60 T100,60" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <path d="M0,80 Q25,70 50,80 T100,80" fill="none" stroke="currentColor" strokeWidth="0.5" />
+  <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="none">
+    <path d="M0,20 Q25,10 50,20 T100,20 T150,15 T200,20" fill="none" stroke="currentColor" strokeWidth="0.6" />
+    <path d="M0,40 Q30,30 60,40 T120,35 T180,42 T200,38" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,55 Q40,48 80,55 T160,50 T200,56" fill="none" stroke="currentColor" strokeWidth="0.6" />
+    <path d="M0,70 Q35,62 70,70 T140,65 T200,72" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <path d="M0,85 Q25,78 50,85 T100,80 T150,87 T200,83" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,100 Q50,92 100,100 T200,98" fill="none" stroke="currentColor" strokeWidth="0.6" />
+    <path d="M0,115 Q30,108 60,115 T120,110 T180,117 T200,113" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <path d="M0,130 Q40,122 80,130 T160,125 T200,132" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,148 Q25,140 50,148 T100,143 T150,150 T200,146" fill="none" stroke="currentColor" strokeWidth="0.6" />
+    <path d="M0,165 Q35,158 70,165 T140,160 T200,167" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <path d="M0,180 Q50,172 100,180 T200,178" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <ellipse cx="60" cy="75" rx="30" ry="15" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <ellipse cx="150" cy="120" rx="25" ry="12" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <ellipse cx="100" cy="160" rx="35" ry="18" fill="none" stroke="currentColor" strokeWidth="0.3" />
   </svg>
 );
 
@@ -323,10 +333,10 @@ const PortfolioStatCard = ({
   pattern: Pattern,
 }) => (
   <div
-    className={`p-8 rounded-[2.5rem] ${bgClassName} border border-slate-200 shadow-[0_10px_30px_rgba(0,0,0,0.03)] relative overflow-hidden group min-h-[220px] flex flex-col justify-center transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1`}
+    className={`p-8 rounded-lg ${bgClassName} border-2 border-white shadow-[0_10px_30px_rgba(0,0,0,0.03)] relative overflow-hidden group min-h-[220px] flex flex-col justify-center transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1`}
   >
     {Pattern && (
-      <div className="absolute inset-0 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+      <div className="absolute inset-0 opacity-[0.15] group-hover:opacity-[0.22] transition-opacity" style={{ color }}>
         <Pattern />
       </div>
     )}
@@ -841,7 +851,9 @@ const Dashboard = () => {
       );
 
       overdueInstallments.forEach(inst => {
-        const dueAmount = Number(inst.due_amount) || 0;
+        // Exclude penalty from arrears: due_amount may include charged penalty,
+        // so subtract net_penalty (penalty_amount - penalty_waived) to get P+I only.
+        const dueAmount = (Number(inst.due_amount) || 0) - (Number(inst.net_penalty) || 0);
         const paidAmount = (Number(inst.interest_paid) || 0) + (Number(inst.principal_paid) || 0);
         const arrears = dueAmount - paidAmount;
 
@@ -859,8 +871,17 @@ const Dashboard = () => {
     }
 
     const outstandingBalance = Math.max(0, totalPayable - totalPaid);
-    const cleanBook = Math.max(0, outstandingBalance - totalArrears);
-    const cleanBookPercentage = outstandingBalance > 0 ? (cleanBook / outstandingBalance) * 100 : 100;
+
+    // Clean Book = only future, not-yet-due scheduled P+I.
+    // Any installment whose due_date has passed is either paid or in arrears — never clean book.
+    const today2 = getTodayDate();
+    const cleanBook = filteredInstallments
+      .filter(inst => inst.due_date && inst.due_date > today2 && inst.status === 'pending')
+      .reduce((sum, inst) =>
+        sum + (Number(inst.principal_amount) || 0) + (Number(inst.interest_amount) || 0)
+        - (Number(inst.interest_paid) || 0) - (Number(inst.principal_paid) || 0), 0);
+
+    const cleanBookPercentage = outstandingBalance > 0 ? (Math.max(0, cleanBook) / outstandingBalance) * 100 : 100;
 
     const nplLoans = filteredLoans.filter(loan => loan.status === "defaulted");
     const nplAmount = nplLoans.reduce((sum, loan) => sum + (Number(loan.total_payable) || 0), 0);
@@ -1386,7 +1407,7 @@ const Dashboard = () => {
   return (
     <div
       className="min-h-screen p-3 sm:p-4 md:p-6"
-      style={{ backgroundColor: COLORS.background }}
+      style={{ backgroundColor: "#d9e2e8" }}
     >
       {/* Filters Bar */}
       <div className="mb-8 px-4 py-4 bg-white/50 rounded-2xl border border-white/60 shadow-sm relative z-50 overflow-visible">
@@ -1675,7 +1696,6 @@ const Dashboard = () => {
                   size={180}
                 />
                 <div className="hidden sm:flex flex-col border-l border-slate-200 pl-6 space-y-2">
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">PAR Formula</div>
                   <div className="flex flex-col">
                     <span className="text-xs font-bold text-slate-500">Arrears</span>
                     <span className="text-sm font-black text-[#EF4444]">{formatCurrency(dashboardData.risk.totalArrears)}</span>

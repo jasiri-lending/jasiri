@@ -2437,7 +2437,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             />
                           </label>
 
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
+                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
                             <CameraIcon className="w-5 h-5" />
                             <span className="text-sm font-medium">Camera</span>
                             <input
@@ -2617,7 +2617,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                         />
                       </label>
 
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
+                      <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
                         <CameraIcon className="w-5 h-5" />
                         Camera
                         <input
@@ -2786,7 +2786,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             />
                           </label>
 
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
+                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
                             <CameraIcon className="w-5 h-5" />
                             Camera
                             <input
@@ -3087,7 +3087,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             />
                           </label>
 
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200">
+                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200">
                             <CameraIcon className="w-5 h-5" />
                             <span className="text-sm font-medium">Camera</span>
                             <input
@@ -3253,7 +3253,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             />
                           </label>
 
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
+                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
                             <CameraIcon className="w-5 h-5" />
                             Camera
                             <input
@@ -3540,7 +3540,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                           />
                         </label>
 
-                        <label className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition duration-200">
+                        <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition duration-200">
                           <CameraIcon className="w-5 h-5" />
                           <span className="text-sm font-medium">Camera</span>
                           <input

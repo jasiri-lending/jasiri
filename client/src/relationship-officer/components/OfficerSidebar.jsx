@@ -75,6 +75,11 @@ const OfficerSidebar = ({ sidebarOpen, setSidebarOpen }) => {
           href: '/officer/loans/applications',
           icon: FileText
         },
+        {
+          name: 'Disbursed Loans',
+          href: '/loaning/disbursement-loans',
+          icon: CheckCircle
+        },
 
         // { 
         //   name: 'Loans', 

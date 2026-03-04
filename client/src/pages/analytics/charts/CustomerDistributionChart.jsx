@@ -27,6 +27,7 @@ const CustomerDistributionChart = ({ data }) => {
               outerRadius={80}
               fill="#8884d8"
               dataKey="customers"
+              nameKey="county"
             >
               {data.map((entry, index) => (
                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

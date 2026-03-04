@@ -412,7 +412,7 @@ const HQPending = () => {
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
         <Spinner text="Loading pending HQ reviews..." />
       </div>
     );
@@ -421,7 +421,7 @@ const HQPending = () => {
   // Check permission to view the page
   if (!hasPermission()) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 flex items-center justify-center">
             <XMarkIcon className="h-8 w-8 text-red-600" />
@@ -436,7 +436,7 @@ const HQPending = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -834,8 +834,8 @@ const HQPending = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

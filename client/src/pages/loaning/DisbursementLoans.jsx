@@ -37,6 +37,8 @@ const DisbursedLoans = () => {
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -47,10 +49,11 @@ const DisbursedLoans = () => {
   const isBranchManager = profile?.role === "branch_manager";
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
   const isCustomerService = profile?.role === "customer_service_officer";
+  const isRelationshipOfficer = profile?.role === "relationship_officer";
 
-  const isGlobalRole = isSuperAdmin;
-  const showRegionColumn = isGlobalRole || isCreditAnalyst || isCustomerService;
-  const showBranchColumn = isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager;
+  const isGlobalRole = isSuperAdmin || isCreditAnalyst;
+  const showRegionColumn = isGlobalRole;
+  const showBranchColumn = isGlobalRole || isRegionalManager;
 
   const fetchData = async () => {
     try {
@@ -77,7 +80,10 @@ const DisbursedLoans = () => {
               )
             )
           ),
-          users!loans_created_by_fkey (
+          booked_by_user:users!loans_created_by_fkey (
+            full_name
+          ),
+          disbursed_by_user:users!loans_disbursed_by_fkey (
             full_name
           )
         `)
@@ -85,8 +91,8 @@ const DisbursedLoans = () => {
         .eq('tenant_id', profile?.tenant_id)
         .order('disbursed_at', { ascending: false });
 
-      // Filter by branch for branch managers
-      if (isBranchManager && profile?.branch_id) {
+      // Filter by branch for branch managers and customer service officers
+      if ((isBranchManager || isCustomerService) && profile?.branch_id) {
         loansQuery = loansQuery.eq('branch_id', profile.branch_id);
       }
       // Filter by region for regional managers
@@ -100,6 +106,10 @@ const DisbursedLoans = () => {
         if (branchIds.length > 0) {
           loansQuery = loansQuery.in("branch_id", branchIds);
         }
+      }
+      // Filter by Relationship Officer
+      else if (profile?.role === "relationship_officer" && profile?.id) {
+        loansQuery = loansQuery.eq('booked_by', profile.id);
       }
 
       const { data: loansData, error: loansError } = await loansQuery;
@@ -125,7 +135,7 @@ const DisbursedLoans = () => {
       }
 
       // Fetch additional data for filters based on role
-      if (isGlobalRole || isCreditAnalyst || isCustomerService) {
+      if (isGlobalRole) {
         // Fetch all data for these roles
         const [branchesResult, regionsResult, roResult] = await Promise.all([
           supabase.from("branches").select("id, name, region_id, tenant_id").eq("tenant_id", profile.tenant_id).order("name"),
@@ -171,7 +181,7 @@ const DisbursedLoans = () => {
 
         setAllRelationshipOfficers(enrichedROs);
         setRelationshipOfficers(enrichedROs);
-      } else if (isBranchManager && profile?.branch_id) {
+      } else if ((isBranchManager || isCustomerService) && profile?.branch_id) {
         // Fetch ROs in their branch
         const { data: roData } = await supabase
           .from("users")
@@ -214,10 +224,12 @@ const DisbursedLoans = () => {
     setSelectedBranch("");
     setSelectedRegion("");
     setSelectedRO("");
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
 
     // Reset cascading filters
-    if (isGlobalRole || isCreditAnalyst || isCustomerService) {
+    if (isGlobalRole || isCustomerService) {
       setBranches(allBranches);
       setRelationshipOfficers(allRelationshipOfficers);
     } else if (isRegionalManager) {
@@ -299,7 +311,14 @@ const DisbursedLoans = () => {
     const matchesRO =
       !selectedRO || loan.booked_by?.toString() === selectedRO;
 
-    return matchesSearch && matchesBranch && matchesRegion && matchesRO;
+    const disbursedDate = loan.disbursed_at ? new Date(loan.disbursed_at).setHours(0, 0, 0, 0) : null;
+    const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
+    const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+
+    const matchesDate = (!start || (disbursedDate && disbursedDate >= start)) &&
+      (!end || (disbursedDate && disbursedDate <= end));
+
+    return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesDate;
   });
 
   // Pagination
@@ -310,7 +329,7 @@ const DisbursedLoans = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranch, selectedRegion, selectedRO]);
+  }, [searchTerm, selectedBranch, selectedRegion, selectedRO, startDate, endDate]);
 
   const getPageNumbers = () => {
     const pageNumbers = [];
@@ -353,10 +372,10 @@ const DisbursedLoans = () => {
   };
 
   // Get RO name by ID
-  const getROName = (bookedBy) => {
-    const ro = allRelationshipOfficers.find(r => r.id === bookedBy);
-    return ro?.full_name || "N/A";
-  };
+  // const getROName = (bookedBy) => {
+  //   const ro = allRelationshipOfficers.find(r => r.id === bookedBy);
+  //   return ro?.full_name || "N/A";
+  // };
 
   // Get Region name
   const getRegionName = (loan) => {
@@ -380,7 +399,7 @@ const DisbursedLoans = () => {
   };
 
   const handleViewDetails = (loanId) => {
-    navigate(`/viewdisbursedloans/${loanId}`);
+    navigate(`/loans/${loanId}`);
   };
 
   // const handleRefresh = () => {
@@ -396,16 +415,21 @@ const DisbursedLoans = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+          <h1 className="text-lg font-bold text-slate-600 tracking-tight">
             Disbursed Loans
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
-          <span className="font-medium text-white">{disbursedLoans.length}</span> disbursed loan{disbursedLoans.length !== 1 ? 's' : ''}
+        <div className="flex items-center gap-3">
+          <div className="bg-brand-primary/10 px-4 py-2 rounded-xl border border-brand-primary/20 shadow-sm flex items-center gap-2">
+            <BanknotesIcon className="h-5 w-5 text-brand-primary" />
+            <span className="text-sm font-semibold text-brand-primary">
+              {disbursedLoans.length} Total Loans
+            </span>
+          </div>
         </div>
       </div>
 
@@ -437,7 +461,7 @@ const DisbursedLoans = () => {
 
               {/* Filter Button and Clear Filters */}
               <div className="flex items-center gap-2">
-                {(selectedBranch || selectedRegion || selectedRO) && (
+                {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                   <button
                     onClick={clearFilters}
                     className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
@@ -452,9 +476,9 @@ const DisbursedLoans = () => {
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
-                  {(selectedBranch || selectedRegion || selectedRO) && (
+                  {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                     <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
-                      {[selectedBranch, selectedRegion, selectedRO].filter(Boolean).length}
+                      {[selectedBranch, selectedRegion, selectedRO, startDate, endDate].filter(Boolean).length}
                     </span>
                   )}
                 </button>
@@ -467,7 +491,7 @@ const DisbursedLoans = () => {
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Region Filter (only for global roles) */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService) && (
+                {isGlobalRole && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Region</label>
                     <div className="relative">
@@ -491,7 +515,7 @@ const DisbursedLoans = () => {
                 )}
 
                 {/* Branch Filter */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager) && (
+                {(isGlobalRole || isRegionalManager) && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Branch</label>
                     <div className="relative">
@@ -515,14 +539,14 @@ const DisbursedLoans = () => {
                 )}
 
                 {/* Relationship Officer Filter */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
+                {!isRelationshipOfficer && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Relationship Officer</label>
                     <div className="relative">
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white font-sans"
                       >
                         <option value="">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -537,10 +561,32 @@ const DisbursedLoans = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Date Range Start */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
+
+                {/* Date Range End */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
               </div>
 
               {/* Active Filters Display */}
-              {(selectedBranch || selectedRegion || selectedRO) && (
+              {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                 <div className="mt-4 pt-3 border-t border-gray-200">
                   <div className="flex items-center flex-wrap gap-2">
                     <span className="text-xs text-gray-500 mr-2">Active filters:</span>
@@ -568,6 +614,22 @@ const DisbursedLoans = () => {
                         </button>
                       </span>
                     )}
+                    {startDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        From: {startDate}
+                        <button onClick={() => setStartDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {endDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        To: {endDate}
+                        <button onClick={() => setEndDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -575,7 +637,6 @@ const DisbursedLoans = () => {
           )}
         </div>
 
-        {/* Table Container */}
         <div className="overflow-x-auto font-sans">
           <table className="w-full">
             <thead>
@@ -590,9 +651,8 @@ const DisbursedLoans = () => {
                 {showBranchColumn && (
                   <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Branch</th>
                 )}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Booked By</th>
-                )}
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Booked By</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Disbursed By</th>
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Product</th>
                 <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Amount</th>
                 <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Weeks</th>
@@ -623,60 +683,42 @@ const DisbursedLoans = () => {
                     </td>
                     {showRegionColumn && (
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        <div className="flex items-center gap-1">
-                          <MapPinIcon className="h-3 w-3 text-gray-400" />
-                          {regionName}
-                        </div>
+                        {regionName}
                       </td>
                     )}
                     {showBranchColumn && (
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        <div className="flex items-center gap-1">
-                          <BuildingOfficeIcon className="h-3 w-3 text-gray-400" />
-                          {loan.customers?.branches?.name || "N/A"}
-                        </div>
-                      </td>
-                    )}
-                    {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        {getROName(loan.booked_by)}
+                        {loan.customers?.branches?.name || "N/A"}
                       </td>
                     )}
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      {loan.product_name || loan.product || "Standard Loan"}
+                      {loan.booked_by_user?.full_name || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      {loan.disbursed_by_user?.full_name || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      {loan.product_name || "Standard"}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                      <div className="font-medium text-emerald-600">
-                        {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
-                      </div>
-                      {loan.weekly_payment && (
-                        <div className="text-xs text-gray-500">
-                          Weekly: Ksh {Number(loan.weekly_payment).toLocaleString()}
-                        </div>
-                      )}
+                      KSh {Number(loan.scored_amount || 0).toLocaleString()}
                     </td>
                     <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
-                        {loan.duration_weeks || "N/A"} weeks
-                      </span>
+                      {loan.duration_weeks || 0}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800 border border-emerald-200">
-                        <BanknotesIcon className="h-3 w-3" />
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap bg-emerald-500 text-white">
                         Disbursed
                       </span>
                     </td>
                     <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
-                      <div className="flex items-center justify-center gap-1">
-                        <CalendarIcon className="h-3 w-3 text-gray-400" />
-                        {loan.disbursed_at ? formatDate(loan.disbursed_at) : "N/A"}
-                      </div>
+                      {loan.disbursed_at ? formatDate(loan.disbursed_at) : "N/A"}
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
                         <button
                           onClick={() => handleViewDetails(loan.id)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
                           title="View Loan Details"
                         >
                           <EyeIcon className="h-4 w-4" />
@@ -697,10 +739,10 @@ const DisbursedLoans = () => {
               <BanknotesIcon className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">
-              {searchTerm || selectedBranch || selectedRegion ? "No loans found" : "No disbursed loans"}
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate ? "No loans found" : "No disbursed loans"}
             </h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate
                 ? "Try adjusting your search or filters"
                 : "No loans have been disbursed yet."}
             </p>
@@ -753,8 +795,8 @@ const DisbursedLoans = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

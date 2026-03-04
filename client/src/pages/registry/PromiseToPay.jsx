@@ -266,7 +266,7 @@ const PromiseToPay = () => {
 
   if (!loan_id || !customerId) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-xl p-8 border border-gray-200">
           <div className="text-center py-12">
             <p className="text-red-500 font-medium text-lg">Error: Missing required information</p>
@@ -283,14 +283,14 @@ const PromiseToPay = () => {
   }
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Back Button */}
         <button

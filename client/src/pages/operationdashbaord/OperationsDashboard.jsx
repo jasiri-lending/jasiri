@@ -611,8 +611,8 @@ const OperationsDashboard = () => {
       });
 
       overdueInstallments.forEach(inst => {
-        const dueAmount = Number(inst.due_amount) || 0;
-        const paidAmount = (Number(inst.principal_paid) || 0) + (Number(inst.interest_paid) || 0);
+        const dueAmount = (Number(inst.due_amount) || 0) + (Number(inst.penalty_amount) || 0);
+        const paidAmount = Number(inst.paid_amount) || 0;
         const arrears = Math.max(0, dueAmount - paidAmount);
         totalArrears += arrears;
       });

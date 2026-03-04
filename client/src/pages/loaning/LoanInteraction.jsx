@@ -177,7 +177,7 @@ const LoanInteraction = () => {
 
   if (!loan) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center">
           <h2 className="text-sm text-gray-800 mb-2">Loan Not Found</h2>
           <p className="text-gray-600 text-xs mb-4">The requested loan could not be found.</p>

@@ -358,7 +358,7 @@ const PendingBM = () => {
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
         <Spinner text="Loading ..." />
       </div>
     );
@@ -366,7 +366,7 @@ const PendingBM = () => {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6">
+      <div className="min-h-screen bg-muted p-6">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <span className="ml-3 text-gray-500">Loading user information...</span>
@@ -376,7 +376,7 @@ const PendingBM = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -741,8 +741,8 @@ const PendingBM = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

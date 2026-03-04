@@ -1994,7 +1994,7 @@ const CustomerDraft = () => {
                   <span className="text-sm font-medium">Upload</span>
                   <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                 </label>
-                <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
+                <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
                   <CameraIcon className="w-5 h-5" />
                   <span className="text-sm font-medium">Camera</span>
                   <input type="file" accept="image/*" capture={file.key === "passport" ? "user" : "environment"} onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
@@ -2061,7 +2061,7 @@ const CustomerDraft = () => {
               <ArrowUpTrayIcon className="w-5 h-5" /> Upload
               <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
             </label>
-            <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
+            <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
               <CameraIcon className="w-5 h-5" /> Camera
               <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden" />
             </label>
@@ -2166,7 +2166,7 @@ const CustomerDraft = () => {
                   <ArrowUpTrayIcon className="w-5 h-5" /> Upload
                   <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                 </label>
-                <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
+                <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
                   <CameraIcon className="w-5 h-5" /> Camera
                   <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                 </label>
@@ -2275,7 +2275,7 @@ const CustomerDraft = () => {
                   <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
                   <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                 </label>
-                <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
+                <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
                   <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
                   <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                 </label>
@@ -2366,7 +2366,7 @@ const CustomerDraft = () => {
                   <ArrowUpTrayIcon className="w-5 h-5" /> Upload
                   <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                 </label>
-                <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
+                <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
                   <CameraIcon className="w-5 h-5" /> Camera
                   <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                 </label>
@@ -2499,7 +2499,7 @@ const CustomerDraft = () => {
                 <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
                 <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
               </label>
-              <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
+              <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
                 <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
                 <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
               </label>

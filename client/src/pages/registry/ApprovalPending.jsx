@@ -547,7 +547,7 @@ const ApprovalPending = () => {
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
         <Spinner text="Loading pending approvals..." />
       </div>
     );
@@ -556,7 +556,7 @@ const ApprovalPending = () => {
   // Check permission
   if (!hasPermission()) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 flex items-center justify-center">
             <XMarkIcon className="h-8 w-8 text-red-600" />
@@ -571,7 +571,7 @@ const ApprovalPending = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -822,33 +822,33 @@ const ApprovalPending = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Mobile
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Prequalified Amount
                 </th>
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                     RO
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Region
                 </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
@@ -883,29 +883,29 @@ const ApprovalPending = () => {
                       key={customer.id}
                       className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                     >
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                         {fullName || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {customer.mobile || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {customer.id_number || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
                         {customer.prequalifiedAmount ?
                           `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                           "N/A"}
                       </td>
                       {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
-                        <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                        <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                           {customer.users?.full_name || "N/A"}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {customer.branches?.name || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {customer.regions?.name || "N/A"}
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">

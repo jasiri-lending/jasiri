@@ -90,7 +90,7 @@ Authrouter.post("/login", async (req, res) => {
 
     // Send code via email   change it to the company mail in future
     await transporter.sendMail({
-          from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "Your Login Verification Code",
@@ -141,7 +141,7 @@ Authrouter.post("/resend-code", async (req, res) => {
 
     // Send new code via email
     await transporter.sendMail({
-           from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: user.email,
       subject: "Your New Verification Code",
@@ -274,7 +274,7 @@ Authrouter.post("/forgot-password", async (req, res) => {
 
     // Send reset code via email
     await transporter.sendMail({
-          from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "Password Reset Code",
@@ -329,7 +329,7 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
 
     // Send new reset code via email
     await transporter.sendMail({
-         from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "Your New Password Reset Code",
@@ -422,7 +422,7 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     // Send confirmation email
     await transporter.sendMail({
-          from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "Password Reset Successful",
@@ -491,7 +491,7 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
     // Fetch user details INCLUDING tenant_id
     const { data: userData, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, full_name, email, role, tenant_id, must_change_password")
+      .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password")
       .eq("id", userId)
       .single();
 
@@ -610,6 +610,8 @@ Authrouter.get("/profile/:userId", verifySession, async (req, res) => {
       email: userData.email,
       role: userData.role,
       tenant_id: userData.tenant_id,
+      phone: userData.phone,
+      company_phone: userData.company_phone,
       branch_id: finalBranchId,
       region_id: finalRegionId,
       avatar_url: basicProfile?.avatar_url || null,
@@ -667,7 +669,7 @@ Authrouter.post("/request-password-change-code", verifySession, async (req, res)
 
     // Send code via email
     await transporter.sendMail({
-           from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "Password Change Verification Code",
@@ -708,7 +710,7 @@ Authrouter.post("/resend-password-change-code", verifySession, async (req, res) 
 
     // Send new code via email
     await transporter.sendMail({
-           from: '"Jasiri" <noreply@jasirilending.software>',
+      from: '"Jasiri" <noreply@jasirilending.software>',
 
       to: email,
       subject: "New Password Change Code",

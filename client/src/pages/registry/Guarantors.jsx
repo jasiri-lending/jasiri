@@ -414,7 +414,7 @@ const Guarantors = () => {
   // ========== LOADING STATE ==========
   if (loading) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
+      <div className="min-h-screen bg-muted">
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <Spinner text="Loading guarantor..." />
@@ -436,7 +436,7 @@ const Guarantors = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto bg-brand-surface min-h-screen">
+    <div className="p-6 max-w-7xl mx-auto bg-muted min-h-screen">
       <div className="mb-6">
         <div className="flex justify-between items-start">
           <div>
@@ -695,8 +695,8 @@ const Guarantors = () => {
                     <td className="px-4 py-4">
                       <div className="flex">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${guarantor.canConvertToCustomer
-                            ? 'bg-green-100 text-green-800 border border-green-200'
-                            : 'bg-red-100 text-red-800 border border-red-200'
+                          ? 'bg-green-100 text-green-800 border border-green-200'
+                          : 'bg-red-100 text-red-800 border border-red-200'
                           }`}>
                           {guarantor.canConvertToCustomer ? (
                             <>
@@ -718,8 +718,8 @@ const Guarantors = () => {
                           onClick={() => handleConvertToCustomer(guarantor)}
                           disabled={!guarantor.canConvertToCustomer || convertingId === guarantor.id}
                           className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap min-w-[150px] ${guarantor.canConvertToCustomer && convertingId !== guarantor.id
-                              ? 'text-white hover:shadow-md active:scale-[0.98]'
-                              : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                            ? 'text-white hover:shadow-md active:scale-[0.98]'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
                             }`}
                           style={
                             guarantor.canConvertToCustomer && convertingId !== guarantor.id

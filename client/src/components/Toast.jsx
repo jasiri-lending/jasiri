@@ -44,10 +44,10 @@ const ToastItem = ({ id, message, type, onClose, duration = 3000 }) => {
 
     const getStyles = () => {
         switch (type) {
-            case 'success': return 'bg-emerald-50 border-emerald-200 text-emerald-800';
-            case 'error': return 'bg-red-50 border-red-200 text-red-800';
-            case 'warning': return 'bg-amber-50 border-amber-200 text-amber-800';
-            default: return 'bg-blue-50 border-blue-200 text-blue-800';
+            case 'success': return 'bg-muted border-emerald-200 text-emerald-800';
+            case 'error': return 'bg-muted border-red-200 text-red-800';
+            case 'warning': return 'bg-muted border-amber-200 text-amber-800';
+            default: return 'bg-muted border-blue-200 text-blue-800';
         }
     };
 

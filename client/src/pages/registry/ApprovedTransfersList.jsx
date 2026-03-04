@@ -86,7 +86,7 @@ const ApprovedTransfersList = ({ onExecute }) => {
 
   if (loading) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: '#d9e2e8' }}>
+      <div className="min-h-screen bg-muted">
         <div className="flex items-center justify-center h-screen">
           <div className="text-center">
             <Spinner text="Loading 360 view..." />

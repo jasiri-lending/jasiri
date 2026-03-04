@@ -31,7 +31,7 @@ const SkeletonPulse = () => (
 );
 
 const Skeleton360 = () => (
-  <div className="p-6 h-screen flex flex-col bg-[#d9e2e8] space-y-6">
+  <div className="p-6 h-screen flex flex-col bg-muted space-y-6">
     {/* Header Skeleton */}
     <div className="flex-shrink-0">
       <div className="w-48 h-10 bg-white/50 rounded-xl animate-pulse" />
@@ -2305,7 +2305,7 @@ const Customer360View = () => {
       <div className="space-y-6 pr-2">
         {/* Customer & Loan Info Card */}
         {loanDetails && (
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-xl p-5">
+          <div className="bg-muted border border-blue-200 rounded-xl p-5">
             <h3 className="text-base font-semibold text-slate-600 mb-4">
               Loan Information
             </h3>
@@ -2385,7 +2385,7 @@ const Customer360View = () => {
 
           {/* Create PTP Form */}
           {showPTPForm && (
-            <div className="px-6 py-5 border-b border-gray-200 bg-gradient-to-br from-gray-50 to-gray-100">
+            <div className="px-6 py-5 border-b border-gray-200 bg-muted">
               <h4 className="text-sm font-semibold text-slate-600 mb-4 flex items-center gap-2">
                 <CalendarIcon className="h-4 w-4 text-indigo-600" />
                 Record New Promise to Pay
@@ -2638,7 +2638,7 @@ const Customer360View = () => {
   }
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-[#d9e2e8]">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-muted">
       {/* Header with Back Button */}
       <div className="mb-4 flex-shrink-0">
         <button

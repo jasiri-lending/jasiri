@@ -22,8 +22,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { Upload, Camera, XIcon } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useToast } from "../../components/Toast";
 import LocationPicker from "../components/LocationPicker";
 import { useNavigate } from "react-router-dom";
 
@@ -132,6 +131,8 @@ const AmendmentField = memo(
 
 function EditAmendment({ customerId, onClose }) {
   const [activeSection, setActiveSection] = useState("personal");
+  const [completedSections, setCompletedSections] = useState(new Set());
+  const toast = useToast();
   const [securityItems, setSecurityItems] = useState([]);
   const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([]);
   const [errors, setErrors] = useState({});
@@ -298,10 +299,7 @@ function EditAmendment({ customerId, onClose }) {
       setAmendmentSections(sectionsWithAmendments);
 
       if (sectionsWithAmendments.size > 0) {
-        toast.info(`${sectionsWithAmendments.size} section(s) require amendments`, {
-          position: "top-right",
-          autoClose: 5000,
-        });
+        toast.info(`${sectionsWithAmendments.size} section(s) require amendments`);
       }
 
     } catch (error) {
@@ -1240,13 +1238,27 @@ function EditAmendment({ customerId, onClose }) {
                     <label className="block text-sm font-medium text-blue-800 mb-3">
                       {file.label}
                     </label>
-                    <div className="flex gap-2 w-full">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full">
                       <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
                         }`}>
                         <Upload className="w-5 h-5" />
                         <span className="font-medium">Upload</span>
                         <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden"
                           disabled={!currentSectionHasAmendments} />
+                      </label>
+
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                        }`}>
+                        <CameraIcon className="w-5 h-5" />
+                        <span className="font-medium">Camera</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture={file.key === "passport" ? "user" : "environment"}
+                          onChange={(e) => handleFileUpload(e, file.handler, file.key)}
+                          className="hidden"
+                          disabled={!currentSectionHasAmendments}
+                        />
                       </label>
                     </div>
                     {(previews[file.key] || existingImages[file.key]) && (
@@ -1371,12 +1383,20 @@ function EditAmendment({ customerId, onClose }) {
               <h3 className="text-lg font-semibold text-gray-900 mb-4">
                 Business Images
               </h3>
-              <div className="flex gap-3 mb-4">
-                <label className={`flex items-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+              <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
                   }`}>
                   <Upload className="w-5 h-5" />
                   <span className="font-medium">Add Images</span>
                   <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden"
+                    disabled={!currentSectionHasAmendments} />
+                </label>
+
+                <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                  }`}>
+                  <CameraIcon className="w-5 h-5" />
+                  <span className="font-medium">Camera</span>
+                  <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden"
                     disabled={!currentSectionHasAmendments} />
                 </label>
               </div>
@@ -1507,14 +1527,29 @@ function EditAmendment({ customerId, onClose }) {
                     <label className="block text-sm font-medium mb-3 text-gray-800">
                       Item Images
                     </label>
-                    <div className="flex gap-3 mb-4">
-                      <label className={`flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                         }`}>
                         <Upload className="w-5 h-5" />
                         <span className="font-medium">Upload Images</span>
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
+                          onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
+                          className="hidden"
+                          disabled={!currentSectionHasAmendments}
+                        />
+                      </label>
+
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                        }`}>
+                        <CameraIcon className="w-5 h-5" />
+                        <span className="font-medium">Camera</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
                           multiple
                           onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
                           className="hidden"
@@ -1829,14 +1864,28 @@ function EditAmendment({ customerId, onClose }) {
                       </h4>
                     </div>
 
-                    <div className="flex gap-2 mb-3">
-                      <label className={`flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
+                    <div className="flex flex-col sm:flex-row gap-2 mb-3">
+                      <label className={`flex-1 flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
                         }`}>
                         <Upload size={16} />
                         Upload
                         <input
                           type="file"
                           accept="image/*"
+                          onChange={(e) => handleFileUpload(e, file.handler, file.key)}
+                          className="hidden"
+                          disabled={!currentSectionHasAmendments}
+                        />
+                      </label>
+
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
+                        }`}>
+                        <CameraIcon className="w-4 h-4" />
+                        Camera
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture={file.key === "guarantorPassport" ? "user" : "environment"}
                           onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                           className="hidden"
                           disabled={!currentSectionHasAmendments}
@@ -1955,14 +2004,29 @@ function EditAmendment({ customerId, onClose }) {
                     <label className="block text-sm font-medium mb-3 text-gray-800">
                       Item Images
                     </label>
-                    <div className="flex gap-3 mb-4">
-                      <label className={`flex items-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    <div className="flex flex-col sm:flex-row gap-3 mb-4">
+                      <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                         }`}>
                         <Upload className="w-5 h-5" />
                         <span className="font-medium">Upload Images</span>
                         <input
                           type="file"
                           accept="image/*"
+                          multiple
+                          onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
+                          className="hidden"
+                          disabled={!currentSectionHasAmendments}
+                        />
+                      </label>
+
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                        }`}>
+                        <CameraIcon className="w-5 h-5" />
+                        <span className="font-medium">Camera</span>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
                           multiple
                           onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
                           className="hidden"
@@ -2196,6 +2260,20 @@ function EditAmendment({ customerId, onClose }) {
                         disabled={!currentSectionHasAmendments}
                       />
                     </label>
+
+                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      }`}>
+                      <CameraIcon className="w-5 h-5" />
+                      <span className="text-sm font-medium">Camera</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleFileUpload(e, file.handler, file.key)}
+                        className="hidden"
+                        disabled={!currentSectionHasAmendments}
+                      />
+                    </label>
                   </div>
 
                   {(file.preview || file.existing) ? (
@@ -2337,27 +2415,39 @@ function EditAmendment({ customerId, onClose }) {
         )}
 
         {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 mb-8 border border-white/50">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
             {allSections.map(({ id, label, icon: Icon }) => {
               const isActive = activeSection === id;
               const isAmended = sectionHasAmendments(id);
+              const isCompleted = completedSections.has(id);
               return (
                 <button
                   key={id}
-                  onClick={() => setActiveSection(id)}
-                  className="flex flex-col items-center gap-2 transition-all duration-300 group relative"
+                  onClick={() => {
+                    if (id !== activeSection) {
+                      setCompletedSections(prev => new Set([...prev, activeSection]));
+                    }
+                    setActiveSection(id);
+                  }}
+                  className="flex flex-col items-center gap-1.5 transition-all duration-300 group relative"
                 >
                   <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
-                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-110"
-                      : isAmended
-                        ? "bg-red-50 text-red-600 border-2 border-red-200 group-hover:bg-red-100 group-hover:border-red-300 group-hover:scale-105"
-                        : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
+                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105"
+                      : isCompleted
+                        ? "bg-green-500 text-white shadow-lg shadow-green-500/30 border-2 border-green-500"
+                        : isAmended
+                          ? "bg-red-50 text-red-600 border-2 border-red-200 group-hover:bg-red-100 group-hover:border-red-300 group-hover:scale-105"
+                          : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
                       }`}
                   >
-                    <Icon className={`h-7 w-7 ${isActive ? "text-white" : isAmended ? "text-red-500" : "text-slate-700"}`} />
-                    {isAmended && !isActive && (
+                    {isCompleted && !isActive ? (
+                      <CheckCircleIcon className="h-5 w-5 text-white" />
+                    ) : (
+                      <Icon className={`h-5 w-5 ${isActive ? "text-white" : isAmended ? "text-red-500" : isCompleted ? "text-white" : "text-slate-700"}`} />
+                    )}
+                    {isAmended && !isActive && !isCompleted && (
                       <span className="absolute -top-1 -right-1 flex h-4 w-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
                         <span className="relative inline-flex rounded-full h-4 w-4 bg-red-500 border-2 border-white"></span>
@@ -2365,11 +2455,13 @@ function EditAmendment({ customerId, onClose }) {
                     )}
                   </div>
                   <span
-                    className={`text-[10px] font-bold uppercase tracking-tighter text-center transition-all duration-300 ${isActive
-                      ? "text-brand-primary"
-                      : isAmended
-                        ? "text-red-600"
-                        : "text-slate-700 group-hover:text-slate-900"
+                    className={`text-[10px] sm:text-xs font-medium text-center transition-all duration-300 ${isActive
+                      ? "text-brand-primary font-bold"
+                      : isCompleted
+                        ? "text-green-600 font-semibold"
+                        : isAmended
+                          ? "text-red-600 font-semibold"
+                          : "text-slate-700 group-hover:text-slate-900"
                       }`}
                   >
                     {label}
@@ -2393,6 +2485,7 @@ function EditAmendment({ customerId, onClose }) {
                     type="button"
                     onClick={() => {
                       const currentIndex = allSections.findIndex((s) => s.id === activeSection);
+                      setCompletedSections(prev => new Set([...prev, activeSection]));
                       setActiveSection(allSections[currentIndex - 1].id);
                     }}
                     className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"
@@ -2428,6 +2521,7 @@ function EditAmendment({ customerId, onClose }) {
                     type="button"
                     onClick={() => {
                       const currentIndex = allSections.findIndex((s) => s.id === activeSection);
+                      setCompletedSections(prev => new Set([...prev, activeSection]));
                       setActiveSection(allSections[currentIndex + 1].id);
                     }}
                     className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"

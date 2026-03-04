@@ -13,42 +13,38 @@ const CustomTooltip = ({ active, payload, dateRange }) => {
   const data = payload[0]?.payload;
 
   return (
-    <div
-      className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200"
-      style={{
-        zIndex: 10000,
-        pointerEvents: 'none',
-        minWidth: '240px',
-        maxWidth: '300px'
-      }}
-    >
-      <p className="font-bold text-slate-600 mb-3 text-sm">
-        {dateRange === 'week' || dateRange === 'month'
-          ? data?.period
-          : dateRange === 'quarter'
-            ? `Q${Math.ceil(new Date(data?.period + '-01').getMonth() / 3) + 1} - ${data?.period}`
-            : data?.period}
-      </p>
-      <div className="space-y-2">
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Collection Amount:</span>
-          <span className="font-semibold text-xs" style={{ color: HEADER_COLOR }}>
-            Ksh {data?.amount?.toLocaleString()}
-          </span>
+    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
+      <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+        <div className="p-2 bg-indigo-50 rounded-lg">
+          <TrendingUp className="w-5 h-5 text-indigo-600" />
+        </div>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Repayment Trend</p>
+          <p className="font-black text-slate-800 text-base">
+            {dateRange === 'week' || dateRange === 'month'
+              ? data?.period
+              : dateRange === 'quarter'
+                ? `Q${Math.ceil(new Date(data?.period + '-01').getMonth() / 3) + 1} - ${data?.period}`
+                : data?.period}
+          </p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter mb-1">Collection Amount</p>
+          <p className="text-2xl font-black text-indigo-700 tracking-tight">Ksh {data?.amount?.toLocaleString()}</p>
         </div>
 
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Transaction Count:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS[1] }}>
-            {data?.count?.toLocaleString()}
-          </span>
-        </div>
-
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Average per Transaction:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS[2] }}>
-            Ksh {data?.count > 0 ? Math.round(data?.amount / data?.count).toLocaleString() : '0'}
-          </span>
+        <div className="grid grid-cols-2 gap-3">
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Transactions</p>
+            <p className="text-sm font-black text-slate-700">{data?.count?.toLocaleString()}</p>
+          </div>
+          <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Avg/Tx</p>
+            <p className="text-sm font-black text-slate-700">Ksh {data?.count > 0 ? Math.round(data?.amount / data?.count).toLocaleString() : '0'}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -326,10 +322,12 @@ const RepaymentTrendsChart = () => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
     if (!tenant?.id) return;
+    setLoading(true);
     try {
       const trendsData = await fetchRepaymentTrendsData(
         filters.dateRange,
@@ -342,6 +340,8 @@ const RepaymentTrendsChart = () => {
     } catch (error) {
       console.error("Error fetching repayment trends data:", error);
       setLocalData([]);
+    } finally {
+      setLoading(false);
     }
   }, [tenant?.id]);
 
@@ -510,42 +510,36 @@ const RepaymentTrendsChart = () => {
 
   // Format Y-axis tick
   const formatYAxisTick = (value) => {
-    if (value >= 1000000) return `Ksh ${(value / 1000000).toFixed(1)}M`;
-    if (value >= 1000) return `Ksh ${(value / 1000).toFixed(0)}k`;
-    return `Ksh ${value}`;
+    return value.toLocaleString();
   };
 
   return (
-    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6 h-full">
-      {/* Header with title and filters */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <TrendingUp className="w-6 h-6" style={{ color: HEADER_COLOR }} />
-          <h3 className="text-lg font-semibold" style={{ color: HEADER_COLOR }}>Repayment Trends</h3>
-        </div>
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
+      {/* Header with title and export */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <h3 className="text-lg text-stone-600 whitespace-nowrap">Repayment Trends Analysis</h3>
 
         <div className="flex items-center gap-3">
           <button
             onClick={handleExport}
-            className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+            className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
             disabled={!localData || localData.length === 0}
           >
-            <Download className="w-4 h-4" />
+            <Download className="w-3.5 h-3.5" />
             Export
           </button>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
+      <div className="mb-4 mt-2">
+        <div className="flex flex-nowrap items-center gap-2 relative z-20 w-full overflow-hidden">
           {[
             {
-              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Timeframe",
+              icon: <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.dateRange,
-              onChange: (e) =>
-                handleLocalFilterChange('dateRange', e.target.value),
+              onChange: (e) => handleLocalFilterChange('dateRange', e.target.value),
               options: [
                 { value: "all", label: "All Time" },
                 { value: "week", label: "This Week" },
@@ -557,10 +551,10 @@ const RepaymentTrendsChart = () => {
               ]
             },
             {
-              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Region",
+              icon: <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.region,
-              onChange: (e) =>
-                handleLocalFilterChange('region', e.target.value),
+              onChange: (e) => handleLocalFilterChange('region', e.target.value),
               options: [
                 { value: "all", label: "All Regions" },
                 ...availableRegions.map(region => ({
@@ -570,10 +564,10 @@ const RepaymentTrendsChart = () => {
               ]
             },
             {
-              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Branch",
+              icon: <Building className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.branch,
-              onChange: (e) =>
-                handleLocalFilterChange('branch', e.target.value),
+              onChange: (e) => handleLocalFilterChange('branch', e.target.value),
               options: [
                 { value: "all", label: "All Branches" },
                 ...filteredBranches.map(branch => ({
@@ -583,15 +577,13 @@ const RepaymentTrendsChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-            >
+            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
               {item.icon}
               <select
                 value={item.value}
                 onChange={item.onChange}
-                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+                disabled={loading}
+                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
               >
                 {item.options.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -603,37 +595,28 @@ const RepaymentTrendsChart = () => {
           ))}
         </div>
 
-        {/* Custom Date Range */}
         {showCustomDate && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Calendar className="w-4 h-4 text-slate-500" />
-
+          <div className="mt-4 flex flex-wrap items-center gap-3 bg-stone-50/50 p-3 rounded-lg border border-stone-100">
+            <Calendar className="w-3.5 h-3.5 text-stone-400" />
             <input
               type="date"
               value={localFilters.customStartDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customStartDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customStartDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
-            <span className="text-slate-500 text-sm">to</span>
-
+            <span className="text-stone-300">→</span>
             <input
               type="date"
               value={localFilters.customEndDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customEndDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customEndDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
             <button
               onClick={applyCustomDateFilter}
               disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+              className="h-8 px-4 rounded text-xs font-bold text-white bg-stone-600 hover:bg-stone-700 transition-all disabled:opacity-50"
             >
-              Apply
+              Update
             </button>
           </div>
         )}
@@ -651,7 +634,11 @@ const RepaymentTrendsChart = () => {
                   dataKey="period"
                   tickFormatter={formatXAxisTick}
                 />
-                <YAxis tickFormatter={formatYAxisTick} />
+                <YAxis
+                  fontSize={10}
+                  fontWeight="bold"
+                  tickFormatter={formatYAxisTick}
+                />
                 <Tooltip content={<CustomTooltip dateRange={localFilters.dateRange} />} />
                 <Legend />
                 <Area
@@ -670,7 +657,11 @@ const RepaymentTrendsChart = () => {
                   dataKey="period"
                   tickFormatter={formatXAxisTick}
                 />
-                <YAxis tickFormatter={formatYAxisTick} />
+                <YAxis
+                  fontSize={10}
+                  fontWeight="bold"
+                  tickFormatter={formatYAxisTick}
+                />
                 <Tooltip content={<CustomTooltip dateRange={localFilters.dateRange} />} />
                 <Legend />
                 <Area

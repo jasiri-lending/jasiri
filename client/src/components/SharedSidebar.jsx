@@ -258,9 +258,9 @@ const SharedSidebar = () => {
       { name: "HQ Pending", href: "/registry/hq-pending", icon: UserCheck },
       { name: "Approvals Pending", href: "/registry/approvals-pending", icon: UserCheck },
       { name: "Customer Transfer", href: "/registry/customer-transfer", icon: Users },
-      { name: "Customer Categories", href: "/registry/customer-categories", icon: FolderOpen },
+      // { name: "Customer Categories", href: "/registry/customer-categories", icon: FolderOpen },
       { name: "Customer Edits", href: "/registry/customer-edits", icon: FileSpreadsheet },
-      { name: "Prequalified Amount Edit", href: "/registry/prequalified-amount-edit", icon: CreditCard },
+      // { name: "Prequalified Amount Edit", href: "/registry/prequalified-amount-edit", icon: CreditCard },
       { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
     ];
 
@@ -276,7 +276,7 @@ const SharedSidebar = () => {
           { name: "Pending Regional Manager", href: "/loaning/pending-regional-manager", icon: FileText },
           { name: "Pending HQ", href: "/loaning/pending-hq", icon: FileText },
           { name: "Pending Disbursement", href: "/loaning/pending-disbursement", icon: FileText },
-          { name: "Disbursed Loans", href: "/loaning/disbursed-loans", icon: FileText },
+          { name: "Disbursed Loans", href: "/loaning/disbursement-loans", icon: FileText },
           { name: "Rejected Loans", href: "/loaning/rejected-loans", icon: FileText },
           { name: "Limit Adjustment", href: "/loaning/limit-adjustment", icon: Sliders, roles: ["credit_analyst_officer", "admin", "superadmin"] },
         ],

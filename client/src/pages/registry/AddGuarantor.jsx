@@ -559,768 +559,770 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
     : branches;
 
   return (
-    <div className="p-6 max-w-6xl mx-auto bg-white rounded-lg shadow-lg">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-8">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <div>
-            <h2 className="text-2xl font-bold" style={{ color: "#586ab1" }}>
-              Add New Guarantor
-            </h2>
-            <p className="text-gray-600 text-sm mt-1">
-              Add a guarantor without linking to a customer
+    <div className="min-h-screen bg-muted p-6">
+      <div className="max-w-6xl mx-auto bg-white rounded-xl shadow-lg p-6">
+        {/* Header */}
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={onClose}
+              className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <div>
+              <h2 className="text-2xl font-bold" style={{ color: "#586ab1" }}>
+                Add New Guarantor
+              </h2>
+              <p className="text-gray-600 text-sm mt-1">
+                Add a guarantor without linking to a customer
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Notification */}
+        {notification && (
+          <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${notification.type === 'success'
+            ? 'bg-green-50 border border-green-200'
+            : 'bg-red-50 border border-red-200'
+            }`}>
+            {notification.type === 'success' ? (
+              <CheckCircle className="w-5 h-5 text-green-600" />
+            ) : (
+              <AlertCircle className="w-5 h-5 text-red-600" />
+            )}
+            <p className={notification.type === 'success' ? 'text-green-800' : 'text-red-800'}>
+              {notification.message}
             </p>
           </div>
-        </div>
-      </div>
+        )}
 
-      {/* Notification */}
-      {notification && (
-        <div className={`mb-6 p-4 rounded-lg flex items-center gap-3 ${notification.type === 'success'
-          ? 'bg-green-50 border border-green-200'
-          : 'bg-red-50 border border-red-200'
-          }`}>
-          {notification.type === 'success' ? (
-            <CheckCircle className="w-5 h-5 text-green-600" />
-          ) : (
-            <AlertCircle className="w-5 h-5 text-red-600" />
-          )}
-          <p className={notification.type === 'success' ? 'text-green-800' : 'text-red-800'}>
-            {notification.message}
-          </p>
-        </div>
-      )}
-
-      <form onSubmit={handleSubmit} className="space-y-8">
-        {/* Step 1: Guarantor Personal Details */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
-              <User className="w-5 h-5" style={{ color: "#586ab1" }} />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-                Guarantor Personal Details
-              </h3>
-              <p className="text-gray-600">Enter the guarantor's personal information</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Region */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Region
-              </label>
-              <select
-                name="region_id"
-                value={formData.region_id || ''}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Region</option>
-                {regions.map(region => (
-                  <option key={region.id} value={region.id}>{region.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Branch */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Branch
-              </label>
-              <select
-                name="branch_id"
-                value={formData.branch_id || ''}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select Branch</option>
-                {filteredBranches.map(branch => (
-                  <option key={branch.id} value={branch.id}>{branch.name}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* Prefix */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Prefix
-              </label>
-              <select
-                name="prefix"
-                value={formData.prefix}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="Mr">Mr</option>
-                <option value="Mrs">Mrs</option>
-                <option value="Ms">Ms</option>
-                <option value="Dr">Dr</option>
-              </select>
-            </div>
-
-            {/* First Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                First Name *
-              </label>
-              <input
-                type="text"
-                name="Firstname"
-                value={formData.Firstname}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Firstname ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                placeholder="Enter first name"
-              />
-              {errors.Firstname && (
-                <p className="mt-1 text-sm text-red-600">{errors.Firstname}</p>
-              )}
-            </div>
-
-            {/* Middle Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Middle Name
-              </label>
-              <input
-                type="text"
-                name="Middlename"
-                value={formData.Middlename}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter middle name"
-              />
-            </div>
-
-            {/* Surname */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Surname *
-              </label>
-              <input
-                type="text"
-                name="Surname"
-                value={formData.Surname}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Surname ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                placeholder="Enter surname"
-              />
-              {errors.Surname && (
-                <p className="mt-1 text-sm text-red-600">{errors.Surname}</p>
-              )}
-            </div>
-
-            {/* ID Number */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                ID Number *
-              </label>
-              <input
-                type="text"
-                name="id_number"
-                value={formData.id_number}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.id_number ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                placeholder="Enter ID number"
-                pattern="[0-9]*"
-                inputMode="numeric"
-              />
-              {errors.id_number && (
-                <p className="mt-1 text-sm text-red-600">{errors.id_number}</p>
-              )}
-            </div>
-
-            {/* Mobile */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Mobile Number *
-              </label>
-              <input
-                type="text"
-                name="mobile"
-                value={formData.mobile}
-                onChange={handleChange}
-                className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.mobile ? 'border-red-300' : 'border-gray-300'
-                  }`}
-                placeholder="07XXXXXXXX"
-              />
-              {errors.mobile && (
-                <p className="mt-1 text-sm text-red-600">{errors.mobile}</p>
-              )}
-            </div>
-
-            {/* Alternative Number - CHANGED FIELD NAME */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Alternative Number
-              </label>
-              <input
-                type="text"
-                name="alternative_number"
-                value={formData.alternative_number}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Alternative phone number"
-              />
-            </div>
-
-            {/* Date of Birth */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Date of Birth
-              </label>
-              <input
-                type="date"
-                name="date_of_birth"
-                value={formData.date_of_birth}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
-            </div>
-
-            {/* Gender */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Gender
-              </label>
-              <select
-                name="gender"
-                value={formData.gender}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select gender</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </select>
-            </div>
-
-            {/* Marital Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Marital Status
-              </label>
-              <select
-                name="marital_status"
-                value={formData.marital_status}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select status</option>
-                <option value="Single">Single</option>
-                <option value="Married">Married</option>
-                <option value="Separated/Divorced">Separated/Divorced</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            {/* Residence Status */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Residence Status
-              </label>
-              <select
-                name="residence_status"
-                value={formData.residence_status}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select status</option>
-                <option value="Own">Own</option>
-                <option value="Rent">Rent</option>
-                <option value="Family">Family</option>
-                <option value="Other">Other</option>
-              </select>
-            </div>
-
-            {/* Occupation */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Occupation
-              </label>
-              <input
-                type="text"
-                name="occupation"
-                value={formData.occupation}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter occupation"
-              />
-            </div>
-
-            {/* Relationship */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Relationship to Customer (Optional)
-              </label>
-              <input
-                type="text"
-                name="relationship"
-                value={formData.relationship}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="e.g., Spouse, Friend, Relative"
-              />
-            </div>
-
-            {/* County */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                County
-              </label>
-              <select
-                name="county"
-                value={formData.county}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="">Select county</option>
-                {KENYA_COUNTIES.map(county => (
-                  <option key={county} value={county}>{county}</option>
-                ))}
-              </select>
-            </div>
-
-            {/* City/Town */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                City/Town
-              </label>
-              <input
-                type="text"
-                name="city_town"
-                value={formData.city_town}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter city/town"
-              />
-            </div>
-
-            {/* Postal Address */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Postal Address
-              </label>
-              <input
-                type="text"
-                name="postal_address"
-                value={formData.postal_address}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter postal address"
-              />
-            </div>
-
-            {/* Postal Code */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Postal Code
-              </label>
-              <input
-                type="number"
-                name="code"
-                value={formData.code}
-                onChange={handleChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter postal code"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Step 2: Guarantor Documents (Optional) */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
-              <Upload className="w-5 h-5" style={{ color: "#586ab1" }} />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-                Guarantor Documents (Optional)
-              </h3>
-              <p className="text-gray-600">Upload documents for the guarantor</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Passport Photo */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Passport Photo
-              </label>
-              <div className="space-y-3">
-                <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">Upload Passport</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
-                    className="hidden"
-                  />
-                </label>
-                <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                  <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                  <span className="text-sm text-blue-600">Take Photo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
-                    className="hidden"
-                  />
-                </label>
-                {previews.guarantorPassport && (
-                  <div className="relative mt-4">
-                    <img
-                      src={previews.guarantorPassport.url}
-                      alt="Passport preview"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile('guarantorPassport', setGuarantorPassportFile)}
-                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ID Front */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ID Front Side
-              </label>
-              <div className="space-y-3">
-                <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">Upload ID Front</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
-                    className="hidden"
-                  />
-                </label>
-                <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                  <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                  <span className="text-sm text-blue-600">Take Photo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
-                    className="hidden"
-                  />
-                </label>
-                {previews.guarantorIdFront && (
-                  <div className="relative mt-4">
-                    <img
-                      src={previews.guarantorIdFront.url}
-                      alt="ID Front preview"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile('guarantorIdFront', setGuarantorIdFrontFile)}
-                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* ID Back */}
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                ID Back Side
-              </label>
-              <div className="space-y-3">
-                <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                  <span className="text-sm text-gray-600">Upload ID Back</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
-                    className="hidden"
-                  />
-                </label>
-                <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                  <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                  <span className="text-sm text-blue-600">Take Photo</span>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
-                    className="hidden"
-                  />
-                </label>
-                {previews.guarantorIdBack && (
-                  <div className="relative mt-4">
-                    <img
-                      src={previews.guarantorIdBack.url}
-                      alt="ID Back preview"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile('guarantorIdBack', setGuarantorIdBackFile)}
-                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                    >
-                      <X className="w-4 h-4" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Step 3: Guarantor Security Items (Optional) */}
-        <div className="space-y-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
-              <Shield className="w-5 h-5" style={{ color: "#586ab1" }} />
-            </div>
-            <div>
-              <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-                Guarantor Security Items (Optional)
-              </h3>
-              <p className="text-gray-600">Add security items if available</p>
-            </div>
-          </div>
-
+        <form onSubmit={handleSubmit} className="space-y-8">
+          {/* Step 1: Guarantor Personal Details */}
           <div className="space-y-6">
-            {securityItems.map((item, index) => (
-              <div key={index} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
-                <div className="flex justify-between items-center mb-4">
-                  <h4 className="font-medium text-gray-900">Security Item {index + 1}</h4>
-                  {securityItems.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => removeSecurityItem(index)}
-                      className="text-red-600 hover:text-red-800 p-1"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
+                <User className="w-5 h-5" style={{ color: "#586ab1" }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+                  Guarantor Personal Details
+                </h3>
+                <p className="text-gray-600">Enter the guarantor's personal information</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {/* Region */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Region
+                </label>
+                <select
+                  name="region_id"
+                  value={formData.region_id || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Region</option>
+                  {regions.map(region => (
+                    <option key={region.id} value={region.id}>{region.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Branch */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Branch
+                </label>
+                <select
+                  name="branch_id"
+                  value={formData.branch_id || ''}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select Branch</option>
+                  {filteredBranches.map(branch => (
+                    <option key={branch.id} value={branch.id}>{branch.name}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Prefix */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Prefix
+                </label>
+                <select
+                  name="prefix"
+                  value={formData.prefix}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="Mr">Mr</option>
+                  <option value="Mrs">Mrs</option>
+                  <option value="Ms">Ms</option>
+                  <option value="Dr">Dr</option>
+                </select>
+              </div>
+
+              {/* First Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  First Name *
+                </label>
+                <input
+                  type="text"
+                  name="Firstname"
+                  value={formData.Firstname}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Firstname ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  placeholder="Enter first name"
+                />
+                {errors.Firstname && (
+                  <p className="mt-1 text-sm text-red-600">{errors.Firstname}</p>
+                )}
+              </div>
+
+              {/* Middle Name */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Middle Name
+                </label>
+                <input
+                  type="text"
+                  name="Middlename"
+                  value={formData.Middlename}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter middle name"
+                />
+              </div>
+
+              {/* Surname */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Surname *
+                </label>
+                <input
+                  type="text"
+                  name="Surname"
+                  value={formData.Surname}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.Surname ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  placeholder="Enter surname"
+                />
+                {errors.Surname && (
+                  <p className="mt-1 text-sm text-red-600">{errors.Surname}</p>
+                )}
+              </div>
+
+              {/* ID Number */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  ID Number *
+                </label>
+                <input
+                  type="text"
+                  name="id_number"
+                  value={formData.id_number}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.id_number ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  placeholder="Enter ID number"
+                  pattern="[0-9]*"
+                  inputMode="numeric"
+                />
+                {errors.id_number && (
+                  <p className="mt-1 text-sm text-red-600">{errors.id_number}</p>
+                )}
+              </div>
+
+              {/* Mobile */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Mobile Number *
+                </label>
+                <input
+                  type="text"
+                  name="mobile"
+                  value={formData.mobile}
+                  onChange={handleChange}
+                  className={`w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${errors.mobile ? 'border-red-300' : 'border-gray-300'
+                    }`}
+                  placeholder="07XXXXXXXX"
+                />
+                {errors.mobile && (
+                  <p className="mt-1 text-sm text-red-600">{errors.mobile}</p>
+                )}
+              </div>
+
+              {/* Alternative Number - CHANGED FIELD NAME */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Alternative Number
+                </label>
+                <input
+                  type="text"
+                  name="alternative_number"
+                  value={formData.alternative_number}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Alternative phone number"
+                />
+              </div>
+
+              {/* Date of Birth */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Date of Birth
+                </label>
+                <input
+                  type="date"
+                  name="date_of_birth"
+                  value={formData.date_of_birth}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
+
+              {/* Gender */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Gender
+                </label>
+                <select
+                  name="gender"
+                  value={formData.gender}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+              </div>
+
+              {/* Marital Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Marital Status
+                </label>
+                <select
+                  name="marital_status"
+                  value={formData.marital_status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select status</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Separated/Divorced">Separated/Divorced</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Residence Status */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Residence Status
+                </label>
+                <select
+                  name="residence_status"
+                  value={formData.residence_status}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select status</option>
+                  <option value="Own">Own</option>
+                  <option value="Rent">Rent</option>
+                  <option value="Family">Family</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              {/* Occupation */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Occupation
+                </label>
+                <input
+                  type="text"
+                  name="occupation"
+                  value={formData.occupation}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter occupation"
+                />
+              </div>
+
+              {/* Relationship */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Relationship to Customer (Optional)
+                </label>
+                <input
+                  type="text"
+                  name="relationship"
+                  value={formData.relationship}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="e.g., Spouse, Friend, Relative"
+                />
+              </div>
+
+              {/* County */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  County
+                </label>
+                <select
+                  name="county"
+                  value={formData.county}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="">Select county</option>
+                  {KENYA_COUNTIES.map(county => (
+                    <option key={county} value={county}>{county}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* City/Town */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  City/Town
+                </label>
+                <input
+                  type="text"
+                  name="city_town"
+                  value={formData.city_town}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter city/town"
+                />
+              </div>
+
+              {/* Postal Address */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Postal Address
+                </label>
+                <input
+                  type="text"
+                  name="postal_address"
+                  value={formData.postal_address}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter postal address"
+                />
+              </div>
+
+              {/* Postal Code */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Postal Code
+                </label>
+                <input
+                  type="number"
+                  name="code"
+                  value={formData.code}
+                  onChange={handleChange}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter postal code"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Step 2: Guarantor Documents (Optional) */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
+                <Upload className="w-5 h-5" style={{ color: "#586ab1" }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+                  Guarantor Documents (Optional)
+                </h3>
+                <p className="text-gray-600">Upload documents for the guarantor</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              {/* Passport Photo */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Passport Photo
+                </label>
+                <div className="space-y-3">
+                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">Upload Passport</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                    <span className="text-sm text-blue-600">Take Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
+                      className="hidden"
+                    />
+                  </label>
+                  {previews.guarantorPassport && (
+                    <div className="relative mt-4">
+                      <img
+                        src={previews.guarantorPassport.url}
+                        alt="Passport preview"
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile('guarantorPassport', setGuarantorPassportFile)}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
                   )}
                 </div>
+              </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                  {/* Security Type Dropdown */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Type
-                    </label>
-                    <select
-                      name="item"
-                      value={item.item}
-                      onChange={(e) => handleSecurityChange(e, index)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    >
-                      <option value="">-- Select Security Type --</option>
-                      <option value="Household Items">Household Items</option>
-                      <option value="Business Equipment">Business Equipment</option>
-                      <option value="Livestock">Livestock</option>
-                      <option value="Motor Vehicle">Motor Vehicle</option>
-                      <option value="Motorbike">Motorbike</option>
-                      <option value="Land / Property">Land / Property</option>
-                      <option value="Title deed">Title deed</option>
-                      <option value="Logbook">Logbook</option>
-                      <option value="Salary Check-off">Salary Check-off</option>
-                      <option value="Stock / Inventory">Stock / Inventory</option>
-                      <option value="Fixed deposit / Savings security">Fixed deposit / Savings security</option>
-                      <option value="Electronics">Electronics</option>
-                      <option value="Other">Other (specify)</option>
-                    </select>
+              {/* ID Front */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID Front Side
+                </label>
+                <div className="space-y-3">
+                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">Upload ID Front</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                    <span className="text-sm text-blue-600">Take Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
+                      className="hidden"
+                    />
+                  </label>
+                  {previews.guarantorIdFront && (
+                    <div className="relative mt-4">
+                      <img
+                        src={previews.guarantorIdFront.url}
+                        alt="ID Front preview"
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile('guarantorIdFront', setGuarantorIdFrontFile)}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* ID Back */}
+              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  ID Back Side
+                </label>
+                <div className="space-y-3">
+                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                    <span className="text-sm text-gray-600">Upload ID Back</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
+                      className="hidden"
+                    />
+                  </label>
+                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                    <span className="text-sm text-blue-600">Take Photo</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
+                      className="hidden"
+                    />
+                  </label>
+                  {previews.guarantorIdBack && (
+                    <div className="relative mt-4">
+                      <img
+                        src={previews.guarantorIdBack.url}
+                        alt="ID Back preview"
+                        className="w-full h-48 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile('guarantorIdBack', setGuarantorIdBackFile)}
+                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Step 3: Guarantor Security Items (Optional) */}
+          <div className="space-y-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
+                <Shield className="w-5 h-5" style={{ color: "#586ab1" }} />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+                  Guarantor Security Items (Optional)
+                </h3>
+                <p className="text-gray-600">Add security items if available</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              {securityItems.map((item, index) => (
+                <div key={index} className="border border-gray-200 rounded-lg p-6 bg-gray-50">
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="font-medium text-gray-900">Security Item {index + 1}</h4>
+                    {securityItems.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeSecurityItem(index)}
+                        className="text-red-600 hover:text-red-800 p-1"
+                      >
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    )}
                   </div>
 
-                  {/* Other Type Specification */}
-                  {item.item === "Other" && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    {/* Security Type Dropdown */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Specify Other Type
+                        Type
+                      </label>
+                      <select
+                        name="item"
+                        value={item.item}
+                        onChange={(e) => handleSecurityChange(e, index)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      >
+                        <option value="">-- Select Security Type --</option>
+                        <option value="Household Items">Household Items</option>
+                        <option value="Business Equipment">Business Equipment</option>
+                        <option value="Livestock">Livestock</option>
+                        <option value="Motor Vehicle">Motor Vehicle</option>
+                        <option value="Motorbike">Motorbike</option>
+                        <option value="Land / Property">Land / Property</option>
+                        <option value="Title deed">Title deed</option>
+                        <option value="Logbook">Logbook</option>
+                        <option value="Salary Check-off">Salary Check-off</option>
+                        <option value="Stock / Inventory">Stock / Inventory</option>
+                        <option value="Fixed deposit / Savings security">Fixed deposit / Savings security</option>
+                        <option value="Electronics">Electronics</option>
+                        <option value="Other">Other (specify)</option>
+                      </select>
+                    </div>
+
+                    {/* Other Type Specification */}
+                    {item.item === "Other" && (
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                          Specify Other Type
+                        </label>
+                        <input
+                          type="text"
+                          name="otherType"
+                          value={item.otherType || ""}
+                          onChange={(e) => handleSecurityChange(e, index)}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Specify security type"
+                        />
+                      </div>
+                    )}
+
+                    {/* Description */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Description
                       </label>
                       <input
                         type="text"
-                        name="otherType"
-                        value={item.otherType || ""}
+                        name="description"
+                        value={item.description}
                         onChange={(e) => handleSecurityChange(e, index)}
                         className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        placeholder="Specify security type"
+                        placeholder="Describe the security item"
                       />
                     </div>
-                  )}
 
-                  {/* Description */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Description
-                    </label>
-                    <input
-                      type="text"
-                      name="description"
-                      value={item.description}
-                      onChange={(e) => handleSecurityChange(e, index)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Describe the security item"
-                    />
-                  </div>
-
-                  {/* Identification */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Identification
-                    </label>
-                    <input
-                      type="text"
-                      name="identification"
-                      value={item.identification}
-                      onChange={(e) => handleSecurityChange(e, index)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="e.g., Serial number, registration"
-                    />
-                  </div>
-
-                  {/* Estimated Value */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Estimated Value (KES)
-                    </label>
-                    <input
-                      type="number"
-                      name="value"
-                      value={item.value}
-                      onChange={(e) => handleSecurityChange(e, index)}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      placeholder="Enter estimated value"
-                    />
-                  </div>
-                </div>
-
-                {/* Security Images */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium mb-2 text-gray-700">
-                    Item Images
-                  </label>
-                  <div className="flex gap-3 mb-3">
-                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition">
-                      <Upload className="w-5 h-5" />
-                      Upload
+                    {/* Identification */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Identification
+                      </label>
                       <input
-                        type="file"
-                        accept="image/*"
-                        multiple
-                        onChange={(e) => handleMultipleFiles(e, index)}
-                        className="hidden"
+                        type="text"
+                        name="identification"
+                        value={item.identification}
+                        onChange={(e) => handleSecurityChange(e, index)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="e.g., Serial number, registration"
                       />
-                    </label>
+                    </div>
 
-                    <label className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-300 text-white rounded-lg cursor-pointer hover:bg-blue-500 transition">
-                      <Camera className="w-5 h-5" />
-                      Camera
+                    {/* Estimated Value */}
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Estimated Value (KES)
+                      </label>
                       <input
-                        type="file"
-                        accept="image/*"
-                        capture="environment"
-                        multiple
-                        onChange={(e) => handleMultipleFiles(e, index)}
-                        className="hidden"
+                        type="number"
+                        name="value"
+                        value={item.value}
+                        onChange={(e) => handleSecurityChange(e, index)}
+                        className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Enter estimated value"
                       />
-                    </label>
+                    </div>
                   </div>
 
-                  {/* Display Image Grid */}
-                  {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                      {guarantorSecurityImages[index].map((img, imgIdx) => (
-                        <div key={imgIdx} className="relative group">
-                          <img
-                            src={URL.createObjectURL(img)}
-                            alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
-                            className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveMultipleFile(index, imgIdx)}
-                            className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                          >
-                            <X className="w-4 h-4" />
-                          </button>
-                          {/* File name display */}
-                          <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                            <p className="text-xs truncate" title={img.name}>
-                              {img.name}
-                            </p>
+                  {/* Security Images */}
+                  <div className="mt-6">
+                    <label className="block text-sm font-medium mb-2 text-gray-700">
+                      Item Images
+                    </label>
+                    <div className="flex gap-3 mb-3">
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition">
+                        <Upload className="w-5 h-5" />
+                        Upload
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => handleMultipleFiles(e, index)}
+                          className="hidden"
+                        />
+                      </label>
+
+                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-300 text-white rounded-lg cursor-pointer hover:bg-blue-500 transition">
+                        <Camera className="w-5 h-5" />
+                        Camera
+                        <input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          multiple
+                          onChange={(e) => handleMultipleFiles(e, index)}
+                          className="hidden"
+                        />
+                      </label>
+                    </div>
+
+                    {/* Display Image Grid */}
+                    {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                        {guarantorSecurityImages[index].map((img, imgIdx) => (
+                          <div key={imgIdx} className="relative group">
+                            <img
+                              src={URL.createObjectURL(img)}
+                              alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
+                              className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveMultipleFile(index, imgIdx)}
+                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                            {/* File name display */}
+                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                              <p className="text-xs truncate" title={img.name}>
+                                {img.name}
+                              </p>
+                            </div>
                           </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
 
+              <button
+                type="button"
+                onClick={addSecurityItem}
+                className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                style={{ color: "#586ab1" }}
+              >
+                <Plus className="w-5 h-5" />
+                Add Security Item
+              </button>
+            </div>
+          </div>
+
+          {/* Form Actions */}
+          <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
             <button
               type="button"
-              onClick={addSecurityItem}
-              className="flex items-center gap-2 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-              style={{ color: "#586ab1" }}
+              onClick={onClose}
+              className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              disabled={saving}
             >
-              <Plus className="w-5 h-5" />
-              Add Security Item
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
+              style={{ backgroundColor: "#586ab1" }}
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-5 h-5" />
+                  Save Guarantor
+                </>
+              )}
             </button>
           </div>
-        </div>
-
-        {/* Form Actions */}
-        <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            disabled={saving}
-          >
-            Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-3 rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:opacity-90"
-            style={{ backgroundColor: "#586ab1" }}
-          >
-            {saving ? (
-              <>
-                <Loader2 className="w-5 h-5 animate-spin" />
-                Saving...
-              </>
-            ) : (
-              <>
-                <Save className="w-5 h-5" />
-                Save Guarantor
-              </>
-            )}
-          </button>
-        </div>
-      </form>
+        </form>
+      </div>
     </div>
   );
 };

@@ -19,7 +19,7 @@ import Spinner from "../../components/Spinner";
 const CustomerInteractions = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
-  
+
   const [customer, setCustomer] = useState(null);
   const [interactions, setInteractions] = useState([]);
   const [approvalHistory, setApprovalHistory] = useState([]);
@@ -223,10 +223,10 @@ const CustomerInteractions = () => {
       if (error) throw error;
 
       setInteractions((prev) => [data, ...prev]);
-      setNewInteraction({ 
-        interaction_type: "", 
+      setNewInteraction({
+        interaction_type: "",
         notes: "",
-        subject: "" 
+        subject: ""
       });
       setShowInteractionForm(false);
       alert("Interaction added successfully!");
@@ -274,20 +274,20 @@ const CustomerInteractions = () => {
       alert("Loan limit updated successfully!");
       setEditingLimit(false);
       setLimitComment("");
-      
+
       // Refresh customer data to show updated limit
       const { data: updatedCustomer } = await supabase
         .from("customers")
         .select("loan_limit")
         .eq("id", customerId)
         .single();
-      
+
       setCustomer(prev => ({ ...prev, loan_limit: updatedCustomer.loan_limit }));
       setNewLimit(updatedCustomer.loan_limit);
-      
+
       // Refresh interactions
       await fetchInteractions(customerId);
-      
+
     } catch (error) {
       console.error("Error updating limit:", error);
       alert("Failed to update limit");
@@ -306,13 +306,12 @@ const CustomerInteractions = () => {
           <h4 className="font-semibold text-gray-800 text-sm">{role}</h4>
           {decision && (
             <span
-              className={`px-3 py-1 rounded-full text-xs font-medium ${
-                decision.toLowerCase() === "approved"
-                  ? "bg-green-100 text-green-800 border border-green-200"
-                  : decision.toLowerCase() === "rejected"
+              className={`px-3 py-1 rounded-full text-xs font-medium ${decision.toLowerCase() === "approved"
+                ? "bg-green-100 text-green-800 border border-green-200"
+                : decision.toLowerCase() === "rejected"
                   ? "bg-red-100 text-red-800 border border-red-200"
                   : "bg-yellow-100 text-yellow-800 border border-yellow-200"
-              }`}
+                }`}
             >
               {decision}
             </span>
@@ -372,7 +371,7 @@ const CustomerInteractions = () => {
 
   // Interaction Form Component
   const renderInteractionForm = () => (
-    <div className="bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-5 shadow-sm mb-6">
+    <div className="bg-muted border border-gray-200 rounded-xl p-5 shadow-sm mb-6">
       <h4 className="text-lg font-semibold text-gray-800 mb-4 flex items-center">
         <ChatBubbleLeftRightIcon className="h-5 w-5 mr-2 text-[#586ab1]" />
         Record New Interaction
@@ -488,10 +487,10 @@ const CustomerInteractions = () => {
             type="button"
             onClick={() => {
               setShowInteractionForm(false);
-              setNewInteraction({ 
-                interaction_type: "", 
+              setNewInteraction({
+                interaction_type: "",
                 notes: "",
-                subject: "" 
+                subject: ""
               });
             }}
             className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
@@ -514,25 +513,24 @@ const CustomerInteractions = () => {
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center space-x-3">
             <span
-              className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${
-                interaction.interaction_type === "call"
-                  ? "bg-blue-100 text-blue-800"
-                  : interaction.interaction_type === "sms"
+              className={`inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full ${interaction.interaction_type === "call"
+                ? "bg-blue-100 text-blue-800"
+                : interaction.interaction_type === "sms"
                   ? "bg-green-100 text-green-800"
                   : interaction.interaction_type === "email"
-                  ? "bg-purple-100 text-purple-800"
-                  : interaction.interaction_type === "visit"
-                  ? "bg-orange-100 text-orange-800"
-                  : interaction.interaction_type === "meeting"
-                  ? "bg-[#586ab1] bg-opacity-10 text-[#586ab1]"
-                  : interaction.interaction_type === "follow_up"
-                  ? "bg-yellow-100 text-yellow-800"
-                  : interaction.interaction_type === "complaint"
-                  ? "bg-red-100 text-red-800"
-                  : interaction.interaction_type === "limit_adjustment"
-                  ? "bg-indigo-100 text-indigo-800"
-                  : "bg-gray-100 text-gray-800"
-              }`}
+                    ? "bg-purple-100 text-purple-800"
+                    : interaction.interaction_type === "visit"
+                      ? "bg-orange-100 text-orange-800"
+                      : interaction.interaction_type === "meeting"
+                        ? "bg-[#586ab1] bg-opacity-10 text-[#586ab1]"
+                        : interaction.interaction_type === "follow_up"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : interaction.interaction_type === "complaint"
+                            ? "bg-red-100 text-red-800"
+                            : interaction.interaction_type === "limit_adjustment"
+                              ? "bg-indigo-100 text-indigo-800"
+                              : "bg-gray-100 text-gray-800"
+                }`}
             >
               {interaction.interaction_type === "call" && "📞"}
               {interaction.interaction_type === "sms" && "💬"}
@@ -688,7 +686,7 @@ const CustomerInteractions = () => {
               {interactions.map((interaction) => renderInteractionItem(interaction))}
             </div>
           ) : (
-            <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
+            <div className="text-center py-12 bg-muted border border-dashed border-gray-300 rounded-xl">
               <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">
                 No interactions recorded
@@ -717,7 +715,7 @@ const CustomerInteractions = () => {
           </div> */}
 
           {approvalHistory.length === 0 ? (
-            <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
+            <div className="text-center py-12 bg-muted border border-dashed border-gray-300 rounded-xl">
               <ClipboardDocumentCheckIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">
                 No approval history found
@@ -738,7 +736,7 @@ const CustomerInteractions = () => {
                       </p>
                     </div>
                   </div>
-                  
+
                   <div className="space-y-3">
                     {renderApprovalEntry(
                       "Branch Manager",
@@ -748,7 +746,7 @@ const CustomerInteractions = () => {
                       verification.branch_manager_verified_by,
                       verification.branch_manager_profile
                     )}
-                    
+
                     {renderApprovalEntry(
                       "Credit Analyst Officer",
                       verification.credit_analyst_officer_final_decision,
@@ -757,7 +755,7 @@ const CustomerInteractions = () => {
                       verification.credit_analyst_officer_verified_by,
                       verification.cao_profile
                     )}
-                    
+
                     {renderApprovalEntry(
                       "Customer Service Officer",
                       verification.co_final_decision,
@@ -784,11 +782,11 @@ const CustomerInteractions = () => {
             {/* <h3 className="text-sm  text-slate-600 mb-2">
               Loan Limit Management
             </h3> */}
-           
+
           </div>
-          
+
           {/* Current Limit Card */}
-          <div className="bg-gradient-to-r from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-5 shadow-sm">
+          <div className="bg-muted border border-gray-200 rounded-xl p-5 shadow-sm">
             <div className="flex justify-between items-center">
               <div>
                 <p className="text-sm text-gray-600 mb-1">Current Loan Limit</p>
@@ -810,7 +808,7 @@ const CustomerInteractions = () => {
 
           {/* Limit Adjustment Form */}
           {editingLimit && (
-            <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <div className="bg-muted border border-gray-200 rounded-xl p-5 shadow-sm">
               <h4 className="text-sm  text-slate-600 mb-4 flex items-center">
                 <PencilSquareIcon className="h-5 w-5 mr-2 text-[#586ab1]" />
                 Adjust Loan Limit
@@ -897,7 +895,7 @@ const CustomerInteractions = () => {
             <h4 className="text-sm  text-slate-600 mb-4">Adjustment History</h4>
             <div className="space-y-3">
               {interactions.filter(i => i.interaction_type === "limit_adjustment").length === 0 ? (
-                <div className="text-center py-8 bg-white border border-dashed border-gray-300 rounded-xl">
+                <div className="text-center py-8 bg-muted border border-dashed border-gray-300 rounded-xl">
                   <AdjustmentsHorizontalIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-600 font-medium">No limit adjustments recorded</p>
                   <p className="text-sm text-gray-500 mt-1">Adjust the loan limit to see history here</p>
@@ -922,11 +920,11 @@ const CustomerInteractions = () => {
             {/* <h3 className="text-sm  text-slate-600 mb-2">
               Scored Amount History
             </h3> */}
-           
+
           </div>
-          
+
           {approvalHistory.length === 0 ? (
-            <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
+            <div className="text-center py-12 bg-muted border border-dashed border-gray-300 rounded-xl">
               <ChartBarSquareIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">No scored amounts recorded</p>
               <p className="text-sm text-gray-500 mt-1">
@@ -940,7 +938,7 @@ const CustomerInteractions = () => {
                 if (amounts.length === 0) return null;
 
                 return (
-                  <div key={verification.id} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+                  <div key={verification.id} className="bg-muted border border-gray-200 rounded-xl p-5 shadow-sm">
                     <div className="mb-4">
                       <h4 className=" text-slate-600 text-sm">Scoring Session</h4>
                       <p className="text-xs text-gray-500">
@@ -949,7 +947,7 @@ const CustomerInteractions = () => {
                     </div>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       {amounts.map((scoreData, idx) => (
-                        <div key={idx} className="bg-gradient-to-br from-gray-50 to-blue-50 p-4 rounded-xl border border-gray-200">
+                        <div key={idx} className="bg-muted p-4 rounded-xl border border-gray-200">
                           <p className="text-xs font-medium text-gray-600 mb-2">
                             {scoreData.role}
                           </p>
@@ -986,9 +984,9 @@ const CustomerInteractions = () => {
     },
   ];
 
-   if (loading) {
+  if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading interactions..." />
       </div>
     );
@@ -996,7 +994,7 @@ const CustomerInteractions = () => {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <p className="text-gray-500 text-lg">Customer not found</p>
           <button
@@ -1011,7 +1009,7 @@ const CustomerInteractions = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-muted">
       <div className="max-w-7xl mx-auto py-4 sm:px-6 lg:px-8">
         <div className="px-4 sm:px-0">
           <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-200">
@@ -1036,11 +1034,10 @@ const CustomerInteractions = () => {
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-2 px-4 py-3 rounded-t-lg text-sm font-medium transition-all duration-200 ${
-                      active
-                        ? "bg-[#586ab1] text-white border-b-2 border-[#586ab1] shadow-sm"
-                        : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
-                    }`}
+                    className={`flex items-center gap-2 px-4 py-3 rounded-t-lg text-sm font-medium transition-all duration-200 ${active
+                      ? "bg-[#586ab1] text-white border-b-2 border-[#586ab1] shadow-sm"
+                      : "text-gray-700 hover:bg-gray-100 hover:text-gray-900"
+                      }`}
                   >
                     <Icon className={`h-5 w-5 ${active ? 'text-white' : 'text-gray-500'}`} />
                     {tab.name}

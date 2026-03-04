@@ -4,14 +4,6 @@ export const formatCurrencyCompact = (amount) => {
   }
 
   const numAmount = Number(amount);
-  
-  if (numAmount >= 1000000) {
-    return `Ksh ${(numAmount / 1000000).toFixed(1)}M`;
-  }
-  
-  if (numAmount >= 1000) {
-    return `Ksh ${(numAmount / 1000).toFixed(1)}K`;
-  }
 
   return `Ksh ${numAmount.toLocaleString("en-KE", {
     minimumFractionDigits: 0,

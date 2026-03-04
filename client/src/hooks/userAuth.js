@@ -182,7 +182,7 @@ export function useAuth() {
       // Fetch user data from users table
       const { data: userData, error: userError } = await supabase
         .from("users")
-        .select("id, full_name, email, role, tenant_id, last_login, created_at, phone, session_expires_at")
+        .select("id, full_name, email, role, tenant_id, last_login, created_at, phone, company_phone, session_expires_at")
         .eq("id", userId)
         .single();
 
@@ -284,6 +284,7 @@ export function useAuth() {
         name: userData?.full_name || 'User',
         email: userData?.email || '',
         phone: userData?.phone || null,
+        company_phone: userData?.company_phone || null,
         role: userData?.role || 'user',
         tenant_id: userData?.tenant_id || null,
         branch_id: profileData?.branch_id || null,

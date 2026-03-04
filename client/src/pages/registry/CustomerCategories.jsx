@@ -34,15 +34,15 @@ const CustomerCategories = () => {
   }
 
   const toggleStatus = (id) => {
-    setCategories(categories.map(cat => 
-      cat.id === id 
+    setCategories(categories.map(cat =>
+      cat.id === id
         ? { ...cat, status: cat.status === 'Active' ? 'Inactive' : 'Active' }
         : cat
     ))
   }
 
   return (
-    <div>
+    <div className="min-h-screen bg-muted p-6">
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Customer Categories</h1>
         <button
@@ -65,7 +65,7 @@ const CustomerCategories = () => {
               <input
                 type="text"
                 value={newCategory.name}
-                onChange={(e) => setNewCategory({...newCategory, name: e.target.value})}
+                onChange={(e) => setNewCategory({ ...newCategory, name: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
                 placeholder="Enter category name"
               />
@@ -76,7 +76,7 @@ const CustomerCategories = () => {
               </label>
               <select
                 value={newCategory.status}
-                onChange={(e) => setNewCategory({...newCategory, status: e.target.value})}
+                onChange={(e) => setNewCategory({ ...newCategory, status: e.target.value })}
                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               >
                 <option value="Active">Active</option>
@@ -90,7 +90,7 @@ const CustomerCategories = () => {
             </label>
             <textarea
               value={newCategory.description}
-              onChange={(e) => setNewCategory({...newCategory, description: e.target.value})}
+              onChange={(e) => setNewCategory({ ...newCategory, description: e.target.value })}
               className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-indigo-500"
               rows="3"
               placeholder="Enter category description"
@@ -154,22 +154,20 @@ const CustomerCategories = () => {
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                      category.status === 'Active' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
+                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${category.status === 'Active'
+                      ? 'bg-green-100 text-green-800'
+                      : 'bg-red-100 text-red-800'
+                      }`}>
                       {category.status}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <button
                       onClick={() => toggleStatus(category.id)}
-                      className={`mr-3 ${
-                        category.status === 'Active' 
-                          ? 'text-red-600 hover:text-red-900' 
-                          : 'text-green-600 hover:text-green-900'
-                      }`}
+                      className={`mr-3 ${category.status === 'Active'
+                        ? 'text-red-600 hover:text-red-900'
+                        : 'text-green-600 hover:text-green-900'
+                        }`}
                     >
                       {category.status === 'Active' ? 'Deactivate' : 'Activate'}
                     </button>
@@ -202,7 +200,7 @@ const CustomerCategories = () => {
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="rounded-full p-3 bg-green-100 text-green-600 mr-4">
@@ -212,13 +210,13 @@ const CustomerCategories = () => {
             </div>
             <div>
               <p className="text-sm font-medium text-gray-600">Active Categories</p>
-              <p className="text-2xl font-bold text-gray-9 00">
+              <p className="text-2xl font-bold text-gray-900">
                 {categories.filter(cat => cat.status === 'Active').length}
               </p>
             </div>
           </div>
         </div>
-        
+
         <div className="bg-white p-6 rounded-lg shadow">
           <div className="flex items-center">
             <div className="rounded-full p-3 bg-red-100 text-red-600 mr-4">

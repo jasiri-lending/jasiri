@@ -390,7 +390,7 @@ const PendingAmendments = () => {
   // Show loading while auth is initializing
   if (authLoading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center font-sans">
         <Spinner text="Loading ..." />
       </div>
     );
@@ -399,7 +399,7 @@ const PendingAmendments = () => {
   // Show error if role is not configured
   if (!config) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white shadow-lg rounded-xl p-8 text-center">
           <DocumentTextIcon className="w-16 h-16 text-red-400 mb-4 mx-auto" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center">
@@ -414,7 +414,7 @@ const PendingAmendments = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

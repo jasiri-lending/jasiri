@@ -158,8 +158,7 @@ export default function PenaltySettings() {
 
   return (
     <div
-      className="min-h-screen p-4 md:p-8"
-      style={{ backgroundColor: "#d9e2e8" }}
+      className="min-h-screen p-4 md:p-8 bg-muted"
     >
       <div className="max-w-5xl mx-auto">
 

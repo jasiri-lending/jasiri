@@ -168,7 +168,7 @@ function CustomerDetailsEdit() {
           .select('*')
           .eq('id', user.id)
           .single();
-        
+
         if (userData) {
           setCurrentUser(userData);
           setUserRole(userData?.role || 'relationship_officer');
@@ -178,7 +178,7 @@ function CustomerDetailsEdit() {
             .select('*')
             .eq('id', user.id)
             .single();
-          
+
           setCurrentUser(profileData);
           setUserRole(profileData?.role || 'relationship_officer');
         }
@@ -191,7 +191,7 @@ function CustomerDetailsEdit() {
   const fetchEditRequests = async () => {
     try {
       setLoading(true);
-      
+
       let query = supabase
         .from('customer_detail_edit_requests')
         .select(`
@@ -207,7 +207,7 @@ function CustomerDetailsEdit() {
           .from('customers')
           .select('id')
           .eq('branch_id', currentUser.branch_id);
-        
+
         if (branchCustomers && branchCustomers.length > 0) {
           const customerIds = branchCustomers.map(c => c.id);
           query = query.in('customer_id', customerIds);
@@ -217,7 +217,7 @@ function CustomerDetailsEdit() {
           .from('customers')
           .select('id')
           .eq('region_id', currentUser.region_id);
-        
+
         if (regionCustomers && regionCustomers.length > 0) {
           const customerIds = regionCustomers.map(c => c.id);
           query = query.in('customer_id', customerIds);
@@ -225,14 +225,14 @@ function CustomerDetailsEdit() {
       }
 
       const { data: editRequests, error } = await query;
-      
+
       if (error) {
         console.error('Error fetching edit requests:', error);
         setEditRequests([]);
       } else {
         let filteredRequests = editRequests || [];
         if (currentUser?.role === 'relationship_officer') {
-          filteredRequests = filteredRequests.filter(request => 
+          filteredRequests = filteredRequests.filter(request =>
             request.created_by === currentUser.id
           );
         }
@@ -634,12 +634,12 @@ function CustomerDetailsEdit() {
       setLoading(true);
 
       let uploadedDocs = {};
-      const docKeys = Object.keys(formData.documents).filter(key => 
-        formData.documents[key] && section === 'personal' ? 
-        ['passport', 'idFront', 'idBack', 'houseImage'].includes(key) :
-        section === 'guarantor' ? 
-        ['guarantorPassport', 'guarantorIdFront', 'guarantorIdBack'].includes(key) :
-        false
+      const docKeys = Object.keys(formData.documents).filter(key =>
+        formData.documents[key] && section === 'personal' ?
+          ['passport', 'idFront', 'idBack', 'houseImage'].includes(key) :
+          section === 'guarantor' ?
+            ['guarantorPassport', 'guarantorIdFront', 'guarantorIdBack'].includes(key) :
+            false
       );
 
       for (const key of docKeys) {
@@ -688,7 +688,7 @@ function CustomerDetailsEdit() {
       if (insertError) throw insertError;
 
       alert(`Edit request for ${section.replace(/([A-Z])/g, ' $1')} submitted successfully!`);
-      
+
       setFormData(prev => ({
         ...prev,
         [section]: Object.keys(prev[section]).reduce((acc, key) => ({
@@ -730,12 +730,12 @@ function CustomerDetailsEdit() {
 
     try {
       setLoading(true);
-      
-      const updateData = { 
+
+      const updateData = {
         status: newStatus,
         updated_at: new Date().toISOString()
       };
-      
+
       if (newStatus === 'confirmed' && userRole === 'branch_manager') {
         updateData.confirmed_by = currentUser.id;
         updateData.confirmed_at = new Date().toISOString();
@@ -758,7 +758,7 @@ function CustomerDetailsEdit() {
         const request = editRequests.find(r => r.id === requestId);
         if (request) {
           const { section_type, new_values, customer_id } = request;
-          
+
           if (section_type === 'personal') {
             await supabase
               .from('customers')
@@ -839,8 +839,8 @@ function CustomerDetailsEdit() {
   };
 
   const canReject = (request) => {
-    return (userRole === 'branch_manager' || userRole === 'superadmin') && 
-           (request.status === 'pending_branch_manager' || request.status === 'confirmed');
+    return (userRole === 'branch_manager' || userRole === 'superadmin') &&
+      (request.status === 'pending_branch_manager' || request.status === 'confirmed');
   };
 
   const canSubmitRequest = () => {
@@ -1057,7 +1057,7 @@ function CustomerDetailsEdit() {
                       className="hidden"
                     />
                   </label>
-                  <label className="flex-1 text-center px-3 py-1.5 rounded cursor-pointer hover:bg-blue-200 text-sm"
+                  <label className="flex-1 md:hidden text-center px-3 py-1.5 rounded cursor-pointer hover:bg-blue-200 text-sm"
                     style={{ backgroundColor: primaryLight, color: primaryColor }}>
                     <CameraIcon className="w-4 h-4 inline mr-1" />
                     Camera
@@ -1564,7 +1564,7 @@ function CustomerDetailsEdit() {
   }
 
   return (
-    <div className="space-y-6 p-4">
+    <div className="space-y-6 p-4 bg-muted min-h-screen">
 
       {/* Customer Search Section */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-5">
@@ -1669,13 +1669,12 @@ function CustomerDetailsEdit() {
                 <button
                   key={id}
                   onClick={() => setActiveSection(id)}
-                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${
-                    activeSection === id
-                      ? 'text-white'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-                  }`}
-                  style={activeSection === id ? { 
-                    backgroundColor: primaryColor 
+                  className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium transition-all text-sm ${activeSection === id
+                    ? 'text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  style={activeSection === id ? {
+                    backgroundColor: primaryColor
                   } : {}}
                 >
                   <Icon className="h-4 w-4" />
@@ -1700,23 +1699,23 @@ function CustomerDetailsEdit() {
             <form onSubmit={(e) => handleSubmit(e, activeSection)}>
               {renderFormFields(activeSection)}
 
- <div className="mt-6 pt-5 border-t border-gray-200 flex justify-end">
-  <button
-    type="submit"
-    disabled={loading}
-    className="inline-flex py-2.5 px-4 rounded-lg text-white font-medium text-base transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed items-center justify-center gap-2"
-    style={{ backgroundColor: loading ? '#9ca3af' : primaryColor }}
-  >
-    {loading ? (
-      <span className="flex items-center justify-center gap-2">
-        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-        Submitting Request...
-      </span>
-    ) : (
-      `Submit ${sections.find(s => s.id === activeSection)?.label} Edit Request`
-    )}
-  </button>
-</div>
+              <div className="mt-6 pt-5 border-t border-gray-200 flex justify-end">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="inline-flex py-2.5 px-4 rounded-lg text-white font-medium text-base transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed items-center justify-center gap-2"
+                  style={{ backgroundColor: loading ? '#9ca3af' : primaryColor }}
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Submitting Request...
+                    </span>
+                  ) : (
+                    `Submit ${sections.find(s => s.id === activeSection)?.label} Edit Request`
+                  )}
+                </button>
+              </div>
 
 
             </form>
@@ -1755,10 +1754,10 @@ function CustomerDetailsEdit() {
         {!loading && editRequests.length > 0 && (
           <div className="space-y-4">
             {editRequests.map(request => {
-              const customerFullName = request.customer 
+              const customerFullName = request.customer
                 ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
                 : `Customer ID: ${request.customer_id}`;
-              
+
               const sectionLabel = sections.find(s => s.id === request.section_type)?.label || request.section_type;
 
               return (
@@ -1797,7 +1796,7 @@ function CustomerDetailsEdit() {
                         Confirm
                       </button>
                     )}
-                    
+
                     {canApprove(request) && (
                       <button
                         onClick={() => handleStatusUpdate(request.id, 'approved')}
@@ -1807,7 +1806,7 @@ function CustomerDetailsEdit() {
                         Approve
                       </button>
                     )}
-                    
+
                     {canReject(request) && (
                       <button
                         onClick={() => handleStatusUpdate(request.id, 'rejected')}

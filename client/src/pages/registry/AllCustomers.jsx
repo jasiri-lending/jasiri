@@ -495,7 +495,7 @@ const AllCustomers = () => {
   if ((profile.role === 'regional_manager' && !profile.region_id) ||
     (profile.role === 'branch_manager' && !profile.branch_id)) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white shadow-lg rounded-xl p-8 text-center">
           <p className="text-red-600 text-sm font-medium">
             Error: Your profile is missing necessary information. Please contact your administrator.
@@ -506,7 +506,7 @@ const AllCustomers = () => {
   }
 
   return (
-    <div className="h-full bg-brand-surface border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -752,33 +752,33 @@ const AllCustomers = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600" >
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Mobile
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Prequalified Amount
                 </th>
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                     RO
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Region
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
@@ -794,29 +794,29 @@ const AllCustomers = () => {
                     key={customer.id}
                     className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                   >
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {fullName || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {customer.mobile || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {customer.id_number || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
                       {customer.prequalifiedAmount ?
                         `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {customer.users?.full_name || "N/A"}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {customer.branches?.name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {customer.regions?.name || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
@@ -942,7 +942,7 @@ const AllCustomers = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            ? "bg-brand-secondary text-white shadow-sm"
                             : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
@@ -985,7 +985,7 @@ const AllCustomers = () => {
                     // Note: itemsPerPage is currently not stateful
                     console.log("Items per page changed to:", e.target.value);
                   }}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
+                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-secondary focus:border-brand-surface bg-white hover:bg-gray-50 transition-colors"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>

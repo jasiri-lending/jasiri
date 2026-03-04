@@ -104,14 +104,14 @@ const LoanDetails = () => {
   const totalPaid = loanPayments.reduce((sum, payment) => sum + (Number(payment.paid_amount) || 0), 0);
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-muted py-6 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Header with Back Button */}
         <div className="mb-6">
@@ -140,7 +140,7 @@ const LoanDetails = () => {
         ) : (
           <div className="space-y-6">
             {/* Loan Summary Card */}
-            <div className="bg-gradient-to-r from-blue-100 to-blue-100 rounded-lg p-6 text-slate-600 shadow-lg">
+            <div className="bg-muted rounded-lg p-6 text-slate-600 shadow-lg">
               <h3 className="text-xl font-semibold mb-2">Current Loan - {loanDetails.product_name || loanDetails.product}</h3>
               <p className="text-4xl font-bold">
                 {formatCurrency(loanDetails.scored_amount)}
@@ -273,15 +273,14 @@ const LoanDetails = () => {
                             {formatCurrency(installment.paid_amount)}
                           </td>
                           <td className="px-4 py-3 text-sm">
-                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                              installment.status === 'paid'
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${installment.status === 'paid'
                                 ? 'bg-green-100 text-green-800'
                                 : installment.status === 'partial'
-                                ? 'bg-yellow-100 text-yellow-800'
-                                : installment.status === 'overdue'
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-gray-100 text-gray-800'
-                            }`}>
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : installment.status === 'overdue'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                              }`}>
                               {installment.status}
                             </span>
                           </td>

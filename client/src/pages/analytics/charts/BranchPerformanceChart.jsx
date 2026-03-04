@@ -32,92 +32,46 @@ const CustomTooltip = ({ active, payload }) => {
   const branchData = payload[0]?.payload;
 
   return (
-    <div
-      className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200"
-      style={{
-        zIndex: 10000,
-        pointerEvents: 'none',
-        minWidth: '280px',
-        maxWidth: '320px'
-      }}
-    >
-      <p className="font-bold text-slate-600 mb-3 text-sm">Branch: {branchData?.name} </p>
-      <div className="space-y-2">
-        {/* Region */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Region:</span>
-          <span className="text-slate-600 font-bold text-xs">{branchData?.region}</span>
+    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[320px] relative z-[9999]">
+      <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+        <div className="p-2 bg-emerald-50 rounded-lg">
         </div>
-
-        {/* Total Disbursed - Green */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Disbursed:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalDisbursed }}>
-            Ksh {branchData?.totalDisbursed?.toLocaleString()}
-          </span>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{branchData?.region}</p>
+          <p className="font-black text-slate-800 text-base">{branchData?.name}</p>
         </div>
+      </div>
 
-        {/* Total Payable - Blue */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Payable:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalPayable }}>
-            Ksh {branchData?.totalPayable?.toLocaleString()}
-          </span>
-        </div>
+      <div className="space-y-3">
+        {[
+          { label: "Disbursed", value: branchData?.totalDisbursed, color: COLORS.totalDisbursed, icon: "💰" },
+          { label: "Collected", value: branchData?.totalCollected, color: COLORS.totalCollected, icon: "📥" },
+          { label: "Outstanding", value: branchData?.totalOutstanding, color: COLORS.totalOutstanding, icon: "📊" },
+          { label: "Arrears", value: branchData?.arrearsAmount, color: COLORS.arrearsAmount, icon: "⚠️" },
+          { label: "NPL Amount", value: branchData?.nplAmount, color: COLORS.nplAmount, icon: "🚨" }
+        ].map((item, idx) => (
+          <div key={idx} className="flex justify-between items-center group">
+            <div className="flex items-center gap-2">
+              <span className="text-xs grayscale group-hover:grayscale-0 transition-all">{item.icon}</span>
+              <span className="text-slate-500 text-xs font-bold">{item.label}</span>
+            </div>
+            <span className="font-black text-xs tracking-tight" style={{ color: item.color }}>
+              Ksh {item.value?.toLocaleString()}
+            </span>
+          </div>
+        ))}
 
-        {/* Total Collected - Amber */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Collected:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalCollected }}>
-            Ksh {branchData?.totalCollected?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Outstanding - Purple */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Outstanding:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalOutstanding }}>
-            Ksh {branchData?.totalOutstanding?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Collection Rate - Conditional */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Collection Rate:</span>
-          <span className={`font-semibold text-xs ${branchData?.collectionRate >= 80 ? 'text-green-600' :
-              branchData?.collectionRate >= 60 ? 'text-orange-600' :
-                'text-red-600'
-            }`}>
-            {branchData?.collectionRate}%
-          </span>
-        </div>
-
-        {/* Loan Count - Default */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Loan Count:</span>
-          <span className="text-slate-600 font-bold text-xs">{branchData?.loanCount}</span>
-        </div>
-
-        {/* Avg Loan Size - Default */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Avg Loan Size:</span>
-          <span className="text-slate-600 font-bold text-xs">Ksh {branchData?.avgLoanSize?.toLocaleString()}</span>
-        </div>
-
-        {/* NPL Amount - Orange */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">NPL Amount:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.nplAmount }}>
-            Ksh {branchData?.nplAmount?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Arrears - Red */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Arrears:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.arrearsAmount }}>
-            Ksh {branchData?.arrearsAmount?.toLocaleString()}
-          </span>
+        <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Collection Rate</span>
+            <span className={`text-lg font-black ${branchData?.collectionRate >= 80 ? 'text-emerald-600' : branchData?.collectionRate >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+              {branchData?.collectionRate}%
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Avg Loan Size</span>
+            <p className="text-base font-black text-slate-700">Ksh {branchData?.avgLoanSize?.toLocaleString()}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -415,6 +369,7 @@ const BranchChart = () => {
   const [availableRegions, setAvailableRegions] = useState([]);
   const [availableBranches, setAvailableBranches] = useState([]);
   const [selectedRegionId, setSelectedRegionId] = useState(null);
+  const [loading, setLoading] = useState(false);
 
   // Fetch available regions and branches on mount
   useEffect(() => {
@@ -467,6 +422,7 @@ const BranchChart = () => {
   // Fetch data with filters
   const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
     if (!tenant?.id) return;
+    setLoading(true);
     try {
       const branchData = await fetchBranchPerformance(
         filters.dateRange,
@@ -480,8 +436,10 @@ const BranchChart = () => {
     } catch (error) {
       console.error("Error fetching branch data:", error);
       setLocalData([]);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [tenant?.id]);
 
   // Initial data fetch
   useEffect(() => {
@@ -580,35 +538,27 @@ const BranchChart = () => {
 
 
   return (
-    <div className="bg-[#E7F0FA]  rounded-xl shadow-sm border border-gray-200 p-6">
-      {/* Header with title and export */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Building className="w-6 h-6" style={{ color: "#586ab1" }} />
-          <h3 className="text-lg font-light" style={{ color: "#586ab1" }}>
-            Branch Performance Analysis
-          </h3>
-
-        </div>
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
+      {/* Header */}
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <h3 className="text-lg text-stone-600 whitespace-nowrap">Branch Performance Analysis</h3>
 
         <button
           onClick={handleExport}
-          className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!localData || localData.length === 0}
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-3.5 h-3.5" />
           Export
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-
-          {/* Shared Select Wrapper */}
+      <div className="mb-4 mt-2">
+        <div className="flex flex-nowrap items-center gap-2 relative z-20 w-full overflow-hidden">
           {[
             {
-              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Timeframe",
+              icon: <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.dateRange,
               onChange: (e) => handleLocalFilterChange('dateRange', e.target.value),
               options: [
@@ -622,7 +572,8 @@ const BranchChart = () => {
               ]
             },
             {
-              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Region",
+              icon: <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.region,
               onChange: (e) => handleLocalFilterChange('region', e.target.value),
               options: [
@@ -634,7 +585,8 @@ const BranchChart = () => {
               ]
             },
             {
-              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Branch",
+              icon: <Building className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.branch,
               onChange: (e) => handleLocalFilterChange('branch', e.target.value),
               options: [
@@ -646,15 +598,13 @@ const BranchChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-            >
+            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
               {item.icon}
               <select
                 value={item.value}
                 onChange={item.onChange}
-                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+                disabled={loading}
+                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
               >
                 {item.options.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -664,42 +614,31 @@ const BranchChart = () => {
               </select>
             </div>
           ))}
-
-
-
         </div>
 
         {/* Custom Date Range */}
         {showCustomDate && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Calendar className="w-4 h-4 text-slate-500" />
-
+          <div className="mt-4 flex flex-wrap items-center gap-3 bg-stone-50/50 p-3 rounded-lg border border-stone-100">
+            <Calendar className="w-3.5 h-3.5 text-stone-400" />
             <input
               type="date"
               value={localFilters.customStartDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customStartDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customStartDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
-            <span className="text-slate-500 text-sm">to</span>
-
+            <span className="text-stone-300">→</span>
             <input
               type="date"
               value={localFilters.customEndDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customEndDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customEndDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
             <button
               onClick={applyCustomDateFilter}
               disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+              className="h-8 px-4 rounded text-xs font-bold text-white bg-stone-600 hover:bg-stone-700 transition-all disabled:opacity-50"
             >
-              Apply
+              Update
             </button>
           </div>
         )}
@@ -731,8 +670,9 @@ const BranchChart = () => {
                 }}
               />
               <YAxis
-                fontSize={12}
-                tickFormatter={(value) => `Ksh ${(value / 1000).toFixed(0)}k`}
+                fontSize={10}
+                fontWeight="bold"
+                tickFormatter={(value) => value.toLocaleString()}
               />
               <Tooltip
                 content={<CustomTooltip />}

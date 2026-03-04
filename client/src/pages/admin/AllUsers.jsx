@@ -234,6 +234,7 @@ export default function AllUsers() {
           full_name,
           role,
           phone,
+          company_phone,
           created_at,
           tenant_id,
           tenants!users_tenant_id_fkey (
@@ -531,6 +532,7 @@ export default function AllUsers() {
       email: formData.email?.trim(),
       role: formData.role,
       phone: formData.phone?.trim() || null,
+      company_phone: formData.company_phone?.trim() || null,
     };
 
     if (isSuperAdmin && formData.tenant_id) {
@@ -652,7 +654,8 @@ export default function AllUsers() {
       const matchesSearch =
         (user.full_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
         (user.email || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (user.phone || '').toLowerCase().includes(searchTerm.toLowerCase());
+        (user.phone || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (user.company_phone || '').toLowerCase().includes(searchTerm.toLowerCase());
 
       const matchesRole = !filterRole || user.role === filterRole;
       const matchesRegion = !filterRegion || user.region_id === filterRegion;
@@ -854,6 +857,7 @@ export default function AllUsers() {
                 <tr>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">User</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
+                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Company Phone</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
                   <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Branch</th>
                   <th className="px6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Region</th>
@@ -872,7 +876,7 @@ export default function AllUsers() {
                         <div className="flex items-center">
                           <div className="h-10 w-10 flex-shrink-0">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                              <span className="text-primary font-semibold text-sm">
+                              <span className="text-primary font-semibold text-sm whitespace-nowrap">
                                 {user.full_name?.charAt(0)?.toUpperCase() || 'U'}
                               </span>
                             </div>
@@ -884,13 +888,16 @@ export default function AllUsers() {
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className="text-sm text-gray-900">{user.phone || 'Not provided'}</div>
+                        <div className=" whitespace-nowrap text-sm text-gray-900">{user.phone || 'Not provided'}</div>
                         <div className="text-xs text-gray-500">
                           Joined {new Date(user.created_at).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1.5 inline-flex text-xs font-semibold rounded-full ${roleColorClass}`}>
+                        <div className=" whitespace-nowrap text-sm text-gray-900">{user.company_phone || 'Not provided'}</div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`  whitespace-nowrap px-3 py-1.5 inline-flex text-xs font-semibold rounded-full ${roleColorClass}`}>
                           {getRoleLabel(user.role)}
                         </span>
                       </td>
@@ -1097,13 +1104,23 @@ export default function AllUsers() {
                       </select>
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Personal Phone</label>
                       <input
                         type="tel"
                         value={formData.phone || ''}
                         onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="+1 (555) 123-4567"
+                        placeholder="Phone Number"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">Company Phone</label>
+                      <input
+                        type="tel"
+                        value={formData.company_phone || ''}
+                        onChange={(e) => setFormData({ ...formData, company_phone: e.target.value })}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
+                        placeholder="Company Phone Number"
                       />
                     </div>
                   </div>

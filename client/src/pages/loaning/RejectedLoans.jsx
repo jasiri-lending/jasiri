@@ -37,6 +37,8 @@ const RejectedLoans = () => {
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,8 +50,8 @@ const RejectedLoans = () => {
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
   const isCustomerService = profile?.role === "customer_service_officer";
 
-  const isGlobalRole = isSuperAdmin;
-  const showBranchColumn = isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager;
+  const isGlobalRole = isSuperAdmin || isCreditAnalyst;
+  const showBranchColumn = isGlobalRole || isCustomerService || isRegionalManager;
 
   const fetchData = async () => {
     try {
@@ -77,8 +79,8 @@ const RejectedLoans = () => {
         .eq('tenant_id', profile?.tenant_id)
         .order('bm_reviewed_at', { ascending: false });
 
-      // Filter by branch for branch managers
-      if (isBranchManager && profile?.branch_id) {
+      // Filter by branch for branch managers and customer service officers
+      if ((isBranchManager || isCustomerService) && profile?.branch_id) {
         loansQuery = loansQuery.eq('branch_id', profile.branch_id);
       }
       // Filter by region for regional managers
@@ -102,7 +104,7 @@ const RejectedLoans = () => {
       }
 
       // Fetch additional data for filters based on role
-      if (isGlobalRole || isCreditAnalyst || isCustomerService) {
+      if (isGlobalRole) {
         // Fetch all data for these roles
         const [branchesResult, regionsResult, roResult] = await Promise.all([
           supabase.from("branches").select("id, name, region_id, tenant_id").eq("tenant_id", profile.tenant_id).order("name"),
@@ -191,10 +193,12 @@ const RejectedLoans = () => {
     setSelectedBranch("");
     setSelectedRegion("");
     setSelectedRO("");
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
 
     // Reset cascading filters
-    if (isGlobalRole || isCreditAnalyst || isCustomerService) {
+    if (isGlobalRole || isCustomerService) {
       setBranches(allBranches);
       setRelationshipOfficers(allRelationshipOfficers);
     } else if (isRegionalManager) {
@@ -276,7 +280,14 @@ const RejectedLoans = () => {
     const matchesRO =
       !selectedRO || loan.booked_by?.toString() === selectedRO;
 
-    return matchesSearch && matchesBranch && matchesRegion && matchesRO;
+    const createdAt = loan.created_at ? new Date(loan.created_at).setHours(0, 0, 0, 0) : null;
+    const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
+    const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+
+    const matchesDate = (!start || (createdAt && createdAt >= start)) &&
+      (!end || (createdAt && createdAt <= end));
+
+    return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesDate;
   });
 
   // Pagination
@@ -287,7 +298,7 @@ const RejectedLoans = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranch, selectedRegion, selectedRO]);
+  }, [searchTerm, selectedBranch, selectedRegion, selectedRO, startDate, endDate]);
 
   const getPageNumbers = () => {
     const pageNumbers = [];
@@ -385,7 +396,7 @@ const RejectedLoans = () => {
   }
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -426,7 +437,7 @@ const RejectedLoans = () => {
 
               {/* Filter Button and Clear Filters */}
               <div className="flex items-center gap-2">
-                {(selectedBranch || selectedRegion || selectedRO) && (
+                {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                   <button
                     onClick={clearFilters}
                     className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
@@ -441,9 +452,9 @@ const RejectedLoans = () => {
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
-                  {(selectedBranch || selectedRegion || selectedRO) && (
+                  {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                     <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
-                      {[selectedBranch, selectedRegion, selectedRO].filter(Boolean).length}
+                      {[selectedBranch, selectedRegion, selectedRO, startDate, endDate].filter(Boolean).length}
                     </span>
                   )}
                 </button>
@@ -456,7 +467,7 @@ const RejectedLoans = () => {
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Region Filter (only for global roles) */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService) && (
+                {isGlobalRole && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Region</label>
                     <div className="relative">
@@ -480,7 +491,7 @@ const RejectedLoans = () => {
                 )}
 
                 {/* Branch Filter */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager) && (
+                {(isGlobalRole || isRegionalManager) && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Branch</label>
                     <div className="relative">
@@ -504,14 +515,14 @@ const RejectedLoans = () => {
                 )}
 
                 {/* Relationship Officer Filter */}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
+                {(isGlobalRole || isRegionalManager || isBranchManager || isCustomerService) && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Relationship Officer</label>
                     <div className="relative">
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white font-sans"
                       >
                         <option value="">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -526,10 +537,32 @@ const RejectedLoans = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Date Range Start */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
+
+                {/* Date Range End */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
               </div>
 
               {/* Active Filters Display */}
-              {(selectedBranch || selectedRegion || selectedRO) && (
+              {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                 <div className="mt-4 pt-3 border-t border-gray-200">
                   <div className="flex items-center flex-wrap gap-2">
                     <span className="text-xs text-gray-500 mr-2">Active filters:</span>
@@ -557,6 +590,22 @@ const RejectedLoans = () => {
                         </button>
                       </span>
                     )}
+                    {startDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        From: {startDate}
+                        <button onClick={() => setStartDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {endDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        To: {endDate}
+                        <button onClick={() => setEndDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -576,7 +625,7 @@ const RejectedLoans = () => {
                 {showBranchColumn && (
                   <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Branch</th>
                 )}
-                {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
+                {(isGlobalRole || isCustomerService || isRegionalManager || isBranchManager) && (
                   <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Booked By</th>
                 )}
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Product</th>
@@ -619,7 +668,7 @@ const RejectedLoans = () => {
                         </div>
                       </td>
                     )}
-                    {(isGlobalRole || isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
+                    {(isGlobalRole || isCustomerService || isRegionalManager || isBranchManager) && (
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
                         {getROName(loan.booked_by)}
                       </td>
@@ -673,10 +722,10 @@ const RejectedLoans = () => {
               <XCircleIcon className="h-8 w-8 text-red-400" />
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">
-              {searchTerm || selectedBranch || selectedRegion ? "No loans found" : "No rejected loans"}
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate ? "No loans found" : "No rejected loans"}
             </h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate
                 ? "Try adjusting your search or filters"
                 : "No loans have been rejected yet."}
             </p>
@@ -729,8 +778,8 @@ const RejectedLoans = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

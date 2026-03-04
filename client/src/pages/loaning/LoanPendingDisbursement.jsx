@@ -35,15 +35,20 @@ const LoanPendingDisbursement = () => {
   const [selectedBranch, setSelectedBranch] = useState("");
   const [selectedRegion, setSelectedRegion] = useState("");
   const [selectedRO, setSelectedRO] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [showFilters, setShowFilters] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
 
+  const isSuperAdmin = profile?.role === "super_admin";
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
   const isBranchManager = profile?.role === "branch_manager";
   const isRegionalManager = profile?.role === "regional_manager";
   const isCustomerService = profile?.role === "customer_service_officer";
+
+  const isGlobalRole = isSuperAdmin || isCreditAnalyst;
 
   const fetchData = async () => {
     try {
@@ -71,8 +76,8 @@ const LoanPendingDisbursement = () => {
         .eq('tenant_id', profile?.tenant_id)
         .order('created_at', { ascending: false });
 
-      // Filter by branch for branch managers
-      if (isBranchManager && profile?.branch_id) {
+      // Filter by branch for branch managers and customer service officers
+      if ((isBranchManager || isCustomerService) && profile?.branch_id) {
         loansQuery = loansQuery.eq('branch_id', profile.branch_id);
       }
       // Filter by region for regional managers
@@ -96,7 +101,7 @@ const LoanPendingDisbursement = () => {
       }
 
       // Fetch additional data for filters based on role
-      if (isCreditAnalyst || isCustomerService) {
+      if (isGlobalRole) {
         // Fetch all data for these roles
         const [branchesResult, regionsResult, roResult] = await Promise.all([
           supabase.from("branches").select("id, name, region_id, tenant_id").eq("tenant_id", profile.tenant_id).order("name"),
@@ -185,10 +190,12 @@ const LoanPendingDisbursement = () => {
     setSelectedBranch("");
     setSelectedRegion("");
     setSelectedRO("");
+    setStartDate("");
+    setEndDate("");
     setCurrentPage(1);
 
     // Reset cascading filters
-    if (isCreditAnalyst || isCustomerService) {
+    if (isGlobalRole || isCustomerService) {
       setBranches(allBranches);
       setRelationshipOfficers(allRelationshipOfficers);
     } else if (isRegionalManager) {
@@ -270,7 +277,14 @@ const LoanPendingDisbursement = () => {
     const matchesRO =
       !selectedRO || loan.booked_by?.toString() === selectedRO;
 
-    return matchesSearch && matchesBranch && matchesRegion && matchesRO;
+    const createdAt = loan.created_at ? new Date(loan.created_at).setHours(0, 0, 0, 0) : null;
+    const start = startDate ? new Date(startDate).setHours(0, 0, 0, 0) : null;
+    const end = endDate ? new Date(endDate).setHours(23, 59, 59, 999) : null;
+
+    const matchesDate = (!start || (createdAt && createdAt >= start)) &&
+      (!end || (createdAt && createdAt <= end));
+
+    return matchesSearch && matchesBranch && matchesRegion && matchesRO && matchesDate;
   });
 
   // Pagination
@@ -281,7 +295,7 @@ const LoanPendingDisbursement = () => {
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranch, selectedRegion, selectedRO]);
+  }, [searchTerm, selectedBranch, selectedRegion, selectedRO, startDate, endDate]);
 
   const getPageNumbers = () => {
     const pageNumbers = [];
@@ -349,7 +363,7 @@ const LoanPendingDisbursement = () => {
   }
 
   return (
-    <div className="h-full bg-brand-surface text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -390,7 +404,7 @@ const LoanPendingDisbursement = () => {
 
               {/* Filter Button and Clear Filters */}
               <div className="flex items-center gap-2">
-                {(selectedBranch || selectedRegion || selectedRO) && (
+                {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                   <button
                     onClick={clearFilters}
                     className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
@@ -405,9 +419,9 @@ const LoanPendingDisbursement = () => {
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
-                  {(selectedBranch || selectedRegion || selectedRO) && (
+                  {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                     <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
-                      {[selectedBranch, selectedRegion, selectedRO].filter(Boolean).length}
+                      {[selectedBranch, selectedRegion, selectedRO, startDate, endDate].filter(Boolean).length}
                     </span>
                   )}
                 </button>
@@ -420,7 +434,7 @@ const LoanPendingDisbursement = () => {
             <div className="mt-4 pt-4 border-t border-gray-200">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                 {/* Region Filter (only for global roles) */}
-                {(isCreditAnalyst || isCustomerService) && (
+                {isGlobalRole && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Region</label>
                     <div className="relative">
@@ -444,7 +458,7 @@ const LoanPendingDisbursement = () => {
                 )}
 
                 {/* Branch Filter */}
-                {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
+                {(isGlobalRole || isRegionalManager) && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Branch</label>
                     <div className="relative">
@@ -468,14 +482,14 @@ const LoanPendingDisbursement = () => {
                 )}
 
                 {/* Relationship Officer Filter */}
-                {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
+                {(isGlobalRole || isRegionalManager || isBranchManager || isCustomerService) && (
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Relationship Officer</label>
                     <div className="relative">
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white font-sans"
                       >
                         <option value="">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -490,10 +504,32 @@ const LoanPendingDisbursement = () => {
                     </div>
                   </div>
                 )}
+
+                {/* Date Range Start */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Start Date</label>
+                  <input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
+
+                {/* Date Range End */}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">End Date</label>
+                  <input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                  />
+                </div>
               </div>
 
               {/* Active Filters Display */}
-              {(selectedBranch || selectedRegion || selectedRO) && (
+              {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
                 <div className="mt-4 pt-3 border-t border-gray-200">
                   <div className="flex items-center flex-wrap gap-2">
                     <span className="text-xs text-gray-500 mr-2">Active filters:</span>
@@ -521,6 +557,22 @@ const LoanPendingDisbursement = () => {
                         </button>
                       </span>
                     )}
+                    {startDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        From: {startDate}
+                        <button onClick={() => setStartDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
+                    {endDate && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        To: {endDate}
+                        <button onClick={() => setEndDate("")} className="ml-1 text-gray-500 hover:text-gray-700">
+                          <XMarkIcon className="h-2.5 w-2.5" />
+                        </button>
+                      </span>
+                    )}
                   </div>
                 </div>
               )}
@@ -533,22 +585,22 @@ const LoanPendingDisbursement = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Date</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Loan ID</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Customer</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>ID Number</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Mobile</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Date</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Loan ID</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Customer</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">ID Number</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Mobile</th>
                 {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Branch</th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Branch</th>
                 )}
                 {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Booked By</th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Booked By</th>
                 )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Product</th>
-                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Amount</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Weeks</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Status</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Actions</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Product</th>
+                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600">Amount</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Weeks</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Status</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Actions</th>
               </tr>
             </thead>
 
@@ -558,35 +610,35 @@ const LoanPendingDisbursement = () => {
 
                 return (
                   <tr key={loan.id} className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       <div className="flex items-center gap-1">
                         <CalendarIcon className="h-3 w-3 text-gray-400" />
                         {formatDate(loan.created_at)}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono text-slate-600" >
                       #{loan.id}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {customerName || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {loan.customers?.id_number || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {loan.customers?.mobile || "N/A"}
                     </td>
                     {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                         {loan.customers?.branches?.name || "N/A"}
                       </td>
                     )}
                     {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {getROName(loan.booked_by)}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       <div className="flex flex-col">
                         <span>{loan.product_name || loan.product || "N/A"}</span>
                         {/* {loan.is_new_loan && (
@@ -596,13 +648,13 @@ const LoanPendingDisbursement = () => {
                         )} */}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
                       <div className="font-medium text-emerald-600">
                         {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
                       </div>
 
                     </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600">
                       <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-50 text-blue-700">
                         {loan.duration_weeks || "N/A"} weeks
                       </span>
@@ -638,10 +690,10 @@ const LoanPendingDisbursement = () => {
               <MagnifyingGlassIcon className="h-8 w-8 text-gray-400" />
             </div>
             <h3 className="text-sm font-semibold text-gray-700 mb-1">
-              {searchTerm || selectedBranch || selectedRegion ? "No loans found" : "No pending disbursements"}
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate ? "No loans found" : "No pending disbursements"}
             </h3>
             <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm || selectedBranch || selectedRegion
+              {searchTerm || selectedBranch || selectedRegion || selectedRO || startDate || endDate
                 ? "Try adjusting your search or filters"
                 : isCreditAnalyst
                   ? "All loans have been disbursed. Great work!"
@@ -696,8 +748,8 @@ const LoanPendingDisbursement = () => {
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
                           className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                              ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                              : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
                         >
                           {pageNum}

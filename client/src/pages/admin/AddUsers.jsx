@@ -28,6 +28,7 @@ export default function AddUsers() {
     password: "",
     role: "",
     phone: "",
+    company_phone: "",
     branch_id: "",
     region_id: "",
   });
@@ -134,6 +135,7 @@ export default function AddUsers() {
           password: formData.password.trim(),
           role: formData.role,
           phone: formData.phone || null,
+          company_phone: formData.company_phone || null,
           branch_id: formData.branch_id || null,
           region_id: formData.region_id || null,
           logged_in_tenant_id,
@@ -153,6 +155,7 @@ export default function AddUsers() {
         password: "",
         role: "",
         phone: "",
+        company_phone: "",
         branch_id: "",
         region_id: "",
       });
@@ -296,7 +299,22 @@ export default function AddUsers() {
                       setFormData({ ...formData, phone: e.target.value })
                     }
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                    placeholder="+254 700 000 000"
+                    placeholder="Phone Number"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Company Phone
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.company_phone}
+                    onChange={(e) =>
+                      setFormData({ ...formData, company_phone: e.target.value })
+                    }
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    placeholder="Company Phone Number"
                   />
                 </div>
               </div>
@@ -407,6 +425,7 @@ export default function AddUsers() {
                     password: "",
                     role: "",
                     phone: "",
+                    company_phone: "",
                     branch_id: "",
                     region_id: "",
                   })

@@ -196,7 +196,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
 
   const DocumentCard = ({ title, imageUrl, placeholder, icon: Icon }) => (
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm">
-      <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
+      <div className="p-4 bg-muted border-b">
         <h4 className="text-sm font-semibold text-gray-800 flex items-center">
           <Icon className="h-4 w-4 text-indigo-600 mr-2" />
           {title}
@@ -240,7 +240,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
   );
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
@@ -248,7 +248,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
 
   if (!customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center bg-white p-8 rounded-2xl shadow-lg">
           <DocumentMagnifyingGlassIcon className="mx-auto h-16 w-16 text-red-400 mb-4" />
           <h3 className="text-xl font-semibold text-gray-900 mb-2">Customer Not Found</h3>
@@ -265,7 +265,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 py-8">
+    <div className="min-h-screen bg-muted py-8">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border border-indigo-100">
@@ -296,7 +296,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
             </div>
 
             {/* Customer Profile Header */}
-            <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+            <div className="bg-muted rounded-2xl p-8 mb-8 border border-indigo-100">
               <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                 {/* Profile Photo */}
                 <div className="flex flex-col items-center">
@@ -317,7 +317,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
                         <UserCircleIcon className="h-20 w-20 text-gray-400" />
                       </div>
                     )}
@@ -410,7 +410,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+              <div className="bg-muted rounded-2xl p-8 mb-8 border border-indigo-100">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                   {/* Left column */}
                   <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
@@ -482,7 +482,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                       key={index}
                       className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
                     >
-                      <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
+                      <div className="p-4 bg-muted border-b">
                         <h4 className="text-sm font-semibold text-gray-800 flex items-center">
                           <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
                           Business Image {index + 1}
@@ -550,7 +550,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                     </div>
 
                     {/* Profile */}
-                    <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-2xl p-8 mb-8 border border-indigo-100">
+                    <div className="bg-muted rounded-2xl p-8 mb-8 border border-indigo-100">
                       <div className="flex flex-col md:flex-row items-center md:items-start gap-8">
                         {/* Profile Photo */}
                         <div className="flex flex-col items-center">
@@ -571,7 +571,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                                 className="w-full h-full object-cover"
                               />
                             ) : (
-                              <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 flex items-center justify-center">
+                              <div className="w-full h-full bg-muted flex items-center justify-center">
                                 <UserCircleIcon className="h-20 w-20 text-gray-400" />
                               </div>
                             )}
@@ -673,7 +673,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                     {securityItems.map((item, index) => (
                       <div
                         key={index}
-                        className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200"
+                        className="bg-muted rounded-xl p-6 border border-gray-200"
                       >
                         {/* Item Header */}
                         <div className="flex items-start justify-between mb-4">
@@ -739,7 +739,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                     {guarantorSecurityItems.map((item, index) => (
                       <div
                         key={index}
-                        className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-xl p-6 border border-gray-200"
+                        className="bg-muted rounded-xl p-6 border border-gray-200"
                       >
                         {/* Item Header */}
                         <div className="flex items-start justify-between mb-4">
@@ -810,7 +810,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                 {/* Prequalified Amount */}
-                <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl border border-blue-200">
+                <div className="bg-muted p-6 rounded-xl border border-blue-200">
                   <div className="flex items-center justify-between mb-4">
                     <h4 className="font-semibold text-blue-900">Prequalified Amount</h4>
                     <div className="w-10 h-10 bg-blue-200 rounded-full flex items-center justify-center">
@@ -825,7 +825,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
 
                 {/* BM Scored Amount */}
                 {loanDetails.bm_loan_scored_amount && (
-                  <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl border border-purple-200">
+                  <div className="bg-muted p-6 rounded-xl border border-purple-200">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-semibold text-purple-900">BM Scored Amount</h4>
                       <div className="w-10 h-10 bg-purple-200 rounded-full flex items-center justify-center">
@@ -928,7 +928,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
           >
             <div className="relative max-w-4xl max-h-full bg-white rounded-2xl overflow-hidden shadow-2xl">
               {/* Modal Header */}
-              <div className="bg-gradient-to-r from-indigo-600 to-blue-600 px-6 py-4 text-white">
+              <div className="bg-muted px-6 py-4 text-slate-700 border-b">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">{selectedImage.title}</h3>
                   <button

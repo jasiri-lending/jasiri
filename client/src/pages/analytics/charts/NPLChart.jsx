@@ -394,7 +394,7 @@ const NPLChart = () => {
     const item = payload[0].payload;
 
     return (
-      <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200">
+      <div className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200 relative z-[9999]">
         <p className="font-bold text-slate-600 mb-2 text-sm">Loan: {item.loanId}</p>
         <div className="space-y-1">
           <p className="text-xs text-gray-600">
@@ -418,35 +418,29 @@ const NPLChart = () => {
   };
 
   return (
-    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <AlertTriangle className="w-6 h-6 text-red-600" />
-          <h3 className="text-lg font-semibold text-red-700">
-            Non-Performing Loans (NPL)
-          </h3>
-        </div>
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
+        <h3 className="text-lg text-stone-600 whitespace-nowrap">
+          Non-Performing Loans <span className="text-red-700/70 font-bold">(NPL)</span> Analysis
+        </h3>
 
-          <button
-            onClick={handleExport}
-            className="flex items-center gap-2 bg-red-50 text-red-700 hover:bg-red-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
-            disabled={!data || data.length === 0}
-          >
-            <Download className="w-4 h-4" />
-            Export
-          </button>
-        </div>
+        <button
+          onClick={handleExport}
+          className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
+          disabled={!data || data.length === 0}
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export
+        </button>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-
+      <div className="mb-4 mt-2">
+        <div className="flex flex-nowrap items-center gap-2 relative z-20 w-full overflow-hidden">
           {[
             {
-              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Timeframe",
+              icon: <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: filters.dateRange,
               onChange: (e) => handleFilterChange('dateRange', e.target.value),
               options: [
@@ -460,7 +454,8 @@ const NPLChart = () => {
               ]
             },
             {
-              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Region",
+              icon: <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: filters.region,
               onChange: (e) => handleFilterChange('region', e.target.value),
               options: [
@@ -472,7 +467,8 @@ const NPLChart = () => {
               ]
             },
             {
-              icon: <Building className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Branch",
+              icon: <Building className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: filters.branch,
               onChange: (e) => handleFilterChange('branch', e.target.value),
               options: [
@@ -484,16 +480,13 @@ const NPLChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-            >
+            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
               {item.icon}
               <select
                 value={item.value}
                 onChange={item.onChange}
                 disabled={loading}
-                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
               >
                 {item.options.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -506,42 +499,40 @@ const NPLChart = () => {
         </div>
 
         {/* Custom Date Range */}
-        {showCustomDate && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Calendar className="w-4 h-4 text-slate-500" />
-
-            <input
-              type="date"
-              value={filters.customStartDate}
-              onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
-              disabled={loading}
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-
-            <span className="text-slate-500 text-sm">to</span>
-
-            <input
-              type="date"
-              value={filters.customEndDate}
-              onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
-              disabled={loading}
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
-            />
-
-            <button
-              onClick={applyCustomDateFilter}
-              disabled={!filters.customStartDate || !filters.customEndDate || loading}
-              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
-            >
-              Apply
-            </button>
-          </div>
-        )}
-      </div>
+        {
+          showCustomDate && (
+            <div className="mt-4 flex flex-wrap items-center gap-3 bg-stone-50/50 p-3 rounded-lg border border-stone-100">
+              <Calendar className="w-3.5 h-3.5 text-stone-400" />
+              <input
+                type="date"
+                value={filters.customStartDate}
+                onChange={(e) => handleFilterChange('customStartDate', e.target.value)}
+                disabled={loading}
+                className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
+              />
+              <span className="text-stone-300">→</span>
+              <input
+                type="date"
+                value={filters.customEndDate}
+                onChange={(e) => handleFilterChange('customEndDate', e.target.value)}
+                disabled={loading}
+                className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
+              />
+              <button
+                onClick={applyCustomDateFilter}
+                disabled={!filters.customStartDate || !filters.customEndDate || loading}
+                className="h-8 px-4 rounded text-xs font-bold text-white bg-stone-600 hover:bg-stone-700 transition-all disabled:opacity-50"
+              >
+                Update
+              </button>
+            </div>
+          )
+        }
+      </div >
 
 
       {/* Chart */}
-      <div className="h-80 mb-6">
+      < div className="h-80 mb-6" >
         {topNPL && topNPL.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={topNPL}>
@@ -576,65 +567,65 @@ const NPLChart = () => {
             </div>
           </div>
         )}
-      </div>
+      </div >
 
 
       {/* NPL Summary Stats */}
-      {data && data.length > 0 && (
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 bg-red-50 rounded-lg">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-red-700">Total NPL Amount</p>
-                  <p className="text-2xl font-bold text-red-900">
-                    {formatCurrencyCompact(totalNPL)}
-                  </p>
+      {
+        data && data.length > 0 && (
+          <div className="flex flex-col gap-2 pt-2">
+            <div className="p-2.5 bg-gradient-to-br from-red-50 to-red-100/50 rounded-lg border border-red-100 shadow-sm group hover:scale-[1.01] transition-transform">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-red-400">Total NPL Amount</span>
+                <div className="w-6 h-6 rounded-full bg-red-200/50 flex items-center justify-center text-red-600">
+                  <AlertTriangle className="w-3.5 h-3.5" />
                 </div>
-                <div className="text-right">
-                  <p className="text-sm text-red-700">Avg. Turnover %</p>
-                  <p className="text-2xl font-bold text-red-900">
-                    {Math.round(avgTurnover)}%
-                  </p>
-                </div>
+              </div>
+              <p className="text-base font-black text-red-900 tracking-tight">
+                {formatCurrencyCompact(totalNPL)}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-[8px] font-bold text-red-600 bg-red-200/50 px-1.5 py-0.5 rounded-full uppercase">Action Required</span>
               </div>
             </div>
 
-            <div className="p-4 bg-orange-50 rounded-lg">
-              <div className="flex items-center justify-between">
+            <div className="p-2.5 bg-gradient-to-br from-emerald-50 to-emerald-100/50 rounded-lg border border-emerald-100 shadow-sm group hover:scale-[1.01] transition-transform">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-emerald-400">Collection Recovery</span>
+                <div className="w-6 h-6 rounded-full bg-emerald-200/50 flex items-center justify-center text-emerald-600">
+                  <Download className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <p className="text-base font-black text-emerald-900 tracking-tight">
+                {formatCurrencyCompact(totalPaid)}
+              </p>
+              <div className="mt-1 flex items-center gap-2">
+                <span className="text-[9px] font-bold text-emerald-600">{Math.round((totalPaid / (totalPaid + totalNPL)) * 100)}% Recovery Rate</span>
+              </div>
+            </div>
+
+            <div className="p-2.5 bg-gradient-to-br from-slate-50 to-slate-100/50 rounded-lg border border-slate-100 shadow-sm group hover:scale-[1.01] transition-transform">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Risk Profile</span>
+                <div className="w-6 h-6 rounded-full bg-slate-200/50 flex items-center justify-center text-slate-600">
+                  <Globe className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div className="flex items-end justify-between">
                 <div>
-                  <p className="text-sm text-orange-700">Total Paid on NPL</p>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {formatCurrencyCompact(totalPaid)}
-                  </p>
+                  <p className="text-base font-black text-slate-900 tracking-tight">{data.length}</p>
+                  <p className="text-[8px] font-bold text-slate-500 uppercase">Loans at Risk</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-sm text-orange-700">Avg. Days Overdue</p>
-                  <p className="text-2xl font-bold text-orange-900">
-                    {Math.round(avgDaysOverdue)}
-                  </p>
+                  <p className="text-base font-black text-slate-900 tracking-tight">{Math.max(...data.map(d => d.daysOverdue))}</p>
+                  <p className="text-[8px] font-bold text-slate-500 uppercase">Max Days</p>
                 </div>
               </div>
             </div>
           </div>
-
-          <div className="p-4 bg-yellow-50 rounded-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-yellow-700">Total Loans at Risk</p>
-                <p className="text-xl font-bold text-yellow-900">{data.length}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-sm text-yellow-700">Highest Days Overdue</p>
-                <p className="text-xl font-bold text-yellow-900">
-                  {data.length > 0 ? Math.max(...data.map(d => d.daysOverdue)) : 0} days
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        )
+      }
+    </div >
   );
 };
 

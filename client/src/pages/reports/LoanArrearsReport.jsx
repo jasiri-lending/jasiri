@@ -176,9 +176,8 @@ const calculateLoanArrears = (loan, installments = []) => {
   );
 
   const totalPaid = sorted.reduce((sum, i) => {
-    const interestPaid = num(i.interest_paid) || 0;
-    const principalPaid = num(i.principal_paid) || 0;
-    return sum + interestPaid + principalPaid;
+    // paid_amount stored by the payment processor includes P+I+Penalty
+    return sum + (num(i.paid_amount) || 0);
   }, 0);
 
   const totalPayable = num(loan.total_payable);
@@ -190,8 +189,8 @@ const calculateLoanArrears = (loan, installments = []) => {
     const dueDate = inst.due_date;
     const isOverdue = dueDate <= today;
     if (!isOverdue) return false;
-    const paidAmount = (num(inst.interest_paid) || 0) + (num(inst.principal_paid) || 0);
-    const dueAmount = num(inst.due_amount) || 0;
+    const paidAmount = num(inst.paid_amount) || 0;
+    const dueAmount = (num(inst.due_amount) || 0) + (num(inst.penalty_amount) || 0);
     if (paidAmount < dueAmount) return true;
     if (inst.status === 'overdue' || inst.status === 'partial') return true;
     return false;
@@ -205,10 +204,10 @@ const calculateLoanArrears = (loan, installments = []) => {
   let totalDue = 0;
 
   overdueInstallments.forEach((inst) => {
-    const dueDate = inst.due_date;
     const dueAmount = num(inst.due_amount) || 0;
-    const paidAmount = (num(inst.interest_paid) || 0) + (num(inst.principal_paid) || 0);
-    const instArrears = Math.max(0, dueAmount - paidAmount);
+    const penaltyAmount = num(inst.penalty_amount) || 0;
+    const paidAmount = num(inst.paid_amount) || 0;
+    const instArrears = Math.max(0, (dueAmount + penaltyAmount) - paidAmount);
     const instPrincipalAmount = num(inst.principal_amount) || 0;
     const instInterestAmount = num(inst.interest_amount) || 0;
     const instPrincipalPaid = num(inst.principal_paid) || 0;
@@ -219,7 +218,7 @@ const calculateLoanArrears = (loan, installments = []) => {
     principalDue += instPrincipalDue;
     interestDue += instInterestDue;
     totalArrears += instArrears;
-    totalDue += dueAmount;
+    totalDue += dueAmount + penaltyAmount;
   });
 
   const overdueDates = overdueInstallments
@@ -804,7 +803,7 @@ const LoanArrearsReport = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section - Aligned with other reports */}
-      <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 

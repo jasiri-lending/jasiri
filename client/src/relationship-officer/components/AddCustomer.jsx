@@ -21,8 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { supabase } from "../../supabaseClient";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useToast } from "../../components/Toast";
 import { checkUniqueValue } from "../../utils/Unique";
 import { useAuth } from "../../hooks/userAuth";
 import LocationPicker from "./LocationPicker";
@@ -123,6 +122,7 @@ const AddCustomer = () => {
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const toast = useToast();
 
   const [formData, setFormData] = useState({
     // Personal Info
@@ -829,45 +829,45 @@ const AddCustomer = () => {
     }
     if (!formData.Surname?.trim()) {
       newErrors.Surname = "Surname is required";
-      toast.error("Surname is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Surname is required");
       hasErrors = true;
     }
     if (!formData.mobile?.trim()) {
       newErrors.mobile = "Mobile number is required";
-      toast.error("Mobile number is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Mobile number is required");
       hasErrors = true;
     }
     if (!formData.alternativeMobile?.trim()) {
       newErrors.alternativeMobile = "Alternative mobile number is required";
-      toast.error("Alternative mobile number is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Alternative mobile number is required");
       hasErrors = true;
     }
     if (!formData.idNumber?.trim()) {
       newErrors.idNumber = "ID number is required";
-      toast.error("ID number is required", { position: "top-right", autoClose: 3000 });
+      toast.error("ID number is required");
       hasErrors = true;
     }
 
     if (formData.mobile && !/^[0-9]{10,15}$/.test(formData.mobile.replace(/\D/g, ""))) {
       newErrors.mobile = "Please enter a valid mobile number (10-15 digits)";
-      toast.error("Invalid mobile number format", { position: "top-right", autoClose: 3000 });
+      toast.error("Invalid mobile number format");
       hasErrors = true;
     }
     if (formData.alternativeMobile && !/^[0-9]{10,15}$/.test(formData.alternativeMobile.replace(/\D/g, ""))) {
       newErrors.alternativeMobile = "Please enter a valid alternative mobile number (10-15 digits)";
-      toast.error("Invalid alternative mobile number format", { position: "top-right", autoClose: 3000 });
+      toast.error("Invalid alternative mobile number format");
       hasErrors = true;
     }
 
     if (formData.idNumber && !/^[0-9]{6,12}$/.test(formData.idNumber)) {
       newErrors.idNumber = "Please enter a valid ID number (6-12 digits)";
-      toast.error("Invalid ID number format", { position: "top-right", autoClose: 3000 });
+      toast.error("Invalid ID number format");
       hasErrors = true;
     }
 
     if (formData.dateOfBirth && !isAtLeast18YearsOld(formData.dateOfBirth)) {
       newErrors.dateOfBirth = "Customer must be at least 18 years old";
-      toast.error("Customer must be at least 18 years old", { position: "top-right", autoClose: 3000 });
+      toast.error("Customer must be at least 18 years old");
       hasErrors = true;
     }
 
@@ -875,36 +875,36 @@ const AddCustomer = () => {
     if (formData.maritalStatus === "Married") {
       if (!formData.spouse.name?.trim()) {
         newErrors.spouseName = "Spouse name is required for married customers";
-        toast.error("Spouse name is required", { position: "top-right", autoClose: 3000 });
+        toast.error("Spouse name is required");
         hasErrors = true;
       }
       if (!formData.spouse.idNumber?.trim()) {
         newErrors.spouseIdNumber = "Spouse ID number is required for married customers";
-        toast.error("Spouse ID number is required", { position: "top-right", autoClose: 3000 });
+        toast.error("Spouse ID number is required");
         hasErrors = true;
       }
       if (!formData.spouse.mobile?.trim()) {
         newErrors.spouseMobile = "Spouse mobile number is required for married customers";
-        toast.error("Spouse mobile number is required", { position: "top-right", autoClose: 3000 });
+        toast.error("Spouse mobile number is required");
         hasErrors = true;
       }
       if (!formData.spouse.economicActivity?.trim()) {
         newErrors.spouseEconomicActivity = "Spouse economic activity is required for married customers";
-        toast.error("Spouse economic activity is required", { position: "top-right", autoClose: 3000 });
+        toast.error("Spouse economic activity is required");
         hasErrors = true;
       }
 
       // Validate spouse ID format
       if (formData.spouse.idNumber && !/^[0-9]{6,12}$/.test(formData.spouse.idNumber)) {
         newErrors.spouseIdNumber = "Please enter a valid spouse ID number (6-12 digits)";
-        toast.error("Invalid spouse ID number format", { position: "top-right", autoClose: 3000 });
+        toast.error("Invalid spouse ID number format");
         hasErrors = true;
       }
 
       // Validate spouse mobile format
       if (formData.spouse.mobile && !/^[0-9]{10,15}$/.test(formData.spouse.mobile.replace(/\D/g, ""))) {
         newErrors.spouseMobile = "Please enter a valid spouse mobile number (10-15 digits)";
-        toast.error("Invalid spouse mobile number format", { position: "top-right", autoClose: 3000 });
+        toast.error("Invalid spouse mobile number format");
         hasErrors = true;
       }
     }
@@ -926,13 +926,13 @@ const AddCustomer = () => {
           );
           if (!isUnique) {
             newErrors[field] = `${label} already exists in our system`;
-            toast.error(`${label} already exists in our system`, { position: "top-right", autoClose: 3000 });
+            toast.error(`${label} already exists in our system`);
             hasErrors = true;
           }
         } catch (error) {
           console.error("Error checking uniqueness:", error);
           newErrors[field] = `Error validating ${label}`;
-          toast.error(`Error validating ${label}`, { position: "top-right", autoClose: 3000 });
+          toast.error(`Error validating ${label}`);
           hasErrors = true;
         }
       }
@@ -948,19 +948,19 @@ const AddCustomer = () => {
 
     if (!formData.businessName?.trim()) {
       errorsFound.businessName = "Business name is required";
-      toast.error("Business name is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Business name is required");
       hasErrors = true;
     }
 
     if (!formData.businessType?.trim()) {
       errorsFound.businessType = "Business type is required";
-      toast.error("Business type is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Business type is required");
       hasErrors = true;
     }
 
     if (!formData.yearEstablished) {
       errorsFound.yearEstablished = "Year established is required";
-      toast.error("Year established is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Year established is required");
       hasErrors = true;
     } else {
       const establishedDate = new Date(formData.yearEstablished);
@@ -969,42 +969,42 @@ const AddCustomer = () => {
 
       if (establishedDate > sixMonthsAgo) {
         errorsFound.yearEstablished = "Business must be at least 6 months old";
-        toast.error("Business must be at least 6 months old", { position: "top-right", autoClose: 3000 });
+        toast.error("Business must be at least 6 months old");
         hasErrors = true;
       }
     }
 
     if (!formData.businessLocation?.trim()) {
       errorsFound.businessLocation = "Business location is required";
-      toast.error("Business location is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Business location is required");
       hasErrors = true;
     }
 
     if (!formData.road?.trim()) {
       errorsFound.road = "Road is required";
-      toast.error("Road is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Road is required");
       hasErrors = true;
     }
 
     if (!formData.landmark?.trim()) {
       errorsFound.landmark = "Landmark is required";
-      toast.error("Landmark is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Landmark is required");
       hasErrors = true;
     }
 
     if (!formData.daily_Sales) {
       errorsFound.daily_Sales = "Daily sales estimate is required";
-      toast.error("Daily sales estimate is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Daily sales estimate is required");
       hasErrors = true;
     } else if (parseFloat(formData.daily_Sales) <= 0) {
       errorsFound.daily_Sales = "Daily sales must be greater than 0";
-      toast.error("Daily sales must be greater than 0", { position: "top-right", autoClose: 3000 });
+      toast.error("Daily sales must be greater than 0");
       hasErrors = true;
     }
 
     if (!formData.businessCoordinates?.lat || !formData.businessCoordinates?.lng) {
       errorsFound.businessCoordinates = "Business GPS coordinates are required";
-      toast.error("Please set business GPS location", { position: "top-right", autoClose: 3000 });
+      toast.error("Please set business GPS location");
       hasErrors = true;
     }
 
@@ -1018,20 +1018,20 @@ const AddCustomer = () => {
 
     if (securityItems.length === 0) {
       errorsFound.securityItems = "At least one security item is required";
-      toast.error("At least one security item is required", { position: "top-right", autoClose: 3000 });
+      toast.error("At least one security item is required");
       hasErrors = true;
     }
 
     securityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
         errorsFound[`security_description_${index}`] = "Description is required";
-        toast.error(`Security Item ${index + 1}: Description is required`, { position: "top-right", autoClose: 3000 });
+        toast.error(`Security Item ${index + 1}: Description is required`);
         hasErrors = true;
       }
 
       if (!item.value || parseFloat(item.value) <= 0) {
         errorsFound[`security_value_${index}`] = "Estimated value must be greater than 0";
-        toast.error(`Security Item ${index + 1}: Value must be greater than 0`, { position: "top-right", autoClose: 3000 });
+        toast.error(`Security Item ${index + 1}: Value must be greater than 0`);
         hasErrors = true;
       }
     });
@@ -1046,11 +1046,11 @@ const AddCustomer = () => {
 
     if (!formData.prequalifiedAmount) {
       errorsFound.prequalifiedAmount = "Pre-qualified amount is required";
-      toast.error("Pre-qualified amount is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Pre-qualified amount is required");
       hasErrors = true;
     } else if (parseFloat(formData.prequalifiedAmount) <= 0) {
       errorsFound.prequalifiedAmount = "Loan amount must be greater than 0";
-      toast.error("Loan amount must be greater than 0", { position: "top-right", autoClose: 3000 });
+      toast.error("Loan amount must be greater than 0");
       hasErrors = true;
     }
 
@@ -1144,20 +1144,20 @@ const AddCustomer = () => {
 
     if (guarantorSecurityItems.length === 0) {
       errorsFound.guarantorSecurityItems = "At least one guarantor security item is required";
-      toast.error("At least one guarantor security item is required", { position: "top-right", autoClose: 3000 });
+      toast.error("At least one guarantor security item is required");
       hasErrors = true;
     }
 
     guarantorSecurityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
         errorsFound[`guarantor_security_description_${index}`] = "Description is required";
-        toast.error(`Guarantor Security ${index + 1}: Description is required`, { position: "top-right", autoClose: 3000 });
+        toast.error(`Guarantor Security ${index + 1}: Description is required`);
         hasErrors = true;
       }
 
       if (!item.value || parseFloat(item.value) <= 0) {
         errorsFound[`guarantor_security_value_${index}`] = "Estimated value must be greater than 0";
-        toast.error(`Guarantor Security ${index + 1}: Value must be greater than 0`, { position: "top-right", autoClose: 3000 });
+        toast.error(`Guarantor Security ${index + 1}: Value must be greater than 0`);
         hasErrors = true;
       }
     });
@@ -1258,17 +1258,17 @@ const AddCustomer = () => {
 
     if (!officerClientImage1) {
       errorsFound.officerClientImage1 = "First Officer and Client Image is required";
-      toast.error("First Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
+      toast.error("First Officer and Client Image is required");
       hasErrors = true;
     }
     if (!officerClientImage2) {
       errorsFound.officerClientImage2 = "Second Officer and Client Image is required";
-      toast.error("Second Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Second Officer and Client Image is required");
       hasErrors = true;
     }
     if (!bothOfficersImage) {
       errorsFound.bothOfficersImage = "Both Officers Image is required";
-      toast.error("Both Officers Image is required", { position: "top-right", autoClose: 3000 });
+      toast.error("Both Officers Image is required");
       hasErrors = true;
     }
 
@@ -1309,13 +1309,12 @@ const AddCustomer = () => {
     }
 
     if (!isValid) {
-      toast.error("Please fix the highlighted errors before continuing.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "colored",
-      });
+      toast.error("Please fix the highlighted errors before continuing.");
       return;
     }
+
+    // Mark current section as completed
+    setCompletedSections(prev => new Set([...prev, activeSection]));
 
     const nextIndex = sections.findIndex((item) => item.id === activeSection) + 1;
     if (nextIndex < sections.length) {
@@ -1657,18 +1656,12 @@ const AddCustomer = () => {
         }
       }
 
-      toast.success("Draft saved successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-      });
+      toast.success("Draft saved successfully!");
       navigate('/officer/customers');
 
     } catch (error) {
       console.error("Error saving draft:", error);
-      toast.error("Failed to save draft. Please try again.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
+      toast.error("Failed to save draft. Please try again.");
     } finally {
       setIsSavingDraft(false);
     }
@@ -2071,8 +2064,8 @@ const AddCustomer = () => {
     <div className="min-h-screen bg-brand-surface py-8 font-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 mb-8 border border-white/50">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
             {sections.map(({ id, label, icon: Icon }) => {
               const isCompleted = completedSections.has(id);
               const isActive = activeSection === id;
@@ -2080,25 +2073,31 @@ const AddCustomer = () => {
               return (
                 <button
                   key={id}
-                  onClick={() => setActiveSection(id)}
-                  className="flex flex-col items-center gap-2 transition-all duration-300 group"
+                  onClick={() => {
+                    // Mark current as completed when jumping away
+                    if (id !== activeSection) {
+                      setCompletedSections(prev => new Set([...prev, activeSection]));
+                    }
+                    setActiveSection(id);
+                  }}
+                  className="flex flex-col items-center gap-1.5 transition-all duration-300 group"
                 >
                   <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
-                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-110"
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
+                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105"
                       : isCompleted
                         ? "bg-accent text-white shadow-lg shadow-accent/30 border-2 border-accent"
                         : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
                       }`}
                   >
                     {isCompleted && !isActive ? (
-                      <CheckCircleIcon className="h-7 w-7 text-white" />
+                      <CheckCircleIcon className="h-5 w-5 text-white" />
                     ) : (
-                      <Icon className={`h-7 w-7 ${isActive ? "text-white" : "text-slate-700"}`} />
+                      <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-700"}`} />
                     )}
                   </div>
                   <span
-                    className={`text-xs font-medium text-center transition-all duration-300 ${isActive
+                    className={`text-[10px] sm:text-xs font-medium text-center transition-all duration-300 ${isActive
                       ? "text-brand-primary font-bold"
                       : isCompleted
                         ? "text-accent font-semibold"
@@ -2364,7 +2363,7 @@ const AddCustomer = () => {
                             />
                           </label>
 
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
+                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
                             <CameraIcon className="w-5 h-5" />
                             <span className="text-sm font-medium">Camera</span>
                             <input
@@ -2544,7 +2543,7 @@ const AddCustomer = () => {
                         />
                       </label>
 
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
+                      <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
                         <CameraIcon className="w-5 h-5" />
                         Camera
                         <input
@@ -2713,7 +2712,7 @@ const AddCustomer = () => {
                             />
                           </label>
 
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
+                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
                             <CameraIcon className="w-5 h-5" />
                             Camera
                             <input
@@ -3014,7 +3013,7 @@ const AddCustomer = () => {
                             />
                           </label>
 
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
+                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
                             <CameraIcon className="w-5 h-5" />
                             <span className="text-sm font-medium">Camera</span>
                             <input
@@ -3180,7 +3179,7 @@ const AddCustomer = () => {
                             />
                           </label>
 
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
+                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
                             <CameraIcon className="w-5 h-5" />
                             Camera
                             <input
@@ -3467,7 +3466,7 @@ const AddCustomer = () => {
                           />
                         </label>
 
-                        <label className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition">
+                        <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition">
                           <CameraIcon className="w-5 h-5" />
                           <span className="text-sm font-medium">Camera</span>
                           <input

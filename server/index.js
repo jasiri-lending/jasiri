@@ -199,6 +199,7 @@ app.post("/create-user", async (req, res) => {
           email,
           role,
           phone: phone || null,
+          company_phone: req.body.company_phone || null,
           tenant_id: logged_in_tenant_id,
           must_change_password: false // No longer forced to change password on first login
         },

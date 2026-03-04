@@ -85,7 +85,7 @@ const PendingTransfersList = ({ onApprove, onReject }) => {
 
   if (loading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center ">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
       </div>
     );
@@ -106,7 +106,7 @@ const PendingTransfersList = ({ onApprove, onReject }) => {
   return (
     <div className="space-y-4">
       {transfers.map(transfer => (
-        <div key={transfer.id} className="border border-blue-200 rounded-lg p-6 bg-blue-50 shadow-sm">
+        <div key={transfer.id} className="border border-blue-200 rounded-lg p-6 bg-muted shadow-sm">
           <div className="flex justify-between items-start mb-4">
             <div className="flex-1">
               <div className="flex items-center justify-between mb-3">

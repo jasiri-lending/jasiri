@@ -26,7 +26,7 @@ const CustomerTransferTable = () => {
         .from('branches')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       setBranches(data || []);
     } catch (error) {
@@ -40,7 +40,7 @@ const CustomerTransferTable = () => {
         .from('users')
         .select('id, Firstname, Surname')
         .order('Firstname');
-      
+
       if (error) throw error;
       setOfficers(data || []);
     } catch (error) {
@@ -64,7 +64,7 @@ const CustomerTransferTable = () => {
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
-      
+
       if (error) throw error;
       setTransfers(data || []);
     } catch (error) {
@@ -100,7 +100,7 @@ const CustomerTransferTable = () => {
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-muted min-h-screen">
       <div className="max-w-7xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Customer Transfers</h1>
@@ -288,7 +288,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
         .from('branches')
         .select('id, name')
         .order('name');
-      
+
       if (error) throw error;
       setBranches(data || []);
     } catch (error) {
@@ -302,7 +302,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
         .from('users')
         .select('id, Firstname, Surname')
         .order('Firstname');
-      
+
       if (error) throw error;
       setOfficers(data || []);
     } catch (error) {
@@ -321,7 +321,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
         `)
         .eq('branch_id', formData.currentBranch)
         .eq('created_by', formData.currentOfficer);
-      
+
       if (error) throw error;
       setCustomers(data || []);
     } catch (error) {
@@ -334,7 +334,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
   };
 
   const toggleCustomerSelection = (customerId) => {
-    setSelectedCustomers(prev => 
+    setSelectedCustomers(prev =>
       prev.includes(customerId)
         ? prev.filter(id => id !== customerId)
         : [...prev, customerId]
@@ -343,17 +343,17 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!formData.newBranch || !formData.newOfficer || selectedCustomers.length === 0) {
       alert('Please fill all required fields and select at least one customer');
       return;
     }
 
     setLoading(true);
-    
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+
       const transferData = {
         current_branch_id: formData.currentBranch,
         current_officer_id: formData.currentOfficer,
@@ -382,7 +382,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
     }
   };
 
-  const filteredCustomers = customers.filter(customer => 
+  const filteredCustomers = customers.filter(customer =>
     customer.Firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.Surname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
     customer.id_number?.toString().includes(searchTerm) ||
@@ -390,7 +390,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
   );
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen">
+    <div className="p-6 bg-muted min-h-screen">
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-gray-800">Create Transfer </h1>

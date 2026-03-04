@@ -867,7 +867,7 @@ function CustomerEdits() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen bg-neutral flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-btn mx-auto"></div>
           <p className="mt-3 text-muted font-body">Loading...</p>
@@ -877,7 +877,7 @@ function CustomerEdits() {
   }
 
   return (
-    <div className="min-h-screen bg-neutral">
+    <div className="min-h-screen bg-muted">
       {/* Modals */}
       {showEditModal && editType === 'customer_search' && (
         <CustomerSearchModal

@@ -1,3 +1,6 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/userAuth.js';
 
 // Import the missing components (create these files separately)
@@ -792,7 +795,7 @@ const CustomerTransferForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
           <h2 className="text-sm  text-gray-600">

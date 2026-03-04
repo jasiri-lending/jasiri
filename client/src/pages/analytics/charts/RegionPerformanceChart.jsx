@@ -32,85 +32,47 @@ const CustomTooltip = ({ active, payload, label }) => {
   const regionData = payload[0]?.payload;
 
   return (
-    <div
-      className="bg-[#E7F0FA] p-4 rounded-lg shadow-xl border border-gray-200 min-w-80"
-      style={{
-        zIndex: 10000,
-        position: 'relative',
-        pointerEvents: 'none'
-      }}
-    >
-      <p className="font-bold text-slate-600 mb-3 text-sm">Region: {label}</p>
-      <div className="space-y-2">
-        {/* Total Disbursed - Green */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Disbursed:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalDisbursed }}>
-            Ksh {regionData?.totalDisbursed?.toLocaleString()}
-          </span>
+    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[320px] relative z-[9999]">
+      <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
+        <div className="p-2 bg-indigo-50 rounded-lg">
+          <Globe className="w-5 h-5 text-indigo-600" />
         </div>
-
-        {/* Total Payable - Blue */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Payable:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalPayable }}>
-            Ksh {regionData?.totalPayable?.toLocaleString()}
-          </span>
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Region Analysis</p>
+          <p className="font-black text-slate-800 text-base">{label}</p>
         </div>
+      </div>
 
-        {/* Total Collected - Amber */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Total Collected:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalCollected }}>
-            Ksh {regionData?.totalCollected?.toLocaleString()}
-          </span>
-        </div>
+      <div className="space-y-3">
+        {[
+          { label: "Disbursed", value: regionData?.totalDisbursed, color: COLORS.totalDisbursed, icon: "💰" },
+          { label: "Collected", value: regionData?.totalCollected, color: COLORS.totalCollected, icon: "📥" },
+          { label: "Outstanding", value: regionData?.totalOutstanding, color: COLORS.totalOutstanding, icon: "📊" },
+          { label: "Arrears", value: regionData?.arrearsAmount, color: COLORS.arrearsAmount, icon: "⚠️" },
+          { label: "NPL Amount", value: regionData?.nplAmount, color: COLORS.nplAmount, icon: "🚨" }
+        ].map((item, idx) => (
+          <div key={idx} className="flex justify-between items-center group">
+            <div className="flex items-center gap-2">
+              <span className="text-xs grayscale group-hover:grayscale-0 transition-all">{item.icon}</span>
+              <span className="text-slate-500 text-xs font-bold">{item.label}</span>
+            </div>
+            <span className="font-black text-xs tracking-tight" style={{ color: item.color }}>
+              Ksh {item.value?.toLocaleString()}
+            </span>
+          </div>
+        ))}
 
-        {/* Outstanding - Purple */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Outstanding:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.totalOutstanding }}>
-            Ksh {regionData?.totalOutstanding?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Collection Rate - Conditional */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Collection Rate:</span>
-          <span className={`font-semibold text-xs ${regionData?.collectionRate >= 80 ? 'text-green-600' :
-              regionData?.collectionRate >= 60 ? 'text-orange-600' :
-                'text-red-600'
-            }`}>
-            {regionData?.collectionRate}%
-          </span>
-        </div>
-
-        {/* NPL Amount - Orange */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">NPL Amount:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.nplAmount }}>
-            Ksh {regionData?.nplAmount?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Arrears - Red */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Arrears:</span>
-          <span className="font-semibold text-xs" style={{ color: COLORS.arrearsAmount }}>
-            Ksh {regionData?.arrearsAmount?.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Loan Count - Default */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Loan Count:</span>
-          <span className="text-slate-600 font-bold text-xs">{regionData?.loanCount}</span>
-        </div>
-
-        {/* Avg Loan Size - Default */}
-        <div className="flex justify-between gap-4">
-          <span className="text-gray-600 text-xs">Avg Loan Size:</span>
-          <span className="text-slate-600  font-bold text-xs">Ksh {regionData?.avgLoanSize?.toLocaleString()}</span>
+        <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
+          <div className="flex flex-col">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Collection Rate</span>
+            <span className={`text-lg font-black ${regionData?.collectionRate >= 80 ? 'text-emerald-600' : regionData?.collectionRate >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+              {regionData?.collectionRate}%
+            </span>
+          </div>
+          <div className="text-right">
+            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Loan Count</span>
+            <p className="text-base font-black text-slate-700">{regionData?.loanCount}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -362,6 +324,7 @@ const fetchRegionPerformance = async (dateRange, selectedRegion, customDateRange
 const RegionChart = () => {
   const { tenant } = useTenant();
   const [localData, setLocalData] = useState([]);
+  const [loading, setLoading] = useState(false);
   const [showCustomDate, setShowCustomDate] = useState(false);
   const [localFilters, setLocalFilters] = useState({
     dateRange: 'all',
@@ -390,12 +353,13 @@ const RegionChart = () => {
   }, [tenant?.id]);
 
   // Fetch data with debouncing
-  const fetchDataWithFilters = useCallback(async (filters, customDateRange = null) => {
+  const fetchDataWithFilters = useCallback(async (filterParams, customDateRange = null) => {
     if (!tenant?.id) return;
+    setLoading(true);
     try {
       const regionData = await fetchRegionPerformance(
-        filters.dateRange,
-        filters.region,
+        filterParams.dateRange,
+        filterParams.region,
         customDateRange,
         tenant.id
       );
@@ -403,8 +367,10 @@ const RegionChart = () => {
     } catch (error) {
       console.error("Error fetching region data:", error);
       setLocalData([]);
+    } finally {
+      setLoading(false);
     }
-  }, []);
+  }, [tenant?.id]);
 
   // Initial data fetch
   useEffect(() => {
@@ -474,33 +440,32 @@ const RegionChart = () => {
   }, [localData]);
 
   return (
-    <div className="bg-[#E7F0FA] rounded-xl shadow-sm border border-gray-200 p-6">
+    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
       {/* Header with title and export */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <Globe className="w-6 h-6" style={{ color: "#586ab1" }} />
-          <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-            Region Performance Analysis
-          </h3>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
+        <div className="flex items-center gap-5">
+
+          <div>
+            <h3 className="text-lg  text-stone-600 whitespace-nowrap">Regional Performance Analysis</h3>
+          </div>
         </div>
 
         <button
           onClick={handleExport}
-          className="flex items-center gap-2  text-green-700 hover:bg-green-100 px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+          className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!localData || localData.length === 0}
         >
-          <Download className="w-4 h-4" />
+          <Download className="w-3.5 h-3.5" />
           Export
         </button>
       </div>
 
-      {/* Filters */}
-      <div className="mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-
+      <div className="mb-4 mt-2">
+        <div className="flex flex-nowrap items-center gap-2 relative z-20 w-full overflow-hidden">
           {[
             {
-              icon: <Calendar className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Timeframe",
+              icon: <Calendar className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.dateRange,
               onChange: (e) =>
                 handleLocalFilterChange('dateRange', e.target.value),
@@ -515,28 +480,27 @@ const RegionChart = () => {
               ]
             },
             {
-              icon: <Globe className="w-4 h-4 text-slate-500 shrink-0" />,
+              label: "Region",
+              icon: <Globe className="w-3.5 h-3.5 text-stone-400 shrink-0" />,
               value: localFilters.region,
               onChange: (e) =>
                 handleLocalFilterChange('region', e.target.value),
               options: [
                 { value: "all", label: "All Regions" },
-                ...availableRegions.map(region => ({
-                  value: region,
-                  label: region
+                ...availableRegions.map(r => ({
+                  value: r, // Changed from r.name to r based on setAvailableRegions
+                  label: r
                 }))
               ]
             }
           ].map((item, idx) => (
-            <div
-              key={idx}
-              className="flex items-center h-11 gap-3 px-3 rounded-lg border border-slate-200 bg-[#E7F0FA] hover:border-slate-300 transition"
-            >
+            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
               {item.icon}
               <select
                 value={item.value}
                 onChange={item.onChange}
-                className="w-full bg-transparent text-sm font-normal leading-tight text-slate-800 focus:outline-none cursor-pointer py-0.5"
+                disabled={loading}
+                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
               >
                 {item.options.map(opt => (
                   <option key={opt.value} value={opt.value}>
@@ -550,35 +514,27 @@ const RegionChart = () => {
 
         {/* Custom Date Range */}
         {showCustomDate && (
-          <div className="mt-4 flex flex-wrap items-center gap-3">
-            <Calendar className="w-4 h-4 text-slate-500" />
-
+          <div className="mt-4 flex flex-wrap items-center gap-3 bg-stone-50/50 p-3 rounded-lg border border-stone-100">
+            <Calendar className="w-3.5 h-3.5 text-stone-400" />
             <input
               type="date"
               value={localFilters.customStartDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customStartDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customStartDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
-            <span className="text-slate-500 text-sm">to</span>
-
+            <span className="text-stone-300">→</span>
             <input
               type="date"
               value={localFilters.customEndDate}
-              onChange={(e) =>
-                handleLocalFilterChange('customEndDate', e.target.value)
-              }
-              className="h-9 px-3 text-sm rounded-lg border bg-[#E7F0FA] focus:outline-none focus:ring-2 focus:ring-indigo-400"
+              onChange={(e) => handleLocalFilterChange('customEndDate', e.target.value)}
+              className="h-8 px-2 text-xs font-bold rounded border border-stone-200 bg-white focus:outline-none focus:ring-1 focus:ring-stone-300"
             />
-
             <button
               onClick={applyCustomDateFilter}
               disabled={!localFilters.customStartDate || !localFilters.customEndDate}
-              className="h-8 px-3 rounded-md text-xs font-medium text-white bg-[#586ab1] hover:bg-[#4b5aa6] disabled:opacity-50"
+              className="h-8 px-4 rounded text-xs font-bold text-white bg-stone-600 hover:bg-stone-700 transition-all disabled:opacity-50"
             >
-              Apply
+              Update
             </button>
           </div>
         )}
@@ -601,8 +557,9 @@ const RegionChart = () => {
               fontSize={12}
             />
             <YAxis
-              fontSize={12}
-              tickFormatter={(value) => `Ksh ${(value / 1000).toFixed(0)}k`}
+              fontSize={10}
+              fontWeight="bold"
+              tickFormatter={(value) => value.toLocaleString()}
             />
             <Tooltip
               content={<CustomTooltip />}

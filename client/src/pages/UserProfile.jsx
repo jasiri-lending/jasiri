@@ -1,9 +1,9 @@
 // src/pages/UserProfile.jsx - CORRECTED VERSION
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { 
-  UserCircle, ArrowLeft, Camera, Eye, EyeOff, 
-  CheckCircle, Upload, Shield, Building, Mail, 
+import {
+  UserCircle, ArrowLeft, Camera, Eye, EyeOff,
+  CheckCircle, Upload, Shield, Building, Mail,
   Phone, MapPin, Users, Key, Save, X, RefreshCw,
   Clock, Calendar, Check, AlertCircle, Lock, Bell
 } from "lucide-react";
@@ -18,13 +18,13 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
 
   const handleChange = (index, digit) => {
     if (!/^\d*$/.test(digit)) return;
-    
+
     const newCode = [...codeDigits];
     newCode[index] = digit;
     const newCodeString = newCode.join('');
-    
+
     onChange(newCodeString);
-    
+
     // Auto focus next input
     if (digit && index < length - 1) {
       inputsRef.current[index + 1].focus();
@@ -46,7 +46,7 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
   const handlePaste = (e) => {
     e.preventDefault();
     const pasteData = e.clipboardData.getData('text').slice(0, length).replace(/\D/g, '');
-    
+
     if (pasteData.length === length) {
       onChange(pasteData);
       inputsRef.current[length - 1].focus();
@@ -132,9 +132,9 @@ export default function UserProfile() {
   const { loading, setLoading } = useGlobalLoading(); // Added loading here
   const toast = useToast();
   const navigate = useNavigate();
-  
+
   const [activeTab, setActiveTab] = useState('profile');
-  
+
   // Password change states - Code-based approach
   const [passwordFlow, setPasswordFlow] = useState('initial'); // initial, requested, verifying
   const [passwordCode, setPasswordCode] = useState('');
@@ -143,13 +143,13 @@ export default function UserProfile() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false); // Local loading state for password change
-  
+
   // Upload states
   const [uploading, setUploading] = useState(false);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [avatarKey, setAvatarKey] = useState(Date.now());
   const fileInputRef = useRef(null);
-  
+
   // Role display names
   const roleDisplayNames = {
     superadmin: "Super Administrator",
@@ -160,9 +160,9 @@ export default function UserProfile() {
     credit_analyst_officer: "Credit Analyst",
     customer_service_officer: "Customer Service",
   };
-  
+
   const getRoleDisplayName = (role) => roleDisplayNames[role] || role;
-  
+
   // Initialize preview URL
   useEffect(() => {
     if (profile?.avatar_url) {
@@ -178,67 +178,67 @@ export default function UserProfile() {
     try {
       const file = event.target.files[0];
       if (!file) return;
-      
+
       if (!file.type.match('image/jpeg|image/png|image/gif|image/webp')) {
         toast.error('Please upload a valid image file (JPEG, PNG, GIF, WebP)');
         return;
       }
-      
+
       if (file.size > 5 * 1024 * 1024) {
         toast.error('Image size must be less than 5MB');
         return;
       }
-      
+
       if (!profile?.id) {
         toast.error('Profile not loaded. Please refresh the page.');
         return;
       }
-      
+
       setUploading(true);
-      
+
       // Create temporary preview
       const reader = new FileReader();
       reader.onload = (e) => {
         setPreviewUrl(e.target.result);
       };
       reader.readAsDataURL(file);
-      
+
       const formData = new FormData();
       formData.append('avatar', file);
-      
+
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       if (!sessionToken) {
         throw new Error('No session token found. Please log in again.');
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/api/upload-avatar`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${sessionToken}` },
         body: formData
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to upload avatar');
       }
-      
+
       if (data.url) {
         const cacheBustedUrl = `${data.url}?t=${Date.now()}`;
         setPreviewUrl(cacheBustedUrl);
       }
-      
+
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-      
+
       await refreshProfile();
       setAvatarKey(Date.now());
-      
+
       toast.success('Profile photo updated successfully!');
-      
+
     } catch (error) {
       console.error('❌ Error uploading avatar:', error);
       toast.error(error.message || 'Failed to upload profile photo');
@@ -247,14 +247,14 @@ export default function UserProfile() {
       setUploading(false);
     }
   };
-  
+
   // Request password change code
   const requestPasswordChangeCode = async () => {
     setChangingPassword(true);
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       const response = await fetch(`${API_BASE_URL}/api/request-password-change-code`, {
         method: "POST",
         headers: {
@@ -263,16 +263,16 @@ export default function UserProfile() {
         },
         body: JSON.stringify({ email: profile.email }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to send verification code");
       }
-      
+
       setPasswordFlow('requested');
       toast.success("Verification code sent to your email!");
-      
+
     } catch (error) {
       console.error("Password change request error:", error);
       toast.error(error.message || "Failed to send verification code");
@@ -287,7 +287,7 @@ export default function UserProfile() {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       const response = await fetch(`${API_BASE_URL}/api/resend-password-change-code`, {
         method: "POST",
         headers: {
@@ -296,15 +296,15 @@ export default function UserProfile() {
         },
         body: JSON.stringify({ email: profile.email }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to resend verification code");
       }
-      
+
       toast.success("New verification code sent to your email!");
-      
+
     } catch (error) {
       console.error("Resend code error:", error);
       toast.error(error.message || "Failed to resend verification code");
@@ -316,40 +316,40 @@ export default function UserProfile() {
   // Verify code and change password
   const verifyCodeAndChangePassword = async (e) => {
     e.preventDefault();
-    
+
     // Validate passwords
     if (newPassword !== confirmPassword) {
       toast.error("New passwords don't match");
       return;
     }
-    
+
     if (newPassword.length < 8) {
       toast.error("Password must be at least 8 characters long");
       return;
     }
-    
+
     // Check password strength
     const hasUpperCase = /[A-Z]/.test(newPassword);
     const hasLowerCase = /[a-z]/.test(newPassword);
     const hasNumbers = /\d/.test(newPassword);
     const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-    
+
     if (!(hasUpperCase && hasLowerCase && hasNumbers && hasSpecialChar)) {
       toast.error("Password must include uppercase, lowercase, numbers, and special characters");
       return;
     }
-    
+
     if (passwordCode.length !== 6) {
       toast.error("Please enter a valid 6-digit code");
       return;
     }
-    
+
     setChangingPassword(true);
-    
+
     try {
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       const response = await fetch(`${API_BASE_URL}/api/verify-password-change-code`, {
         method: "POST",
         headers: {
@@ -362,21 +362,21 @@ export default function UserProfile() {
           newPassword
         }),
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to change password");
       }
-      
+
       toast.success("Password changed successfully!");
-      
+
       // Reset form
       setPasswordCode("");
       setNewPassword("");
       setConfirmPassword("");
       setPasswordFlow('initial');
-      
+
     } catch (error) {
       console.error("Password change error:", error);
       toast.error(error.message || "Failed to change password");
@@ -384,44 +384,44 @@ export default function UserProfile() {
       setChangingPassword(false);
     }
   };
-  
+
   // Handle remove avatar
   const handleRemoveAvatar = async () => {
     if (!confirm("Are you sure you want to remove your profile photo?")) {
       return;
     }
-    
+
     setLoading(true);
-    
+
     try {
       if (!profile?.id) {
         throw new Error('Profile not loaded. Please refresh the page.');
       }
-      
+
       const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
       const sessionToken = localStorage.getItem("sessionToken");
-      
+
       if (!sessionToken) {
         throw new Error('No session token found. Please log in again.');
       }
-      
+
       const response = await fetch(`${API_BASE_URL}/api/delete-avatar`, {
         method: "DELETE",
         headers: { "Authorization": `Bearer ${sessionToken}` }
       });
-      
+
       const data = await response.json();
-      
+
       if (!response.ok || !data.success) {
         throw new Error(data.error || 'Failed to delete avatar');
       }
-      
+
       setPreviewUrl(null);
       await refreshProfile();
       setAvatarKey(Date.now());
-      
+
       toast.success("Profile photo removed successfully!");
-      
+
     } catch (error) {
       console.error("Error removing avatar:", error);
       toast.error(error.message || "Failed to remove profile photo");
@@ -439,7 +439,7 @@ export default function UserProfile() {
       toast.info('Avatar refreshed!');
     }
   };
-  
+
   // Format date
   const formatDate = (dateString) => {
     if (!dateString) return 'Never';
@@ -452,7 +452,7 @@ export default function UserProfile() {
       minute: '2-digit'
     });
   };
-  
+
   if (!profile) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-brand-surface/50 to-white flex items-center justify-center">
@@ -463,7 +463,7 @@ export default function UserProfile() {
       </div>
     );
   }
-  
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-surface to-white">
       {/* Non-sticky Header */}
@@ -487,7 +487,7 @@ export default function UserProfile() {
                 </p>
               </div>
             </div>
-            
+
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-primary/10 to-brand-btn/10 
                 rounded-full border border-brand-primary/20">
@@ -498,18 +498,17 @@ export default function UserProfile() {
               </div>
             </div>
           </div>
-          
+
           {/* Tabs - Glass Morphism */}
           <div className="mt-8">
             <div className="flex space-x-1 bg-white/50 backdrop-blur-sm rounded-xl p-1.5 border border-brand-secondary/10 
               shadow-sm w-fit">
               <button
                 onClick={() => setActiveTab('profile')}
-                className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  activeTab === 'profile' 
-                    ? 'bg-white shadow-sm text-brand-primary' 
-                    : 'text-brand-primary/60 hover:text-brand-primary hover:bg-white/50'
-                }`}
+                className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'profile'
+                  ? 'bg-white shadow-sm text-brand-primary'
+                  : 'text-brand-primary/60 hover:text-brand-primary hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
@@ -518,11 +517,10 @@ export default function UserProfile() {
               </button>
               <button
                 onClick={() => setActiveTab('security')}
-                className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 ${
-                  activeTab === 'security' 
-                    ? 'bg-white shadow-sm text-brand-primary' 
-                    : 'text-brand-primary/60 hover:text-brand-primary hover:bg-white/50'
-                }`}
+                className={`px-6 py-3 text-sm font-semibold rounded-lg transition-all duration-200 ${activeTab === 'security'
+                  ? 'bg-white shadow-sm text-brand-primary'
+                  : 'text-brand-primary/60 hover:text-brand-primary hover:bg-white/50'
+                  }`}
               >
                 <div className="flex items-center gap-2">
                   <Lock className="h-4 w-4" />
@@ -533,7 +531,7 @@ export default function UserProfile() {
           </div>
         </div>
       </div>
-      
+
       {/* Main Content */}
       <div className="px-6 py-10 max-w-7xl mx-auto">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -547,9 +545,9 @@ export default function UserProfile() {
                   <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-2xl 
                     ring-4 ring-brand-primary/10">
                     {previewUrl ? (
-                      <img 
+                      <img
                         key={avatarKey}
-                        src={previewUrl} 
+                        src={previewUrl}
                         alt={profile.full_name}
                         className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
                         onError={(e) => {
@@ -570,7 +568,7 @@ export default function UserProfile() {
                       </div>
                     )}
                   </div>
-                  
+
                   {/* Upload Overlay */}
                   <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center 
                     opacity-0 group-hover:opacity-100 transition-all duration-300 cursor-pointer">
@@ -590,12 +588,20 @@ export default function UserProfile() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="mt-6 text-center">
                   <h2 className="text-xl font-bold text-brand-primary">{profile.full_name}</h2>
-                  <p className="text-brand-primary/70 mt-1 flex items-center justify-center gap-2">
-                    <Mail className="h-3 w-3" />
-                    <span className="text-sm">{profile.email}</span>
+                  <p className="text-brand-primary/70 mt-1 flex flex-col items-center gap-1">
+                    <span className="flex items-center gap-2 text-sm">
+                      <Mail className="h-3 w-3" />
+                      {profile.email}
+                    </span>
+                    {profile.company_phone && (
+                      <span className="flex items-center gap-2 text-xs font-medium text-brand-primary/50">
+                        <Building className="h-3 w-3" />
+                        {profile.company_phone}
+                      </span>
+                    )}
                   </p>
                   <div className="mt-3">
                     <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold 
@@ -605,7 +611,7 @@ export default function UserProfile() {
                     </span>
                   </div>
                 </div>
-                
+
                 {/* Avatar Actions - SMALLER BUTTONS */}
                 <div className="mt-6 flex flex-col gap-2 w-full">
                   <button
@@ -627,7 +633,7 @@ export default function UserProfile() {
                       </>
                     )}
                   </button>
-                  
+
                   {previewUrl && (
                     <button
                       onClick={handleRemoveAvatar}
@@ -639,7 +645,7 @@ export default function UserProfile() {
                     </button>
                   )}
                 </div>
-                
+
                 {/* Avatar Refresh */}
                 <div className="mt-4 flex items-center justify-center gap-2">
                   <button
@@ -654,7 +660,7 @@ export default function UserProfile() {
                     {profile.avatar_url ? 'Avatar loaded' : 'No avatar'}
                   </span>
                 </div>
-                
+
                 {/* Upload Guidelines */}
                 <div className="mt-6 pt-6 border-t border-brand-secondary/10">
                   <h3 className="text-xs font-semibold text-brand-primary mb-3 flex items-center gap-2">
@@ -679,7 +685,7 @@ export default function UserProfile() {
               </div>
             </div>
           </div>
-          
+
           {/* Right Column - Details & Security */}
           <div className="lg:col-span-8">
             {activeTab === 'profile' ? (
@@ -697,18 +703,18 @@ export default function UserProfile() {
                       <Users className="h-4 w-4 text-brand-primary" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Full Name</label>
                         <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 transition-colors duration-200">
                           <Users className="h-4 w-4 text-brand-primary/50 mr-3" />
-                          <span className="text-brand-primary font-medium">{profile.full_name}</span>
+                          <span className="text-brand-primary font-medium">{profile.name}</span>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Email Address</label>
                         <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
@@ -717,21 +723,28 @@ export default function UserProfile() {
                           <span className="text-brand-primary font-medium">{profile.email}</span>
                         </div>
                       </div>
-                    </div>
-                    
-                    {profile.phone && (
+
                       <div className="space-y-2">
-                        <label className="text-xs font-semibold text-brand-primary/70">Phone Number</label>
+                        <label className="text-xs font-semibold text-brand-primary/70">Personal Phone</label>
                         <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
-                          group hover:border-brand-primary/30 transition-colors duration-200">
-                          <Phone className="h-4 w-4 text-brand-primary/50 mr-3" />
-                          <span className="text-brand-primary font-medium">{profile.phone}</span>
+                          group hover:border-brand-primary/30 hover:bg-white hover:shadow-sm transition-all duration-200">
+                          <Phone className="h-4 w-4 text-brand-primary/50 mr-3 group-hover:text-brand-btn transition-colors" />
+                          <span className="text-brand-primary font-medium">{profile.phone || 'Not provided'}</span>
                         </div>
                       </div>
-                    )}
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-semibold text-brand-primary/70">Company Phone</label>
+                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                          group hover:border-brand-primary/30 hover:bg-white hover:shadow-sm transition-all duration-200">
+                          <Building className="h-4 w-4 text-brand-primary/50 mr-3 group-hover:text-brand-btn transition-colors" />
+                          <span className="text-brand-primary font-medium">{profile.company_phone || 'Not provided'}</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                
+
                 {/* Role & Location Card */}
                 <div className="bg-white rounded-xl border border-brand-secondary/10 p-6 shadow-lg 
                   hover:shadow-xl transition-shadow duration-300">
@@ -745,7 +758,7 @@ export default function UserProfile() {
                       <Building className="h-4 w-4 text-brand-primary" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
@@ -756,7 +769,7 @@ export default function UserProfile() {
                           <span className="text-brand-primary font-medium">{getRoleDisplayName(profile.role)}</span>
                         </div>
                       </div>
-                      
+
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Region</label>
                         <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
@@ -766,7 +779,7 @@ export default function UserProfile() {
                         </div>
                       </div>
                     </div>
-                    
+
                     <div className="space-y-2">
                       <label className="text-xs font-semibold text-brand-primary/70">Branch</label>
                       <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
@@ -777,7 +790,7 @@ export default function UserProfile() {
                     </div>
                   </div>
                 </div>
-                
+
                 {/* Account Activity Card */}
                 <div className="bg-white rounded-xl border border-brand-secondary/10 p-6 shadow-lg 
                   hover:shadow-xl transition-shadow duration-300">
@@ -791,7 +804,7 @@ export default function UserProfile() {
                       <Calendar className="h-4 w-4 text-brand-primary" />
                     </div>
                   </div>
-                  
+
                   <div className="space-y-4">
                     <div className="flex justify-between items-center py-3 border-b border-brand-secondary/10">
                       <div className="flex items-center gap-3">
@@ -807,7 +820,7 @@ export default function UserProfile() {
                         {formatDate(profile.created_at)}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center py-3 border-b border-brand-secondary/10">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-blue-100 flex items-center justify-center">
@@ -822,7 +835,7 @@ export default function UserProfile() {
                         {profile.last_login ? formatDate(profile.last_login) : 'Never'}
                       </span>
                     </div>
-                    
+
                     <div className="flex justify-between items-center py-3">
                       <div className="flex items-center gap-3">
                         <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
@@ -856,7 +869,7 @@ export default function UserProfile() {
                       <Lock className="h-4 w-4 text-brand-primary" />
                     </div>
                   </div>
-                  
+
                   {passwordFlow === 'initial' ? (
                     <div className="text-center py-8">
                       <div className="h-16 w-16 rounded-full bg-gradient-to-r from-brand-primary/10 to-brand-btn/10 
@@ -864,7 +877,7 @@ export default function UserProfile() {
                         <Key className="h-8 w-8 text-brand-primary" />
                       </div>
                       <p className="text-brand-primary/70 mb-6 max-w-md mx-auto text-sm">
-                        To change your password, we'll send a verification code to your email address. 
+                        To change your password, we'll send a verification code to your email address.
                         This ensures your account remains secure.
                       </p>
                       <button
@@ -888,7 +901,7 @@ export default function UserProfile() {
                           <span className="font-semibold text-brand-primary">{profile.email}</span>
                         </p>
                       </div>
-                      
+
                       <div className="space-y-4">
                         <div>
                           <label className="block text-xs font-semibold text-brand-primary mb-3 text-center">
@@ -974,7 +987,7 @@ export default function UserProfile() {
                           </div>
                         </div>
                       </div>
-                      
+
                       <div className="grid grid-cols-2 gap-3 pt-4">
                         <button
                           type="button"
@@ -1012,7 +1025,7 @@ export default function UserProfile() {
                     </form>
                   ) : null}
                 </div>
-              
+
               </div>
             )}
           </div>
