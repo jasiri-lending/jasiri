@@ -1,37 +1,16 @@
 import express from "express";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { v4 as uuidv4 } from "uuid";
 
-const JournalEntryRouter = express.Router();
+const journalEntryRouter = express.Router();
 
-const verifyTenant = async (req, res, next) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ success: false, error: 'No session token provided' });
-        }
-
-        const sessionToken = authHeader.split(' ')[1];
-        const { data: user, error: userError } = await supabaseAdmin
-            .from("users")
-            .select("*")
-            .eq("session_token", sessionToken)
-            .single();
-
-        if (userError || !user) {
-            return res.status(401).json({ success: false, error: 'Invalid session token' });
-        }
-
-        req.user = user;
-        next();
-    } catch (err) {
-        console.error("Tenant verification error:", err);
-        res.status(500).json({ success: false, error: 'Tenant verification failed' });
-    }
-};
+// Apply authentication and tenant check to all journal entry routes
+journalEntryRouter.use(verifySupabaseToken);
+journalEntryRouter.use(checkTenantAccess);
 
 // POST /api/journal-entries - Create manual multi-line journal entry
-JournalEntryRouter.post("/", verifyTenant, async (req, res) => {
+journalEntryRouter.post("/", async (req, res) => {
     try {
         const { tenant_id, entry_date, reference, description, lines } = req.body;
 
@@ -87,7 +66,7 @@ JournalEntryRouter.post("/", verifyTenant, async (req, res) => {
 });
 
 // POST /api/journal-entries/upload - Bulk Upload from Excel
-JournalEntryRouter.post("/upload", verifyTenant, async (req, res) => {
+journalEntryRouter.post("/upload", async (req, res) => {
     try {
         const { tenant_id, entries } = req.body;
 
@@ -199,4 +178,4 @@ JournalEntryRouter.post("/upload", verifyTenant, async (req, res) => {
     }
 });
 
-export default JournalEntryRouter;
+export default journalEntryRouter;

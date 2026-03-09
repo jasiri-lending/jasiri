@@ -1,16 +1,12 @@
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
+import crypto from "crypto";
 import { nanoid } from "nanoid";
 import { baseEmailTemplate, styledHighlightBox, infoBox } from "../utils/emailTemplates.js";
 import transporter from "../utils/mailer.js";
 
 const tenantRouter = express.Router();
-
-// Initialize Supabase
-const supabase = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // Email transporter is now handled in ../utils/mailer.js
 
@@ -40,8 +36,12 @@ async function sendTenantEmail(adminEmail, adminPassword, tenantSlug, companyNam
   });
 }
 
-// Create tenant + tenant admin
-tenantRouter.post("/create-tenant", async (req, res) => {
+// Create tenant (Restricted to Superadmin/Admin)
+tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
+  // Only superadmin can create new tenants
+  if (req.user.role !== 'superadmin' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: "Unauthorized. Superadmin/Admin role required." });
+  }
   try {
     const {
       name,
@@ -210,8 +210,11 @@ tenantRouter.post("/create-tenant", async (req, res) => {
   }
 });
 
-// Delete tenant endpoint (Cascading Delete)
-tenantRouter.delete("/delete-tenant/:id", async (req, res) => {
+// Delete tenant endpoint (Cascading Delete) - Restricted to Superadmin
+tenantRouter.delete("/delete-tenant/:id", verifySupabaseToken, async (req, res) => {
+  if (req.user.role !== 'superadmin') {
+    return res.status(403).json({ error: "Unauthorized. Superadmin role required." });
+  }
   try {
     const { id } = req.params;
 
@@ -283,10 +286,14 @@ tenantRouter.delete("/delete-tenant/:id", async (req, res) => {
   }
 });
 
-// Upsert tenant SMS settings
-tenantRouter.post("/sms-config", async (req, res) => {
+// Upsert tenant SMS settings - Restricted to Admin/Superadmin
+tenantRouter.post("/sms-config", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   try {
     const { tenant_id, base_url, api_key, partner_id, shortcode } = req.body;
+
+    if (req.user.role !== 'admin' && req.user.role !== 'superadmin') {
+      return res.status(403).json({ error: "Unauthorized. Admin role required." });
+    }
 
     if (!tenant_id || !base_url || !api_key || !partner_id || !shortcode) {
       return res.status(400).json({ error: "Missing required SMS config fields" });
@@ -310,8 +317,8 @@ tenantRouter.post("/sms-config", async (req, res) => {
   }
 });
 
-// Get tenant SMS settings
-tenantRouter.get("/sms-config/:tenantId", async (req, res) => {
+// Get tenant SMS settings - Restricted to Admin/Superadmin
+tenantRouter.get("/sms-config/:tenantId", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   try {
     const { tenantId } = req.params;
 

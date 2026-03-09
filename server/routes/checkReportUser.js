@@ -1,13 +1,12 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { authLimiter } from "../middleware/rateLimiter.js";
 
 const router = express.Router();
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Apply auth rate limiter to this login endpoint
+router.use(authLimiter);
 
 // POST /api/checkReportUser
 router.post("/", async (req, res) => {

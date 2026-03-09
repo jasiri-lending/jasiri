@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from "react";
-import { supabase } from "../../supabaseClient";
 import { useNavigate } from "react-router-dom";
 import { Plus, Edit2, Trash2, X, Save } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
+import { apiFetch } from "../../utils/api";
 
 const TABS = ["Asset", "Liability", "Equity", "Income", "Expense"];
 
@@ -18,15 +18,19 @@ export default function ChartOfAccounts() {
 
   const fetchAccounts = async () => {
     if (!profile?.tenant_id) return;
-    const { data, error } = await supabase
-      .from("chart_of_accounts")
-      .select("*")
-      .eq("tenant_id", profile.tenant_id)
-      .ilike("account_type", activeTab)
-      .order("created_at", { ascending: false });
-
-    if (!error) setAccounts(data);
-    else console.error("Error fetching accounts:", error);
+    try {
+      const response = await apiFetch(`/api/chart-of-accounts?account_type=${activeTab}`);
+      const data = await response.json();
+      if (data.success) {
+        setAccounts(data.accounts || []);
+      } else {
+        console.error("Error fetching accounts:", data.error);
+        toastError(data.error || "Failed to fetch accounts.");
+      }
+    } catch (error) {
+      console.error("Error fetching accounts:", error);
+      toastError("Failed to fetch accounts.");
+    }
   };
 
   useEffect(() => {
@@ -36,17 +40,20 @@ export default function ChartOfAccounts() {
   const deleteAccount = async (id) => {
     if (!window.confirm("Are you sure you want to delete this account?")) return;
 
-    const { error } = await supabase
-      .from("chart_of_accounts")
-      .delete()
-      .eq("id", id)
-      .eq("tenant_id", profile?.tenant_id);
-
-    if (error) {
+    try {
+      const response = await apiFetch(`/api/chart-of-accounts/${id}`, {
+        method: "DELETE"
+      });
+      const data = await response.json();
+      if (data.success) {
+        success("Account deleted successfully.");
+        fetchAccounts();
+      } else {
+        toastError(data.error || "Failed to delete account.");
+      }
+    } catch (error) {
+      console.error("Error deleting account:", error);
       toastError("Failed to delete account.");
-    } else {
-      success("Account deleted successfully.");
-      fetchAccounts();
     }
   };
 
@@ -62,17 +69,19 @@ export default function ChartOfAccounts() {
 
   const handleUpdate = async (updatedData) => {
     try {
-      const { error } = await supabase
-        .from("chart_of_accounts")
-        .update(updatedData)
-        .eq("id", editingAccount.id)
-        .eq("tenant_id", profile?.tenant_id);
+      const response = await apiFetch(`/api/chart-of-accounts`, {
+        method: "POST",
+        body: JSON.stringify({ ...updatedData, id: editingAccount.id })
+      });
+      const data = await response.json();
 
-      if (error) throw error;
-
-      success("Account updated successfully!");
-      fetchAccounts();
-      closeEditModal();
+      if (data.success) {
+        success("Account updated successfully!");
+        fetchAccounts();
+        closeEditModal();
+      } else {
+        toastError(data.error || "Failed to update account.");
+      }
     } catch (err) {
       console.error("Error updating account:", err);
       toastError(err.message || "Failed to update account.");

@@ -268,6 +268,10 @@ function App() {
                           </div>
                         ) : user && profile ? (
                           <Navigate to={getDefaultRoute()} replace />
+                        ) : user ? (
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Loading session..." />
+                          </div>
                         ) : (
                           <Navigate to="/login" replace />
                         )
@@ -283,6 +287,10 @@ function App() {
                           </div>
                         ) : user && profile ? (
                           <Navigate to={getDefaultRoute()} replace />
+                        ) : user ? (
+                          <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                            <Spinner text="Loading profile..." />
+                          </div>
                         ) : (
                           <Login />
                         )

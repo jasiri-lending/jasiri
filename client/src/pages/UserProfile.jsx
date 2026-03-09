@@ -5,10 +5,10 @@ import {
   UserCircle, ArrowLeft, Camera, Eye, EyeOff,
   CheckCircle, Upload, Shield, Building, Mail,
   Phone, MapPin, Users, Key, Save, X, RefreshCw,
-  Clock, Calendar, Check, AlertCircle, Lock, Bell
+  Clock, Calendar, Check, AlertCircle, Lock
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
-import { useGlobalLoading } from "../hooks/LoadingContext";
+import { apiFetch } from "../utils/api";
 import { useToast } from "../components/Toast.jsx";
 
 // Reusable Circular Code Input Component
@@ -66,9 +66,9 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
           disabled={disabled}
-          className="w-12 h-12 text-center text-xl font-semibold rounded-full 
-            border-2 border-brand-secondary/30 focus:border-brand-primary 
-            focus:outline-none focus:ring-2 focus:ring-brand-primary/30 
+          className="w-12 h-12 text-center text-xl font-semibold rounded-full
+            border-2 border-brand-secondary/30 focus:border-brand-primary
+            focus:outline-none focus:ring-2 focus:ring-brand-primary/30
             bg-white shadow-sm transition-all duration-200"
           style={{
             transform: codeDigits[index] ? 'scale(1.05)' : 'scale(1)'
@@ -116,7 +116,7 @@ const CountdownTimer = ({ seconds, onResend, disabled = false }) => {
             setTimeLeft(seconds);
           }}
           disabled={disabled}
-          className="text-sm text-brand-primary hover:text-brand-btn font-medium 
+          className="text-sm text-brand-primary hover:text-brand-btn font-medium
             disabled:opacity-50 flex items-center gap-2 mx-auto"
         >
           <RefreshCw className="h-4 w-4" />
@@ -129,7 +129,6 @@ const CountdownTimer = ({ seconds, onResend, disabled = false }) => {
 
 export default function UserProfile() {
   const { profile, refreshProfile, logout } = useAuth();
-  const { loading, setLoading } = useGlobalLoading(); // Added loading here
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -206,17 +205,10 @@ export default function UserProfile() {
       const formData = new FormData();
       formData.append('avatar', file);
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-      const sessionToken = localStorage.getItem("sessionToken");
-
-      if (!sessionToken) {
-        throw new Error('No session token found. Please log in again.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/upload-avatar`, {
+      const response = await apiFetch(`/api/upload-avatar`, {
         method: "POST",
-        headers: { "Authorization": `Bearer ${sessionToken}` },
-        body: formData
+        body: formData,
+        headers: {} // Let browser set boundary
       });
 
       const data = await response.json();
@@ -252,16 +244,9 @@ export default function UserProfile() {
   const requestPasswordChangeCode = async () => {
     setChangingPassword(true);
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-      const sessionToken = localStorage.getItem("sessionToken");
-
-      const response = await fetch(`${API_BASE_URL}/api/request-password-change-code`, {
+      const response = await apiFetch(`/api/request-password-change-code`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionToken}`
-        },
-        body: JSON.stringify({ email: profile.email }),
+        body: JSON.stringify({ userId: profile.id, email: profile.email }),
       });
 
       const data = await response.json();
@@ -285,16 +270,9 @@ export default function UserProfile() {
   const resendPasswordChangeCode = async () => {
     setChangingPassword(true);
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-      const sessionToken = localStorage.getItem("sessionToken");
-
-      const response = await fetch(`${API_BASE_URL}/api/resend-password-change-code`, {
+      const response = await apiFetch(`/api/resend-password-change-code`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionToken}`
-        },
-        body: JSON.stringify({ email: profile.email }),
+        body: JSON.stringify({ userId: profile.id, email: profile.email }),
       });
 
       const data = await response.json();
@@ -347,19 +325,12 @@ export default function UserProfile() {
     setChangingPassword(true);
 
     try {
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-      const sessionToken = localStorage.getItem("sessionToken");
-
-      const response = await fetch(`${API_BASE_URL}/api/verify-password-change-code`, {
+      const response = await apiFetch(`/api/verify-password-change-code`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${sessionToken}`
-        },
         body: JSON.stringify({
-          email: profile.email,
+          userId: profile.id,
           code: passwordCode,
-          newPassword
+          newPassword: newPassword,
         }),
       });
 

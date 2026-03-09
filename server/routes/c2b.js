@@ -1,10 +1,10 @@
-// backend/routes/c2b.js
 import express from "express";
-import { supabaseAdmin }      from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { resolveTransaction } from "../services/tenantResolver.js";
-import { enqueueJob }         from "../queue/paymentQueue.js";
-import { JOB_TYPES }          from "../config/env.js";
-import { createLogger }       from "../utils/logger.js";
+import { enqueueJob } from "../queue/paymentQueue.js";
+import { JOB_TYPES } from "../config/env.js";
+import { createLogger } from "../utils/logger.js";
 
 const c2b = express.Router();
 const log = createLogger({ service: "c2b" });
@@ -26,7 +26,10 @@ function parseMpesaTimestamp(timestamp) {
   return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
 }
 
-c2b.post("/validation", (req, res) => {
+// C2B Validaton and Confirmation are public callbacks from Safaricom
+// Do NOT apply verifySupabaseToken here
+
+c2b .post("/validation", (req, res) => {
   log.info("C2B validation received");
   res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });
@@ -63,14 +66,14 @@ c2b.post("/confirmation", async (req, res) => {
       if (!tenantConfig) {
         log.warn({ TransID, BusinessShortCode, MSISDN }, "Tenant not resolved — suspense");
         await supabaseAdmin.from("suspense_transactions").upsert({
-          payer_name:       FirstName || "Unknown",
-          phone_number:     MSISDN,
-          amount:           TransAmount,
-          transaction_id:   TransID,
+          payer_name: FirstName || "Unknown",
+          phone_number: MSISDN,
+          amount: TransAmount,
+          transaction_id: TransID,
           transaction_time: parseMpesaTimestamp(TransTime),
-          billref:          BillRefNumber,
-          status:           "suspense",
-          reason:           "Tenant not resolved from shortcode or phone",
+          billref: BillRefNumber,
+          status: "suspense",
+          reason: "Tenant not resolved from shortcode or phone",
         }, { onConflict: "transaction_id" });
         return;
       }
@@ -79,24 +82,24 @@ c2b.post("/confirmation", async (req, res) => {
 
       // Determine job type from billref
       const ref = (BillRefNumber || "").toLowerCase();
-      let jobType  = JOB_TYPES.C2B_REPAYMENT;
+      let jobType = JOB_TYPES.C2B_REPAYMENT;
       let priority = 5;
-      if (ref.startsWith("registration")) { jobType = JOB_TYPES.REGISTRATION;   priority = 2; }
+      if (ref.startsWith("registration")) { jobType = JOB_TYPES.REGISTRATION; priority = 2; }
       else if (ref.startsWith("processing")) { jobType = JOB_TYPES.PROCESSING_FEE; priority = 3; }
 
       // Insert transaction record (idempotent)
       await supabaseAdmin.from("mpesa_c2b_transactions").upsert({
-        transaction_id:     TransID,
-        phone_number:       MSISDN,
-        amount:             TransAmount,
-        transaction_time:   parseMpesaTimestamp(TransTime),
-        status:             "pending",
-        raw_payload:        body,
-        billref:            BillRefNumber,
-        firstname:          FirstName,
+        transaction_id: TransID,
+        phone_number: MSISDN,
+        amount: TransAmount,
+        transaction_time: parseMpesaTimestamp(TransTime),
+        status: "pending",
+        raw_payload: body,
+        billref: BillRefNumber,
+        firstname: FirstName,
         business_shortcode: BusinessShortCode,
-        transaction_type:   TransactionType,
-        tenant_id:          tenantId,
+        transaction_type: TransactionType,
+        tenant_id: tenantId,
       }, { onConflict: "transaction_id", ignoreDuplicates: true });
 
       // Enqueue for processing

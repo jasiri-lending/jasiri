@@ -1,6 +1,6 @@
-// AvatarRouter.js - CORRECTED VERSION
 import express from "express";
 import { supabase, supabaseAdmin } from '../supabaseClient.js';
+import { verifySupabaseToken } from "../middleware/authMiddleware.js";
 import multer from "multer";
 import path from "path";
 import fs from "fs";
@@ -39,42 +39,11 @@ const upload = multer({
   }
 });
 
-// Middleware to verify session token
-const verifySession = async (req, res, next) => {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'No session token provided' });
-    }
-
-    const sessionToken = authHeader.split(' ')[1];
-    const { data: user, error } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("session_token", sessionToken)
-      .single();
-
-    if (error || !user) {
-      return res.status(401).json({ success: false, error: 'Invalid session token' });
-    }
-
-    // Check if session expired
-    const now = new Date();
-    const expiry = new Date(user.session_expires_at);
-    if (expiry.getTime() < now.getTime()) {
-      return res.status(401).json({ success: false, error: 'Session expired' });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error("Session verification error:", err);
-    res.status(500).json({ success: false, error: 'Session verification failed' });
-  }
-};
+// Apply authentication to all avatar routes
+AvatarRouter.use(verifySupabaseToken);
 
 // POST /api/upload-avatar - upload user avatar
-AvatarRouter.post("/upload-avatar", verifySession, upload.single('avatar'), async (req, res) => {
+AvatarRouter.post("/upload-avatar", upload.single('avatar'), async (req, res) => {
   try {
     console.log("📤 Avatar upload request received");
     console.log("  - User ID:", req.user.id);
@@ -224,7 +193,7 @@ AvatarRouter.post("/upload-avatar", verifySession, upload.single('avatar'), asyn
 });
 
 // DELETE /api/delete-avatar - delete user avatar
-AvatarRouter.delete("/delete-avatar", verifySession, async (req, res) => {
+AvatarRouter.delete("/delete-avatar", async (req, res) => {
   try {
     console.log("🗑️ Avatar deletion request received");
     console.log("  - User ID:", req.user.id);

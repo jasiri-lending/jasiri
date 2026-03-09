@@ -17,7 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
-import { API_BASE_URL } from "../../../config.js";
+import { apiFetch } from "../../utils/api";
 import Spinner from "../../components/Spinner";
 
 export default function AllUsers() {
@@ -504,9 +504,8 @@ export default function AllUsers() {
   const handleCreateUser = async () => {
     const requiresBranchRegion = roleRequiresBranchRegion(formData.role);
 
-    const response = await fetch(`${API_BASE_URL}/create-user`, {
+    const response = await apiFetch("/create-user", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         full_name: formData.full_name?.trim(),
         email: formData.email?.trim(),
@@ -619,9 +618,8 @@ export default function AllUsers() {
     try {
       if (type === "user") {
         // Use the new permanent delete endpoint
-        const response = await fetch(`${API_BASE_URL}/api/admin/users/${id}`, {
+        const response = await apiFetch(`/api/admin/users/${id}`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
         });
 
         const data = await response.json();

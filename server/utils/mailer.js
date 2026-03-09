@@ -3,6 +3,7 @@ import "dotenv/config";
 
 // --- Configuration ---
 const defaultClient = SibApiV3Sdk.ApiClient.instance;
+defaultClient.basePath = "https://api.brevo.com/v3"; // Updated: sendinblue.com domain no longer exists
 
 // Use BREVO_API_KEY from env
 const apiKey = defaultClient.authentications["api-key"];

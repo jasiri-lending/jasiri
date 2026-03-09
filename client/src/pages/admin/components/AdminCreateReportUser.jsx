@@ -1,6 +1,8 @@
+```javascript
 import { useState } from "react";
-import { API_BASE_URL } from "../../../../config.js";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../../hooks/userAuth.js";
+import { apiFetch } from "../../../utils/api";
 
 const AdminCreateReportUser = () => {
   const { profile } = useAuth();
@@ -33,13 +35,9 @@ const AdminCreateReportUser = () => {
       };
 
       console.log("📤 Creating report user:", payload);
-      console.log("🌐 API URL:", `${API_BASE_URL}/api/report-users/create`);
 
-      const res = await fetch(`${API_BASE_URL}/api/report-users/create`, {
+      const res = await apiFetch(`/ api / report - users / create`, {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json"
-        },
         body: JSON.stringify(payload),
       });
 
@@ -54,7 +52,7 @@ const AdminCreateReportUser = () => {
           console.log("❌ Error response:", errorData);
         } catch (jsonErr) {
           console.error("❌ Failed to parse error JSON:", jsonErr);
-          errorMsg = `Server error: ${res.status} ${res.statusText}`;
+          errorMsg = `Server error: ${ res.status } ${ res.statusText } `;
         }
         setError(errorMsg);
         setLoading(false);
@@ -80,7 +78,7 @@ const AdminCreateReportUser = () => {
       console.error("❌ Create user error:", err);
       
       if (err.message === "Failed to fetch") {
-        setError(`Cannot connect to server at ${API_BASE_URL}. Please check if the server is running.`);
+        setError(`Cannot connect to server at ${ API_BASE_URL }. Please check if the server is running.`);
       } else if (err.name === "SyntaxError") {
         setError("Server returned invalid response. Please check server logs.");
       } else {

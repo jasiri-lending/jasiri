@@ -1,18 +1,23 @@
 import express from "express";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
+
+// Apply authentication and tenant isolation globally to this router
+router.use(verifySupabaseToken);
+router.use(checkTenantAccess);
 
 // Get all loan products for a tenant
 router.get("/", async (req, res) => {
     try {
-        const { tenant_id } = req.query;
+        const tenant_id = req.user.tenant_id;
 
         if (!tenant_id) {
             return res.status(400).json({ success: false, error: "Tenant ID is required" });
         }
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabase
             .from("loan_products")
             .select("*")
             .eq("tenant_id", tenant_id)
@@ -200,7 +205,7 @@ router.post("/types", async (req, res) => {
             return res.status(400).json({ success: false, error: "Missing required fields" });
         }
 
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await supabase
             .from("loan_product_types")
             .insert([
                 {

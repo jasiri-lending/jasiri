@@ -1,13 +1,9 @@
 import express from "express";
 import bcrypt from "bcryptjs";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import crypto from "crypto";
 
 const router = express.Router();
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
 
 // Generate a secure random password
 function generatePassword(length = 12) {

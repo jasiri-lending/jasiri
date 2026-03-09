@@ -1,7 +1,9 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useAuth } from "../hooks/userAuth";
 import { useGlobalLoading } from "../hooks/LoadingContext";
 import { useToast } from "../components/Toast.jsx";
+import { supabase } from "../supabaseClient";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
@@ -128,6 +130,7 @@ export default function Login() {
 
   const { loading, setLoading } = useGlobalLoading();
   const { setUser, setProfile } = useAuth();
+  const navigate = useNavigate();
   const toast = useToast();
   const currentYear = new Date().getFullYear();
 
@@ -209,76 +212,38 @@ export default function Login() {
         return;
       }
 
-      if (!data.sessionToken) {
-        throw new Error("Authentication failed — no session token");
-      }
 
-      // Store session
-      localStorage.setItem("sessionToken", data.sessionToken);
-      localStorage.setItem("userId", userId);
-      localStorage.setItem("sessionExpiresAt", data.expiresAt);
+      if (data.otpHandshake) {
+        // 4️⃣ Finalize Supabase Session
+        // Since the backend verified the user, we can now perform a secure signIn with Supabase
+        // using the same credentials or a magic link token.
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email,
+          password
+        });
 
-      // Fetch profile with token
-      const profileRes = await fetch(`${API_BASE_URL}/api/profile/${userId}`, {
-        headers: {
-          Authorization: `Bearer ${data.sessionToken}`,
-        },
-      });
+        if (authError || !authData.session) {
+          throw new Error(authError?.message || "Final authentication failed");
+        }
 
-      if (!profileRes.ok) {
-        throw new Error("Failed to load user profile");
-      }
+        // Store session token and userId so the auth hook can pick them up
+        localStorage.setItem("sessionToken", authData.session.access_token);
+        localStorage.setItem("userId", authData.user.id);
 
-      const profileResponse = await profileRes.json();
+        // Session expiry is now handled by the server. 
+        // The fetchProfile call (triggered below) will load session_expires_at from the DB.
 
-      if (!profileResponse?.id) {
-        throw new Error("Invalid profile data");
-      }
+        // Set user state directly so App.jsx knows we're authenticated
+        setUser(authData.user);
 
-      // ✅ Store tenant if present
-      if (profileResponse.tenant) {
-        localStorage.setItem("tenant", JSON.stringify(profileResponse.tenant));
-      }
+        toast.success("Login successful! Redirecting...");
 
-      // Ensure consistent naming
-      const normalizedProfile = {
-        ...profileResponse,
-        full_name: profileResponse.full_name || profileResponse.name || 'User',
-        name: profileResponse.name || profileResponse.full_name || 'User'
-        // Remove tenant from profile object since we store it separately
-      };
-
-      // Remove tenant from profile to avoid duplication
-      delete normalizedProfile.tenant;
-
-      // Create a user object for the auth context
-      const userObj = {
-        id: normalizedProfile.id,
-        email: normalizedProfile.email,
-        role: normalizedProfile.role
-      };
-
-     
-
-      // Set both user and profile
-      setUser(userObj);
-      setProfile(normalizedProfile);
-
-      // Store profile in localStorage
-      localStorage.setItem("profile", JSON.stringify(normalizedProfile));
-
-      toast.success("Login successful! Redirecting...");
-
-      // Force a state update by waiting a tick
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Direct navigation
-
-      if (["superadmin", "admin"].includes(normalizedProfile.role)) {
-        console.log("Redirecting to /dashboard/admin");
-        window.location.href = "/dashboard/admin";
-      } else {
-        window.location.href = "/dashboard";
+        // DO NOT navigate manually here.
+        // The onAuthStateChange listener in useAuth will:
+        //   1. Detect the new session
+        //   2. Call fetchProfile() to load the user's profile
+        //   3. Once profile is set, App.jsx's /login route will see
+        //      user && profile and auto-redirect to getDefaultRoute()
       }
 
     } catch (err) {
@@ -548,7 +513,7 @@ export default function Login() {
             ) : step === 3 ? (
               <div className="space-y-5">
                 <div>
-                 
+
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -711,7 +676,7 @@ export default function Login() {
             </div>
           </form>
 
-        
+
 
           <div className="mt-6 text-center text-xs text-gray-500">
             © {currentYear} Jasiri Lending Software. All rights reserved.

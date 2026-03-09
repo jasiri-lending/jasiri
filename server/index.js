@@ -1,6 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import { globalLimiter } from "./middleware/rateLimiter.js";
+import { auditMiddleware } from "./utils/auditLogger.js";
 
 import supabase, { supabaseAdmin } from "./supabaseClient.js";
 import { baseEmailTemplate, styledHighlightBox, infoBox } from "./utils/emailTemplates.js";
@@ -8,8 +11,7 @@ import transporter from "./utils/mailer.js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
 import stkpush from "./routes/stkpush.js";
-import createReportUser from "./routes/createReportUser.js";
-import checkReportUserRoute from "./routes/checkReportUser.js";
+import { verifySupabaseToken } from "./middleware/authMiddleware.js";
 import tenantRouter from "./routes/tenantRoutes.js";
 import mpesaConfigRouter from "./routes/mpesa_configure.js";
 import Authrouter from "./routes/auth.js";
@@ -19,13 +21,39 @@ import loanProductsRouter from "./routes/loanProducts.js";
 import JournalRouter from "./routes/journals.js";
 import JournalEntryRouter from "./routes/journalEntries.js";
 import LoanDueRouter from "./routes/loanDue.js";
+import createReportUser from "./routes/createReportUser.js";
+import checkReportUserRoute from "./routes/checkReportUser.js";
+import AccountRouter from "./routes/accounts.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
 
 
-// Email transporter is now handled in ./utils/mailer.js
+// Initialize Express app
 const app = express();
+
+// ✅ CORS Configuration - MUST be first (before Helmet) to handle preflight OPTIONS requests
+app.use(cors({
+  origin: [
+    "https://jasirilending.software",
+    "http://localhost:3000",  // React dev server
+    "http://localhost:5173",  // Vite default port
+    "http://localhost:5174",  // Vite alternate port
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173"
+  ],
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"]
+}));
+
+// ✅ Security Headers (Helmet) - after CORS so preflight isn't blocked
+app.use(helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" }
+}));
+
+// ✅ Global Rate Limiting
+app.use(globalLimiter);
 
 // ✅ Password generation utility
 function generateSecurePassword(length = 12) {
@@ -48,23 +76,11 @@ function generateSecurePassword(length = 12) {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// ✅ CORS Configuration - Allows both local and production
-app.use(cors({
-  origin: [
-    "https://jasirilending.software",
-    "http://localhost:3000",  // React dev server
-    "http://localhost:5173",  // Vite default port
-    "http://localhost:5174",  // Vite alternate port
-    "http://127.0.0.1:3000",
-    "http://127.0.0.1:5173"
-  ],
-  credentials: true,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization"]
-}));
+// ✅ JSON Parser (with limit for large payloads protection)
+app.use(express.json({ limit: '10kb' }));
 
-// ✅ JSON Parser (before routes)
-app.use(express.json());
+// ✅ Audit Logging Middleware
+app.use(auditMiddleware);
 
 
 
@@ -78,27 +94,27 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ✅ Register routes
+// ✅ Register routes - ORDER MATTERS (Public routes first)
+app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
-app.use("/mpesa/c2b", stkpush);
-app.use("/api/report-users/create", createReportUser);
-app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/tenant", tenantRouter);
 app.use("/api", mpesaConfigRouter);
 app.use("/api", AvatarRouter);
-app.use("/api", Authrouter);
 app.use("/api/admin", deleteUserRouter);
 app.use("/api/loan-products", loanProductsRouter);
 
-
-
 app.use("/api/journals", JournalRouter);
 app.use("/api/journal-entries", JournalEntryRouter);
+app.use("/api/chart-of-accounts", AccountRouter);
 app.use("/api/loan-due", LoanDueRouter);
+app.use("/mpesa/c2b", stkpush); // Move STK push here for group
+app.use("/api/report-users/create", verifySupabaseToken, createReportUser); // Secure report user creation
+app.use("/api/checkReportUser", checkReportUserRoute);
 
-// Create user endpoint
-app.post("/create-user", async (req, res) => {
+// Create user endpoint - SECURED
+app.post("/create-user", verifySupabaseToken, async (req, res) => {
+  const requester = req.user;
   try {
     const {
       email,
@@ -117,7 +133,18 @@ app.post("/create-user", async (req, res) => {
       email,
       role,
       logged_in_tenant_id,
+      requester: requester.email
     });
+
+    // 0️⃣ RBAC: Only admin or superadmin
+    if (requester.role !== "superadmin" && requester.role !== "admin") {
+      return res.status(403).json({ success: false, error: "Unauthorized. Admin role required." });
+    }
+
+    // 0.5️⃣ Tenant Isolation: Admin can only create users for their own tenant
+    if (requester.role === "admin" && requester.tenant_id !== logged_in_tenant_id) {
+      return res.status(403).json({ success: false, error: "Access denied. Cannot create user for another tenant." });
+    }
 
     // 1️⃣ Validation
     if (!email || !full_name || !role) {

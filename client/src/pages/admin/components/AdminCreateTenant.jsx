@@ -3,7 +3,7 @@ import { XMarkIcon, PlusIcon, TrashIcon, PencilIcon, BuildingOfficeIcon, Calenda
 import { supabase } from "../../../supabaseClient";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAuth } from "../../../hooks/userAuth";
-import { API_BASE_URL } from "../../../../config.js";
+import { apiFetch } from "../../../utils/api.js";
 
 // Define color constants for consistency
 const PRIMARY_COLOR = "#586ab1";
@@ -119,9 +119,8 @@ export default function AdminCreateTenant() {
     setError("");
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/tenant/create-tenant`, {
+      const res = await apiFetch(`/api/tenant/create-tenant`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           name: formData.name,
           company_name: formData.company_name,
@@ -171,9 +170,8 @@ export default function AdminCreateTenant() {
       const adminId = (await supabase.auth.getUser()).data.user?.id;
 
       // Save C2B config (repayments)
-      const c2bRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+      const c2bRes = await apiFetch(`/api/tenant-mpesa-config`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tenant_id: newTenantId,
           service_type: "c2b",
@@ -195,9 +193,8 @@ export default function AdminCreateTenant() {
 
       // Save B2C config (disbursements & refunds) — only if any B2C field is filled
       if (formData.b2c_shortcode || formData.initiator_name || formData.b2c_consumer_key) {
-        const b2cRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+        const b2cRes = await apiFetch(`/api/tenant-mpesa-config`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             tenant_id: newTenantId,
             service_type: "b2c",
@@ -239,9 +236,8 @@ export default function AdminCreateTenant() {
         shortcode: formData.sms_shortcode,
       };
 
-      const res = await fetch(`${API_BASE_URL}/api/tenant/sms-config`, {
+      const res = await apiFetch(`/api/tenant/sms-config`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(smsData),
       });
 
@@ -284,7 +280,7 @@ export default function AdminCreateTenant() {
 
     try {
       // Use the new backend endpoint for cascading delete
-      const res = await fetch(`${API_BASE_URL}/api/tenant/delete-tenant/${tenantId}`, {
+      const res = await apiFetch(`/api/tenant/delete-tenant/${tenantId}`, {
         method: "DELETE",
       });
 
@@ -351,8 +347,8 @@ export default function AdminCreateTenant() {
     // Fetch all MPESA configs and SMS config
     try {
       const [mpesaAllRes, smsRes] = await Promise.all([
-        fetch(`${API_BASE_URL}/api/tenant-mpesa-config/${tenant.id}/all`),
-        fetch(`${API_BASE_URL}/api/tenant/sms-config/${tenant.id}`),
+        apiFetch(`/api/tenant-mpesa-config/${tenant.id}/all`),
+        apiFetch(`/api/tenant/sms-config/${tenant.id}`),
       ]);
 
       const updates = {};
@@ -502,9 +498,8 @@ export default function AdminCreateTenant() {
         // 2. Save C2B config (repayments)
         const adminId = (await supabase.auth.getUser()).data.user?.id;
         if (formData.consumer_key || formData.passkey || formData.paybill_number || formData.till_number) {
-          const c2bRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+          const c2bRes = await apiFetch(`/api/tenant-mpesa-config`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tenant_id: editingTenant.id,
               service_type: "c2b",
@@ -527,9 +522,8 @@ export default function AdminCreateTenant() {
 
         // 3. Save B2C config (disbursements & refunds)
         if (formData.b2c_shortcode || formData.initiator_name || formData.b2c_consumer_key) {
-          const b2cRes = await fetch(`${API_BASE_URL}/api/tenant-mpesa-config`, {
+          const b2cRes = await apiFetch(`/api/tenant-mpesa-config`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tenant_id: editingTenant.id,
               service_type: "b2c",
@@ -550,9 +544,8 @@ export default function AdminCreateTenant() {
 
         // 3. Save SMS config if any field is filled
         if (formData.sms_base_url || formData.sms_api_key || formData.sms_partner_id || formData.sms_shortcode) {
-          const smsRes = await fetch(`${API_BASE_URL}/api/tenant/sms-config`, {
+          const smsRes = await apiFetch(`/api/tenant/sms-config`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
               tenant_id: editingTenant.id,
               base_url: formData.sms_base_url,

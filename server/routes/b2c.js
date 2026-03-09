@@ -1,6 +1,7 @@
 // server/routes/b2c.js
 import express from "express";
 import { supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { getTenantConfig } from "../services/tenantResolver.js";
 import { mpesaRequest } from "../services/mpesa.js";
 import { enqueueJob } from "../queue/paymentQueue.js";
@@ -10,8 +11,17 @@ import { createLogger } from "../utils/logger.js";
 const b2c = express.Router();
 const log = createLogger({ service: "b2c" });
 
+// Apply authentication globally to this router (except for callbacks)
+b2c.use((req, res, next) => {
+  // Skip auth for Safaricom callbacks (result and timeout)
+  if (req.path === "/result" || req.path === "/timeout") {
+    return next();
+  }
+  return verifySupabaseToken(req, res, next);
+});
+
 // ── Initiate disbursement ───────────────────────────────────────
-b2c.post("/disburse", async (req, res) => {
+b2c.post("/disburse", checkTenantAccess, async (req, res) => {
   const { tenant_id, loan_id, customer_id, phone, amount, processed_by, notes, include_sms } = req.body;
 
   if (!tenant_id || !loan_id || !customer_id || !phone || !amount) {

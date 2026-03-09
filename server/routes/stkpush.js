@@ -1,16 +1,19 @@
 // backend/routes/stkpush.js
 import express from "express";
-import { supabaseAdmin }                   from "../supabaseClient.js";
-import { getTenantConfig }                 from "../services/tenantResolver.js";
+import { supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
+import { getTenantConfig } from "../services/tenantResolver.js";
 import { mpesaRequest, getMpesaTimestamp, buildStkPassword } from "../services/mpesa.js";
-import { enqueueJob }                      from "../queue/paymentQueue.js";
-import { JOB_TYPES }                       from "../config/env.js";
-import { createLogger }                    from "../utils/logger.js";
+import { enqueueJob } from "../queue/paymentQueue.js";
+import { JOB_TYPES } from "../config/env.js";
+import { createLogger } from "../utils/logger.js";
 
 const stkpush = express.Router();
-const log     = createLogger({ service: "stkpush" });
+const log = createLogger({ service: "stkpush" });
 
-stkpush.post("/stkpush", async (req, res) => {
+// Apply JWT verification ONLY to the initiation route
+// Callbacks (/stkpush/callback) should NOT be secured as they come from Safaricom
+stkpush.post("/stkpush", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   const { tenant_id, amount, phone, account_reference, loan_id, customer_id } = req.body;
 
   if (!tenant_id || !amount || !phone) {
@@ -19,9 +22,9 @@ stkpush.post("/stkpush", async (req, res) => {
 
   try {
     const tenantConfig = await getTenantConfig(tenant_id);
-    const shortcode    = tenantConfig.paybill_number || tenantConfig.till_number;
-    const timestamp    = getMpesaTimestamp();
-    const password     = buildStkPassword(shortcode, tenantConfig.passkey, timestamp);
+    const shortcode = tenantConfig.paybill_number || tenantConfig.till_number;
+    const timestamp = getMpesaTimestamp();
+    const password = buildStkPassword(shortcode, tenantConfig.passkey, timestamp);
 
     const { billRef, description, paymentType, jobType } = buildBillRef(account_reference, loan_id, customer_id);
 
@@ -29,15 +32,15 @@ stkpush.post("/stkpush", async (req, res) => {
     const { data: pendingTx } = await supabaseAdmin
       .from("mpesa_c2b_transactions")
       .insert({
-        phone_number:  phone,
+        phone_number: phone,
         amount,
-        status:        "pending",
-        raw_payload:   {},
-        billref:       billRef,
-        reference:     billRef,
-        payment_type:  paymentType,
+        status: "pending",
+        raw_payload: {},
+        billref: billRef,
+        reference: billRef,
+        payment_type: paymentType,
         description,
-        loan_id:       loan_id || null,
+        loan_id: loan_id || null,
         tenant_id,
       })
       .select("id")
@@ -46,16 +49,16 @@ stkpush.post("/stkpush", async (req, res) => {
     // Send STK Push to Safaricom
     const stkPayload = {
       BusinessShortCode: shortcode,
-      Password:          password,
-      Timestamp:         timestamp,
-      TransactionType:   "CustomerPayBillOnline",
-      Amount:            Math.round(parseFloat(amount)),
-      PartyA:            phone,
-      PartyB:            shortcode,
-      PhoneNumber:       phone,
-      CallBackURL:       `${tenantConfig.callback_url}/mpesa/c2b/stkpush/callback`,
-      AccountReference:  billRef,
-      TransactionDesc:   description,
+      Password: password,
+      Timestamp: timestamp,
+      TransactionType: "CustomerPayBillOnline",
+      Amount: Math.round(parseFloat(amount)),
+      PartyA: phone,
+      PartyB: shortcode,
+      PhoneNumber: phone,
+      CallBackURL: `${tenantConfig.callback_url}/mpesa/c2b/stkpush/callback`,
+      AccountReference: billRef,
+      TransactionDesc: description,
     };
 
     const mpesaData = await mpesaRequest(tenantConfig, "POST", "/mpesa/stkpush/v1/processrequest", stkPayload);
@@ -89,11 +92,11 @@ stkpush.post("/stkpush/callback", async (req, res) => {
   setImmediate(async () => {
     try {
       const isSuccess = ResultCode === 0;
-      const meta      = CallbackMetadata?.Item || [];
-      const getVal    = (name) => meta.find(i => i.Name === name)?.Value;
+      const meta = CallbackMetadata?.Item || [];
+      const getVal = (name) => meta.find(i => i.Name === name)?.Value;
 
-      const mpesaCode   = getVal("MpesaReceiptNumber");
-      const paidAmount  = getVal("Amount");
+      const mpesaCode = getVal("MpesaReceiptNumber");
+      const paidAmount = getVal("Amount");
       const phoneNumber = getVal("PhoneNumber");
 
       // Find the pending transaction by CheckoutRequestID
@@ -106,20 +109,20 @@ stkpush.post("/stkpush/callback", async (req, res) => {
       await supabaseAdmin
         .from("mpesa_c2b_transactions")
         .update({
-          status:           isSuccess ? "pending" : "failed",
-          transaction_id:   isSuccess ? mpesaCode : CheckoutRequestID,
-          amount:           paidAmount || undefined,
-          phone_number:     phoneNumber ? String(phoneNumber) : undefined,
+          status: isSuccess ? "pending" : "failed",
+          transaction_id: isSuccess ? mpesaCode : CheckoutRequestID,
+          amount: paidAmount || undefined,
+          phone_number: phoneNumber ? String(phoneNumber) : undefined,
           transaction_time: new Date().toISOString(),
-          raw_payload:      callback,
-          callback_status:  ResultDesc,
+          raw_payload: callback,
+          callback_status: ResultDesc,
         })
         .eq("transaction_id", CheckoutRequestID);
 
       // Enqueue for worker processing if payment succeeded
       if (isSuccess && mpesaCode && tx?.tenant_id) {
-        const billref   = (tx.billref || "").toLowerCase();
-        let jobType     = JOB_TYPES.C2B_REPAYMENT;
+        const billref = (tx.billref || "").toLowerCase();
+        let jobType = JOB_TYPES.C2B_REPAYMENT;
         if (billref.startsWith("registration")) jobType = JOB_TYPES.REGISTRATION;
         else if (billref.startsWith("processing")) jobType = JOB_TYPES.PROCESSING_FEE;
 
@@ -136,7 +139,7 @@ stkpush.post("/stkpush/callback", async (req, res) => {
 function buildBillRef(accountReference, loanId, customerId) {
   const ref = (accountReference || "").toLowerCase();
   if (ref === "registration") return { billRef: `registration-${customerId || "unknown"}`, description: "Registration Fee", paymentType: "registration", jobType: JOB_TYPES.REGISTRATION };
-  if (ref === "processing")   return { billRef: `processing-${loanId || "unknown"}`,       description: "Loan Processing Fee", paymentType: "processing",   jobType: JOB_TYPES.PROCESSING_FEE };
+  if (ref === "processing") return { billRef: `processing-${loanId || "unknown"}`, description: "Loan Processing Fee", paymentType: "processing", jobType: JOB_TYPES.PROCESSING_FEE };
   return { billRef: loanId ? `repayment-${loanId}` : `general-${customerId || "unknown"}`, description: "Loan Repayment", paymentType: "repayment", jobType: JOB_TYPES.C2B_REPAYMENT };
 }
 

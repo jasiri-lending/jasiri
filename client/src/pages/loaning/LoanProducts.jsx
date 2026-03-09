@@ -1,6 +1,6 @@
-import  { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../hooks/userAuth";
-import { API_BASE_URL } from "../../../config";
+import { apiFetch } from "../../utils/api";
 import {
   PlusIcon,
   XMarkIcon,
@@ -72,9 +72,7 @@ export default function LoanProducts() {
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const res = await fetch(
-        `${API_BASE_URL}/api/loan-products?tenant_id=${profile.tenant_id}`
-      );
+      const res = await apiFetch(`/api/loan-products?tenant_id=${profile.tenant_id}`);
       const data = await res.json();
       if (data.success) {
         setProducts(data.data);
@@ -96,9 +94,7 @@ export default function LoanProducts() {
 
   const fetchTypes = async (tenantId) => {
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/loan-products/types?tenant_id=${tenantId}`
-      );
+      const res = await apiFetch(`/api/loan-products/types?tenant_id=${tenantId}`);
       const data = await res.json();
       if (data.success) {
         const grouped = data.data.reduce((acc, curr) => {
@@ -161,9 +157,8 @@ export default function LoanProducts() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products`, {
+      const res = await apiFetch(`/api/loan-products`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...productForm,
           tenant_id: profile.tenant_id,
@@ -191,17 +186,13 @@ export default function LoanProducts() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/loan-products/${selectedProduct.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...productForm,
-            tenant_id: profile.tenant_id
-          }),
-        }
-      );
+      const res = await apiFetch(`/api/loan-products/${selectedProduct.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...productForm,
+          tenant_id: profile.tenant_id
+        }),
+      });
       const data = await res.json();
       if (data.success) {
         setProducts(
@@ -229,7 +220,7 @@ export default function LoanProducts() {
       return;
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products/${id}?tenant_id=${profile.tenant_id}`, {
+      const res = await apiFetch(`/api/loan-products/${id}?tenant_id=${profile.tenant_id}`, {
         method: "DELETE",
       });
       const data = await res.json();
@@ -251,9 +242,8 @@ export default function LoanProducts() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products/types`, {
+      const res = await apiFetch(`/api/loan-products/types`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...typeForm,
           tenant_id: profile.tenant_id,
@@ -285,17 +275,13 @@ export default function LoanProducts() {
 
     setSubmitting(true);
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/loan-products/types/${selectedType.id}`,
-        {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            ...typeForm,
-            tenant_id: profile.tenant_id
-          }),
-        }
-      );
+      const res = await apiFetch(`/api/loan-products/types/${selectedType.id}`, {
+        method: "PUT",
+        body: JSON.stringify({
+          ...typeForm,
+          tenant_id: profile.tenant_id
+        }),
+      });
       const data = await res.json();
       if (data.success) {
         setProductTypes((prev) => ({
@@ -324,12 +310,9 @@ export default function LoanProducts() {
       return;
 
     try {
-      const res = await fetch(
-        `${API_BASE_URL}/api/loan-products/types/${typeId}?tenant_id=${profile.tenant_id}`,
-        {
-          method: "DELETE",
-        }
-      );
+      const res = await apiFetch(`/api/loan-products/types/${typeId}?tenant_id=${profile.tenant_id}`, {
+        method: "DELETE",
+      });
       const data = await res.json();
       if (data.success) {
         setProductTypes((prev) => ({
@@ -402,9 +385,8 @@ export default function LoanProducts() {
   const handleSaveJoinFee = async () => {
     try {
       setSavingFee(true);
-      const res = await fetch(`${API_BASE_URL}/api/loan-products/global/registration-fee`, {
+      const res = await apiFetch(`/api/loan-products/global/registration-fee`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           tenant_id: profile.tenant_id,
           registration_fee: parseFloat(globalJoinFee) || 0

@@ -1,52 +1,18 @@
 import express from "express";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 
-const JournalRouter = express.Router();
+const journalRouter = express.Router();
 
-const verifyTenant = async (req, res, next) => {
-  try {
-    const tenant_id = req.body?.tenant_id || req.query?.tenant_id;
-    const authHeader = req.headers.authorization;
-
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return res.status(401).json({ success: false, error: 'No session token provided' });
-    }
-
-    const sessionToken = authHeader.split(' ')[1];
-
-    const { data: user, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("session_token", sessionToken)
-      .single();
-
-    if (userError || !user) {
-      return res.status(401).json({ success: false, error: 'Invalid session token' });
-    }
-
-    if (tenant_id && user.tenant_id !== tenant_id) {
-      return res.status(403).json({ success: false, error: 'Access denied to this tenant' });
-    }
-
-    req.user = user;
-    next();
-  } catch (err) {
-    console.error("Tenant verification error:", err);
-    res.status(500).json({ success: false, error: 'Tenant verification failed' });
-  }
-};
+// Apply authentication to all journal routes
+journalRouter.use(verifySupabaseToken);
+journalRouter.use(checkTenantAccess); // Ensure tenant access is checked for all routes
 
 // GET /api/journals/search-customers - Search customers by phone, name, or ID
-JournalRouter.get("/search-customers", verifyTenant, async (req, res) => {
+journalRouter.get("/search-customers", async (req, res) => {
   try {
-    const { tenant_id, search } = req.query;
-
-    if (!tenant_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'tenant_id is required'
-      });
-    }
+    const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
+    const { search } = req.query;
 
     if (!search || search.length < 2) {
       return res.json({
@@ -58,15 +24,15 @@ JournalRouter.get("/search-customers", verifyTenant, async (req, res) => {
     // Check if search is purely numeric
     const isNumeric = /^\d+$/.test(search);
 
-    let query = supabaseAdmin
+    let query = supabaseAdmin // Changed from supabase to supabaseAdmin
       .from("customers")
       .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
       .eq("tenant_id", tenant_id)
       .limit(10);
 
     if (isNumeric) {
-      // Search mobile (partial) OR id_number (exact) - using raw OR syntax for mixed types if needed, 
-      // but mobile is text and id_number is bigint. 
+      // Search mobile (partial) OR id_number (exact) - using raw OR syntax for mixed types if needed,
+      // but mobile is text and id_number is bigint.
       // Safest is to use the .or() filter with explicit casting or just string matching if Supabase handles it.
       // We will try the flexible string syntax: mobile.ilike.%search%,id_number.eq.search
       query = query.or(`mobile.ilike.%${search}%,id_number.eq.${search}`);
@@ -120,22 +86,22 @@ function formatCustomers(customers) {
 }
 
 // POST /api/journals - Create new pending journal
-JournalRouter.post("/", verifyTenant, async (req, res) => {
+journalRouter.post("/", async (req, res) => {
   try {
+    const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
     const {
       journal_type,
       account_type,
       amount,
       description,
-      tenant_id,
       customer_id,
       recipient_id
     } = req.body;
 
-    if (!journal_type || !account_type || !amount || !tenant_id) {
+    if (!journal_type || !account_type || !amount) {
       return res.status(400).json({
         success: false,
-        error: 'Missing required fields: journal_type, account_type, amount, tenant_id'
+        error: 'Missing required fields: journal_type, account_type, amount'
       });
     }
 
@@ -240,10 +206,11 @@ JournalRouter.post("/", verifyTenant, async (req, res) => {
 });
 
 // POST /api/journals/:id/approve
-JournalRouter.post("/:id/approve", verifyTenant, async (req, res) => {
+journalRouter.post("/:id/approve", async (req, res) => {
   try {
     const { id } = req.params;
-    const { tenant_id, approval_note } = req.body;
+    const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
+    const { approval_note } = req.body;
 
     // Check Permissions
     const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
@@ -461,10 +428,11 @@ JournalRouter.post("/:id/approve", verifyTenant, async (req, res) => {
 });
 
 // POST /api/journals/:id/reject
-JournalRouter.post("/:id/reject", verifyTenant, async (req, res) => {
+journalRouter.post("/:id/reject", async (req, res) => {
   try {
     const { id } = req.params;
-    const { tenant_id, rejection_reason } = req.body;
+    const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
+    const { rejection_reason } = req.body;
 
     const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
     if (!allowedRoles.includes(req.user.role)) {
@@ -511,16 +479,9 @@ JournalRouter.post("/:id/reject", verifyTenant, async (req, res) => {
 });
 
 // GET /api/journals - Get all journals for tenant
-JournalRouter.get("/", verifyTenant, async (req, res) => {
+journalRouter.get("/", async (req, res) => {
   try {
-    const { tenant_id } = req.query;
-
-    if (!tenant_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'tenant_id is required'
-      });
-    }
+    const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
 
     const { data: journals, error } = await supabaseAdmin
       .from("journals")
@@ -613,17 +574,10 @@ JournalRouter.get("/", verifyTenant, async (req, res) => {
 });
 
 // GET /api/journals/:id - Get single journal
-JournalRouter.get("/:id", verifyTenant, async (req, res) => {
+journalRouter.get("/:id", checkTenantAccess, async (req, res) => {
   try {
     const { id } = req.params;
-    const { tenant_id } = req.query;
-
-    if (!tenant_id) {
-      return res.status(400).json({
-        success: false,
-        error: 'tenant_id is required'
-      });
-    }
+    const tenant_id = req.user.tenant_id;
 
     const { data: journal, error } = await supabaseAdmin
       .from("journals")
@@ -715,4 +669,4 @@ JournalRouter.get("/:id", verifyTenant, async (req, res) => {
   }
 });
 
-export default JournalRouter;
+export default journalRouter;

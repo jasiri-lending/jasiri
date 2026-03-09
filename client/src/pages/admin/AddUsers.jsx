@@ -5,7 +5,7 @@ import {
   ExclamationTriangleIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient";
-import { API_BASE_URL } from "../../../config.js";
+import { apiFetch } from "../../utils/api";
 
 // Assuming you have a way to get the current user profile
 import { useAuth } from "../../hooks/userAuth"; // replace with your auth hook
@@ -126,9 +126,8 @@ export default function AddUsers() {
         throw new Error("Tenant ID not found. Please login again.");
       }
 
-      const response = await fetch(`${API_BASE_URL}/create-user`, {
+      const response = await apiFetch("/create-user", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           full_name: formData.full_name.trim(),
           email: formData.email.trim(),

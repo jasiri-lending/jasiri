@@ -1,14 +1,13 @@
 // mpesa_configure.js
 import express from "express";
-import { createClient } from "@supabase/supabase-js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import crypto from "crypto";
 
 const mpesaConfigRouter = express.Router();
 
-const supabaseAdmin = createClient(
-  process.env.SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
+// Apply authentication globally to this router
+mpesaConfigRouter.use(verifySupabaseToken);
 
 // Basic encryption logic
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "jasiri_default_encryption_key_32ch";
@@ -29,7 +28,7 @@ function encrypt(text) {
 }
 
 // CREATE OR UPDATE TENANT MPESA CONFIG
-mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
+mpesaConfigRouter.post("/tenant-mpesa-config", checkTenantAccess, async (req, res) => {
   const {
     tenant_id,
     paybill_number,
@@ -49,25 +48,7 @@ mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
 
   if (!tenant_id) return res.status(400).json({ error: "Tenant required" });
 
-  // 1️⃣ RBAC Verification
-  if (admin_id) {
-    const { data: user, error: userErr } = await supabaseAdmin
-      .from("users")
-      .select("role, tenant_id")
-      .eq("id", admin_id)
-      .single();
-
-    if (userErr || !user) {
-      return res.status(403).json({ error: "Unauthorized. User not found." });
-    }
-
-    const isSuperAdmin = user.role === "superadmin";
-    const isAdminOfTenant = user.role === "admin" && user.tenant_id === tenant_id;
-
-    if (!isSuperAdmin && !isAdminOfTenant) {
-      return res.status(403).json({ error: "Unauthorized. Only admins of this tenant or superadmins can configure Mpesa." });
-    }
-  }
+  // RBAC and Tenant Isolation handled by middlewares
 
   // 2️⃣ XOR Logic Validation: Paybill OR Till (not both, at least one)
   const hasPaybill = !!paybill_number;
@@ -143,13 +124,13 @@ mpesaConfigRouter.post("/tenant-mpesa-config", async (req, res) => {
 });
 
 // GET tenant MPESA config
-mpesaConfigRouter.get("/tenant-mpesa-config/:tenantId", async (req, res) => {
+mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", checkTenantAccess, async (req, res) => {
   try {
-    const { tenantId } = req.params;
+    const { tenant_id } = req.params;
     const { data, error } = await supabaseAdmin
       .from("tenant_mpesa_config")
       .select("*")
-      .eq("tenant_id", tenantId)
+      .eq("tenant_id", tenant_id)
       .single();
 
     if (error) throw error;

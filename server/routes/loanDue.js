@@ -1,40 +1,12 @@
 import express from "express";
-import { supabaseAdmin } from "../supabaseClient.js";
+import { supabase, supabaseAdmin } from "../supabaseClient.js";
+import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 
-const LoanDueRouter = express.Router();
+const loanDueRouter = express.Router();
 
-const verifyTenant = async (req, res, next) => {
-    try {
-        const tenant_id = req.body?.tenant_id || req.query?.tenant_id;
-        const authHeader = req.headers.authorization;
-
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            return res.status(401).json({ success: false, error: 'No session token provided' });
-        }
-
-        const sessionToken = authHeader.split(' ')[1];
-
-        const { data: user, error: userError } = await supabaseAdmin
-            .from("users")
-            .select("*")
-            .eq("session_token", sessionToken)
-            .single();
-
-        if (userError || !user) {
-            return res.status(401).json({ success: false, error: 'Invalid session token' });
-        }
-
-        if (tenant_id && user.tenant_id !== tenant_id) {
-            return res.status(403).json({ success: false, error: 'Access denied to this tenant' });
-        }
-
-        req.user = user;
-        next();
-    } catch (err) {
-        console.error("Tenant verification error:", err);
-        res.status(500).json({ success: false, error: 'Tenant verification failed' });
-    }
-};
+// Apply authentication and tenant isolation globally to this router
+loanDueRouter.use(verifySupabaseToken);
+loanDueRouter.use(checkTenantAccess);
 
 const getLoanDueData = async (tenant_id, filters, regionMap) => {
     const {
@@ -215,9 +187,10 @@ const getLoanDueData = async (tenant_id, filters, regionMap) => {
     return { processed, grandTotals };
 };
 
-LoanDueRouter.get("/", verifyTenant, async (req, res) => {
+loanDueRouter.get("/", async (req, res) => {
     try {
-        const { tenant_id, page = 1, limit = 10 } = req.query;
+        const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
+        const { page = 1, limit = 10 } = req.query;
         if (!tenant_id) return res.status(400).json({ success: false, error: "tenant_id is required" });
 
         const { data: regionsData } = await supabaseAdmin.from("regions").select("id, name").eq("tenant_id", tenant_id);
@@ -245,9 +218,10 @@ LoanDueRouter.get("/", verifyTenant, async (req, res) => {
     }
 });
 
-LoanDueRouter.get("/export", verifyTenant, async (req, res) => {
+loanDueRouter.get("/export", async (req, res) => {
     try {
-        const { tenant_id, format = 'csv' } = req.query;
+        const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
+        const { format = 'csv' } = req.query;
         if (!tenant_id) return res.status(400).json({ success: false, error: "tenant_id is required" });
 
         const { data: regionsData } = await supabaseAdmin.from("regions").select("id, name").eq("tenant_id", tenant_id);
@@ -285,4 +259,4 @@ LoanDueRouter.get("/export", verifyTenant, async (req, res) => {
     }
 });
 
-export default LoanDueRouter;
+export default loanDueRouter;

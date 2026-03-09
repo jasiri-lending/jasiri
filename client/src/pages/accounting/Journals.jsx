@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
-import { API_BASE_URL } from "../../../config.js";
+import { apiFetch } from "../../utils/api";
 
 function Journals() {
   const [journals, setJournals] = useState([]);
@@ -28,18 +28,8 @@ function Journals() {
 
   const fetchJournals = async () => {
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      if (!sessionToken) {
-        console.error("No session token found");
-        return;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/journals?tenant_id=${profile?.tenant_id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        }
+      const response = await apiFetch(`/api/journals`, {
+        method: 'GET'
       });
 
       const data = await response.json();
@@ -84,25 +74,8 @@ function Journals() {
 
     setActionLoading(true);
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const endpoint = modalAction === 'approve' ? 'approve' : 'reject';
-
-      const body = {
-        tenant_id: profile?.tenant_id
-      };
-
-      if (modalAction === 'approve') {
-        body.approval_note = actionReason;
-      } else {
-        body.rejection_reason = actionReason;
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/journals/${selectedJournalId}/${endpoint}`, {
+      const response = await apiFetch(`/api/journals/${selectedJournalId}/${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(body)
       });
 

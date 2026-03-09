@@ -1,12 +1,15 @@
+```javascript
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Phone, Building, X, ArrowRight } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
-import { API_BASE_URL } from "../../../config";
+import { apiFetch } from "../../utils/api";
+import { useToast } from "../../components/Toast.jsx";
 
 function NewJournalEntry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const { addToast } = useToast(); // Add useToast hook
 
   // Search state for Primary Customer (Sender/Main)
   const [searchingCustomers, setSearchingCustomers] = useState(false);
@@ -87,15 +90,8 @@ function NewJournalEntry() {
     else setSearchingRecipients(true);
 
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(
-        `${API_BASE_URL}/api/journals/search-customers?tenant_id=${profile.tenant_id}&search=${encodeURIComponent(searchTerm)}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const response = await apiFetch(
+        `/ api / journals / search - customers ? tenant_id = ${ profile.tenant_id }& search=${ encodeURIComponent(searchTerm) } `
       );
       const data = await response.json();
       if (data.success) {
@@ -106,9 +102,12 @@ function NewJournalEntry() {
           setRecipients(data.customers || []);
           setShowRecipientDropdown(true);
         }
+      } else {
+        addToast("Error searching customers: " + data.error, "error");
       }
     } catch (error) {
       console.error("Error searching customers:", error);
+      addToast("Failed to search customers. Please try again.", "error");
     } finally {
       if (type === 'primary') setSearchingCustomers(false);
       else setSearchingRecipients(false);
@@ -169,57 +168,56 @@ function NewJournalEntry() {
 
   const createJournal = async () => {
     if (!formData.journal_type) {
-      alert("Please select a journal type.");
+      addToast("Please select a journal type.", "error");
       return;
     }
 
     if (!formData.account_type) {
-      alert("Please select an account type.");
+      addToast("Please select an account type.", "error");
       return;
     }
 
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      alert("Please enter a valid amount greater than 0.");
+      addToast("Please enter a valid amount greater than 0.", "error");
       return;
     }
 
     if (!formData.customer_id) {
-      alert("Please select a primary customer.");
+      addToast("Please select a primary customer.", "error");
       return;
     }
 
     if (formData.journal_type === 'transfer') {
       if (!formData.recipient_id) {
-        alert("Please select a recipient for the transfer.");
+        addToast("Please select a recipient for the transfer.", "error");
         return;
       }
       if (formData.customer_id === formData.recipient_id) {
-        alert("Sender and Recipient cannot be the same.");
+        addToast("Sender and Recipient cannot be the same.", "error");
         return;
       }
     }
 
     if (!formData.description) {
-      alert("Please enter a description.");
+      addToast("Please enter a description.", "error");
       return;
     }
 
     setLoading(true);
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(`${API_BASE_URL}/api/journals`, {
+      const payload = {
+        journal_type: formData.journal_type,
+        account_type: formData.account_type,
+        amount: parseFloat(formData.amount),
+        description: formData.description,
+        tenant_id: profile?.tenant_id,
+        customer_id: formData.customer_id,
+        customer_name: formData.customer_name,
+        recipient_id: formData.recipient_id || null
+      };
+
+      const response = await apiFetch(`/ api / journals`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          journal_type: formData.journal_type,
-          account_type: formData.account_type,
-          amount: parseFloat(formData.amount),
-          description: formData.description,
-          tenant_id: profile?.tenant_id,
-          customer_id: formData.customer_id,
           customer_name: formData.customer_name,
           recipient_id: formData.recipient_id || null
         })
@@ -231,7 +229,7 @@ function NewJournalEntry() {
         alert("Journal created successfully!");
         navigate("/accounting/journals");
       } else {
-        alert(`Failed to create journal: ${data.error}`);
+        alert(`Failed to create journal: ${ data.error } `);
       }
     } catch (error) {
       console.error("Error creating journal:", error);
@@ -527,7 +525,7 @@ function NewJournalEntry() {
             <button
               onClick={createJournal}
               disabled={loading}
-              className={`px-6 py-2 rounded text-sm font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px - 6 py - 2 rounded text - sm font - medium text - white bg - brand - primary hover: bg - [#1E3A8A] transition - colors ${ loading ? 'opacity-70 cursor-not-allowed' : '' } `}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>
