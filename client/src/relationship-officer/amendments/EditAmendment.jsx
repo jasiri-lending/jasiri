@@ -26,6 +26,7 @@ import { useToast } from "../../components/Toast";
 import LocationPicker from "../components/LocationPicker";
 import { useNavigate } from "react-router-dom";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
+import { useAuth } from "../../hooks/userAuth";
 
 // Kenya's 47 counties
 const KENYA_COUNTIES = [
@@ -131,6 +132,7 @@ const AmendmentField = memo(
 );
 
 function EditAmendment({ customerId, onClose }) {
+  const { profile } = useAuth();
   const [activeSection, setActiveSection] = useState("personal");
   const [completedSections, setCompletedSections] = useState(new Set());
   const toast = useToast();
@@ -193,15 +195,26 @@ function EditAmendment({ customerId, onClose }) {
       county: "",
       cityTown: "",
     },
+    spouse: {
+      name: "",
+      idNumber: "",
+      mobile: "",
+      economicActivity: "",
+    },
     nextOfKin: {
       Firstname: "",
       Surname: "",
       Middlename: "",
       idNumber: "",
       relationship: "",
+      relationshipOther: "",
       mobile: "",
       alternativeNumber: "",
       employmentStatus: "",
+      companyName: "",
+      salary: "",
+      businessName: "",
+      businessIncome: "",
       county: "",
       cityTown: "",
     },
@@ -259,7 +272,7 @@ function EditAmendment({ customerId, onClose }) {
         .eq("customer_id", customerId)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (verificationError) {
         if (verificationError.code === 'PGRST116') {
@@ -337,15 +350,14 @@ function EditAmendment({ customerId, onClose }) {
         { data: securityItemsData, error: securityError },
         { data: businessImagesData, error: businessError },
         { data: documentsData, error: documentsError },
+        { data: spouseData, error: spouseError },
       ] = await Promise.all([
         supabase.from("guarantors").select("*").eq("customer_id", customerId),
-        supabase.from("next_of_kin").select("*").eq("customer_id", customerId).single(),
-        supabase
-          .from("security_items")
-          .select("*, security_item_images(image_url)")
-          .eq("customer_id", customerId),
+        supabase.from("next_of_kin").select("*").eq("customer_id", customerId).maybeSingle(),
+        supabase.from("security_items").select("*, security_item_images(image_url)").eq("customer_id", customerId),
         supabase.from("business_images").select("*").eq("customer_id", customerId),
         supabase.from("documents").select("id, document_type, document_url").eq("customer_id", customerId),
+        supabase.from("spouse").select("*").eq("customer_id", customerId).maybeSingle(),
       ]);
 
       const guarantor = guarantorsData?.[0] || null;
@@ -418,20 +430,32 @@ function EditAmendment({ customerId, onClose }) {
           occupation: "", relationship: "", county: "", cityTown: "",
         },
 
+        spouse: {
+          name: spouseData?.name || "",
+          idNumber: spouseData?.id_number || "",
+          mobile: spouseData?.mobile || "",
+          economicActivity: spouseData?.economic_activity || "",
+        },
         nextOfKin: nextOfKin ? {
           Firstname: nextOfKin.Firstname || "",
           Surname: nextOfKin.Surname || "",
           Middlename: nextOfKin.Middlename || "",
           idNumber: nextOfKin.id_number || "",
           relationship: nextOfKin.relationship || "",
+          relationshipOther: nextOfKin.relationship_other || "",
           mobile: nextOfKin.mobile || "",
           alternativeNumber: nextOfKin.alternative_number || "",
           employmentStatus: nextOfKin.employment_status || "",
+          companyName: nextOfKin.company_name || "",
+          salary: nextOfKin.salary || "",
+          businessName: nextOfKin.business_name || "",
+          businessIncome: nextOfKin.business_income || "",
           county: nextOfKin.county || "",
           cityTown: nextOfKin.city_town || "",
         } : {
-          Firstname: "", Surname: "", Middlename: "", idNumber: "", relationship: "", mobile: "",
-          alternativeNumber: "", employmentStatus: "", county: "", cityTown: "",
+          Firstname: "", Surname: "", Middlename: "", idNumber: "", relationship: "", relationshipOther: "", mobile: "",
+          alternativeNumber: "", employmentStatus: "", companyName: "", salary: "", businessName: "", businessIncome: "",
+          county: "", cityTown: "",
         },
       };
 
@@ -755,12 +779,41 @@ function EditAmendment({ customerId, onClose }) {
         if (idBackUrl) updateData.id_back_url = idBackUrl;
         if (houseImageUrl) updateData.house_image_url = houseImageUrl;
 
-        const { error: imageError } = await supabase
-          .from("customers")
-          .update(updateData)
-          .eq("id", customerId);
-
         if (imageError) throw imageError;
+      }
+
+      // 3b. Update or Insert spouse details
+      if (formData.maritalStatus === "Married" && formData.spouse) {
+        const { data: existingSpouse } = await supabase
+          .from("spouse")
+          .select("id")
+          .eq("customer_id", customerId)
+          .maybeSingle();
+
+        const spousePayload = {
+          customer_id: customerId,
+          name: formData.spouse.name || null,
+          id_number: formData.spouse.idNumber || null,
+          mobile: formData.spouse.mobile || null,
+          economic_activity: formData.spouse.economicActivity || null,
+          tenant_id: profile?.tenant_id,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          created_by: profile?.id,
+        };
+
+        if (existingSpouse) {
+          const { error: spouseError } = await supabase
+            .from("spouse")
+            .update(spousePayload)
+            .eq("id", existingSpouse.id);
+          if (spouseError) throw spouseError;
+        } else {
+          const { error: spouseError } = await supabase
+            .from("spouse")
+            .insert(spousePayload);
+          if (spouseError) throw spouseError;
+        }
       }
 
       // 4. Update guarantor details - FIRST GET EXISTING GUARANTOR ID
@@ -770,7 +823,7 @@ function EditAmendment({ customerId, onClose }) {
         .from("guarantors")
         .select("id")
         .eq("customer_id", customerId)
-        .single();
+        .maybeSingle();
 
       if (existingGuarantor) {
         existingGuarantorId = existingGuarantor.id;
@@ -811,6 +864,10 @@ function EditAmendment({ customerId, onClose }) {
             relationship: formData.guarantor.relationship || null,
             county: formData.guarantor.county || null,
             city_town: formData.guarantor.cityTown || null,
+            tenant_id: profile?.tenant_id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_by: profile?.id,
             ...(guarantorPassportUrl && { passport_url: guarantorPassportUrl }),
             ...(guarantorIdFrontUrl && { id_front_url: guarantorIdFrontUrl }),
             ...(guarantorIdBackUrl && { id_back_url: guarantorIdBackUrl }),
@@ -825,7 +882,7 @@ function EditAmendment({ customerId, onClose }) {
         .from("next_of_kin")
         .select("id")
         .eq("customer_id", customerId)
-        .single();
+        .maybeSingle();
 
       if (existingNextOfKin && formData.nextOfKin) {
         const { error: nextOfKinError } = await supabase
@@ -836,11 +893,20 @@ function EditAmendment({ customerId, onClose }) {
             Middlename: formData.nextOfKin.Middlename || null,
             id_number: safeParseInt(formData.nextOfKin.idNumber),
             relationship: formData.nextOfKin.relationship || null,
+            relationship_other: formData.nextOfKin.relationshipOther || null,
             mobile: formData.nextOfKin.mobile || null,
             alternative_number: formData.nextOfKin.alternativeNumber || null,
             employment_status: formData.nextOfKin.employmentStatus || null,
+            company_name: formData.nextOfKin.companyName || null,
+            salary: safeParseFloat(formData.nextOfKin.salary),
+            business_name: formData.nextOfKin.businessName || null,
+            business_income: safeParseFloat(formData.nextOfKin.businessIncome),
             county: formData.nextOfKin.county || null,
             city_town: formData.nextOfKin.cityTown || null,
+            tenant_id: profile?.tenant_id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_by: profile?.id,
           })
           .eq("id", existingNextOfKin.id);
 
@@ -867,6 +933,10 @@ function EditAmendment({ customerId, onClose }) {
               .insert({
                 customer_id: customerId,
                 image_url: businessImageUrl,
+                tenant_id: profile?.tenant_id,
+                branch_id: profile?.branch_id,
+                region_id: profile?.region_id,
+                created_by: profile?.id,
               });
 
             if (insertError) throw insertError;
@@ -889,6 +959,10 @@ function EditAmendment({ customerId, onClose }) {
             description: item.description || null,
             identification: item.identification || null,
             value: safeParseFloat(item.value),
+            tenant_id: profile?.tenant_id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_by: profile?.id,
           })
           .select()
           .single();
@@ -910,6 +984,10 @@ function EditAmendment({ customerId, onClose }) {
                 .insert({
                   security_item_id: securityItem.id,
                   image_url: securityImageUrl,
+                  tenant_id: profile?.tenant_id,
+                  branch_id: profile?.branch_id,
+                  region_id: profile?.region_id,
+                  created_by: profile?.id,
                 });
 
               if (imageError) throw imageError;
@@ -934,6 +1012,10 @@ function EditAmendment({ customerId, onClose }) {
               description: item.description || null,
               identification: item.identification || null,
               estimated_market_value: safeParseFloat(item.value),
+              tenant_id: profile?.tenant_id,
+              branch_id: profile?.branch_id,
+              region_id: profile?.region_id,
+              created_by: profile?.id,
             })
             .select()
             .single();
@@ -958,6 +1040,10 @@ function EditAmendment({ customerId, onClose }) {
                   .insert({
                     guarantor_security_id: securityItem.id,
                     image_url: securityImageUrl,
+                    tenant_id: profile?.tenant_id,
+                    branch_id: profile?.branch_id,
+                    region_id: profile?.region_id,
+                    created_by: profile?.id,
                   });
 
                 if (imageError) throw imageError;
@@ -999,6 +1085,10 @@ function EditAmendment({ customerId, onClose }) {
                 customer_id: customerId,
                 document_type: documentType,
                 document_url: documentUrl,
+                tenant_id: profile?.tenant_id,
+                branch_id: profile?.branch_id,
+                region_id: profile?.region_id,
+                created_by: profile?.id,
               });
 
             if (insertError) throw insertError;
@@ -1030,7 +1120,85 @@ function EditAmendment({ customerId, onClose }) {
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
-      // Your draft saving logic here
+      // 1. Update customer details (keep existing status)
+      const { error: customerError } = await supabase
+        .from("customers")
+        .update({
+          prefix: formData.prefix || null,
+          Firstname: formData.Firstname || null,
+          Middlename: formData.Middlename || null,
+          Surname: formData.Surname || null,
+          marital_status: formData.maritalStatus || null,
+          residence_status: formData.residenceStatus || null,
+          occupation: formData.occupation || null,
+          date_of_birth: formData.dateOfBirth || null,
+          gender: formData.gender || null,
+          id_number: safeParseInt(formData.idNumber),
+          postal_address: formData.postalAddress || null,
+          code: safeParseInt(formData.code),
+          town: formData.town || null,
+          county: formData.county || null,
+          business_name: formData.businessName || null,
+          business_type: formData.businessType || null,
+          year_established: formData.year_established || formData.yearEstablished || null,
+          business_location: formData.businessLocation || null,
+          daily_Sales: safeParseFloat(formData.daily_Sales),
+          road: formData.road || null,
+          landmark: formData.landmark || null,
+          has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
+          edited_at: new Date().toISOString(),
+        })
+        .eq("id", customerId);
+
+      if (customerError) throw customerError;
+
+      // 2. Spouse details
+      if (formData.maritalStatus === "Married" && formData.spouse) {
+        const { data: existingSpouse } = await supabase.from("spouse").select("id").eq("customer_id", customerId).maybeSingle();
+        const spousePayload = {
+          customer_id: customerId,
+          name: formData.spouse.name || null,
+          id_number: formData.spouse.idNumber || null,
+          mobile: formData.spouse.mobile || null,
+          economic_activity: formData.spouse.economicActivity || null,
+          tenant_id: profile?.tenant_id,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          created_by: profile?.id,
+        };
+        if (existingSpouse) {
+          await supabase.from("spouse").update(spousePayload).eq("id", existingSpouse.id);
+        } else {
+          await supabase.from("spouse").insert(spousePayload);
+        }
+      }
+
+      // 3. Next of Kin details
+      const { data: existingNextOfKin } = await supabase.from("next_of_kin").select("id").eq("customer_id", customerId).maybeSingle();
+      if (existingNextOfKin && formData.nextOfKin) {
+        await supabase.from("next_of_kin").update({
+          Firstname: formData.nextOfKin.Firstname || null,
+          Surname: formData.nextOfKin.Surname || null,
+          Middlename: formData.nextOfKin.Middlename || null,
+          id_number: safeParseInt(formData.nextOfKin.idNumber),
+          relationship: formData.nextOfKin.relationship || null,
+          relationship_other: formData.nextOfKin.relationshipOther || null,
+          mobile: formData.nextOfKin.mobile || null,
+          alternative_number: formData.nextOfKin.alternativeNumber || null,
+          employment_status: formData.nextOfKin.employmentStatus || null,
+          company_name: formData.nextOfKin.companyName || null,
+          salary: safeParseFloat(formData.nextOfKin.salary),
+          business_name: formData.nextOfKin.businessName || null,
+          business_income: safeParseFloat(formData.nextOfKin.businessIncome),
+          county: formData.nextOfKin.county || null,
+          city_town: formData.nextOfKin.cityTown || null,
+          tenant_id: profile?.tenant_id,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          created_by: profile?.id,
+        }).eq("id", existingNextOfKin.id);
+      }
+
       toast.success("Draft saved successfully!");
     } catch (error) {
       console.error("Error saving draft:", error);
@@ -1062,7 +1230,9 @@ function EditAmendment({ customerId, onClose }) {
 
   // Render section content
   const renderSectionContent = () => {
+    const isPending = formData.status === 'pending';
     const currentSectionHasAmendments = sectionHasAmendments(activeSection);
+    const canEdit = currentSectionHasAmendments || isPending;
     const sectionAmendmentDetails = getSectionAmendmentDetails(activeSection);
 
     switch (activeSection) {
@@ -1076,7 +1246,7 @@ function EditAmendment({ customerId, onClose }) {
               </h2>
               <p className="text-gray-600 mt-2">
                 Update personal details and contact information
-                {sectionAmendmentDetails.length > 0 && (
+                {sectionAmendmentDetails.length > 0 && !isPending && (
                   <div className="mt-2 text-red-700 text-sm font-medium">
                     <strong>Required amendments:</strong> {sectionAmendmentDetails.map(detail => detail.fields?.join(', ')).join('; ')}
                   </div>
@@ -1091,8 +1261,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.prefix}
                 onChange={handleChange}
                 options={["Mr", "Mrs", "Ms", "Dr"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="First Name"
@@ -1100,16 +1270,16 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.Firstname}
                 onChange={handleChange}
                 required
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Middle Name"
                 name="Middlename"
                 value={formData.Middlename}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Surname"
@@ -1117,32 +1287,32 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.Surname}
                 onChange={handleChange}
                 required
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Mobile Number"
                 name="mobile"
                 value={formData.mobile}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Alternative Mobile"
                 name="alternativeMobile"
                 value={formData.alternativeMobile}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="ID Number"
                 name="idNumber"
                 value={formData.idNumber}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Date of Birth"
@@ -1150,8 +1320,8 @@ function EditAmendment({ customerId, onClose }) {
                 type="date"
                 value={formData.dateOfBirth}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Gender"
@@ -1159,8 +1329,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.gender}
                 onChange={handleChange}
                 options={["Male", "Female"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Marital Status"
@@ -1168,33 +1338,79 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.maritalStatus}
                 onChange={handleChange}
                 options={["Single", "Married", "Separated/Divorced", "Other"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
+
+              {/* Spouse Information - Conditionally Rendered */}
+              {formData.maritalStatus === "Married" && (
+                <>
+                  <AmendmentField
+                    label="Spouse Name"
+                    name="name"
+                    value={formData.spouse?.name || ""}
+                    section="spouse"
+                    required
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Spouse ID Number"
+                    name="idNumber"
+                    value={formData.spouse?.idNumber || ""}
+                    section="spouse"
+                    required
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Spouse Mobile"
+                    name="mobile"
+                    value={formData.spouse?.mobile || ""}
+                    section="spouse"
+                    required
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Spouse Economic Activity"
+                    name="economicActivity"
+                    value={formData.spouse?.economicActivity || ""}
+                    section="spouse"
+                    required
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                </>
+              )}
               <AmendmentField
                 label="Residence Status"
                 name="residenceStatus"
                 value={formData.residenceStatus}
                 onChange={handleChange}
                 options={["Own", "Rent", "Family", "Other"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Occupation"
                 name="occupation"
                 value={formData.occupation}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Postal Address"
                 name="postalAddress"
                 value={formData.postalAddress}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Postal Code"
@@ -1202,16 +1418,16 @@ function EditAmendment({ customerId, onClose }) {
                 type="number"
                 value={formData.code}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Town/City"
                 name="town"
                 value={formData.town}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="County"
@@ -1219,8 +1435,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.county}
                 onChange={handleChange}
                 options={KENYA_COUNTIES}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
             </div>
 
@@ -1241,15 +1457,15 @@ function EditAmendment({ customerId, onClose }) {
                       {file.label}
                     </label>
                     <div className="flex flex-col sm:flex-row gap-2 w-full">
-                      <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      <label className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm ${currentSectionHasAmendments && !isPending ? "ring-2 ring-red-500 shadow-sm" : ""
                         }`}>
-                        <Upload className="w-5 h-5" />
-                        <span className="font-medium">Upload</span>
+                        <ArrowUpTrayIcon className="w-4 h-4" />
+                        <span>Upload</span>
                         <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden"
-                          disabled={!currentSectionHasAmendments} />
+                          disabled={!canEdit} />
                       </label>
 
-                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-btn text-white hover:bg-brand-primary"
                         }`}>
                         <CameraIcon className="w-5 h-5" />
                         <span className="font-medium">Camera</span>
@@ -1259,7 +1475,7 @@ function EditAmendment({ customerId, onClose }) {
                           capture={file.key === "passport" ? "user" : "environment"}
                           onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                           className="hidden"
-                          disabled={!currentSectionHasAmendments}
+                          disabled={!canEdit}
                         />
                       </label>
                     </div>
@@ -1267,7 +1483,7 @@ function EditAmendment({ customerId, onClose }) {
                       <div className="mt-4 relative w-full">
                         <img src={previews[file.key] || existingImages[file.key]} alt={file.label} className="w-full h-32 object-cover rounded border" />
                         <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1"
-                          disabled={!currentSectionHasAmendments}>
+                          disabled={!canEdit}>
                           <XIcon className="w-4 h-4" />
                         </button>
                       </div>
@@ -1303,16 +1519,16 @@ function EditAmendment({ customerId, onClose }) {
                 name="businessName"
                 value={formData.businessName}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Business Type"
                 name="businessType"
                 value={formData.businessType}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Year Established"
@@ -1320,8 +1536,8 @@ function EditAmendment({ customerId, onClose }) {
                 type="date"
                 value={formData.yearEstablished}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Daily Sales (KES)"
@@ -1329,32 +1545,32 @@ function EditAmendment({ customerId, onClose }) {
                 type="number"
                 value={formData.daily_Sales}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Business Location"
                 name="businessLocation"
                 value={formData.businessLocation}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Road"
                 name="road"
                 value={formData.road}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Landmark"
                 name="landmark"
                 value={formData.landmark}
                 onChange={handleChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Local Authority License"
@@ -1362,8 +1578,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.hasLocalAuthorityLicense}
                 onChange={handleChange}
                 options={["Yes", "No"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
             </div>
 
@@ -1376,7 +1592,7 @@ function EditAmendment({ customerId, onClose }) {
                 onLocationChange={handleLocationChange}
                 county={formData.county}
                 value={formData.businessCoordinates}
-                disabled={!currentSectionHasAmendments}
+                disabled={!canEdit}
               />
             </div>
 
@@ -1388,20 +1604,20 @@ function EditAmendment({ customerId, onClose }) {
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
                 {imageUploadEnabled && (
                   <>
-                    <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                    <label className={`flex flex-1 items-center justify-center gap-2 px-4 py-2 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-surface text-brand-primary"
                       }`}>
                       <Upload className="w-5 h-5" />
                       <span className="font-medium">Add Images</span>
                       <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden"
-                        disabled={!currentSectionHasAmendments} />
+                        disabled={!canEdit} />
                     </label>
 
-                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-2 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-btn text-white hover:bg-brand-primary"
                       }`}>
                       <CameraIcon className="w-5 h-5" />
                       <span className="font-medium">Camera</span>
                       <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden"
-                        disabled={!currentSectionHasAmendments} />
+                        disabled={!canEdit} />
                     </label>
                   </>
                 )}
@@ -1417,7 +1633,7 @@ function EditAmendment({ customerId, onClose }) {
                       type="button"
                       onClick={() => setExistingImages(prev => ({ ...prev, business: prev.business.filter((_, i) => i !== index) }))}
                       className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 opacity-0 group-hover:opacity-100 transition shadow-lg"
-                      disabled={!currentSectionHasAmendments}
+                      disabled={!canEdit}
                     >
                       <XIcon className="w-4 h-4" />
                     </button>
@@ -1433,7 +1649,7 @@ function EditAmendment({ customerId, onClose }) {
                       type="button"
                       onClick={() => handleRemoveBusinessImage(index)}
                       className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 shadow-lg"
-                      disabled={!currentSectionHasAmendments}
+                      disabled={!canEdit}
                     >
                       <XIcon className="w-4 h-4" />
                     </button>
@@ -1483,7 +1699,7 @@ function EditAmendment({ customerId, onClose }) {
                         type="button"
                         onClick={() => removeSecurityItem(index)}
                         className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50"
-                        disabled={!currentSectionHasAmendments}
+                        disabled={!canEdit}
                       >
                         <TrashIcon className="h-5 w-5" />
                       </button>
@@ -1497,16 +1713,16 @@ function EditAmendment({ customerId, onClose }) {
                       value={item.type}
                       onChange={(e) => handleSecurityChange(e, index)}
                       options={["Household Items", "Business Equipment", "Livestock", "Motor Vehicle", "Motorbike", "Land / Property", "Title deed", "Logbook", "Salary Check-off", "Stock / Inventory", "Fixed deposit / Savings security", "Electronics", "Other"]}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Description"
                       name="description"
                       value={item.description}
                       onChange={(e) => handleSecurityChange(e, index)}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Identification"
@@ -1514,8 +1730,8 @@ function EditAmendment({ customerId, onClose }) {
                       value={item.identification}
                       onChange={(e) => handleSecurityChange(e, index)}
                       placeholder="e.g. Serial No."
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Est. Market Value (KES)"
@@ -1523,8 +1739,8 @@ function EditAmendment({ customerId, onClose }) {
                       type="number"
                       value={item.value}
                       onChange={(e) => handleSecurityChange(e, index)}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                   </div>
 
@@ -1536,7 +1752,7 @@ function EditAmendment({ customerId, onClose }) {
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
                       {imageUploadEnabled && (
                         <>
-                          <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                          <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-surface text-brand-primary"
                             }`}>
                             <Upload className="w-5 h-5" />
                             <span className="font-medium">Upload Images</span>
@@ -1546,11 +1762,11 @@ function EditAmendment({ customerId, onClose }) {
                               multiple
                               onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
                               className="hidden"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             />
                           </label>
 
-                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-btn text-white hover:bg-brand-primary"
                             }`}>
                             <CameraIcon className="w-5 h-5" />
                             <span className="font-medium">Camera</span>
@@ -1561,7 +1777,7 @@ function EditAmendment({ customerId, onClose }) {
                               multiple
                               onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
                               className="hidden"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             />
                           </label>
                         </>
@@ -1589,7 +1805,7 @@ function EditAmendment({ customerId, onClose }) {
                               type="button"
                               onClick={() => handleRemoveMultipleFile(index, imgIndex, setSecurityItemImages)}
                               className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             >
                               <XIcon className="w-4 h-4" />
                             </button>
@@ -1607,9 +1823,9 @@ function EditAmendment({ customerId, onClose }) {
               <button
                 type="button"
                 onClick={addSecurityItem}
-                className={`flex items-center gap-2 px-8 py-3.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-bold text-sm uppercase tracking-wide ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-primary hover:bg-brand-primary/90"
+                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-medium text-sm  ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-primary hover:bg-brand-primary/90"
                   }`}
-                disabled={!currentSectionHasAmendments}
+                disabled={!canEdit}
               >
                 <PlusIcon className="h-5 w-5" />
                 Add Security Item
@@ -1645,8 +1861,8 @@ function EditAmendment({ customerId, onClose }) {
                   value={formData.prequalifiedAmount}
                   onChange={handleChange}
                   className="text-center"
-                  isAmendment={currentSectionHasAmendments}
-                  disabled={!currentSectionHasAmendments}
+                  isAmendment={currentSectionHasAmendments && !isPending}
+                  disabled={!canEdit}
                 />
               </div>
             </div>
@@ -1684,8 +1900,8 @@ function EditAmendment({ customerId, onClose }) {
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
                 options={["Mr", "Mrs", "Ms", "Dr"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="First Name"
@@ -1693,8 +1909,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.Firstname}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Middle Name"
@@ -1702,8 +1918,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.Middlename}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Surname"
@@ -1711,8 +1927,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.Surname}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="ID Number"
@@ -1720,8 +1936,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.idNumber}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Mobile Number"
@@ -1729,8 +1945,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.mobile}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Date of Birth"
@@ -1739,8 +1955,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.dateOfBirth}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Gender"
@@ -1749,8 +1965,8 @@ function EditAmendment({ customerId, onClose }) {
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
                 options={["Male", "Female"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Marital Status"
@@ -1759,8 +1975,8 @@ function EditAmendment({ customerId, onClose }) {
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
                 options={["Single", "Married", "Separated/Divorced", "Other"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Residence Status"
@@ -1769,8 +1985,8 @@ function EditAmendment({ customerId, onClose }) {
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
                 options={["Own", "Rent", "Family", "Other"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Occupation"
@@ -1778,8 +1994,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.occupation}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Relationship"
@@ -1788,8 +2004,8 @@ function EditAmendment({ customerId, onClose }) {
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
                 placeholder="e.g. Spouse, Friend"
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Postal Address"
@@ -1797,8 +2013,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.postalAddress}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Postal Code"
@@ -1807,8 +2023,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.code}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="County"
@@ -1816,8 +2032,9 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.county}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                options={KENYA_COUNTIES}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="City/Town"
@@ -1825,8 +2042,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.guarantor.cityTown}
                 section="guarantor"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
             </div>
 
@@ -1875,30 +2092,30 @@ function EditAmendment({ customerId, onClose }) {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2 mb-3">
-                      <label className={`flex-1 flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
+                      <label className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm ${currentSectionHasAmendments && !isPending ? "ring-2 ring-red-500 shadow-sm" : ""
                         }`}>
-                        <Upload size={16} />
-                        Upload
+                        <ArrowUpTrayIcon className="w-4 h-4" />
+                        <span>Upload</span>
                         <input
                           type="file"
                           accept="image/*"
                           onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                           className="hidden"
-                          disabled={!currentSectionHasAmendments}
+                          disabled={!canEdit}
                         />
                       </label>
 
-                      <label className={`md:hidden flex-1 flex items-center justify-center gap-1 px-3 py-1 rounded cursor-pointer ${currentSectionHasAmendments ? "bg-red-100 text-red-700 hover:bg-red-200" : "bg-white text-brand-primary border border-gray-200 hover:bg-brand-surface"
+                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm ${currentSectionHasAmendments && !isPending ? "ring-2 ring-red-500 shadow-sm" : ""
                         }`}>
                         <CameraIcon className="w-4 h-4" />
-                        Camera
+                        <span>Camera</span>
                         <input
                           type="file"
                           accept="image/*"
                           capture={file.key === "guarantorPassport" ? "user" : "environment"}
                           onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                           className="hidden"
-                          disabled={!currentSectionHasAmendments}
+                          disabled={!canEdit}
                         />
                       </label>
                     </div>
@@ -1914,7 +2131,7 @@ function EditAmendment({ customerId, onClose }) {
                           type="button"
                           onClick={() => handleRemoveFile(file.key, file.handler)}
                           className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow"
-                          disabled={!currentSectionHasAmendments}
+                          disabled={!canEdit}
                         >
                           <XIcon size={16} />
                         </button>
@@ -1964,7 +2181,7 @@ function EditAmendment({ customerId, onClose }) {
                           setGuarantorSecurityImages((prev) => prev.filter((_, i) => i !== index));
                         }}
                         className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50"
-                        disabled={!currentSectionHasAmendments}
+                        disabled={!canEdit}
                       >
                         <TrashIcon className="h-5 w-5" />
                       </button>
@@ -1978,16 +2195,16 @@ function EditAmendment({ customerId, onClose }) {
                       value={item.type}
                       onChange={(e) => handleGuarantorSecurityChange(e, index)}
                       options={["Household Items", "Business Equipment", "Livestock", "Motor Vehicle", "Motorbike", "Land / Property", "Title deed", "Logbook", "Salary Check-off", "Stock / Inventory", "Fixed deposit / Savings security", "Electronics", "Other"]}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Description"
                       name="description"
                       value={item.description}
                       onChange={(e) => handleGuarantorSecurityChange(e, index)}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Identification"
@@ -1995,8 +2212,8 @@ function EditAmendment({ customerId, onClose }) {
                       value={item.identification}
                       onChange={(e) => handleGuarantorSecurityChange(e, index)}
                       placeholder="e.g. Serial No."
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                     <AmendmentField
                       label="Est. Market Value (KES)"
@@ -2004,8 +2221,8 @@ function EditAmendment({ customerId, onClose }) {
                       type="number"
                       value={item.value}
                       onChange={(e) => handleGuarantorSecurityChange(e, index)}
-                      isAmendment={currentSectionHasAmendments}
-                      disabled={!currentSectionHasAmendments}
+                      isAmendment={currentSectionHasAmendments && !isPending}
+                      disabled={!canEdit}
                     />
                   </div>
 
@@ -2017,7 +2234,7 @@ function EditAmendment({ customerId, onClose }) {
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
                       {imageUploadEnabled && (
                         <>
-                          <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                          <label className={`flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-surface text-brand-primary"
                             }`}>
                             <Upload className="w-5 h-5" />
                             <span className="font-medium">Upload Images</span>
@@ -2027,11 +2244,11 @@ function EditAmendment({ customerId, onClose }) {
                               multiple
                               onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
                               className="hidden"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             />
                           </label>
 
-                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-50 text-red-600 border border-red-200" : "bg-brand-btn text-white hover:bg-brand-primary"
                             }`}>
                             <CameraIcon className="w-5 h-5" />
                             <span className="font-medium">Camera</span>
@@ -2042,7 +2259,7 @@ function EditAmendment({ customerId, onClose }) {
                               multiple
                               onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
                               className="hidden"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             />
                           </label>
                         </>
@@ -2067,7 +2284,7 @@ function EditAmendment({ customerId, onClose }) {
                               type="button"
                               onClick={() => handleRemoveMultipleFile(index, imgIndex, setGuarantorSecurityImages)}
                               className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1.5 shadow-lg opacity-0 group-hover:opacity-100 transition"
-                              disabled={!currentSectionHasAmendments}
+                              disabled={!canEdit}
                             >
                               <XIcon className="w-4 h-4" />
                             </button>
@@ -2085,9 +2302,9 @@ function EditAmendment({ customerId, onClose }) {
               <button
                 type="button"
                 onClick={addGuarantorSecurityItem}
-                className={`flex items-center gap-2 px-8 py-3.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-bold text-sm uppercase tracking-wide ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-btn hover:bg-brand-primary"
+                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-medium text-sm ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-btn hover:bg-brand-primary"
                   }`}
-                disabled={!currentSectionHasAmendments}
+                disabled={!canEdit}
               >
                 <PlusIcon className="h-5 w-5" />
                 Add Guarantor Security Item
@@ -2121,8 +2338,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.Firstname}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Middle Name"
@@ -2130,8 +2347,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.Middlename}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Surname"
@@ -2139,8 +2356,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.Surname}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="ID Number"
@@ -2148,8 +2365,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.idNumber}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Relationship"
@@ -2157,18 +2374,29 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.relationship}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                placeholder="e.g. Brother, Sister"
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                options={["Sister", "Brother", "Guardian", "Father", "Mother", "Spouse", "Other"]}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
+              {formData.nextOfKin.relationship === "Other" && (
+                <AmendmentField
+                  label="Specify Relationship"
+                  name="relationshipOther"
+                  value={formData.nextOfKin.relationshipOther}
+                  section="nextOfKin"
+                  handleNestedChange={handleNestedChange}
+                  isAmendment={currentSectionHasAmendments && !isPending}
+                  disabled={!canEdit}
+                />
+              )}
               <AmendmentField
                 label="Mobile Number"
                 name="mobile"
                 value={formData.nextOfKin.mobile}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Alternative Number"
@@ -2176,8 +2404,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.alternativeNumber}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="Employment Status"
@@ -2186,17 +2414,64 @@ function EditAmendment({ customerId, onClose }) {
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
                 options={["Employed", "Self Employed", "Unemployed", "Student", "Retired"]}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
+              {formData.nextOfKin.employmentStatus === "Employed" && (
+                <>
+                  <AmendmentField
+                    label="Company Name"
+                    name="companyName"
+                    value={formData.nextOfKin.companyName}
+                    section="nextOfKin"
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Estimated Salary (KES)"
+                    name="salary"
+                    type="number"
+                    value={formData.nextOfKin.salary}
+                    section="nextOfKin"
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                </>
+              )}
+              {formData.nextOfKin.employmentStatus === "Self Employed" && (
+                <>
+                  <AmendmentField
+                    label="Business Name"
+                    name="businessName"
+                    value={formData.nextOfKin.businessName}
+                    section="nextOfKin"
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Estimated Income (KES)"
+                    name="businessIncome"
+                    type="number"
+                    value={formData.nextOfKin.businessIncome}
+                    section="nextOfKin"
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                </>
+              )}
               <AmendmentField
                 label="County"
                 name="county"
                 value={formData.nextOfKin.county}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                options={KENYA_COUNTIES}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
               <AmendmentField
                 label="City/Town"
@@ -2204,8 +2479,8 @@ function EditAmendment({ customerId, onClose }) {
                 value={formData.nextOfKin.cityTown}
                 section="nextOfKin"
                 handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments}
-                disabled={!currentSectionHasAmendments}
+                isAmendment={currentSectionHasAmendments && !isPending}
+                disabled={!canEdit}
               />
             </div>
           </div>
@@ -2262,30 +2537,30 @@ function EditAmendment({ customerId, onClose }) {
                   </label>
 
                   <div className="flex flex-col sm:flex-row gap-3 w-full">
-                    <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    <label className={`flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm ${currentSectionHasAmendments && !isPending ? "ring-2 ring-red-500 shadow-sm" : ""
                       }`}>
-                      <Upload className="w-5 h-5" />
-                      <span className="text-sm font-medium">Upload</span>
+                      <ArrowUpTrayIcon className="w-4 h-4" />
+                      <span className="text-sm">Upload</span>
                       <input
                         type="file"
                         accept="image/*"
                         onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                         className="hidden"
-                        disabled={!currentSectionHasAmendments}
+                        disabled={!canEdit}
                       />
                     </label>
 
-                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm ${currentSectionHasAmendments && !isPending ? "ring-2 ring-red-500 shadow-sm" : ""
                       }`}>
-                      <CameraIcon className="w-5 h-5" />
-                      <span className="text-sm font-medium">Camera</span>
+                      <CameraIcon className="w-4 h-4" />
+                      <span className="text-sm">Camera</span>
                       <input
                         type="file"
                         accept="image/*"
                         capture="environment"
                         onChange={(e) => handleFileUpload(e, file.handler, file.key)}
                         className="hidden"
-                        disabled={!currentSectionHasAmendments}
+                        disabled={!canEdit}
                       />
                     </label>
                   </div>
@@ -2301,7 +2576,7 @@ function EditAmendment({ customerId, onClose }) {
                         type="button"
                         onClick={() => handleRemoveFile(file.key, file.handler)}
                         className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                        disabled={!currentSectionHasAmendments}
+                        disabled={!canEdit}
                       >
                         <XIcon className="w-4 h-4" />
                       </button>
@@ -2370,7 +2645,7 @@ function EditAmendment({ customerId, onClose }) {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 font-body">
+    <div className="min-h-screen bg-muted py-8 font-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header
         <div className="p-4 border-b border-gray-100 mb-4">
@@ -2502,7 +2777,7 @@ function EditAmendment({ customerId, onClose }) {
                       setCompletedSections(prev => new Set([...prev, activeSection]));
                       setActiveSection(allSections[currentIndex - 1].id);
                     }}
-                    className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"
                   >
                     <ChevronLeftIcon className="h-4 w-4" />
                     Previous
@@ -2513,7 +2788,7 @@ function EditAmendment({ customerId, onClose }) {
                   type="button"
                   onClick={handleSaveDraft}
                   disabled={isSavingDraft || isSubmitting}
-                  className="flex items-center gap-2 px-6 py-3 bg-brand-secondary text-white rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
                   {isSavingDraft ? (
                     <div className="flex items-center gap-2">
@@ -2538,7 +2813,7 @@ function EditAmendment({ customerId, onClose }) {
                       setCompletedSections(prev => new Set([...prev, activeSection]));
                       setActiveSection(allSections[currentIndex + 1].id);
                     }}
-                    className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors font-medium shadow-sm"
                   >
                     Next
                     <ChevronRightIcon className="h-4 w-4" />
@@ -2547,7 +2822,7 @@ function EditAmendment({ customerId, onClose }) {
                   <button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex items-center gap-2 px-8 py-3 bg-accent text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex items-center gap-2 px-6 py-2.5 bg-accent text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
@@ -2556,7 +2831,7 @@ function EditAmendment({ customerId, onClose }) {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <CheckCircleIcon className="h-6 w-6" />
+                        <CheckCircleIcon className="h-4 w-4" />
                         Submit Amendments
                       </div>
                     )}

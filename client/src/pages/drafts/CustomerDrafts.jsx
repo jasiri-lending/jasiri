@@ -38,7 +38,22 @@ const CustomerDrafts = () => {
 
       let query = supabase
         .from("customers")
-        .select("*")
+        .select(`
+          *,
+          branches (
+            id,
+            name
+          ),
+          regions (
+            id,
+            name
+          ),
+          users:created_by (
+            id,
+            full_name
+          )
+        `)
+        .eq("tenant_id", profile?.tenant_id)
         .eq("form_status", "draft")
         .order("created_at", { ascending: false });
 
@@ -115,123 +130,135 @@ const CustomerDrafts = () => {
   if (!profile) return <div className="h-screen flex items-center justify-center bg-slate-50"><Spinner text="Loading profile..." /></div>;
 
   return (
-    <div className="min-h-screen bg-muted p-6 md:p-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-          <div>
-           
-            <h1 className="text-sm  text-slate-600 tracking-tight">
-              Customer Drafts
-            </h1>
-          
-          </div>
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+            Drafts / Customer Verification
+          </h1>
+        </div>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm bg-brand-primary">
+          <span className="font-medium text-white">{filteredCustomers.length}</span> drafts pending
+        </div>
+      </div>
 
-          <div className="flex items-center gap-3">
-            <div className="bg-white/80 backdrop-blur-sm border border-slate-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-3">
-              <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
-              <span className="text-sm font-semibold text-slate-700">
-                {filteredCustomers.length} <span className="text-slate-400 font-normal">Drafts Pending</span>
-              </span>
+      {/* Main Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+        {/* Search Bar */}
+        <div className="p-5 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, ID, or mobile number..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                >
+                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                  Filters
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Action Bar */}
-        <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-white shadow-xl shadow-slate-200/50 mb-6 flex flex-col md:flex-row gap-4 items-center">
-          <div className="relative flex-1 w-full">
-            <MagnifyingGlassIcon className="h-3 w-3 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Search by name, ID, or mobile number..."
-              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-slate-700 placeholder:text-slate-400"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-            />
-          </div>
-
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition-all shadow-sm"
-          >
-            <AdjustmentsHorizontalIcon className="h-3 w-3" />
-            <span>Filters</span>
-          </button>
-        </div>
-
-        {/* Drafts Grid/Table */}
-        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+        {/* Table Container */}
+        <div className="overflow-x-auto font-sans">
           {loading ? (
             <div className="py-20 flex flex-col items-center justify-center gap-4">
-              <div className="relative">
-                <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-indigo-600 animate-spin"></div>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <InboxIcon className="h-6 w-6 text-indigo-600" />
-                </div>
-              </div>
-              <p className="text-slate-500 font-medium animate-pulse">Synchronizing drafts...</p>
+              <div className="h-12 w-12 rounded-full border-4 border-slate-100 border-t-brand-primary animate-spin"></div>
+              <p className="text-slate-500 font-medium">Synchronizing drafts...</p>
             </div>
           ) : filteredCustomers.length > 0 ? (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 border-b border-slate-100">
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Customer Details</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Identity</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Amount</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Status</th>
-                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {filteredCustomers.map((customer) => (
-                    <tr key={customer.id} className="hover:bg-indigo-50/30 transition-colors group">
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="flex items-center gap-4">
-                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center text-indigo-600 border border-indigo-200 shrink-0">
-                            <UserIcon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <div className="text-sm font-bold text-slate-900 leading-none mb-1 capitalize group-hover:text-indigo-600 transition-colors">
-                              {`${customer.first_name} ${customer.last_name}`}
-                            </div>
-                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
-                              <PhoneIcon className="h-3 w-3" />
-                              {customer.mobile || "N/A"}
-                            </div>
-                          </div>
-                        </div>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Name
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    ID Number
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Phone
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Branch
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Region
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Amount
+                  </th>
+                  <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Status
+                  </th>
+                  <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600">
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {filteredCustomers.map((customer, index) => {
+                  const fullName = `${customer.Firstname || customer.first_name || ""} ${customer.Surname || customer.last_name || ""}`.trim() || "N/A";
+
+                  return (
+                    <tr key={customer.id} className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600 capitalize">
+                        {fullName}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
-                          <IdentificationIcon className="h-3.5 w-3.5" />
-                          <span className="text-xs font-bold">{customer.id_number || "---"}</span>
-                        </div>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.id_number || customer.national_id || "N/A"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <div className="text-sm font-bold text-slate-900">
-                          <span className="text-[10px] text-slate-400 font-medium mr-1 uppercase">KES</span>
-                          {customer.prequalifiedAmount ? Number(customer.prequalifiedAmount).toLocaleString() : "0"}
-                        </div>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.mobile || customer.phone_number || "N/A"}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-center">
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">
-                          <div className="h-1 w-1 rounded-full bg-amber-600"></div>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.branches?.name || (Array.isArray(customer.branches) ? customer.branches[0]?.name : null) || customer.Branch || customer.branch_name || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.regions?.name || (Array.isArray(customer.regions) ? customer.regions[0]?.name : null) || customer.Region || customer.region_name || "N/A"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-600">
+                        {customer.prequalifiedAmount ? Number(customer.prequalifiedAmount).toLocaleString() : "0"}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-50 text-amber-600 border border-amber-200">
                           {getStatusDisplay(customer.status)}
                         </span>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2 text-slate-600">
                           <button
                             onClick={() => handleViewNavigation(customer.id)}
-                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
-                            title="View 360 Degree View"
+                            className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm"
+                            title="View 360 View"
                           >
-                            <EyeIcon className="h-5 w-5" />
+                            <EyeIcon className="h-4 w-4" />
                           </button>
                           <button
                             onClick={() => handleApproveNavigation(customer.id)}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 text-xs font-bold transition-all"
+                            className="px-3 py-1.5 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5"
                           >
                             <span>Resume</span>
                             <ChevronRightIcon className="h-3.5 w-3.5" />
@@ -239,26 +266,25 @@ const CustomerDrafts = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  );
+                })}
+              </tbody>
+            </table>
           ) : (
             <div className="py-24 flex flex-col items-center justify-center text-center">
-              <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
-                <BoxIcon className="h-10 w-10 text-slate-300" />
+              <div className="h-16 w-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
+                <BoxIcon className="h-8 w-8 text-slate-300" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900">All clear!</h3>
-              <p className="text-slate-500 max-w-[280px] mt-2 text-sm">
+              <h3 className="text-base font-semibold text-slate-900">No drafts found</h3>
+              <p className="text-slate-500 max-w-[280px] mt-1 text-sm">
                 No draft verifications found matching your current role or criteria.
               </p>
               {searchTerm && (
                 <button
                   onClick={() => setSearchTerm('')}
-                  className="mt-6 text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-700 flex items-center gap-2"
+                  className="mt-4 text-brand-primary font-bold text-xs uppercase tracking-widest hover:text-brand-primary/80"
                 >
-                  Clear search terms
-                  <XMarkIcon className="h-3 w-3" />
+                  Clear search
                 </button>
               )}
             </div>
@@ -267,6 +293,7 @@ const CustomerDrafts = () => {
       </div>
     </div>
   );
+
 };
 
 // Simple Fallback Box Icon if BoxIcon is not available

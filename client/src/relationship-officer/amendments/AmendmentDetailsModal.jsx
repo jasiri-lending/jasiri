@@ -356,7 +356,7 @@ function AmendmentDetailsPage({ amendment }) {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 py-6">
+    <div className="min-h-screen bg-muted py-6">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header with back navigation */}
         <div className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm mb-6">
@@ -372,7 +372,7 @@ function AmendmentDetailsPage({ amendment }) {
                 </svg>
               </button>
               <div>
-                <h1 className="text-2xl font-bold text-gray-600">Verification Details</h1>
+                <h1 className="text-sm  text-gray-600">Verification Details</h1>
                 <p className="text-sm text-gray-600 mt-1">
                   Customer: {amendment.customers?.Firstname} {amendment.customers?.Surname} 
                   {amendment.customers?.mobile && ` • ${amendment.customers.mobile}`}

@@ -69,7 +69,7 @@ function Amendments() {
       customers.forEach(customer => {
         // Get all verification records for this customer
         const customerVerifications = verifications.filter(v => v.customer_id === customer.id);
-        
+
         if (customerVerifications.length === 0) {
           // No verifications exist
           mergedData.push({
@@ -109,7 +109,7 @@ function Amendments() {
           mergedVerification.customer_id = customer.id;
           mergedVerification.customers = customer;
           mergedVerification.customer_data = customer;
-          
+
           // Ensure we have created_at and updated_at
           if (!mergedVerification.created_at) {
             mergedVerification.created_at = latestVerification.created_at;
@@ -155,6 +155,14 @@ function Amendments() {
   };
 
   const handleView = (amendment) => {
+    const customerId = amendment.customer_id || amendment.customers?.id;
+    const status = amendment.customers?.status || amendment.customer_data?.status;
+
+    if (status === "pending") {
+      navigate(`/customer/${customerId}/details`);
+      return;
+    }
+
     if (amendment.id) {
       navigate(`/officer/viewamendments/${amendment.id}`);
     } else {

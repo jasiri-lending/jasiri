@@ -2065,10 +2065,10 @@ const AddCustomer = () => {
 
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 font-body">
+    <div className="min-h-screen bg-muted py-8 font-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
+        <div className="bg-gray-50 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
           <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
             {sections.map(({ id, label, icon: Icon }) => {
               const isCompleted = completedSections.has(id);

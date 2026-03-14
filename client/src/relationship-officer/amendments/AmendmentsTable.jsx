@@ -184,7 +184,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
   }
 
   return (
-    <div className="h-full bg-brand-surface p-8 min-h-screen font-body">
+    <div className="h-full bg-muted p-8 min-h-screen font-body">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Amendments / Pending Amendments
       </h1>
@@ -203,7 +203,7 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                 <input
                   type="text"
                   placeholder="Search by name, ID, business, phone..."
-                  className="w-full pl-10 pr-4 py-2 bg-white border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
+                  className="w-full pl-10 pr-4 py-1.5 bg-white border border-gray-300 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -211,9 +211,9 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
 
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium transition-all shadow-sm border ${showFilters
-                    ? "bg-brand-primary text-white border-brand-primary"
-                    : "bg-white text-brand-primary border-gray-300 hover:bg-brand-surface"
+                className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-[10px] font-medium transition-all shadow-sm border ${showFilters
+                  ? "bg-brand-primary text-white border-brand-primary"
+                  : "bg-white text-brand-primary border-gray-300 hover:bg-brand-surface"
                   }`}
               >
                 <FunnelIcon size={14} /> Filters
@@ -409,8 +409,8 @@ function AmendmentsTable({ amendments: propAmendments, loading: propLoading, onE
                         key={pageNum}
                         onClick={() => setCurrentPage(pageNum)}
                         className={`px-2.5 py-1 text-xs rounded transition-colors whitespace-nowrap ${currentPage === pageNum
-                            ? "bg-brand-primary text-white"
-                            : "bg-white text-gray-600 hover:bg-brand-surface border border-gray-200"
+                          ? "bg-brand-primary text-white"
+                          : "bg-white text-gray-600 hover:bg-brand-surface border border-gray-200"
                           }`}
                       >
                         {pageNum}

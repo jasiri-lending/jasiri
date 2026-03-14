@@ -43,7 +43,7 @@ const AllCustomers = () => {
   const [showFilters, setShowFilters] = useState(false);
 
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(10);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
@@ -437,7 +437,7 @@ const AllCustomers = () => {
   // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedBranch, selectedRegion, selectedRO, selectedStatus]);
+  }, [searchTerm, selectedBranch, selectedRegion, selectedRO, selectedStatus, itemsPerPage]);
 
   // Generate page numbers for pagination
   const getPageNumbers = () => {
@@ -495,7 +495,7 @@ const AllCustomers = () => {
   if ((profile.role === 'regional_manager' && !profile.region_id) ||
     (profile.role === 'branch_manager' && !profile.branch_id)) {
     return (
-      <div className="h-full bg-muted p-6 min-h-screen font-sans">
+      <div className="bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white shadow-lg rounded-xl p-8 text-center">
           <p className="text-red-600 text-sm font-medium">
             Error: Your profile is missing necessary information. Please contact your administrator.
@@ -506,7 +506,7 @@ const AllCustomers = () => {
   }
 
   return (
-    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -982,8 +982,8 @@ const AllCustomers = () => {
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
-                    // Note: itemsPerPage is currently not stateful
-                    console.log("Items per page changed to:", e.target.value);
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
                   }}
                   className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-secondary focus:border-brand-surface bg-white hover:bg-gray-50 transition-colors"
                 >

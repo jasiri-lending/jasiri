@@ -399,6 +399,66 @@ const CustomerVerification = () => {
         setCsoComment(csoRow?.co_loan_comment || "");
         setCsoDecision(csoRow?.co_final_decision || "");
       }
+
+      // Fetch draft data
+      const { data: existingDraft, error: draftError } = await supabase
+        .from("customer_verifications")
+        .select("*")
+        .eq("customer_id", Number(customerId))
+        .eq("tenant_id", profile?.tenant_id)
+        .eq("is_draft", true)
+        .maybeSingle();
+
+      if (draftError) {
+        console.error("Error fetching draft:", draftError);
+      } else if (existingDraft) {
+        console.log("Draft found, preloading data:", existingDraft);
+        setVerificationData((prev) => ({
+          ...prev,
+          customer: {
+            idVerified: existingDraft[`${userRole}_customer_id_verified`] ?? prev.customer.idVerified,
+            phoneVerified: existingDraft[`${userRole}_customer_phone_verified`] ?? prev.customer.phoneVerified,
+            comment: existingDraft[`${userRole}_customer_comment`] ?? prev.customer.comment,
+          },
+          business: {
+            verified: existingDraft[`${userRole}_business_verified`] ?? prev.business.verified,
+            comment: existingDraft[`${userRole}_business_comment`] ?? prev.business.comment,
+          },
+          loan: {
+            ...prev.loan,
+            scoredAmount: existingDraft[`${userRole}_loan_scored_amount`] ?? prev.loan.scoredAmount,
+            comment: existingDraft[`${userRole}_loan_comment`] ?? prev.loan.comment,
+          },
+          guarantors: prev.guarantors.map((g, index) => ({
+            ...g,
+            idVerified: existingDraft[`${userRole}_guarantor_id_verified`] ?? g.idVerified,
+            phoneVerified: existingDraft[`${userRole}_guarantor_phone_verified`] ?? g.phoneVerified,
+            comment: existingDraft[`${userRole}_guarantor_comment`]
+              ? existingDraft[`${userRole}_guarantor_comment`].split("; ")[index] || ""
+              : g.comment,
+          })),
+          security: {
+            verified: existingDraft[`${userRole}_borrower_security_verified`] ?? prev.security.verified,
+            comment: existingDraft[`${userRole}_borrower_security_comment`] ?? prev.security.comment,
+          },
+          guarantorSecurity: {
+            verified: existingDraft[`${userRole}_guarantor_security_verified`] ?? prev.guarantorSecurity.verified,
+            comment: existingDraft[`${userRole}_guarantor_security_comment`] ?? prev.guarantorSecurity.comment,
+          },
+          nextOfKin: {
+            verified: existingDraft[`${userRole}_next_of_kin_verified`] ?? prev.nextOfKin.verified,
+            comment: existingDraft[`${userRole}_next_of_kin_comment`] ?? prev.nextOfKin.comment,
+          },
+          document: {
+            verified: existingDraft[`${userRole}_document_verified`] ?? prev.document.verified,
+            comment: existingDraft[`${userRole}_document_comment`] ?? prev.document.comment,
+          },
+          overallComment: existingDraft[`${userRole}_overall_comment`] ?? prev.overallComment,
+          finalDecision: existingDraft[`${userRole}_final_decision`] ?? prev.finalDecision,
+        }));
+
+        toast.info("Draft loaded successfully — continue from where you left off.");
+      }
     } catch (error) {
       console.error("Error fetching customer details:", error);
       toast.error("Error loading customer details");

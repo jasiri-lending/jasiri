@@ -571,7 +571,7 @@ const ApprovalPending = () => {
   }
 
   return (
-    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -579,7 +579,7 @@ const ApprovalPending = () => {
             Registry / Pending Approvals
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm bg-brand-primary">
           <span className="font-medium text-white">{customers.length}</span> pending approvals
         </div>
       </div>
@@ -854,16 +854,16 @@ const ApprovalPending = () => {
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="divide-y divide-slate-100">
               {filteredCustomers.length === 0 && !loading ? (
                 <tr>
-                  <td colSpan="9" className="px-6 py-12 text-center">
-                    <div className="p-10 text-center">
-                      <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
-                        <CheckIcon className="h-8 w-8 text-gray-400" />
+                  <td colSpan="9" className="px-6 py-24 text-center">
+                    <div className="flex flex-col items-center justify-center">
+                      <div className="w-16 h-16 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
+                        <CheckIcon className="h-8 w-8 text-slate-300" />
                       </div>
-                      <h3 className="text-sm font-semibold text-gray-700 mb-1">No pending approvals</h3>
-                      <p className="text-xs text-gray-500 max-w-sm mx-auto">
+                      <h3 className="text-base font-semibold text-slate-900">No pending approvals</h3>
+                      <p className="text-slate-500 max-w-[280px] mt-1 text-sm">
                         {searchTerm || selectedBranch || selectedRegion || selectedRO || selectedStatus
                           ? "Try adjusting your search or filters"
                           : "All approvals have been processed."}
@@ -873,7 +873,7 @@ const ApprovalPending = () => {
                 </tr>
               ) : (
                 currentCustomers.map((customer, index) => {
-                  const fullName = `${customer.Firstname || ""} ${customer.Surname || ""}`.trim();
+                  const fullName = `${customer.Firstname || customer.first_name || ""} ${customer.Surname || customer.last_name || ""}`.trim() || "N/A";
                   const statusColor = getStatusColor(customer.status);
                   const displayStatus = getStatusDisplay(customer);
                   const showApproveButton = canApproveCustomer(customer.status);
@@ -883,70 +883,69 @@ const ApprovalPending = () => {
                       key={customer.id}
                       className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                     >
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
-                        {fullName || "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600 capitalize">
+                        {fullName}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {customer.mobile || "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.mobile || customer.phone_number || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {customer.id_number || "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.id_number || customer.national_id || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
-                        {customer.prequalifiedAmount ?
-                          `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
-                          "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-600">
+                        {customer.prequalifiedAmount ? Number(customer.prequalifiedAmount).toLocaleString() : "0"}
                       </td>
                       {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
-                        <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
                           {customer.users?.full_name || "N/A"}
                         </td>
                       )}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {customer.branches?.name || "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.branches?.name || (Array.isArray(customer.branches) ? customer.branches[0]?.name : null) || customer.Branch || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {customer.regions?.name || "N/A"}
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        {customer.regions?.name || (Array.isArray(customer.regions) ? customer.regions[0]?.name : null) || customer.Region || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         <span
-                          className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                          style={{
-                            backgroundColor: statusColor,
-                            color: 'white'
-                          }}
+                          className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider text-white"
+                          style={{ backgroundColor: statusColor }}
                         >
-                          {displayStatus || "N/A"}
+                          {displayStatus}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                        <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                          <div className="flex items-center justify-center gap-1.5">
-                            {/* View Customer */}
-                            <button
-                              onClick={() => handleView(customer)}
-                              className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                              title="View Customer Details"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                            </button>
+                      <td className="px-4 py-3 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2 text-slate-600">
+                          {/* View Customer */}
+                          <button
+                            onClick={() => handleView(customer)}
+                            className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm"
+                            title="View 360 View"
+                          >
+                            <EyeIcon className="h-4 w-4" />
+                          </button>
 
-                            {/* Conditional Action Button based on role and status */}
-                            {showApproveButton && (
-                              <button
-                                onClick={() => handleApprove(customer.id)}
-                                className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
-                                title={profile?.role === "customer_service_officer" ? "Spoof Call" : "Approve Customer"}
-                              >
-                                {profile?.role === "customer_service_officer" ? (
-                                  <PhoneIcon className="h-4 w-4" />
-                                ) : (
-                                  <CheckIcon className="h-4 w-4" />
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        </td>
+                          {/* Conditional Action Button based on role and status */}
+                          {showApproveButton && (
+                            <button
+                              onClick={() => handleApprove(customer.id)}
+                              className="px-3 py-1.5 bg-brand-primary hover:bg-brand-primary/90 text-white rounded-lg text-xs font-semibold transition-all shadow-sm flex items-center gap-1.5"
+                              title={profile?.role === "customer_service_officer" ? "Spoof Call" : "Approve Customer"}
+                            >
+                              {profile?.role === "customer_service_officer" ? (
+                                <>
+                                  <span>Call</span>
+                                  <PhoneIcon className="h-3.5 w-3.5" />
+                                </>
+                              ) : (
+                                <>
+                                  <span>Verify</span>
+                                  <CheckIcon className="h-3.5 w-3.5" />
+                                </>
+                              )}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   );

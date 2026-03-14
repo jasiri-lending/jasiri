@@ -573,22 +573,14 @@ const OperationsDashboard = () => {
       const today = getLocalYYYYMMDD();
       const startOfMonth = today.substring(0, 7) + '-01';
 
-      // ===== ACTIVE LOANS CALCULATION =====
-      // Active loans: disbursed OR partially_disbursed, repayment_state = ongoing/partial/overdue (not completed/defaulted)
-      const activeLoans = loansData.filter(l => {
-        const isDisbursed = l.status === 'disbursed' || l.status === 'partially_disbursed';
-        const isActive = ['ongoing', 'partial', 'overdue'].includes(l.repayment_state);
-        return isDisbursed && isActive;
-      });
-
-      // Calculate total principal (scored_amount) for active loans
-      const totalActivePrincipal = activeLoans.reduce((sum, l) => sum + (Number(l.scored_amount) || 0), 0);
+      // ===== ACTIVE LOANS CALCULATION (Matching Dashboard.jsx) =====
+      // Dashboard uses loans.status === 'disbursed'
+      const activeLoans = loansData.filter(l => l.status === 'disbursed');
 
       // ===== DISBURSED TODAY CALCULATION =====
       const disbursedToday = loansData.filter(l => {
         return l.status === 'disbursed' && l.disbursed_at && getLocalYYYYMMDD(l.disbursed_at) === today;
       });
-      // scored_amount is the principal amount
       const disbursedTodayAmount = disbursedToday.reduce((sum, l) => sum + (Number(l.scored_amount) || 0), 0);
 
       // ===== COLLECTIONS TODAY (from loan_payments table - sum of paid_amount) =====
@@ -598,21 +590,23 @@ const OperationsDashboard = () => {
       const collectedToday = todayPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
 
       // ===== OLB CALCULATION (Outstanding Loan Balance) =====
-      // OLB = Sum of (total_payable) for active loans - Sum of all paid_amount
+      // OLB = Sum of (total_payable) - Sum of all paid_amount (for all disbursed loans)
       const totalPayable = activeLoans.reduce((sum, l) => sum + (Number(l.total_payable) || 0), 0);
       const totalPaid = filteredPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
       const olb = Math.max(0, totalPayable - totalPaid);
 
       // ===== PAR CALCULATION (Arrears / OLB) =====
-      // Total Arrears = Sum of overdue/partial installments where (due_amount - (principal_paid + interest_paid)) > 0
+      // Total Arrears = Sum of overdue/partial installments (excluding Net Penalty)
       let totalArrears = 0;
       const overdueInstallments = filteredInstallments.filter(inst => {
         return ['overdue', 'partial'].includes(inst.status) && inst.due_date && inst.due_date <= today;
       });
 
       overdueInstallments.forEach(inst => {
-        const dueAmount = (Number(inst.due_amount) || 0) + (Number(inst.penalty_amount) || 0);
-        const paidAmount = Number(inst.paid_amount) || 0;
+        // Exclude penalty from arrears: due_amount might include penalty,
+        // so subtract net_penalty and use P+I paid only.
+        const dueAmount = (Number(inst.due_amount) || 0) - (Number(inst.net_penalty) || 0);
+        const paidAmount = (Number(inst.interest_paid) || 0) + (Number(inst.principal_paid) || 0);
         const arrears = Math.max(0, dueAmount - paidAmount);
         totalArrears += arrears;
       });
