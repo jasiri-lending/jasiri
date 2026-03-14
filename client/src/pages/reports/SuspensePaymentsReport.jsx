@@ -18,7 +18,7 @@ const SuspensePaymentsReport = () => {
         setLoading(true);
 
         // Fetch unallocated or pending payments
-        const { data, error } = await supabase
+        let query = supabase
           .from("mpesa_c2b_transactions")
           .select(`
             id,
@@ -30,16 +30,33 @@ const SuspensePaymentsReport = () => {
             status,
             loan_id,
             customer_id,
-            customers:customer_id (
+            customers!left (
               id,
-              "Firstname",
-              "Middlename",
-              "Surname"
+              Firstname,
+              Middlename,
+              Surname,
+              branch_id,
+              created_by,
+              branch:branch_id ( region_id )
             )
           `)
           .is("loan_id", null)
-          .eq("tenant_id", profile?.tenant_id)
-          .order("TransTime", { ascending: false });
+          .eq("tenant_id", profile?.tenant_id);
+
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          query = query.eq('customers.created_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            query = query.eq('customers.branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            query = query.filter('customers.branch.region_id', 'eq', profile.region_id);
+          }
+        }
+
+        const { data, error } = await query.order("TransTime", { ascending: false });
 
         if (error) throw error;
 

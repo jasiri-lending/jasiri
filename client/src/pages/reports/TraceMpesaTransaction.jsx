@@ -4,7 +4,7 @@ import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 const TraceMpesaTransaction = () => {
-  const { tenant } = useAuth();
+  const { tenant, profile } = useAuth();
   const [reference, setReference] = useState("");
   const [transaction, setTransaction] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -33,75 +33,103 @@ const TraceMpesaTransaction = () => {
       const { data: c2bData, error: c2bError } = await supabase
         .from("mpesa_c2b_transactions")
         .select(`
-    id,
-    transaction_id,
-    amount,
-    transaction_time,
-    phone_number,
-    status,
-    applied_amount,
-    loan_id,
-    loan:loan_id(
-      id,
-     product_type,
-      customer:customer_id(
-        Firstname,
-        Middlename,
-        Surname,
-        id_number
-      )
-    )
-  `)
+          id,
+          transaction_id,
+          amount,
+          transaction_time,
+          phone_number,
+          status,
+          applied_amount,
+          loan_id,
+          loan:loan_id(
+            id,
+            product_type,
+            branch_id,
+            customer:customer_id(
+              id,
+              Firstname,
+              Middlename,
+              Surname,
+              id_number,
+              created_by,
+              branch_id,
+              branch:branch_id ( region_id )
+            )
+          )
+        `)
         .eq("transaction_id", reference)
         .eq("tenant_id", tenantId)
         .single();
 
-
       if (c2bError && c2bError.code !== "PGRST116") throw c2bError;
 
+      let foundData = null;
+      let source = "";
+
       if (c2bData) {
-        setTransaction({
-          source: "C2B",
-          ...c2bData,
-        });
+        foundData = c2bData;
+        source = "C2B";
       } else {
-        // If not found in C2B, check B2C transactions
         const { data: b2cData, error: b2cError } = await supabase
-          .from("mpesa_b2c_transactions")
+          .from("loan_disbursement_transactions")
           .select(`
-    id,
-    transaction_id,
-    amount,
-    created_at as transaction_time,
-    phone_number,
-    status,
-    failure_reason,
-    loan:loan_id(
-      id,
-      product_type,
-      customer:customer_id(
-        Firstname,
-        Middlename,
-        Surname,
-        id_number
-      )
-    )
-  `)
+            id,
+            transaction_id,
+            amount,
+            created_at as transaction_time,
+            phone_number,
+            status,
+            failure_reason,
+            loan:loan_id(
+              id,
+              product_type,
+              branch_id,
+              customer:customer_id(
+                id,
+                Firstname,
+                Middlename,
+                Surname,
+                id_number,
+                created_by,
+                branch_id,
+                branch:branch_id ( region_id )
+              )
+            )
+          `)
           .eq("transaction_id", reference)
           .eq("tenant_id", tenantId)
           .single();
 
-
         if (b2cError && b2cError.code !== "PGRST116") throw b2cError;
 
         if (b2cData) {
-          setTransaction({
-            source: "B2C",
-            ...b2cData,
-          });
-        } else {
-          setErrorMsg("Transaction not found in the system.");
+          foundData = b2cData;
+          source = "B2C";
         }
+      }
+
+      if (foundData) {
+        // RBAC Check
+        let hasAccessToCustomer = true;
+        const customer = foundData.loan?.customer;
+
+        if (customer) {
+          if (profile.role === 'relationship_officer') {
+            if (customer.created_by !== profile.id) hasAccessToCustomer = false;
+          } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+            if (profile.branch_id && customer.branch_id !== profile.branch_id) hasAccessToCustomer = false;
+          } else if (profile.role === 'regional_manager') {
+            if (profile.region_id && customer.branch?.region_id !== profile.region_id) hasAccessToCustomer = false;
+          }
+        }
+
+        setTransaction({
+          source,
+          ...foundData,
+          hasAccessToCustomer
+        });
+      } else {
+        setErrorMsg("Transaction not found in the system.");
       }
     } catch (err) {
       console.error("Error tracing transaction:", err.message);
@@ -112,7 +140,7 @@ const TraceMpesaTransaction = () => {
   };
 
   // Helper function to get status badge styling
-  const getStatusBadge = (status, source) => {
+  const getStatusBadge = (status) => {
     const baseClasses = "px-2 py-1 rounded text-xs font-semibold";
 
     switch (status?.toLowerCase()) {
@@ -225,38 +253,44 @@ const TraceMpesaTransaction = () => {
           {/* Customer Details Card */}
           <div className="bg-gray-50 p-4 rounded-lg border">
             <h3 className="text-lg font-semibold mb-3">Customer Details</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              <div>
-                <label className="text-sm font-medium text-gray-600">Customer Name</label>
-                <p className="font-medium">
-                  {[
-                    transaction.loan?.customer?.Firstname,
-                    transaction.loan?.customer?.Middlename,
-                    transaction.loan?.customer?.Surname
-                  ]
-                    .filter(Boolean)
-                    .join(" ") || "N/A"}
-                </p>
-
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">ID Number</label>
-                <p className="font-mono text-sm">
-                  {transaction.loan?.customer?.id_number || "N/A"}
-                </p>
-
-              </div>
-              <div>
-                <label className="text-sm font-medium text-gray-600">Loan ID</label>
-                <p className="text-sm">{transaction.loan?.id || "N/A"}</p>
-              </div>
-              {transaction.loan && (
+            {transaction.hasAccessToCustomer ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-600">Loan Product</label>
-                  <p className="text-sm">{transaction.loan.product_type || "N/A"}</p>
+                  <label className="text-sm font-medium text-gray-600">Customer Name</label>
+                  <p className="font-medium">
+                    {[
+                      transaction.loan?.customer?.Firstname,
+                      transaction.loan?.customer?.Middlename,
+                      transaction.loan?.customer?.Surname
+                    ]
+                      .filter(Boolean)
+                      .join(" ") || "N/A"}
+                  </p>
                 </div>
-              )}
-            </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">ID Number</label>
+                  <p className="font-mono text-sm">
+                    {transaction.loan?.customer?.id_number || "N/A"}
+                  </p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-gray-600">Loan ID</label>
+                  <p className="text-sm">{transaction.loan?.id || "N/A"}</p>
+                </div>
+                {transaction.loan && (
+                  <div>
+                    <label className="text-sm font-medium text-gray-600">Loan Product</label>
+                    <p className="text-sm">{transaction.loan.product_type || "N/A"}</p>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <p className="text-yellow-700 text-sm">
+                  This transaction is matched to a customer/loan outside your access scope.
+                </p>
+              </div>
+            )}
           </div>
 
           {/* Additional Details Table */}
@@ -306,7 +340,7 @@ const TraceMpesaTransaction = () => {
                       : "N/A"}
                   </td>
                 </tr>
-                {transaction.applied_amount && (
+                {transaction.applied_amount && transaction.hasAccessToCustomer && (
                   <tr className="hover:bg-gray-50">
                     <td className="px-4 py-2 border font-medium">Applied Amount</td>
                     <td className="px-4 py-2 border font-semibold">

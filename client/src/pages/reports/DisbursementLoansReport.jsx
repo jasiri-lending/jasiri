@@ -10,6 +10,7 @@ import {
   RefreshCw,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -97,6 +98,7 @@ const DisbursementLoansReport = () => {
       return null;
     }
   });
+  const { profile } = useAuth();
 
   // State
   const [rawLoans, setRawLoans] = useState([]);
@@ -157,38 +159,38 @@ const DisbursementLoansReport = () => {
   }, [filters]);
 
   // ========== FETCH DATA – ONLY ONCE ==========
-useEffect(() => {
-  if (!tenant?.id) {
-    setLoading(false);
-    return;
-  }
+  useEffect(() => {
+    if (!tenant?.id) {
+      setLoading(false);
+      return;
+    }
 
-  const controller = new AbortController();
-  const tenantId = tenant.id;
-  const cacheKey = `disbursement-raw-data-${tenantId}`;
+    const controller = new AbortController();
+    const tenantId = tenant.id;
+    const cacheKey = `disbursement-raw-data-${tenantId}`;
 
-  const fetchDisbursedLoans = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const fetchDisbursedLoans = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      // 🔹 Try cache first (5 minutes)
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        const isFresh = Date.now() - timestamp < 5 * 60 * 1000;
+        // 🔹 Try cache first (5 minutes)
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const isFresh = Date.now() - timestamp < 5 * 60 * 1000;
 
-        if (isFresh) {
-          setRawLoans(data || []);
-          setLoading(false);
-          return;
+          if (isFresh) {
+            setRawLoans(data || []);
+            setLoading(false);
+            return;
+          }
         }
-      }
 
-      // 🔹 Fetch loans
-      const { data: loansData, error: loansError } = await supabase
-        .from("loans")
-        .select(`
+        // 🔹 Fetch loans
+        let loansQuery = supabase
+          .from("loans")
+          .select(`
           id,
           scored_amount,
           total_interest,
@@ -215,115 +217,125 @@ useEffect(() => {
             status,
             loan_id
           ),
-          mpesa:mpesa_b2c_transactions(
+          mpesa:loan_disbursement_transactions(
             transaction_id,
             loan_id,
             status
           )
         `)
-        .eq("status", "disbursed")
-        .eq("tenant_id", tenantId)
-        .order("disbursed_at", { ascending: false })
-        .abortSignal(controller.signal);
-
-      if (loansError) throw loansError;
-
-      // 🔹 Fetch regions
-      const regionIds = [
-        ...new Set(
-          loansData.map((loan) => loan.branch?.region_id).filter(Boolean)
-        ),
-      ];
-
-      let regionMap = {};
-
-      if (regionIds.length > 0) {
-        const { data: regionsData } = await supabase
-          .from("regions")
-          .select("id, name")
-          .in("id", regionIds)
+          .eq("status", "disbursed")
           .eq("tenant_id", tenantId)
+          .order("disbursed_at", { ascending: false })
           .abortSignal(controller.signal);
 
-        if (regionsData) {
-          regionMap = regionsData.reduce((acc, r) => {
-            acc[r.id] = r.name;
-            return acc;
-          }, {});
+        if (profile?.role === "relationship_officer") {
+          loansQuery = loansQuery.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          loansQuery = loansQuery.eq("region_id", profile.region_id);
         }
+
+        const { data: loansData, error: loansError } = await loansQuery;
+
+        if (loansError) throw loansError;
+
+        // 🔹 Fetch regions
+        const regionIds = [
+          ...new Set(
+            loansData.map((loan) => loan.branch?.region_id).filter(Boolean)
+          ),
+        ];
+
+        let regionMap = {};
+
+        if (regionIds.length > 0) {
+          const { data: regionsData } = await supabase
+            .from("regions")
+            .select("id, name")
+            .in("id", regionIds)
+            .eq("tenant_id", tenantId)
+            .abortSignal(controller.signal);
+
+          if (regionsData) {
+            regionMap = regionsData.reduce((acc, r) => {
+              acc[r.id] = r.name;
+              return acc;
+            }, {});
+          }
+        }
+
+        // 🔹 Format data
+        const formatted = loansData.map((loan) => {
+          const customer = loan.customer || {};
+          const fullName =
+            [customer.Firstname, customer.Middlename, customer.Surname]
+              .filter(Boolean)
+              .join(" ") || "N/A";
+
+          const pendingInstallment = Array.isArray(loan.installments)
+            ? loan.installments.find((i) => i.status === "pending")
+            : null;
+
+          const mpesaTx =
+            Array.isArray(loan.mpesa) &&
+            loan.mpesa.find((tx) => tx.status === "success");
+
+          return {
+            id: loan.id,
+            branch: loan.branch?.name || "N/A",
+            region: regionMap[loan.branch?.region_id] || "N/A",
+            loanOfficer: loan.loan_officer?.full_name || "N/A",
+            customerName: fullName,
+            mobile: customer.mobile || "N/A",
+            idNumber: customer.id_number || "N/A",
+            mpesaReference: mpesaTx?.transaction_id || "N/A",
+            loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
+            appliedLoanAmount: loan.scored_amount ?? 0,
+            disbursedAmount: loan.total_payable ?? 0,
+            interestAmount: loan.total_interest || 0,
+            business_name: customer.business_name || "N/A",
+            business_type: customer.business_type || "N/A",
+            productName: loan.product_name || loan.product_type || "N/A",
+            product_type: loan.product_type || "N/A",
+            nextPaymentDate: pendingInstallment?.due_date
+              ? new Date(pendingInstallment.due_date).toLocaleDateString()
+              : "N/A",
+            disbursementDate: loan.disbursed_at
+              ? new Date(loan.disbursed_at).toLocaleDateString()
+              : "N/A",
+            rawDisbursementDate: loan.disbursed_at,
+            repaymentStatus: loan.repayment_state || "N/A",
+          };
+        });
+
+        // 🔹 Update state
+        setRawLoans(formatted);
+        setLoading(false);
+
+        // 🔹 Cache result
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            data: formatted,
+            timestamp: Date.now(),
+          })
+        );
+      } catch (err) {
+        if (err.name === "AbortError") return;
+
+        console.error("Fetch error:", err);
+        setError(err.message || "Failed to load data");
+        setLoading(false);
       }
+    };
 
-      // 🔹 Format data
-      const formatted = loansData.map((loan) => {
-        const customer = loan.customer || {};
-        const fullName =
-          [customer.Firstname, customer.Middlename, customer.Surname]
-            .filter(Boolean)
-            .join(" ") || "N/A";
+    fetchDisbursedLoans();
 
-        const pendingInstallment = Array.isArray(loan.installments)
-          ? loan.installments.find((i) => i.status === "pending")
-          : null;
-
-        const mpesaTx =
-          Array.isArray(loan.mpesa) &&
-          loan.mpesa.find((tx) => tx.status === "success");
-
-        return {
-          id: loan.id,
-          branch: loan.branch?.name || "N/A",
-          region: regionMap[loan.branch?.region_id] || "N/A",
-          loanOfficer: loan.loan_officer?.full_name || "N/A",
-          customerName: fullName,
-          mobile: customer.mobile || "N/A",
-          idNumber: customer.id_number || "N/A",
-          mpesaReference: mpesaTx?.transaction_id || "N/A",
-          loanReferenceNumber: `LN${String(loan.id).padStart(5, "0")}`,
-          appliedLoanAmount: loan.scored_amount ?? 0,
-          disbursedAmount: loan.total_payable ?? 0,
-          interestAmount: loan.total_interest || 0,
-          business_name: customer.business_name || "N/A",
-          business_type: customer.business_type || "N/A",
-          productName: loan.product_name || loan.product_type || "N/A",
-          product_type: loan.product_type || "N/A",
-          nextPaymentDate: pendingInstallment?.due_date
-            ? new Date(pendingInstallment.due_date).toLocaleDateString()
-            : "N/A",
-          disbursementDate: loan.disbursed_at
-            ? new Date(loan.disbursed_at).toLocaleDateString()
-            : "N/A",
-          rawDisbursementDate: loan.disbursed_at,
-          repaymentStatus: loan.repayment_state || "N/A",
-        };
-      });
-
-      // 🔹 Update state
-      setRawLoans(formatted);
-      setLoading(false);
-
-      // 🔹 Cache result
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify({
-          data: formatted,
-          timestamp: Date.now(),
-        })
-      );
-    } catch (err) {
-      if (err.name === "AbortError") return;
-
-      console.error("Fetch error:", err);
-      setError(err.message || "Failed to load data");
-      setLoading(false);
-    }
-  };
-
-  fetchDisbursedLoans();
-
-  return () => {
-    controller.abort();
-  };
-}, [tenant?.id]);
+    return () => {
+      controller.abort();
+    };
+  }, [tenant?.id, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
 
   // Manual refresh function
   const handleManualRefresh = async () => {
@@ -335,8 +347,8 @@ useEffect(() => {
     try {
       setLoading(true);
       setError(null);
-      
-      const { data: loansData, error: loansError } = await supabase
+
+      let loansQuery = supabase
         .from("loans")
         .select(`
           id,
@@ -365,7 +377,7 @@ useEffect(() => {
             status,
             loan_id
           ),
-          mpesa:mpesa_b2c_transactions(
+          mpesa:loan_disbursement_transactions(
             transaction_id,
             loan_id,
             status
@@ -374,6 +386,16 @@ useEffect(() => {
         .eq("status", "disbursed")
         .eq("tenant_id", tenantId)
         .order("disbursed_at", { ascending: false });
+
+      if (profile?.role === "relationship_officer") {
+        loansQuery = loansQuery.eq("booked_by", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        loansQuery = loansQuery.eq("region_id", profile.region_id);
+      }
+
+      const { data: loansData, error: loansError } = await loansQuery;
 
       if (loansError) throw loansError;
 
@@ -444,19 +466,19 @@ useEffect(() => {
       });
 
       setRawLoans(formatted || []);
-      
+
       const cacheKey = `disbursement-raw-data-${tenantId}`;
       try {
-        localStorage.setItem(cacheKey, JSON.stringify({ 
-          data: formatted || [], 
-          timestamp: Date.now() 
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: formatted || [],
+          timestamp: Date.now()
         }));
       } catch (e) {
         console.error("Cache write error:", e);
       }
 
       console.log("✅ Manual refresh complete");
-      
+
     } catch (err) {
       console.error("❌ Error refreshing disbursed loans:", err);
       setError(err.message || "Failed to refresh data");
@@ -1150,42 +1172,48 @@ useEffect(() => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <select
-                value={filters.region}
-                onChange={(e) => handleFilterChange("region", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Regions</option>
-                {regions.map((r) => (
-                  <option key={r} value={r}>
-                    {r}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.branch}
-                onChange={(e) => handleFilterChange("branch", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b} value={b}>
-                    {b}
-                  </option>
-                ))}
-              </select>
-              <select
-                value={filters.officer}
-                onChange={(e) => handleFilterChange("officer", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Relationship Officers</option>
-                {officers.map((o) => (
-                  <option key={o} value={o}>
-                    {o}
-                  </option>
-                ))}
-              </select>
+              {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.region}
+                  onChange={(e) => handleFilterChange("region", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Regions</option>
+                  {regions.map((r) => (
+                    <option key={r} value={r}>
+                      {r}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.branch}
+                  onChange={(e) => handleFilterChange("branch", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Branches</option>
+                  {branches.map((b) => (
+                    <option key={b} value={b}>
+                      {b}
+                    </option>
+                  ))}
+                </select>
+              )}
+              {profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.officer}
+                  onChange={(e) => handleFilterChange("officer", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Relationship Officers</option>
+                  {officers.map((o) => (
+                    <option key={o} value={o}>
+                      {o}
+                    </option>
+                  ))}
+                </select>
+              )}
               <select
                 value={filters.product}
                 onChange={(e) => handleFilterChange("product", e.target.value)}

@@ -9,8 +9,10 @@ import {
   ChevronDown,
   Search,
   RefreshCw,
+  Globe
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -152,16 +154,7 @@ LoanTableRow.displayName = "LoanTableRow";
 // ========== Main Component ==========
 
 const LoanListing = () => {
-  // ✅ Get tenant from localStorage ONCE
-  const [tenant] = useState(() => {
-    try {
-      const savedTenant = localStorage.getItem("tenant");
-      return savedTenant ? JSON.parse(savedTenant) : null;
-    } catch (e) {
-      console.error("Error loading tenant:", e);
-      return null;
-    }
-  });
+  const { profile, tenant } = useAuth();
 
   // ========== State ==========
   const [rawLoans, setRawLoans] = useState([]);
@@ -299,8 +292,8 @@ const LoanListing = () => {
     const tenantId = tenant?.id;
     isMountedRef.current = true;
 
-    // Early return if no tenant
-    if (!tenantId) {
+    // Early return if no tenant or profile
+    if (!tenantId || !profile) {
       setLoading(false);
       return;
     }
@@ -309,7 +302,7 @@ const LoanListing = () => {
       console.log("🔄 Starting loans fetch for tenant:", tenantId);
 
       try {
-        const cacheKey = `loan-listing-raw-data-${tenantId}`;
+        const cacheKey = `loan-listing-raw-data-${tenantId}-${profile?.id}`;
 
         // Try cache first
         try {
@@ -349,7 +342,7 @@ const LoanListing = () => {
           setTimeout(() => reject(new Error('Request timeout')), 45000)
         );
 
-        const fetchPromise = supabase
+        let query = supabase
           .from("loans")
           .select(`
             id,
@@ -401,8 +394,23 @@ const LoanListing = () => {
               status
             )
           `)
-          .eq("tenant_id", tenantId)
-          .order("booked_at", { ascending: false });
+          .eq("tenant_id", tenantId);
+
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          query = query.eq('booked_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            query = query.eq('branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            query = query.eq('region_id', profile.region_id);
+          }
+        }
+
+        query = query.order("booked_at", { ascending: false });
+        const fetchPromise = query;
 
         const { data, error: fetchError } = await Promise.race([fetchPromise, timeoutPromise]);
 
@@ -552,7 +560,7 @@ const LoanListing = () => {
   // ========== Manual Refresh ==========
   const handleManualRefresh = useCallback(async () => {
     const tenantId = tenant?.id;
-    if (!tenantId || loading) return;
+    if (!tenantId || !profile || loading) return;
 
     console.log("🔄 Manual refresh triggered");
 
@@ -560,60 +568,74 @@ const LoanListing = () => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      let query = supabase
         .from("loans")
         .select(`
-          id,
-          customer_id,
-          branch_id,
-          booked_by,
-          product_name,
-          product_type,
-          status,
-          repayment_state,
-          total_payable,
-          duration_weeks,
-          interest_rate,
-          disbursed_at,
-          booked_at,
-          processing_fee,
-          registration_fee,
-          weekly_payment,
-          approved_by_bm,
-          approved_by_bm_at,
-          approved_by_rm,
-          approved_by_rm_at,
-          bm_decision,
-          rm_decision,
-          scored_amount,
-          prequalified_amount,
-          customers (
             id,
-            Firstname,
-            Middlename,
-            Surname,
-            id_number,
-            mobile
-          ),
-          branches (
-            id,
-            name,
-            regions (
-              name
+            customer_id,
+            branch_id,
+            booked_by,
+            product_name,
+            product_type,
+            status,
+            repayment_state,
+            total_payable,
+            duration_weeks,
+            interest_rate,
+            disbursed_at,
+            booked_at,
+            processing_fee,
+            registration_fee,
+            weekly_payment,
+            approved_by_bm,
+            approved_by_bm_at,
+            approved_by_rm,
+            approved_by_rm_at,
+            bm_decision,
+            rm_decision,
+            scored_amount,
+            prequalified_amount,
+            customers (
+              id,
+              Firstname,
+              Middlename,
+              Surname,
+              id_number,
+              mobile
+            ),
+            branches (
+              id,
+              name,
+              regions (
+                name
+              )
+            ),
+            booked_by_user:users!loans_created_by_fkey (id, full_name),
+            bm_user:users!loans_approved_by_bm_fkey (id, full_name),
+            rm_user:users!loans_approved_by_rm_fkey (id, full_name),
+            loan_installments (
+              loan_id,
+              paid_amount,
+              due_amount,
+              status
             )
-          ),
-          booked_by_user:users!loans_created_by_fkey (id, full_name),
-          bm_user:users!loans_approved_by_bm_fkey (id, full_name),
-          rm_user:users!loans_approved_by_rm_fkey (id, full_name),
-          loan_installments (
-            loan_id,
-            paid_amount,
-            due_amount,
-            status
-          )
-        `)
-        .eq("tenant_id", tenantId)
-        .order("booked_at", { ascending: false });
+          `)
+        .eq("tenant_id", tenantId);
+
+      // RBAC Implementation
+      if (profile.role === 'relationship_officer') {
+        query = query.eq('booked_by', profile.id);
+      } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+        if (profile.branch_id) {
+          query = query.eq('branch_id', profile.branch_id);
+        }
+      } else if (profile.role === 'regional_manager') {
+        if (profile.region_id) {
+          query = query.filter('branches.region_id', 'eq', profile.region_id);
+        }
+      }
+
+      const { data, error: fetchError } = await query.order("booked_at", { ascending: false });
 
       if (fetchError) throw fetchError;
 
@@ -703,7 +725,7 @@ const LoanListing = () => {
       setStatusTypes(uniqueStatusTypes);
       setRepaymentStates(uniqueRepaymentStates);
 
-      const cacheKey = `loan-listing-raw-data-${tenantId}`;
+      const cacheKey = `loan-listing-raw-data-${tenantId}-${profile?.id}`;
       try {
         localStorage.setItem(
           cacheKey,
@@ -1474,44 +1496,50 @@ const LoanListing = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <select
-                value={filters.region}
-                onChange={(e) => handleFilterChange("region", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Regions</option>
-                {regions.map((region) => (
-                  <option key={region} value={region}>
-                    {region}
-                  </option>
-                ))}
-              </select>
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
+                <select
+                  value={filters.region}
+                  onChange={(e) => handleFilterChange("region", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Regions</option>
+                  {regions.map((region) => (
+                    <option key={region} value={region}>
+                      {region}
+                    </option>
+                  ))}
+                </select>
+              )}
 
-              <select
-                value={filters.branch}
-                onChange={(e) => handleFilterChange("branch", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Branches</option>
-                {filteredBranches.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
+                <select
+                  value={filters.branch}
+                  onChange={(e) => handleFilterChange("branch", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Branches</option>
+                  {filteredBranches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
-              <select
-                value={filters.loanOfficer}
-                onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
-              >
-                <option value="">All Relationship Officers</option>
-                {filteredOfficers.map((officer) => (
-                  <option key={officer} value={officer}>
-                    {officer}
-                  </option>
-                ))}
-              </select>
+              {!['relationship_officer'].includes(profile?.role) && (
+                <select
+                  value={filters.loanOfficer}
+                  onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm"
+                >
+                  <option value="">All Relationship Officers</option>
+                  {filteredOfficers.map((officer) => (
+                    <option key={officer} value={officer}>
+                      {officer}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filters.productType}

@@ -128,8 +128,8 @@ export default function Login() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const { loading, setLoading } = useGlobalLoading();
-  const { setUser, setProfile } = useAuth();
+  const { loading, setLoading: setGlobalLoading } = useGlobalLoading();
+  const { setUser, setProfile, setTenant } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const currentYear = new Date().getFullYear();
@@ -137,7 +137,7 @@ export default function Login() {
   // Step 1: login with email/password
   const handleLogin = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
@@ -155,7 +155,7 @@ export default function Login() {
       console.error("Login error:", err);
       toast.error(err.message || "Invalid email or password");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 
@@ -177,7 +177,7 @@ export default function Login() {
       console.error("Resend code error:", err);
       toast.error(err.message || "Failed to resend code");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 
@@ -190,7 +190,7 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
+    setGlobalLoading(true);
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/verify-code`, {
@@ -230,8 +230,21 @@ export default function Login() {
         localStorage.setItem("sessionToken", authData.session.access_token);
         localStorage.setItem("userId", authData.user.id);
 
-        // Session expiry is now handled by the server. 
-        // The fetchProfile call (triggered below) will load session_expires_at from the DB.
+        // Proactively set profile and tenant if returned by the verify-code API
+        if (data.profileData) {
+          const { profile, tenant } = data.profileData;
+          localStorage.setItem("profile", JSON.stringify(profile));
+          if (tenant) {
+            localStorage.setItem("tenant", JSON.stringify(tenant));
+          }
+          if (profile.session_expires_at) {
+            localStorage.setItem("sessionExpiresAt", profile.session_expires_at);
+          }
+
+          // Set states directly to trigger App.jsx redirection immediately
+          setProfile(profile);
+          setTenant(tenant);
+        }
 
         // Set user state directly so App.jsx knows we're authenticated
         setUser(authData.user);
@@ -239,25 +252,21 @@ export default function Login() {
         toast.success("Login successful! Redirecting...");
 
         // DO NOT navigate manually here.
-        // The onAuthStateChange listener in useAuth will:
-        //   1. Detect the new session
-        //   2. Call fetchProfile() to load the user's profile
-        //   3. Once profile is set, App.jsx's /login route will see
-        //      user && profile and auto-redirect to getDefaultRoute()
+        // The profile and user state updates will trigger App.jsx to auto-redirect.
       }
 
     } catch (err) {
       console.error("Verify code error:", err);
       toast.error(err.message || "Verification failed");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 
   // Forgot password - request reset
   const handleForgotPassword = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    setGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/forgot-password`, {
         method: "POST",
@@ -273,7 +282,7 @@ export default function Login() {
       console.error("Forgot password error:", err);
       toast.error(err.message || "Failed to process request");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 
@@ -307,7 +316,7 @@ export default function Login() {
       return;
     }
 
-    setLoading(true);
+    setGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/reset-password`, {
         method: "POST",
@@ -322,7 +331,7 @@ export default function Login() {
       if (!data.success) {
         if (data.error === "Reset code expired") {
           toast.error("Reset code has expired. Please request a new one.");
-          setLoading(false);
+          setGlobalLoading(false);
           return;
         }
         throw new Error(data.error);
@@ -340,13 +349,13 @@ export default function Login() {
       console.error("Reset password error:", err);
       toast.error(err.message || "Failed to reset password");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 
   // Resend reset code for password reset
   const handleResendResetCode = async () => {
-    setLoading(true);
+    setGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/resend-reset-code`, {
         method: "POST",
@@ -362,7 +371,7 @@ export default function Login() {
       console.error("Resend reset code error:", err);
       toast.error(err.message || "Failed to resend reset code");
     } finally {
-      setLoading(false);
+      setGlobalLoading(false);
     }
   };
 

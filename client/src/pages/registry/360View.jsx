@@ -24,6 +24,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 
 // ========== SKELETON COMPONENTS =======
 const SkeletonPulse = () => (
@@ -198,6 +199,7 @@ const Customer360View = () => {
   });
   const [savingInteraction, setSavingInteraction] = useState(false);
   const { profile } = useAuth();
+  const { imageUploadEnabled } = useTenantFeatures();
 
   // Promised to Pay states
   const [ptps, setPtps] = useState([]);
@@ -660,7 +662,7 @@ const Customer360View = () => {
               {/* Left: Passport Photo and Basic Info */}
               <div className="flex-shrink-0">
                 <div className="flex flex-col items-center">
-                  {customer.passport_url ? (
+                  {customer.passport_url && imageUploadEnabled ? (
                     <img
                       src={customer.passport_url}
                       alt={`${customer.Firstname} ${customer.Surname}`}

@@ -24,6 +24,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
@@ -55,14 +56,14 @@ const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
         <div className="flex flex-col">
           <ChevronUp
             className={`w-3 h-3 -mb-1 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "asc"
-                ? "text-brand-primary"
-                : "text-slate-300"
+              ? "text-brand-primary"
+              : "text-slate-300"
               }`}
           />
           <ChevronDown
             className={`w-3 h-3 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "desc"
-                ? "text-brand-primary"
-                : "text-slate-300"
+              ? "text-brand-primary"
+              : "text-slate-300"
               }`}
           />
         </div>
@@ -130,8 +131,8 @@ const NPLTableRow = React.memo(({ row, index, startIdx, formatCurrency }) => {
       <td className="px-6 py-4 whitespace-nowrap">
         <span
           className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm border ${row.repayment_state === "defaulted"
-              ? "bg-red-500 border-red-400 text-white"
-              : "bg-orange-100 border-orange-200 text-orange-700"
+            ? "bg-red-500 border-red-400 text-white"
+            : "bg-orange-100 border-orange-200 text-orange-700"
             }`}
         >
           {row.repayment_state}
@@ -259,6 +260,8 @@ const NonPerformingLoansReport = () => {
       return null;
     }
   });
+
+  const { profile } = useAuth();
 
   // ========== State ==========
   const [rawNPLs, setRawNPLs] = useState([]);
@@ -409,6 +412,23 @@ const NonPerformingLoansReport = () => {
 
         if (mounted) setLoading(true);
 
+        let fetchPromise = supabase
+          .from("loans")
+          .select(
+            "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
+          )
+          .in("repayment_state", ["overdue", "defaulted"])
+          .eq("tenant_id", tenantId)
+          .abortSignal(signal);
+
+        if (profile?.role === "relationship_officer") {
+          fetchPromise = fetchPromise.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          fetchPromise = fetchPromise.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          fetchPromise = fetchPromise.eq("region_id", profile.region_id);
+        }
+
         const [
           loansRes,
           installmentsRes,
@@ -416,15 +436,7 @@ const NonPerformingLoansReport = () => {
           usersRes,
           branchesRes,
         ] = await Promise.all([
-          supabase
-            .from("loans")
-            .select(
-              "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
-            )
-            .in("repayment_state", ["overdue", "defaulted"])
-            .eq("tenant_id", tenantId)
-            .abortSignal(signal),
-
+          fetchPromise,
           supabase
             .from("loan_installments")
             .select(
@@ -596,7 +608,7 @@ const NonPerformingLoansReport = () => {
         abortControllerRef.current.abort();
       }
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
 
 
 
@@ -1056,7 +1068,7 @@ const NonPerformingLoansReport = () => {
     <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
       <div className="max-w-full mx-auto space-y-8">
         {/* PREMIUM HEADER */}
-       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
@@ -1082,8 +1094,8 @@ const NonPerformingLoansReport = () => {
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-white border-white/20 hover:bg-white/10"
+                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                    : "text-white border-white/20 hover:bg-white/10"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
@@ -1168,68 +1180,74 @@ const NonPerformingLoansReport = () => {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
-                    Region
-                  </label>
-                  <select
-                    value={filters.region}
-                    onChange={(e) => {
-                      handleFilterChange("region", e.target.value);
-                      handleFilterChange("branch", "");
-                      handleFilterChange("loanOfficer", "");
-                    }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Regions</option>
-                    {regions.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                      Region
+                    </label>
+                    <select
+                      value={filters.region}
+                      onChange={(e) => {
+                        handleFilterChange("region", e.target.value);
+                        handleFilterChange("branch", "");
+                        handleFilterChange("loanOfficer", "");
+                      }}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                    >
+                      <option value="">All Regions</option>
+                      {regions.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
-                    Branch
-                  </label>
-                  <select
-                    value={filters.branch}
-                    onChange={(e) => {
-                      handleFilterChange("branch", e.target.value);
-                      handleFilterChange("loanOfficer", "");
-                    }}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Branches</option>
-                    {getFilteredBranches().map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                      Branch
+                    </label>
+                    <select
+                      value={filters.branch}
+                      onChange={(e) => {
+                        handleFilterChange("branch", e.target.value);
+                        handleFilterChange("loanOfficer", "");
+                      }}
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                    >
+                      <option value="">All Branches</option>
+                      {getFilteredBranches().map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
-                    Officer
-                  </label>
-                  <select
-                    value={filters.loanOfficer}
-                    onChange={(e) =>
-                      handleFilterChange("loanOfficer", e.target.value)
-                    }
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Officers</option>
-                    {getFilteredOfficers().map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.full_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+                {profile?.role !== "relationship_officer" && (
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                      Officer
+                    </label>
+                    <select
+                      value={filters.loanOfficer}
+                      onChange={(e) =>
+                        handleFilterChange("loanOfficer", e.target.value)
+                      }
+                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                    >
+                      <option value="">All Officers</option>
+                      {getFilteredOfficers().map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.full_name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
@@ -1510,8 +1528,8 @@ const NonPerformingLoansReport = () => {
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
                             className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
-                                ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
-                                : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
+                              ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
+                              : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
                               }`}
                           >
                             {pageNum}

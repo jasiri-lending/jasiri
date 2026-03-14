@@ -25,6 +25,7 @@ import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
 import LocationPicker from "../components/LocationPicker";
 import { useNavigate } from "react-router-dom";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 
 // Kenya's 47 counties
 const KENYA_COUNTIES = [
@@ -139,6 +140,7 @@ function EditAmendment({ customerId, onClose }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
+  const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
 
   // Amendment states
   const [amendmentData, setAmendmentData] = useState([]);
@@ -1228,7 +1230,7 @@ function EditAmendment({ customerId, onClose }) {
                 Personal Documents
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {[
+                {imageUploadEnabled && [
                   { key: "passport", label: "Passport Photo", handler: setPassportFile },
                   { key: "idFront", label: "ID Front", handler: setIdFrontFile },
                   { key: "idBack", label: "ID Back", handler: setIdBackFile },
@@ -1384,27 +1386,31 @@ function EditAmendment({ customerId, onClose }) {
                 Business Images
               </h3>
               <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
-                  }`}>
-                  <Upload className="w-5 h-5" />
-                  <span className="font-medium">Add Images</span>
-                  <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden"
-                    disabled={!currentSectionHasAmendments} />
-                </label>
+                {imageUploadEnabled && (
+                  <>
+                    <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      }`}>
+                      <Upload className="w-5 h-5" />
+                      <span className="font-medium">Add Images</span>
+                      <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden"
+                        disabled={!currentSectionHasAmendments} />
+                    </label>
 
-                <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
-                  }`}>
-                  <CameraIcon className="w-5 h-5" />
-                  <span className="font-medium">Camera</span>
-                  <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden"
-                    disabled={!currentSectionHasAmendments} />
-                </label>
+                    <label className={`flex md:hidden flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                      }`}>
+                      <CameraIcon className="w-5 h-5" />
+                      <span className="font-medium">Camera</span>
+                      <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden"
+                        disabled={!currentSectionHasAmendments} />
+                    </label>
+                  </>
+                )}
               </div>
 
               {/* Combined display for existing and new images */}
               <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                 {/* Existing URLs */}
-                {existingImages.business?.map((img, index) => (
+                {imageUploadEnabled && existingImages.business?.map((img, index) => (
                   <div key={`existing-${index}`} className="relative group">
                     <img src={img} alt={`Business Existing ${index + 1}`} className="w-full h-32 object-cover rounded-xl border border-gray-200 shadow-sm" />
                     <button
@@ -1420,7 +1426,7 @@ function EditAmendment({ customerId, onClose }) {
                 ))}
 
                 {/* Newly selected Files */}
-                {businessImages.map((img, index) => (
+                {imageUploadEnabled && businessImages.map((img, index) => (
                   <div key={`new-${index}`} className="relative group">
                     <img src={URL.createObjectURL(img)} alt={`Business New ${index + 1}`} className="w-full h-32 object-cover rounded-xl border border-brand-primary/30 shadow-md" />
                     <button
@@ -1528,41 +1534,45 @@ function EditAmendment({ customerId, onClose }) {
                       Item Images
                     </label>
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                      <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
-                        }`}>
-                        <Upload className="w-5 h-5" />
-                        <span className="font-medium">Upload Images</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
-                          className="hidden"
-                          disabled={!currentSectionHasAmendments}
-                        />
-                      </label>
+                      {imageUploadEnabled && (
+                        <>
+                          <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                            }`}>
+                            <Upload className="w-5 h-5" />
+                            <span className="font-medium">Upload Images</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
+                              className="hidden"
+                              disabled={!currentSectionHasAmendments}
+                            />
+                          </label>
 
-                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
-                        }`}>
-                        <CameraIcon className="w-5 h-5" />
-                        <span className="font-medium">Camera</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
-                          className="hidden"
-                          disabled={!currentSectionHasAmendments}
-                        />
-                      </label>
+                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                            }`}>
+                            <CameraIcon className="w-5 h-5" />
+                            <span className="font-medium">Camera</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              multiple
+                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)}
+                              className="hidden"
+                              disabled={!currentSectionHasAmendments}
+                            />
+                          </label>
+                        </>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                       {/* Existing Images for this specific item if we had them mapped, 
                           but the state management here is a bit complex. 
                           Let's try to render what's in securityItemImages[index] */}
-                      {securityItemImages[index]?.map((img, imgIndex) => {
+                      {imageUploadEnabled && securityItemImages[index]?.map((img, imgIndex) => {
                         const imgSrc = typeof img === "string" ? img : URL.createObjectURL(img);
                         return (
                           <div key={imgIndex} className="relative group">
@@ -1827,7 +1837,7 @@ function EditAmendment({ customerId, onClose }) {
               </h3>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
+                {imageUploadEnabled && [
                   {
                     key: "guarantorPassport",
                     label: "Guarantor Passport",
@@ -2005,38 +2015,42 @@ function EditAmendment({ customerId, onClose }) {
                       Item Images
                     </label>
                     <div className="flex flex-col sm:flex-row gap-3 mb-4">
-                      <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
-                        }`}>
-                        <Upload className="w-5 h-5" />
-                        <span className="font-medium">Upload Images</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
-                          className="hidden"
-                          disabled={!currentSectionHasAmendments}
-                        />
-                      </label>
+                      {imageUploadEnabled && (
+                        <>
+                          <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                            }`}>
+                            <Upload className="w-5 h-5" />
+                            <span className="font-medium">Upload Images</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
+                              className="hidden"
+                              disabled={!currentSectionHasAmendments}
+                            />
+                          </label>
 
-                      <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
-                        }`}>
-                        <CameraIcon className="w-5 h-5" />
-                        <span className="font-medium">Camera</span>
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
-                          className="hidden"
-                          disabled={!currentSectionHasAmendments}
-                        />
-                      </label>
+                          <label className={`md:hidden flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl cursor-pointer transition-all shadow-sm hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-btn text-white hover:bg-brand-primary"
+                            }`}>
+                            <CameraIcon className="w-5 h-5" />
+                            <span className="font-medium">Camera</span>
+                            <input
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              multiple
+                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)}
+                              className="hidden"
+                              disabled={!currentSectionHasAmendments}
+                            />
+                          </label>
+                        </>
+                      )}
                     </div>
 
                     <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                      {guarantorSecurityImages[index]?.map((img, imgIndex) => {
+                      {imageUploadEnabled && guarantorSecurityImages[index]?.map((img, imgIndex) => {
                         const imgSrc = typeof img === "string" ? img : URL.createObjectURL(img);
                         return (
                           <div key={imgIndex} className="relative group">
@@ -2216,7 +2230,7 @@ function EditAmendment({ customerId, onClose }) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {[
+              {documentUploadEnabled && [
                 {
                   key: "officerClient1",
                   label: "First Officer & Client",
@@ -2248,7 +2262,7 @@ function EditAmendment({ customerId, onClose }) {
                   </label>
 
                   <div className="flex flex-col sm:flex-row gap-3 w-full">
-                    <label className={`flex flex-1 items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
+                    <label className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-lg shadow-sm cursor-pointer transition-all hover:shadow-md ${currentSectionHasAmendments ? "bg-red-600 text-white hover:bg-red-700" : "bg-brand-primary text-white hover:bg-brand-primary/90"
                       }`}>
                       <Upload className="w-5 h-5" />
                       <span className="text-sm font-medium">Upload</span>

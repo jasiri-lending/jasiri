@@ -39,15 +39,12 @@ const upload = multer({
   }
 });
 
-// Apply authentication to all avatar routes
-AvatarRouter.use(verifySupabaseToken);
+// Apply authentication to all avatar routes individually to prevent global middleware leak
+// AvatarRouter.use(verifySupabaseToken);
 
 // POST /api/upload-avatar - upload user avatar
-AvatarRouter.post("/upload-avatar", upload.single('avatar'), async (req, res) => {
+AvatarRouter.post("/upload-avatar", verifySupabaseToken, upload.single('avatar'), async (req, res) => {
   try {
-    console.log("📤 Avatar upload request received");
-    console.log("  - User ID:", req.user.id);
-    console.log("  - User Email:", req.user.email);
 
     if (!req.file) {
       return res.status(400).json({ success: false, error: 'No file uploaded' });
@@ -193,7 +190,7 @@ AvatarRouter.post("/upload-avatar", upload.single('avatar'), async (req, res) =>
 });
 
 // DELETE /api/delete-avatar - delete user avatar
-AvatarRouter.delete("/delete-avatar", async (req, res) => {
+AvatarRouter.delete("/delete-avatar", verifySupabaseToken, async (req, res) => {
   try {
     console.log("🗑️ Avatar deletion request received");
     console.log("  - User ID:", req.user.id);

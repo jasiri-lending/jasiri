@@ -1,39 +1,36 @@
 import { useState, useEffect, useRef } from 'react';
-import { 
-  MagnifyingGlassIcon, 
+import {
+  MagnifyingGlassIcon,
   EyeIcon,
   CheckIcon,
   XMarkIcon,
   AdjustmentsHorizontalIcon,
-  ChevronDownIcon,
   UserIcon,
   PhoneIcon,
+  IdentificationIcon,
+  ClipboardDocumentCheckIcon,
+  ArrowLeftIcon,
+  InboxIcon,
+  ChevronRightIcon
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
-import CustomerVerificationForm from './CustomerVerification.jsx';
-import Verification from './Verification.jsx';
-import CustomerDetailsModal from '../../relationship-officer/components/CustomerDetailsModal.jsx';
+import { useNavigate } from 'react-router-dom';
+import Spinner from "../../components/Spinner";
 
 const CustomerDrafts = () => {
+  const navigate = useNavigate();
   const [customers, setCustomers] = useState([]);
   const [filteredCustomers, setFilteredCustomers] = useState([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
-  const [selectedCustomer, setSelectedCustomer] = useState(null);
-  const [showForm, setShowForm] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
-  
-  // Get user profile from auth hook
+
   const { profile } = useAuth();
   const userRole = profile?.role;
   const userBranchId = profile?.branch_id;
-
-  // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
 
-  // Fetch pending customers based on user role
   const fetchPendingCustomers = async () => {
     setLoading(true);
     try {
@@ -45,126 +42,65 @@ const CustomerDrafts = () => {
         .eq("form_status", "draft")
         .order("created_at", { ascending: false });
 
-      // Set status filter based on role
       if (userRole === 'branch_manager') {
         query = query.eq("status", "bm_review");
-        // BM can only see customers from their branch
-        if (userBranchId) {
-          query = query.eq("branch_id", userBranchId);
-        }
+        if (userBranchId) query = query.eq("branch_id", userBranchId);
       } else if (userRole === 'credit_analyst_officer') {
         query = query.eq("status", "ca_review");
-        // CA can see all customers with ca_review status (no branch restriction)
       } else if (userRole === 'customer_service_officer') {
         query = query.eq("status", "cso_review");
-        // CSO can see all customers with cso_review status
       } else {
         console.error("Unknown user role:", userRole);
         return;
       }
 
       const { data, error } = await query;
+      if (error) throw error;
 
-      if (error) {
-        console.error("Error fetching pending customers:", error.message);
-      } else {
-        setCustomers(data || []);
-        setFilteredCustomers(data || []);
-      }
+      setCustomers(data || []);
+      setFilteredCustomers(data || []);
     } catch (err) {
-      console.error("Error:", err);
+      console.error("Error fetching drafts:", err);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    // Only fetch data once when profile is available
     if (profile && !hasFetchedData.current) {
       hasFetchedData.current = true;
       fetchPendingCustomers();
     }
   }, [profile]);
 
-  // Search functionality
   useEffect(() => {
-    if (!customers || customers.length === 0) return;
-    
-    const filtered = customers.filter(customer =>
-      (customer.first_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (customer.last_name?.toLowerCase() || customer.surname?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
-      (customer.id_number?.toString() || customer.national_id?.toString() || '').includes(searchTerm) ||
-      (customer.mobile || customer.phone_number || customer.phone || '').includes(searchTerm)
-    );
+    if (!customers) return;
+
+    const terms = searchTerm.toLowerCase().split(' ').filter(Boolean);
+    const filtered = customers.filter(customer => {
+      const searchStr = `
+        ${customer.first_name} ${customer.middle_name} ${customer.last_name} 
+        ${customer.id_number} ${customer.national_id} ${customer.mobile} 
+        ${customer.phone_number}
+      `.toLowerCase();
+      return terms.every(term => searchStr.includes(term));
+    });
     setFilteredCustomers(filtered);
   }, [searchTerm, customers]);
 
-  const handleApprove = (customerId) => {
-    setSelectedCustomer(customerId);
-    setShowForm(true);
-  };
-
-  const handleView = (customer) => {
-    setSelectedCustomer(customer);
-    setIsModalOpen(true);
-  };
-
-  const handleFormClose = () => {
-    setShowForm(false);
-    setSelectedCustomer(null);
-  };
-
-  // Clear all filters
-  const clearFilters = () => {
-    setSearchTerm("");
-  };
-
- 
-
-  // Get appropriate verification form component based on role
-  const getVerificationForm = () => {
-    if (!selectedCustomer) return null;
-    
-    // For branch_manager and credit_analyst_officer: use CustomerVerificationForm
-    if (userRole === 'branch_manager' || userRole === 'credit_analyst_officer') {
-      return (
-        <CustomerVerificationForm
-          customerId={selectedCustomer}
-          onClose={handleFormClose}
-        />
-      );
-    }
-    
-    // For customer_service_officer: use Verification
+  const handleApproveNavigation = (customerId) => {
     if (userRole === 'customer_service_officer') {
-      return (
-        <Verification
-          customerId={selectedCustomer}
-          onClose={handleFormClose}
-        />
-      );
+      navigate(`/customer/${customerId}/verify-customer_service_officer`);
+    } else {
+      navigate(`/customer/${customerId}/verify`);
     }
-
-    return null;
   };
 
-  // Get appropriate view customer component based on role
-  const getCustomerDetailsModalComponent = () => {
-    if (!selectedCustomer) return null;
-    
-    return (
-      <CustomerDetailsModal
-        customer={selectedCustomer}
-        userRole={userRole}
-        onClose={() => setIsModalOpen(false)}
-      />
-    );
+  const handleViewNavigation = (customerId) => {
+    navigate(`/customer/${customerId}/360`);
   };
 
-  // Helper function to get status display
   const getStatusDisplay = (status) => {
-    if (!status) return 'N/A';
-    
     const statusMap = {
       'bm_review': 'BM Review',
       'ca_review': 'CA Review',
@@ -173,274 +109,171 @@ const CustomerDrafts = () => {
       'bm_review_amend': 'BM Review (Amend)',
       'ca_review_amend': 'CA Review (Amend)'
     };
-    
-    return statusMap[status] || status;
+    return statusMap[status] || status || 'N/A';
   };
 
-  // Helper function to get status color
-  const getStatusColor = (status) => {
-    const statusValue = typeof status === 'string' ? status.toLowerCase() : '';
-    
-    if (statusValue.includes('review') || statusValue.includes('pending')) return '#f59e0b'; // amber
-    if (statusValue.includes('amend')) return '#8b5cf6'; // purple
-    
-    return '#586ab1'; // default blue
-  };
-
-  // Show loading if profile is not yet loaded
-  if (!profile) {
-    return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-center h-64">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#586ab1' }}></div>
-            <span className="ml-3 text-gray-500 text-sm">Loading user information...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!profile) return <div className="h-screen flex items-center justify-center bg-slate-50"><Spinner text="Loading profile..." /></div>;
 
   return (
-    <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
-      {/* Page Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
-            Drafts
-          </h1>
-        </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{backgroundColor:"#586ab1"}}>
-          <span className="font-medium text-white">{filteredCustomers.length}</span> pending customers
-        </div>
-      </div>
-
-      {/* Main Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
-        {/* Search and Filters Header */}
-        <div className="p-5 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            {/* Search and Filter Container */}
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
-              {/* Search Bar */}
-              <div className="relative flex-1">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input
-                  type="text"
-                  placeholder="Search by first name, surname, ID number, or mobile..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <XMarkIcon className="h-3 w-3" />
-                  </button>
-                )}
-              </div>
-
-              {/* Filter Button and Clear Filters */}
-              <div className="flex items-center gap-2">
-                {searchTerm && (
-                  <button
-                    onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
-                  >
-                    <XMarkIcon className="h-3.5 w-3.5" />
-                    Clear
-                  </button>
-                )}
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
-                >
-                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
-                  Filters
-                  {searchTerm && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
-                      1
-                    </span>
-                  )}
-                </button>
-              </div>
-            </div>
+    <div className="min-h-screen bg-muted p-6 md:p-8 font-sans">
+      <div className="max-w-7xl mx-auto">
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+           
+            <h1 className="text-sm font-bold text-slate-900 tracking-tight">
+              Customer Drafts
+            </h1>
+          
           </div>
 
-          {/* Active Filters Display */}
-          {searchTerm && (
-            <div className="mt-4 pt-3 border-t border-gray-200">
-              <div className="flex items-center flex-wrap gap-2">
-                <span className="text-xs text-gray-500 mr-2">Active filters:</span>
-                <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
-                  Search: "{searchTerm}"
-                  <button
-                    onClick={() => setSearchTerm("")}
-                    className="ml-1 text-gray-500 hover:text-gray-700"
-                  >
-                    <XMarkIcon className="h-2.5 w-2.5" />
-                  </button>
-                </span>
-              </div>
+          <div className="flex items-center gap-3">
+            <div className="bg-white/80 backdrop-blur-sm border border-slate-200 px-4 py-2 rounded-xl shadow-sm flex items-center gap-3">
+              <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
+              <span className="text-sm font-semibold text-slate-700">
+                {filteredCustomers.length} <span className="text-slate-400 font-normal">Drafts Pending</span>
+              </span>
             </div>
-          )}
+          </div>
         </div>
 
-        {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  Name
-                </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  Mobile
-                </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  ID Number
-                </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  Prequalified Amount
-                </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  Status
-                </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
+        {/* Action Bar */}
+        <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-white shadow-xl shadow-slate-200/50 mb-6 flex flex-col md:flex-row gap-4 items-center">
+          <div className="relative flex-1 w-full">
+            <MagnifyingGlassIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              placeholder="Search by name, ID, or mobile number..."
+              className="w-full pl-12 pr-4 py-3 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all outline-none text-slate-700 placeholder:text-slate-400"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
 
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan="6" className="px-6 py-12 text-center">
-                    <div className="flex items-center justify-center">
-                      <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#586ab1' }}></div>
-                      <span className="ml-3 text-gray-500 text-sm">Loading customers...</span>
-                    </div>
-                  </td>
-                </tr>
-              ) : (
-                filteredCustomers.map((customer, index) => {
-                  const fullName = `${customer.first_name || customer.Firstname || ""} ${customer.middle_name || ""} ${customer.last_name || customer.Surname || ""}`.trim();
-                  const statusColor = getStatusColor(customer.status);
-                  
-                  return (
-                    <tr 
-                      key={customer.id} 
-                      className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
-                    >
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        {fullName || "N/A"}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition-all shadow-sm"
+          >
+            <AdjustmentsHorizontalIcon className="h-5 w-5" />
+            <span>Filters</span>
+          </button>
+        </div>
+
+        {/* Drafts Grid/Table */}
+        <div className="bg-white rounded-2xl shadow-xl shadow-slate-200/50 border border-slate-200 overflow-hidden">
+          {loading ? (
+            <div className="py-20 flex flex-col items-center justify-center gap-4">
+              <div className="relative">
+                <div className="h-16 w-16 rounded-full border-4 border-slate-100 border-t-indigo-600 animate-spin"></div>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <InboxIcon className="h-6 w-6 text-indigo-600" />
+                </div>
+              </div>
+              <p className="text-slate-500 font-medium animate-pulse">Synchronizing drafts...</p>
+            </div>
+          ) : filteredCustomers.length > 0 ? (
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/50 border-b border-slate-100">
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider">Customer Details</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Identity</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Amount</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-center">Status</th>
+                    <th className="px-6 py-4 text-xs font-bold text-slate-400 uppercase tracking-wider text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredCustomers.map((customer) => (
+                    <tr key={customer.id} className="hover:bg-indigo-50/30 transition-colors group">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-4">
+                          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-indigo-100 to-blue-50 flex items-center justify-center text-indigo-600 border border-indigo-200 shrink-0">
+                            <UserIcon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <div className="text-sm font-bold text-slate-900 leading-none mb-1 capitalize group-hover:text-indigo-600 transition-colors">
+                              {`${customer.first_name} ${customer.last_name}`}
+                            </div>
+                            <div className="flex items-center gap-1.5 text-xs text-slate-500 font-medium">
+                              <PhoneIcon className="h-3 w-3" />
+                              {customer.mobile || "N/A"}
+                            </div>
+                          </div>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        {customer.mobile || customer.phone_number || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                          <IdentificationIcon className="h-3.5 w-3.5" />
+                          <span className="text-xs font-bold">{customer.id_number || "---"}</span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
-                        {customer.id_number || customer.national_id || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <div className="text-sm font-bold text-slate-900">
+                          <span className="text-[10px] text-slate-400 font-medium mr-1 uppercase">KES</span>
+                          {customer.prequalifiedAmount ? Number(customer.prequalifiedAmount).toLocaleString() : "0"}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
-                        {customer.prequalifiedAmount ? 
-                          `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` : 
-                          "N/A"}
-                      </td>
-                      <td className="px-4 py-3 text-center whitespace-nowrap">
-                        <span 
-                          className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
-                          style={{ 
-                            backgroundColor: statusColor,
-                            color: 'white'
-                          }}
-                        >
-                          {getStatusDisplay(customer.status) || "N/A"}
+                      <td className="px-6 py-4 whitespace-nowrap text-center">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest bg-amber-50 text-amber-600 border border-amber-200">
+                          <div className="h-1 w-1 rounded-full bg-amber-600"></div>
+                          {getStatusDisplay(customer.status)}
                         </span>
                       </td>
-                      <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                        <div className="flex items-center justify-center gap-1.5">
-                          {/* View Customer */}
+                      <td className="px-6 py-4 whitespace-nowrap text-right">
+                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                           <button
-                            onClick={() => handleView(customer)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="View Customer Details"
+                            onClick={() => handleViewNavigation(customer.id)}
+                            className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                            title="View 360 Degree View"
                           >
-                            <EyeIcon className="h-4 w-4" />
+                            <EyeIcon className="h-5 w-5" />
                           </button>
-
-                          {/* Approve Button */}
                           <button
-                            onClick={() => handleApprove(customer.id)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Approve Customer"
+                            onClick={() => handleApproveNavigation(customer.id)}
+                            className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow-lg shadow-indigo-200 text-xs font-bold transition-all"
                           >
-                            <CheckIcon className="h-4 w-4" />
+                            <span>Resume</span>
+                            <ChevronRightIcon className="h-3.5 w-3.5" />
                           </button>
                         </div>
                       </td>
                     </tr>
-                  );
-                })
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="py-24 flex flex-col items-center justify-center text-center">
+              <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center mb-4 border border-slate-100">
+                <BoxIcon className="h-10 w-10 text-slate-300" />
+              </div>
+              <h3 className="text-lg font-bold text-slate-900">All clear!</h3>
+              <p className="text-slate-500 max-w-[280px] mt-2 text-sm">
+                No draft verifications found matching your current role or criteria.
+              </p>
+              {searchTerm && (
+                <button
+                  onClick={() => setSearchTerm('')}
+                  className="mt-6 text-indigo-600 font-bold text-xs uppercase tracking-widest hover:text-indigo-700 flex items-center gap-2"
+                >
+                  Clear search terms
+                  <XMarkIcon className="h-3 w-3" />
+                </button>
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* No Results */}
-        {!loading && filteredCustomers.length === 0 && (
-          <div className="p-10 text-center">
-            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-gray-100 to-gray-200 flex items-center justify-center">
-              <MagnifyingGlassIcon className="h-8 w-8 text-gray-400" />
             </div>
-            <h3 className="text-sm font-semibold text-gray-700 mb-1">
-              {searchTerm ? "No customers found" : "No pending approvals"}
-            </h3>
-            <p className="text-xs text-gray-500 max-w-sm mx-auto">
-              {searchTerm
-                ? "Try adjusting your search criteria"
-                : "All customers have been processed or there are no pending approvals for your role."}
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </div>
-
-      {/* View Customer Modal */}
-      {isModalOpen && selectedCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
-            <button
-              onClick={() => setIsModalOpen(false)}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl font-bold z-10"
-            >
-              ✕
-            </button>
-            <div className="p-6">
-              {getCustomerDetailsModalComponent()}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer Verification Form Modal - Role-based */}
-      {showForm && selectedCustomer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto relative">
-            <button
-              onClick={handleFormClose}
-              className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 text-xl font-bold z-10"
-            >
-              ✕
-            </button>
-            <div className="p-6">
-              {getVerificationForm()}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
+
+// Simple Fallback Box Icon if BoxIcon is not available
+const BoxIcon = ({ className }) => (
+  <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+  </svg>
+);
 
 export default CustomerDrafts;

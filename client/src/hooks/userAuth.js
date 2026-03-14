@@ -109,6 +109,7 @@ export function useAuth() {
       localStorage.removeItem("sessionToken");
       localStorage.removeItem("userId");
       localStorage.removeItem("sessionExpiresAt");
+      localStorage.removeItem("reportUser");
 
       setUser(null);
       setProfile(null);
@@ -212,7 +213,11 @@ export function useAuth() {
     // If we already have a token in localStorage, use it directly.
     // Do NOT also call getSession() — that causes duplicate fetchProfile calls.
     if (customSessionToken && customUserId) {
-      fetchProfile(customUserId);
+      if (!profile || profile.id !== customUserId) {
+        fetchProfile(customUserId);
+      } else {
+        setInitializing(false);
+      }
       setupAutoLogout();
     } else {
       // No localStorage token — check Supabase for an existing session
@@ -242,6 +247,8 @@ export function useAuth() {
           // Only fetch if profile isn't already loaded for this user
           if (!profile || profile.id !== session.user.id) {
             fetchProfile(session.user.id);
+          } else {
+            setInitializing(false);
           }
         } else if (event === "TOKEN_REFRESHED" && session?.access_token) {
           // Just update the token, don't re-fetch profile
@@ -282,6 +289,7 @@ export function useAuth() {
     logout,
     setUser,
     setProfile,
+    setTenant,
     refreshProfile
   };
 }

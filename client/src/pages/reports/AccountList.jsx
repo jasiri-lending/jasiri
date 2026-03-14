@@ -11,21 +11,16 @@ import {
   Printer,
   ChevronsLeft,
   ChevronsRight,
-  ArrowLeft
+  ArrowLeft,
+  Globe
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
-import { useParams } from "react-router-dom";
+import { useAuth } from "../../hooks/userAuth.js";
+import { useParams, useNavigate } from "react-router-dom";
 
 const CustomerStatementModal = () => {
-  // Load tenant from localStorage for company_name in exports
-  const [tenant] = useState(() => {
-    try {
-      const saved = localStorage.getItem("tenant");
-      return saved ? JSON.parse(saved) : null;
-    } catch (e) {
-      return null;
-    }
-  });
+  const { profile, tenant } = useAuth();
+  const navigate = useNavigate();
   const { customerId } = useParams();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
@@ -75,7 +70,7 @@ const CustomerStatementModal = () => {
 
   useEffect(() => {
     const fetchTransactions = async () => {
-      if (!customerId) return;
+      if (!customerId || !profile) return;
       setLoading(true);
 
       try {
@@ -83,11 +78,25 @@ const CustomerStatementModal = () => {
         let runningBalance = 0;
 
         // 1️ Customer Info
-        const { data: customer, error: customerError } = await supabase
+        let customerQuery = supabase
           .from("customers")
-          .select("id, Firstname,Surname, mobile, created_at")
-          .eq("id", customerId)
-          .single();
+          .select("id, Firstname, Surname, mobile, created_at, branch_id, created_by, branch:branch_id(region_id)")
+          .eq("id", customerId);
+
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          customerQuery = customerQuery.eq('created_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            customerQuery = customerQuery.eq('branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            customerQuery = customerQuery.filter('branch.region_id', 'eq', profile.region_id);
+          }
+        }
+
+        const { data: customer, error: customerError } = await customerQuery.single();
 
         if (customerError || !customer) {
           console.error(" Customer not found:", customerError?.message);

@@ -15,6 +15,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
@@ -301,6 +302,8 @@ const LoanArrearsReport = () => {
     }
   });
 
+  const { profile } = useAuth();
+
   // ========== State ==========
   const [rawLoans, setRawLoans] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -419,7 +422,7 @@ const LoanArrearsReport = () => {
         );
 
         // Fetch loans with related data
-        const fetchPromise = supabase
+        let fetchPromise = supabase
           .from("loans")
           .select(`
             id,
@@ -440,6 +443,15 @@ const LoanArrearsReport = () => {
           .eq('status', 'disbursed')
           .neq('repayment_state', 'completed')
           .not('disbursed_at', 'is', null);
+
+        // Role-based restrictions
+        if (profile?.role === "relationship_officer") {
+          fetchPromise = fetchPromise.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          fetchPromise = fetchPromise.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          fetchPromise = fetchPromise.eq("region_id", profile.region_id);
+        }
 
         const { data: loansWithInstallments, error: loansError } = await Promise.race([
           fetchPromise,
@@ -513,7 +525,7 @@ const LoanArrearsReport = () => {
       console.log("🧹 Cleanup: Component unmounting");
       isMountedRef.current = false;
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
 
   // ========== Manual Refresh ==========
   const handleManualRefresh = useCallback(async () => {
@@ -534,7 +546,7 @@ const LoanArrearsReport = () => {
       setError(null);
 
       // Fetch loans with related data
-      const { data: loansWithInstallments, error: loansError } = await supabase
+      let loansQuery = supabase
         .from("loans")
         .select(`
           id,
@@ -555,6 +567,16 @@ const LoanArrearsReport = () => {
         .eq('status', 'disbursed')
         .neq('repayment_state', 'completed')
         .not('disbursed_at', 'is', null);
+
+      if (profile?.role === "relationship_officer") {
+        loansQuery = loansQuery.eq("booked_by", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        loansQuery = loansQuery.eq("region_id", profile.region_id);
+      }
+
+      const { data: loansWithInstallments, error: loansError } = await loansQuery;
 
       if (loansError) throw loansError;
 
@@ -871,29 +893,33 @@ const LoanArrearsReport = () => {
               Filter Results
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase">Branch</label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="">All Branches</option>
-                  {branches.map(b => <option key={b} value={b}>{b}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Branch</label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="">All Branches</option>
+                    {branches.map(b => <option key={b} value={b}>{b}</option>)}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-gray-500 uppercase">Officer</label>
-                <select
-                  value={filters.officer}
-                  onChange={(e) => handleFilterChange("officer", e.target.value)}
-                  className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                >
-                  <option value="">All Officers</option>
-                  {officers.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-gray-500 uppercase">Officer</label>
+                  <select
+                    value={filters.officer}
+                    onChange={(e) => handleFilterChange("officer", e.target.value)}
+                    className="w-full border border-gray-300 px-3 py-2 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  >
+                    <option value="">All Officers</option>
+                    {officers.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-gray-500 uppercase">Arrears Range</label>

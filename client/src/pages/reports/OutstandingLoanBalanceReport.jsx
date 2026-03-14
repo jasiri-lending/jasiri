@@ -22,6 +22,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
@@ -164,6 +165,8 @@ const OutstandingLoanBalanceReport = () => {
     }
   });
 
+  const { profile } = useAuth();
+
   // ========== State ==========
   const [rawReports, setRawReports] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -305,16 +308,26 @@ const OutstandingLoanBalanceReport = () => {
           setTimeout(() => reject(new Error('Request timeout')), 45000)
         );
 
+        let fetchLoansPromise = supabase
+          .from("loans")
+          .select(
+            "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
+          )
+          .eq("tenant_id", tenantId)
+          .in("status", ["active", "disbursed"])
+          .neq("repayment_state", "completed");
+
+        if (profile?.role === "relationship_officer") {
+          fetchLoansPromise = fetchLoansPromise.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          fetchLoansPromise = fetchLoansPromise.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          fetchLoansPromise = fetchLoansPromise.eq("region_id", profile.region_id);
+        }
+
         // Parallel fetch all required tables with tenant filter
         const fetchPromise = Promise.all([
-          supabase
-            .from("loans")
-            .select(
-              "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
-            )
-            .eq("tenant_id", tenantId)
-            .in("status", ["active", "disbursed"])
-            .neq("repayment_state", "completed"),
+          fetchLoansPromise,
           supabase
             .from("loan_installments")
             .select(
@@ -516,7 +529,7 @@ const OutstandingLoanBalanceReport = () => {
       console.log("🧹 Cleanup: Component unmounting");
       isMountedRef.current = false;
     };
-  }, [tenant?.id, calculateArrearsAndOverdue]);
+  }, [tenant?.id, profile?.role, profile?.id, profile?.branch_id, profile?.region_id, calculateArrearsAndOverdue]);
 
   // ========== Manual Refresh ==========
   const handleManualRefresh = async () => {
@@ -529,6 +542,23 @@ const OutstandingLoanBalanceReport = () => {
       setLoading(true);
       setError(null);
 
+      let fetchLoansPromise = supabase
+        .from("loans")
+        .select(
+          "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
+        )
+        .eq("tenant_id", tenantId)
+        .in("status", ["active", "disbursed"])
+        .neq("repayment_state", "completed");
+
+      if (profile?.role === "relationship_officer") {
+        fetchLoansPromise = fetchLoansPromise.eq("booked_by", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        fetchLoansPromise = fetchLoansPromise.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        fetchLoansPromise = fetchLoansPromise.eq("region_id", profile.region_id);
+      }
+
       const [
         loansRes,
         installmentsRes,
@@ -537,14 +567,7 @@ const OutstandingLoanBalanceReport = () => {
         branchesRes,
         regionsRes,
       ] = await Promise.all([
-        supabase
-          .from("loans")
-          .select(
-            "id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment"
-          )
-          .eq("tenant_id", tenantId)
-          .in("status", ["active", "disbursed"])
-          .neq("repayment_state", "completed"),
+        fetchLoansPromise,
         supabase
           .from("loan_installments")
           .select(
@@ -1269,59 +1292,65 @@ const OutstandingLoanBalanceReport = () => {
                 </>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Region
-                </label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map((r) => (
-                    <option key={r.id} value={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                    Region
+                  </label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => handleFilterChange("region", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Branch
-                </label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  <option value="">All Branches</option>
-                  {getFilteredBranches().map((b) => (
-                    <option key={b.id} value={b.id}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                    Branch
+                  </label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Branches</option>
+                    {getFilteredBranches().map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
-                  Officer
-                </label>
-                <select
-                  value={filters.loanOfficer}
-                  onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  <option value="">All Officers</option>
-                  {getFilteredOfficers().map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.full_name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                    Officer
+                  </label>
+                  <select
+                    value={filters.loanOfficer}
+                    onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
+                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                  >
+                    <option value="">All Officers</option>
+                    {getFilteredOfficers().map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.full_name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">

@@ -46,16 +46,18 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     const {
       name,
       company_name,
+      admin_email,
+      admin_full_name,
       logo_url,
       primary_color,
       secondary_color,
-      admin_full_name,
-      admin_email,
       cr12,
       company_certificate,
       license,
       tenant_id_number,
-      phone_number
+      phone_number,
+      document_upload_enabled,
+      image_upload_enabled
     } = req.body;
 
     if (!name || !company_name || !admin_email || !admin_full_name) {
@@ -120,6 +122,20 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     if (tenantErr) {
       console.error("❌ Tenant Insertion Error:", tenantErr);
       throw tenantErr;
+    }
+
+    // 1.5️⃣ Insert tenant features
+    const { error: featuresErr } = await supabase
+      .from("tenant_features")
+      .insert([{
+        tenant_id: tenant.id,
+        document_upload_enabled: !!document_upload_enabled,
+        image_upload_enabled: !!image_upload_enabled
+      }]);
+
+    if (featuresErr) {
+      console.error("❌ Tenant Features Insertion Error:", featuresErr);
+      // Not critical enough to fail the whole process, but logged
     }
 
     // 2️⃣ Random password for admin

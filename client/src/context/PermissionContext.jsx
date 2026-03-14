@@ -16,6 +16,24 @@ export const PermissionProvider = ({ children }) => {
             return;
         }
 
+        // Special handling for superadmin - they get all permissions
+        if (profile.role === 'superadmin') {
+            try {
+                const { data: allPerms, error: permsError } = await supabase
+                    .from("permissions")
+                    .select("name, description, resource, action");
+
+                if (permsError) throw permsError;
+                setPermissions(allPerms || []);
+            } catch (err) {
+                console.error("Error fetching all permissions for superadmin:", err.message);
+                setPermissions([]);
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         setLoading(true);
         try {
             let query = supabase

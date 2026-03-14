@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/userAuth';
+import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import imageCompression from 'browser-image-compression';
 
 const KENYA_COUNTIES = [
@@ -30,6 +31,7 @@ const KENYA_COUNTIES = [
 
 const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
   const { profile } = useAuth();
+  const { imageUploadEnabled } = useTenantFeatures();
 
   // Form state - matching database column names
   const [formData, setFormData] = useState({
@@ -525,7 +527,7 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
       }
 
       // Insert security items if any exist
-      if (securityItems.length > 0 && securityItems[0].item) {
+      if (imageUploadEnabled && securityItems.length > 0 && securityItems[0].item) {
         await insertGuarantorSecurityItems(securityItems, guarantorSecurityImages, guarantor.id);
       }
 
@@ -941,159 +943,161 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
           </div>
 
           {/* Step 2: Guarantor Documents (Optional) */}
-          <div className="space-y-6">
-            <div className="flex items-center gap-3">
-              <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
-                <Upload className="w-5 h-5" style={{ color: "#586ab1" }} />
+          {imageUploadEnabled && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-lg" style={{ backgroundColor: "#f0f2f8" }}>
+                  <Upload className="w-5 h-5" style={{ color: "#586ab1" }} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
+                    Guarantor Documents (Optional)
+                  </h3>
+                  <p className="text-gray-600">Upload documents for the guarantor</p>
+                </div>
               </div>
-              <div>
-                <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>
-                  Guarantor Documents (Optional)
-                </h3>
-                <p className="text-gray-600">Upload documents for the guarantor</p>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Passport Photo */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Passport Photo
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Upload Passport</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
+                        className="hidden"
+                      />
+                    </label>
+                    <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                      <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                      <span className="text-sm text-blue-600">Take Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
+                        className="hidden"
+                      />
+                    </label>
+                    {previews.guarantorPassport && (
+                      <div className="relative mt-4">
+                        <img
+                          src={previews.guarantorPassport.url}
+                          alt="Passport preview"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile('guarantorPassport', setGuarantorPassportFile)}
+                          className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ID Front */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ID Front Side
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Upload ID Front</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
+                        className="hidden"
+                      />
+                    </label>
+                    <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                      <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                      <span className="text-sm text-blue-600">Take Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
+                        className="hidden"
+                      />
+                    </label>
+                    {previews.guarantorIdFront && (
+                      <div className="relative mt-4">
+                        <img
+                          src={previews.guarantorIdFront.url}
+                          alt="ID Front preview"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile('guarantorIdFront', setGuarantorIdFrontFile)}
+                          className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* ID Back */}
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    ID Back Side
+                  </label>
+                  <div className="space-y-3">
+                    <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                      <Upload className="w-6 h-6 text-gray-400 mb-2" />
+                      <span className="text-sm text-gray-600">Upload ID Back</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
+                        className="hidden"
+                      />
+                    </label>
+                    <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
+                      <Camera className="w-6 h-6 text-blue-400 mb-2" />
+                      <span className="text-sm text-blue-600">Take Photo</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
+                        className="hidden"
+                      />
+                    </label>
+                    {previews.guarantorIdBack && (
+                      <div className="relative mt-4">
+                        <img
+                          src={previews.guarantorIdBack.url}
+                          alt="ID Back preview"
+                          className="w-full h-48 object-cover rounded-lg"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveFile('guarantorIdBack', setGuarantorIdBackFile)}
+                          className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              {/* Passport Photo */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Passport Photo
-                </label>
-                <div className="space-y-3">
-                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload Passport</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
-                      className="hidden"
-                    />
-                  </label>
-                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                    <span className="text-sm text-blue-600">Take Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => handleFileUpload(e, setGuarantorPassportFile, 'guarantorPassport')}
-                      className="hidden"
-                    />
-                  </label>
-                  {previews.guarantorPassport && (
-                    <div className="relative mt-4">
-                      <img
-                        src={previews.guarantorPassport.url}
-                        alt="Passport preview"
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile('guarantorPassport', setGuarantorPassportFile)}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ID Front */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ID Front Side
-                </label>
-                <div className="space-y-3">
-                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload ID Front</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
-                      className="hidden"
-                    />
-                  </label>
-                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                    <span className="text-sm text-blue-600">Take Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => handleFileUpload(e, setGuarantorIdFrontFile, 'guarantorIdFront')}
-                      className="hidden"
-                    />
-                  </label>
-                  {previews.guarantorIdFront && (
-                    <div className="relative mt-4">
-                      <img
-                        src={previews.guarantorIdFront.url}
-                        alt="ID Front preview"
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile('guarantorIdFront', setGuarantorIdFrontFile)}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ID Back */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-blue-400 transition-colors">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  ID Back Side
-                </label>
-                <div className="space-y-3">
-                  <label className="flex flex-col items-center justify-center p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                    <Upload className="w-6 h-6 text-gray-400 mb-2" />
-                    <span className="text-sm text-gray-600">Upload ID Back</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
-                      className="hidden"
-                    />
-                  </label>
-                  <label className="flex flex-col items-center justify-center p-4 bg-blue-50 rounded-lg cursor-pointer hover:bg-blue-100 transition-colors">
-                    <Camera className="w-6 h-6 text-blue-400 mb-2" />
-                    <span className="text-sm text-blue-600">Take Photo</span>
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => handleFileUpload(e, setGuarantorIdBackFile, 'guarantorIdBack')}
-                      className="hidden"
-                    />
-                  </label>
-                  {previews.guarantorIdBack && (
-                    <div className="relative mt-4">
-                      <img
-                        src={previews.guarantorIdBack.url}
-                        alt="ID Back preview"
-                        className="w-full h-48 object-cover rounded-lg"
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveFile('guarantorIdBack', setGuarantorIdBackFile)}
-                        className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full hover:bg-red-700"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
+          )}
 
           {/* Step 3: Guarantor Security Items (Optional) */}
           <div className="space-y-6">
@@ -1218,65 +1222,67 @@ const AddGuarantor = ({ onClose, onSuccess, defaultBranch, defaultRegion }) => {
                   </div>
 
                   {/* Security Images */}
-                  <div className="mt-6">
-                    <label className="block text-sm font-medium mb-2 text-gray-700">
-                      Item Images
-                    </label>
-                    <div className="flex gap-3 mb-3">
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition">
-                        <Upload className="w-5 h-5" />
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index)}
-                          className="hidden"
-                        />
+                  {imageUploadEnabled && (
+                    <div className="mt-6">
+                      <label className="block text-sm font-medium mb-2 text-gray-700">
+                        Item Images
                       </label>
+                      <div className="flex gap-3 mb-3">
+                        <label className="flex items-center justify-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition">
+                          <Upload className="w-5 h-5" />
+                          Upload
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => handleMultipleFiles(e, index)}
+                            className="hidden"
+                          />
+                        </label>
 
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-300 text-white rounded-lg cursor-pointer hover:bg-blue-500 transition">
-                        <Camera className="w-5 h-5" />
-                        Camera
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          multiple
-                          onChange={(e) => handleMultipleFiles(e, index)}
-                          className="hidden"
-                        />
-                      </label>
-                    </div>
-
-                    {/* Display Image Grid */}
-                    {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                        {guarantorSecurityImages[index].map((img, imgIdx) => (
-                          <div key={imgIdx} className="relative group">
-                            <img
-                              src={URL.createObjectURL(img)}
-                              alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
-                              className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveMultipleFile(index, imgIdx)}
-                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                            {/* File name display */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                              <p className="text-xs truncate" title={img.name}>
-                                {img.name}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                        <label className="flex items-center justify-center gap-2 px-4 py-2 bg-blue-300 text-white rounded-lg cursor-pointer hover:bg-blue-500 transition">
+                          <Camera className="w-5 h-5" />
+                          Camera
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            multiple
+                            onChange={(e) => handleMultipleFiles(e, index)}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
-                    )}
-                  </div>
+
+                      {/* Display Image Grid */}
+                      {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                          {guarantorSecurityImages[index].map((img, imgIdx) => (
+                            <div key={imgIdx} className="relative group">
+                              <img
+                                src={URL.createObjectURL(img)}
+                                alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveMultipleFile(index, imgIdx)}
+                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                              {/* File name display */}
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                <p className="text-xs truncate" title={img.name}>
+                                  {img.name}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))}
 

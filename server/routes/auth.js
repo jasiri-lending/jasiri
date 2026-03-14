@@ -7,8 +7,8 @@ import { verifySupabaseToken } from "../middleware/authMiddleware.js";
 
 const Authrouter = express.Router();
 
-// ⏱️ Session duration configuration — Change the number below to set how long a login session lasts
-// This is now the single source of truth for the entire system.
+// Session duration configuration — Change the number below to set how long a login session lasts (e.g. 7 for seven days)
+// the login token should expire after 7 days comment the line so that I will change it to nay time infuture
 const SESSION_DURATION_DAYS = 7;
 
 // Helper function to get current UTC time as ISO string
@@ -39,6 +39,102 @@ const isExpired = (expiryTimestamp) => {
   });
 
   return expiry.getTime() < now.getTime();
+};
+
+// Reusable helper to fetch full profile and tenant data
+const getFullProfileData = async (userId) => {
+  console.log(`\n🔍 [PROFILE HELPER] Starting profile fetch for userId: ${userId}`);
+
+  // Fetch user details INCLUDING tenant_id and session_expires_at
+  const { data: userData, error: userError } = await supabaseAdmin
+    .from("users")
+    .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at")
+    .eq("id", userId)
+    .single();
+
+  if (userError || !userData) {
+    console.error("❌ [PROFILE HELPER] User fetch error:", userError);
+    return null;
+  }
+
+  // Fetch profile info (branch/region)
+  const { data: basicProfile, error: basicError } = await supabaseAdmin
+    .from("profiles")
+    .select("branch_id, region_id, avatar_url")
+    .eq("id", userId)
+    .maybeSingle();
+
+  let branchName = "N/A";
+  let branchCode = null;
+  let regionName = "N/A";
+  let tenantData = null;
+  let finalBranchId = basicProfile?.branch_id || null;
+  let finalRegionId = basicProfile?.region_id || null;
+
+  // Fetch branch data (including region_id from branch)
+  if (finalBranchId) {
+    const { data: branchData, error: branchError } = await supabaseAdmin
+      .from("branches")
+      .select("name, code, region_id")
+      .eq("id", finalBranchId)
+      .single();
+
+    if (branchData) {
+      branchName = branchData.name;
+      branchCode = branchData.code;
+      if (!finalRegionId && branchData.region_id) {
+        finalRegionId = branchData.region_id;
+      }
+    }
+  }
+
+  // Fetch region name
+  if (finalRegionId) {
+    const { data: regionData, error: regionError } = await supabaseAdmin
+      .from("regions")
+      .select("name")
+      .eq("id", finalRegionId)
+      .single();
+
+    if (regionData) {
+      regionName = regionData.name;
+    }
+  }
+
+  // Fetch tenant data if tenant_id exists
+  if (userData.tenant_id) {
+    const { data: tenant, error: tenantError } = await supabaseAdmin
+      .from("tenants")
+      .select("*")
+      .eq("id", userData.tenant_id)
+      .single();
+
+    if (!tenantError && tenant) {
+      tenantData = tenant;
+    }
+  }
+
+  return {
+    profile: {
+      id: userData.id,
+      full_name: userData.full_name,
+      name: userData.full_name,
+      email: userData.email,
+      role: userData.role,
+      tenant_id: userData.tenant_id,
+      phone: userData.phone,
+      company_phone: userData.company_phone,
+      branch_id: finalBranchId,
+      region_id: finalRegionId,
+      avatar_url: basicProfile?.avatar_url || null,
+      branch: branchName,
+      branch_code: branchCode,
+      region: regionName,
+      must_change_password: userData.must_change_password,
+      session_expires_at: userData.session_expires_at
+    },
+    tenant: tenantData
+  };
 };
 
 // POST /api/login - Verify credentials via Supabase and send OTP via Brevo
@@ -113,7 +209,6 @@ Authrouter.post("/login", async (req, res) => {
       userId: user.id
     });
   } catch (err) {
-    console.error("💥 Login route crash:", err);
     res.status(500).json({ success: false, error: "An unexpected error occurred during login" });
   }
 });
@@ -194,12 +289,10 @@ Authrouter.post("/verify-code", async (req, res) => {
     }
 
     if (!user.verification_code || user.verification_code !== code) {
-      console.error(`❌ OTP mismatch for ${user.email}`);
       return res.status(401).json({ success: false, error: "Invalid verification code" });
     }
 
     if (isExpired(user.verification_expires_at)) {
-      console.error(`❌ OTP expired for ${user.email}`);
       return res.status(401).json({ success: false, error: "Verification code expired" });
     }
 
@@ -267,7 +360,8 @@ Authrouter.post("/verify-code", async (req, res) => {
       // and provide a one-time token.
 
       otpHandshake: true, // Signal to frontend that OTP is done
-      session_expires_at: sessionExpiresAt // Return expiry so client can sync timer
+      session_expires_at: sessionExpiresAt, // Return expiry so client can sync timer
+      profileData: await getFullProfileData(userId)
     });
 
   } catch (err) {
@@ -495,158 +589,14 @@ Authrouter.get("/profile/:userId", verifySupabaseToken, async (req, res) => {
   }
 
   try {
-    console.log(`\n🔍 [PROFILE] Starting profile fetch for userId: ${userId}`);
-
-    // Fetch user details INCLUDING tenant_id and session_expires_at
-    const { data: userData, error: userError } = await supabaseAdmin
-      .from("users")
-      .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at")
-      .eq("id", userId)
-      .single();
-
-    if (userError || !userData) {
-      console.error("❌ [PROFILE] User fetch error:", userError);
+    const data = await getFullProfileData(userId);
+    if (!data) {
       return res.status(404).json({ success: false, error: "User not found" });
     }
 
-    console.log(`✅ [PROFILE] User data:`, {
-      email: userData.email,
-      role: userData.role,
-      tenant_id: userData.tenant_id
-    });
-
-    // Fetch profile info (branch/region)
-    const { data: basicProfile, error: basicError } = await supabaseAdmin
-      .from("profiles")
-      .select("branch_id, region_id, avatar_url")
-      .eq("id", userId)
-      .maybeSingle();
-
-    console.log(`📋 [PROFILE] Profile table data:`, {
-      exists: !!basicProfile,
-      branch_id: basicProfile?.branch_id || 'null',
-      region_id: basicProfile?.region_id || 'null',
-      error: basicError?.message || 'none'
-    });
-
-    let branchName = "N/A";
-    let branchCode = null;
-    let regionName = "N/A";
-    let tenantData = null;
-    let finalBranchId = basicProfile?.branch_id || null;
-    let finalRegionId = basicProfile?.region_id || null;
-
-    // Fetch branch data (including region_id from branch)
-    if (finalBranchId) {
-      console.log(`🏢 [PROFILE] Fetching branch data for branch_id: ${finalBranchId}`);
-
-      const { data: branchData, error: branchError } = await supabaseAdmin
-        .from("branches")
-        .select("name, code, region_id")
-        .eq("id", finalBranchId)
-        .single();
-
-      console.log(`🏢 [PROFILE] Branch query result:`, {
-        found: !!branchData,
-        name: branchData?.name || 'null',
-        code: branchData?.code || 'null',
-        region_id: branchData?.region_id || 'null',
-        error: branchError?.message || 'none'
-      });
-
-      if (branchData) {
-        branchName = branchData.name;
-        branchCode = branchData.code;
-
-        // If no region_id in profile, use branch's region_id
-        if (!finalRegionId && branchData.region_id) {
-          finalRegionId = branchData.region_id;
-          console.log(`📍 [PROFILE] Using region_id from branch: ${finalRegionId}`);
-        }
-      }
-    } else {
-      console.log(`⚠️ [PROFILE] No branch_id found in profile`);
-    }
-
-    // Fetch region name
-    if (finalRegionId) {
-      console.log(`🌍 [PROFILE] Fetching region data for region_id: ${finalRegionId}`);
-
-      const { data: regionData, error: regionError } = await supabaseAdmin
-        .from("regions")
-        .select("name")
-        .eq("id", finalRegionId)
-        .single();
-
-      console.log(`🌍 [PROFILE] Region query result:`, {
-        found: !!regionData,
-        name: regionData?.name || 'null',
-        error: regionError?.message || 'none'
-      });
-
-      if (regionData) {
-        regionName = regionData.name;
-        console.log(`✅ [PROFILE] Region name resolved: ${regionName}`);
-      } else {
-        console.log(`❌ [PROFILE] Region not found for region_id: ${finalRegionId}`);
-      }
-    } else {
-      console.log(`⚠️ [PROFILE] No region_id found (neither in profile nor branch)`);
-    }
-
-    // Fetch tenant data if tenant_id exists
-    if (userData.tenant_id) {
-      console.log(`🏭 [PROFILE] Fetching tenant data for tenant_id: ${userData.tenant_id}`);
-
-      const { data: tenant, error: tenantError } = await supabaseAdmin
-        .from("tenants")
-        .select("*")
-        .eq("id", userData.tenant_id)
-        .single();
-
-      if (!tenantError && tenant) {
-        tenantData = tenant;
-        console.log(`✅ [PROFILE] Tenant fetched: ${tenant.company_name}`);
-      } else {
-        console.log(`❌ [PROFILE] Tenant fetch failed:`, tenantError?.message);
-      }
-    }
-
-    const profileData = {
-      id: userData.id,
-      full_name: userData.full_name,
-      name: userData.full_name,
-      email: userData.email,
-      role: userData.role,
-      tenant_id: userData.tenant_id,
-      phone: userData.phone,
-      company_phone: userData.company_phone,
-      branch_id: finalBranchId,
-      region_id: finalRegionId,
-      avatar_url: basicProfile?.avatar_url || null,
-      branch: branchName,
-      branch_code: branchCode,
-      region: regionName,
-      must_change_password: userData.must_change_password,
-      session_expires_at: userData.session_expires_at
-    };
-
-    console.log(`📊 [PROFILE] Final profile data:`, {
-      email: profileData.email,
-      role: profileData.role,
-      branch_id: profileData.branch_id,
-      branch: profileData.branch,
-      region_id: profileData.region_id,
-      region: profileData.region,
-      tenant: tenantData?.company_name || 'null'
-    });
-
-    console.log(`✅ [PROFILE] Profile fetch complete for ${userData.email}\n`);
-
-    // Return both profile and tenant data
     res.json({
-      ...profileData,
-      tenant: tenantData
+      ...data.profile,
+      tenant: data.tenant
     });
 
   } catch (err) {

@@ -16,9 +16,11 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures.js";
 
 function CustomerEdits() {
   const { profile } = useAuth();
+  const { documentUploadEnabled } = useTenantFeatures();
   const [loading, setLoading] = useState(false);
   const [editRequests, setEditRequests] = useState([]);
   const [filteredRequests, setFilteredRequests] = useState([]);
@@ -207,7 +209,7 @@ function CustomerEdits() {
       return;
     }
 
-    if (!idPhoneForm.document) {
+    if (documentUploadEnabled && !idPhoneForm.document) {
       alert('Please upload a supporting document');
       return;
     }
@@ -215,7 +217,7 @@ function CustomerEdits() {
     try {
       setLoading(true);
 
-      const documentUrl = await uploadSupportDocument(idPhoneForm.document);
+      const documentUrl = documentUploadEnabled ? await uploadSupportDocument(idPhoneForm.document) : null;
 
       const editRequestData = {
         customer_id: selectedCustomer.id,
@@ -618,42 +620,44 @@ function CustomerEdits() {
             </div>
 
             {/* Document Upload */}
-            <div className="mb-6">
-              <label className="block text-sm font-heading font-medium text-text mb-2">
-                Supporting Document <span className="text-red-500">*</span>
-              </label>
-              <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-brand-btn transition-colors">
-                <input
-                  type="file"
-                  id="document-upload"
-                  onChange={handleDocumentUpload}
-                  accept=".jpg,.jpeg,.png,.pdf"
-                  className="hidden"
-                  required
-                />
-                <DocumentTextIcon className="w-12 h-12 text-muted mx-auto mb-3" />
-                <p className="text-sm text-text mb-1 font-body">
-                  {idPhoneForm.document ? idPhoneForm.document.name : 'Upload new ID copy or supporting document'}
-                </p>
-                <p className="text-xs text-muted mb-4 font-body">JPG, PNG, PDF (Max 5MB)</p>
-                <label
-                  htmlFor="document-upload"
-                  className="inline-block px-6 py-2.5 bg-brand-btn text-white rounded-xl hover:bg-brand-primary font-medium font-body cursor-pointer transition-colors"
-                >
-                  Choose File
+            {documentUploadEnabled && (
+              <div className="mb-6">
+                <label className="block text-sm font-heading font-medium text-text mb-2">
+                  Supporting Document <span className="text-red-500">*</span>
                 </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-brand-btn transition-colors">
+                  <input
+                    type="file"
+                    id="document-upload"
+                    onChange={handleDocumentUpload}
+                    accept=".jpg,.jpeg,.png,.pdf"
+                    className="hidden"
+                    required={documentUploadEnabled}
+                  />
+                  <DocumentTextIcon className="w-12 h-12 text-muted mx-auto mb-3" />
+                  <p className="text-sm text-text mb-1 font-body">
+                    {idPhoneForm.document ? idPhoneForm.document.name : 'Upload new ID copy or supporting document'}
+                  </p>
+                  <p className="text-xs text-muted mb-4 font-body">JPG, PNG, PDF (Max 5MB)</p>
+                  <label
+                    htmlFor="document-upload"
+                    className="inline-block px-6 py-2.5 bg-brand-btn text-white rounded-xl hover:bg-brand-primary font-medium font-body cursor-pointer transition-colors"
+                  >
+                    Choose File
+                  </label>
 
-                {idPhoneForm.documentPreview && (
-                  <div className="mt-4">
-                    <img
-                      src={idPhoneForm.documentPreview}
-                      alt="Document preview"
-                      className="max-h-48 mx-auto rounded-xl border-2 border-gray-200"
-                    />
-                  </div>
-                )}
+                  {idPhoneForm.documentPreview && (
+                    <div className="mt-4">
+                      <img
+                        src={idPhoneForm.documentPreview}
+                        alt="Document preview"
+                        className="max-h-48 mx-auto rounded-xl border-2 border-gray-200"
+                      />
+                    </div>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">

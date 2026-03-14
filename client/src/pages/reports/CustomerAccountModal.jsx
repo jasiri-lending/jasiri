@@ -26,6 +26,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import { useAuth } from "../../hooks/userAuth";
 import { usePermissions } from "../../hooks/usePermissions";
 import Spinner from "../../components/Spinner";
 
@@ -68,16 +69,8 @@ SortableHeader.displayName = "SortableHeader";
 const CustomerAccountModal = () => {
   const navigate = useNavigate();
 
-  // Get tenant from localStorage ONCE
-  const [tenant] = useState(() => {
-    try {
-      const savedTenant = localStorage.getItem("tenant");
-      return savedTenant ? JSON.parse(savedTenant) : null;
-    } catch (e) {
-      console.error("Error loading tenant:", e);
-      return null;
-    }
-  });
+  // Get tenant and profile from useAuth
+  const { tenant, profile } = useAuth();
 
   // ========== State ==========
   const [rawAccounts, setRawAccounts] = useState([]);
@@ -128,15 +121,25 @@ const CustomerAccountModal = () => {
     if (!tenantId) return;
 
     const fetchBranches = async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("branches")
-        .select("id, name")
+        .select("id, name, region_id")
         .eq("tenant_id", tenantId);
 
+      // Branch RBAC
+      if (profile?.role === 'relationship_officer') {
+        if (profile.branch_id) query = query.eq('id', profile.branch_id);
+      } else if (['branch_manager', 'customer_service_officer'].includes(profile?.role)) {
+        if (profile.branch_id) query = query.eq('id', profile.branch_id);
+      } else if (profile?.role === 'regional_manager') {
+        if (profile.region_id) query = query.eq('region_id', profile.region_id);
+      }
+
+      const { data, error } = await query;
       if (!error) setBranches(data || []);
     };
     fetchBranches();
-  }, [tenant?.id]);
+  }, [tenant?.id, profile]);
 
   // Fetch Customer Account Data
   useEffect(() => {
@@ -150,7 +153,7 @@ const CustomerAccountModal = () => {
       }
     }, 15000);
 
-    if (!tenantId) {
+    if (!tenantId || !profile) {
       if (mounted) setLoading(false);
       clearTimeout(safetyTimeout);
       return;
@@ -168,7 +171,7 @@ const CustomerAccountModal = () => {
       try {
         if (mounted) setLoading(true);
 
-        const { data: loans, error } = await supabase
+        let query = supabase
           .from("loans")
           .select(`
             id,
@@ -180,17 +183,34 @@ const CustomerAccountModal = () => {
             created_at,
             customer:customer_id(
               id,
-              "Firstname",
-              "Middlename",
-              "Surname",
+              Firstname,
+              Middlename,
+              Surname,
               mobile,
-              branch:branch_id(name)
+              branch_id,
+              created_by,
+              branch:branch_id(name, region_id)
             ),
             installments:loan_installments(
               paid_amount
             )
           `)
           .eq("tenant_id", tenantId);
+
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          query = query.eq('customer.created_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            query = query.eq('customer.branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            query = query.filter('customer.branch.region_id', 'eq', profile.region_id);
+          }
+        }
+
+        const { data: loans, error } = await query;
 
         if (error) throw error;
 
@@ -560,7 +580,7 @@ const CustomerAccountModal = () => {
 
 
   // ========== Pagination ==========
-  const { totalRows, totalPages, currentData } = useMemo(() => {
+  const { totalPages, currentData } = useMemo(() => {
     const total = sortedData.length;
     const pages = Math.ceil(total / itemsPerPage);
     const start = (currentPage - 1) * itemsPerPage;
@@ -583,7 +603,7 @@ const CustomerAccountModal = () => {
       <div className="max-w-[1600px] mx-auto space-y-6">
 
         {/* Header Section */}
-      <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <div>
@@ -650,23 +670,25 @@ const CustomerAccountModal = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Branch
-                </label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                >
-                  <option value="">All Branches</option>
-                  {branches.map((b) => (
-                    <option key={b.id} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {['super_admin', 'regional_manager'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Branch
+                  </label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  >
+                    <option value="">All Branches</option>
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">

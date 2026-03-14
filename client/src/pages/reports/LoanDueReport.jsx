@@ -23,6 +23,7 @@ import {
   TableCell,
 } from "docx";
 import { saveAs } from "file-saver";
+import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // Memoized helper functions
@@ -42,17 +43,17 @@ const LoanTableRow = React.memo(({ loan, index, currentPage, itemsPerPage }) => 
       </td>
       <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">{loan.branch}</td>
       <td className="px-4 py-4 font-semibold text-slate-600 whitespace-nowrap">{loan.officer}</td>
-   <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
-  {loan.customerName}
-</td>
+      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
+        {loan.customerName}
+      </td>
 
-<td className="px-4 py-4 text-slate-600 whitespace-nowrap">
-  {loan.idNumber}
-</td>
+      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+        {loan.idNumber}
+      </td>
 
-<td className="px-4 py-4 text-slate-600 whitespace-nowrap">
-  {loan.mobile}
-</td>
+      <td className="px-4 py-4 text-slate-600 whitespace-nowrap">
+        {loan.mobile}
+      </td>
 
       <td className="px-4 py-4 text-center">
         <span className="px-2 py-0.5 bg-slate-100 text-slate-700 rounded text-xs font-bold border border-slate-200 whitespace-nowrap">
@@ -108,6 +109,8 @@ const LoanDueReport = () => {
     }
   });
 
+  const { profile } = useAuth();
+
   // State
   const [rawLoans, setRawLoans] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -119,7 +122,7 @@ const LoanDueReport = () => {
   const [exportFormat, setExportFormat] = useState("csv");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
-  
+
   const [filters, setFilters] = useState(() => {
     try {
       const saved = localStorage.getItem("loan-due-filters");
@@ -145,7 +148,7 @@ const LoanDueReport = () => {
     }
   });
 
- // ✅ Track mount state
+  // ✅ Track mount state
   const itemsPerPage = 10;
 
   // Save filters to localStorage (debounced)
@@ -162,76 +165,76 @@ const LoanDueReport = () => {
   }, [filters]);
 
   // ✅ FIXED: Fetch branches and regions - ONLY ONCE with proper cleanup
- useEffect(() => {
-  if (!tenant?.id) return;
+  useEffect(() => {
+    if (!tenant?.id) return;
 
-  const controller = new AbortController();
-  const tenantId = tenant.id;
+    const controller = new AbortController();
+    const tenantId = tenant.id;
 
-  const fetchMetadata = async () => {
-    try {
-      const { data: branchesData, error: branchesError } = await supabase
-        .from("branches")
-        .select("id, name, region_id")
-        .eq("tenant_id", tenantId)
-        .abortSignal(controller.signal);
+    const fetchMetadata = async () => {
+      try {
+        const { data: branchesData, error: branchesError } = await supabase
+          .from("branches")
+          .select("id, name, region_id")
+          .eq("tenant_id", tenantId)
+          .abortSignal(controller.signal);
 
-      if (branchesError) throw branchesError;
+        if (branchesError) throw branchesError;
 
-      const { data: regionsData, error: regionsError } = await supabase
-        .from("regions")
-        .select("id, name")
-        .eq("tenant_id", tenantId)
-        .abortSignal(controller.signal);
+        const { data: regionsData, error: regionsError } = await supabase
+          .from("regions")
+          .select("id, name")
+          .eq("tenant_id", tenantId)
+          .abortSignal(controller.signal);
 
-      if (regionsError) throw regionsError;
+        if (regionsError) throw regionsError;
 
-      setBranches(branchesData || []);
-      setRegions(regionsData || []);
-    } catch (err) {
-      if (err.name === "AbortError") return;
-      console.error("Metadata fetch error:", err);
-    }
-  };
+        setBranches(branchesData || []);
+        setRegions(regionsData || []);
+      } catch (err) {
+        if (err.name === "AbortError") return;
+        console.error("Metadata fetch error:", err);
+      }
+    };
 
-  fetchMetadata();
+    fetchMetadata();
 
-  return () => {
-    controller.abort();
-  };
-}, [tenant?.id]);
+    return () => {
+      controller.abort();
+    };
+  }, [tenant?.id]);
 
 
   // ✅ FIXED: Fetch loans data - ONLY ONCE with proper cleanup and error handling
-useEffect(() => {
-  if (!tenant?.id) return;
+  useEffect(() => {
+    if (!tenant?.id) return;
 
-  const controller = new AbortController();
-  const tenantId = tenant.id;
+    const controller = new AbortController();
+    const tenantId = tenant.id;
 
-  const fetchLoans = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+    const fetchLoans = async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const cacheKey = `loan-due-raw-data-${tenantId}`;
+        const cacheKey = `loan-due-raw-data-${tenantId}`;
 
-      // ✅ Check cache first (4 hours)
-      const cached = localStorage.getItem(cacheKey);
-      if (cached) {
-        const { data, timestamp } = JSON.parse(cached);
-        const isFresh = Date.now() - timestamp < 4 * 60 * 60 * 1000;
+        // ✅ Check cache first (4 hours)
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const isFresh = Date.now() - timestamp < 4 * 60 * 60 * 1000;
 
-        if (isFresh) {
-          setRawLoans(data || []);
-          setLoading(false);
-          return;
+          if (isFresh) {
+            setRawLoans(data || []);
+            setLoading(false);
+            return;
+          }
         }
-      }
 
-      const { data, error } = await supabase
-        .from("loans")
-        .select(`
+        let loansQuery = supabase
+          .from("loans")
+          .select(`
           id,
           scored_amount,
           total_payable,
@@ -255,37 +258,48 @@ useEffect(() => {
             interest_due
           )
         `)
-        .eq("tenant_id", tenantId)
-        .eq("status", "disbursed")
-        .abortSignal(controller.signal);
+          .eq("tenant_id", tenantId)
+          .eq("status", "disbursed")
+          .abortSignal(controller.signal);
 
-      if (error) throw error;
+        // Role-based restrictions
+        if (profile?.role === "relationship_officer") {
+          loansQuery = loansQuery.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          loansQuery = loansQuery.eq("region_id", profile.region_id);
+        }
 
-      setRawLoans(data || []);
-      setLoading(false);
+        const { data, error } = await loansQuery;
 
-      localStorage.setItem(
-        cacheKey,
-        JSON.stringify({
-          data: data || [],
-          timestamp: Date.now(),
-        })
-      );
-    } catch (err) {
-      if (err.name === "AbortError") return;
+        if (error) throw error;
 
-      console.error("Loans fetch error:", err);
-      setError(err.message || "Failed to load loans");
-      setLoading(false);
-    }
-  };
+        setRawLoans(data || []);
+        setLoading(false);
 
-  fetchLoans();
+        localStorage.setItem(
+          cacheKey,
+          JSON.stringify({
+            data: data || [],
+            timestamp: Date.now(),
+          })
+        );
+      } catch (err) {
+        if (err.name === "AbortError") return;
 
-  return () => {
-    controller.abort();
-  };
-}, [tenant?.id]);
+        console.error("Loans fetch error:", err);
+        setError(err.message || "Failed to load loans");
+        setLoading(false);
+      }
+    };
+
+    fetchLoans();
+
+    return () => {
+      controller.abort();
+    };
+  }, [tenant?.id, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
 
   //  Manual refresh function
   const handleManualRefresh = async () => {
@@ -298,7 +312,7 @@ useEffect(() => {
       setLoading(true);
       setError(null);
 
-      const { data, error: fetchError } = await supabase
+      let loansQuery = supabase
         .from("loans")
         .select(`
           id,
@@ -327,22 +341,32 @@ useEffect(() => {
         .eq("tenant_id", tenantId)
         .eq("status", "disbursed");
 
+      if (profile?.role === "relationship_officer") {
+        loansQuery = loansQuery.eq("booked_by", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        loansQuery = loansQuery.eq("region_id", profile.region_id);
+      }
+
+      const { data, error: fetchError } = await loansQuery;
+
       if (fetchError) throw fetchError;
 
       setRawLoans(data || []);
-      
+
       const cacheKey = `loan-due-raw-data-${tenantId}`;
       try {
-        localStorage.setItem(cacheKey, JSON.stringify({ 
-          data: data || [], 
-          timestamp: Date.now() 
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: data || [],
+          timestamp: Date.now()
         }));
       } catch (e) {
         console.error("Cache write error:", e);
       }
 
       console.log("✅ Manual refresh complete");
-      
+
     } catch (err) {
       console.error("❌ Error refreshing loans:", err);
       setError(err.message || "Failed to refresh data");
@@ -457,13 +481,13 @@ useEffect(() => {
         if (branch && row.branch !== branch) return null;
         if (region && row.region !== region) return null;
         if (installmentsDue && row.numDueInstallments !== Number(installmentsDue)) return null;
-        
+
         // Safe string checking
         if (query) {
           const customerNameMatch = String(row.customerName || "").toLowerCase().includes(query);
           const mobileMatch = String(row.mobile || "").includes(query);
           const idNumberMatch = String(row.idNumber || "").includes(query);
-          
+
           if (!customerNameMatch && !mobileMatch && !idNumberMatch) {
             return null;
           }
@@ -684,7 +708,7 @@ useEffect(() => {
     const totalPages = Math.ceil(total / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const currentData = filteredData.slice(startIndex, startIndex + itemsPerPage);
-    
+
     return { totalRows: total, totalPages, currentData };
   }, [filteredData, currentPage]);
 
@@ -743,10 +767,10 @@ useEffect(() => {
       <div className="max-w-[1600px] mx-auto space-y-6">
 
         {/* Header Section */}
-     <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-          
+
               <div>
                 <h1 className="text-sm font-bold text-stone-600 leading-tight">{tenant?.company_name || "Jasiri Capital"}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
@@ -756,13 +780,13 @@ useEffect(() => {
             </div>
 
             <div className="flex flex-col items-end gap-2">
-            
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <SearchBox
                   value={searchQuery}
                   onChange={handleSearchChange}
                 />
-              
+
                 <button
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
@@ -775,7 +799,7 @@ useEffect(() => {
                   <span>Filters</span>
                 </button>
 
-              
+
 
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
                   <select
@@ -820,44 +844,50 @@ useEffect(() => {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Region</label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Region</label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => setFilters(prev => ({ ...prev, region: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Branch</label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => setFilters(prev => ({ ...prev, branch: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
-                >
-                  <option value="">All Branches</option>
-                  {branches
-                    .filter(b => !filters.region || b.region_id === regions.find(r => r.name === filters.region)?.id)
-                    .map(b => <option key={b.id} value={b.name}>{b.name}</option>)
-                  }
-                </select>
-              </div>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Branch</label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => setFilters(prev => ({ ...prev, branch: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                  >
+                    <option value="">All Branches</option>
+                    {branches
+                      .filter(b => !filters.region || b.region_id === regions.find(r => r.name === filters.region)?.id)
+                      .map(b => <option key={b.id} value={b.name}>{b.name}</option>)
+                    }
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-2">
-                <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Relationship Officer</label>
-                <select
-                  value={filters.officer}
-                  onChange={(e) => setFilters(prev => ({ ...prev, officer: e.target.value }))}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
-                >
-                  <option value="">All Officers</option>
-                  {officers.map(o => <option key={o} value={o}>{o}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "relationship_officer" && (
+                <div className="space-y-2">
+                  <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Relationship Officer</label>
+                  <select
+                    value={filters.officer}
+                    onChange={(e) => setFilters(prev => ({ ...prev, officer: e.target.value }))}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:ring-2 focus:ring-brand-primary outline-none"
+                  >
+                    <option value="">All Officers</option>
+                    {officers.map(o => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-2">
                 <label className="text-xs font-bold text-gray-500 uppercase tracking-wider">Due Range</label>
@@ -955,9 +985,9 @@ useEffect(() => {
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px] text-center w-12">No.</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Branch Name</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">RO</th>
-  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Customer Name</th>
-    <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">ID Number</th>
-    <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Phone</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Customer Name</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">ID Number</th>
+                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Phone</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] text-center whitespace-nowrap">Inst. Due</th>
                   <th className="px-4 py-4 font-black text-slate-700 uppercase  text-[11px] text-right whitespace-nowrap">Disbursed</th>
                   <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap font-bold">Total Due</th>

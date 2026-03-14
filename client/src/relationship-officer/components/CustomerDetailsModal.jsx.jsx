@@ -4,6 +4,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "../../supabaseClient";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import {
   DocumentMagnifyingGlassIcon,
   UserCircleIcon,
@@ -28,6 +29,7 @@ import Spinner from "../../components/Spinner";
 const CustomerDetailsPage = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
+  const { loading: featuresLoading, imageUploadEnabled, documentUploadEnabled } = useTenantFeatures();
 
   const [customer, setCustomer] = useState(null);
   const [guarantors, setGuarantors] = useState([]);
@@ -193,7 +195,7 @@ const CustomerDetailsPage = () => {
     </div>
   );
 
-  if (loading) {
+  if (loading || featuresLoading) {
     return (
       <div className="h-full bg-brand-surface p-8 min-h-screen flex items-center justify-center ">
         <Spinner text="Loading ..." />
@@ -267,7 +269,7 @@ const CustomerDetailsPage = () => {
                         })
                       }
                     >
-                      {customer.passport_url ? (
+                      {imageUploadEnabled && customer.passport_url ? (
                         <img
                           src={customer.passport_url}
                           alt="Profile"
@@ -326,29 +328,31 @@ const CustomerDetailsPage = () => {
               </div>
 
               {/* Documents Grid */}
-              <div className="mb-8">
-                <h3 className="text-lg font-semibold text-slate-600 mb-6">Customer Documents</h3>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <DocumentCard
-                    title="ID Front"
-                    imageUrl={customer.id_front_url}
-                    placeholder="No ID front available"
-                    icon={IdentificationIcon}
-                  />
-                  <DocumentCard
-                    title="ID Back"
-                    imageUrl={customer.id_back_url}
-                    placeholder="No ID back available"
-                    icon={IdentificationIcon}
-                  />
-                  <DocumentCard
-                    title="Residence"
-                    imageUrl={customer.house_image_url}
-                    placeholder="No residence image available"
-                    icon={HomeIcon}
-                  />
+              {imageUploadEnabled && (
+                <div className="mb-8">
+                  <h3 className="text-lg font-semibold text-slate-600 mb-6">Customer Documents</h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <DocumentCard
+                      title="ID Front"
+                      imageUrl={customer.id_front_url}
+                      placeholder="No ID front available"
+                      icon={IdentificationIcon}
+                    />
+                    <DocumentCard
+                      title="ID Back"
+                      imageUrl={customer.id_back_url}
+                      placeholder="No ID back available"
+                      icon={IdentificationIcon}
+                    />
+                    <DocumentCard
+                      title="Residence"
+                      imageUrl={customer.house_image_url}
+                      placeholder="No residence image available"
+                      icon={HomeIcon}
+                    />
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
 
@@ -417,55 +421,57 @@ const CustomerDetailsPage = () => {
               </div>
 
               {/* Business Images */}
-              {businessImages.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
-                  <BuildingOffice2Icon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-600 mb-2">No Business Images</h3>
-                  <p className="text-gray-600">This customer has not provided business images.</p>
-                </div>
-              ) : (
-                <div>
-                  <h3 className="text-xl font-semibold text-slate-600 mb-6">Business Images</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {businessImages.map((image, index) => (
-                      <div
-                        key={index}
-                        className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
-                      >
-                        <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
-                          <h4 className="text-sm font-semibold text-gray-600 flex items-center">
-                            <PhotoIcon className="h-4 w-4 text-brand-primary mr-2" />
-                            Business Image {index + 1}
-                          </h4>
-                        </div>
-                        <div className="p-4">
-                          <div
-                            className="relative group cursor-pointer"
-                            onClick={() =>
-                              setSelectedImage({
-                                url: image.image_url,
-                                title: `Business Image ${index + 1}`,
-                              })
-                            }
-                          >
-                            <img
-                              src={image.image_url}
-                              alt={`Business ${index + 1}`}
-                              className="w-full h-48 object-cover rounded-lg"
-                            />
-                            <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black bg-opacity-30 rounded-lg">
-                              <DocumentMagnifyingGlassIcon className="h-8 w-8 text-white" />
-                            </div>
-                          </div>
-
-                          {image.description && (
-                            <p className="mt-3 text-sm text-gray-600">{image.description}</p>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+              {imageUploadEnabled && (
+                businessImages.length === 0 ? (
+                  <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                    <BuildingOffice2Icon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-600 mb-2">No Business Images</h3>
+                    <p className="text-gray-600">This customer has not provided business images.</p>
                   </div>
-                </div>
+                ) : (
+                  <div>
+                    <h3 className="text-xl font-semibold text-slate-600 mb-6">Business Images</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {businessImages.map((image, index) => (
+                        <div
+                          key={index}
+                          className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm"
+                        >
+                          <div className="p-4 bg-gradient-to-r from-slate-50 to-gray-50 border-b">
+                            <h4 className="text-sm font-semibold text-gray-600 flex items-center">
+                              <PhotoIcon className="h-4 w-4 text-brand-primary mr-2" />
+                              Business Image {index + 1}
+                            </h4>
+                          </div>
+                          <div className="p-4">
+                            <div
+                              className="relative group cursor-pointer"
+                              onClick={() =>
+                                setSelectedImage({
+                                  url: image.image_url,
+                                  title: `Business Image ${index + 1}`,
+                                })
+                              }
+                            >
+                              <img
+                                src={image.image_url}
+                                alt={`Business ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 bg-black bg-opacity-30 rounded-lg">
+                                <DocumentMagnifyingGlassIcon className="h-8 w-8 text-white" />
+                              </div>
+                            </div>
+
+                            {image.description && (
+                              <p className="mt-3 text-sm text-gray-600">{image.description}</p>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )
               )}
             </div>
           </div>
@@ -507,14 +513,14 @@ const CustomerDetailsPage = () => {
                             <div
                               className="w-40 h-40 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
                               onClick={() =>
-                                guarantor.passport_url &&
+                                imageUploadEnabled && guarantor.passport_url &&
                                 setSelectedImage({
                                   url: guarantor.passport_url,
                                   title: `Guarantor ${index + 1} Profile Photo`,
                                 })
                               }
                             >
-                              {guarantor.passport_url ? (
+                              {imageUploadEnabled && guarantor.passport_url ? (
                                 <img
                                   src={guarantor.passport_url}
                                   alt="Guarantor"
@@ -572,26 +578,28 @@ const CustomerDetailsPage = () => {
                       </div>
 
                       {/* Documents */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <DocumentCard
-                          title="Passport Photo"
-                          imageUrl={guarantor.passport_url}
-                          placeholder="No passport photo available"
-                          icon={UserCircleIcon}
-                        />
-                        <DocumentCard
-                          title="ID Front"
-                          imageUrl={guarantor.id_front_url}
-                          placeholder="No ID front available"
-                          icon={IdentificationIcon}
-                        />
-                        <DocumentCard
-                          title="ID Back"
-                          imageUrl={guarantor.id_back_url}
-                          placeholder="No ID back available"
-                          icon={IdentificationIcon}
-                        />
-                      </div>
+                      {imageUploadEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                          <DocumentCard
+                            title="Passport Photo"
+                            imageUrl={guarantor.passport_url}
+                            placeholder="No passport photo available"
+                            icon={UserCircleIcon}
+                          />
+                          <DocumentCard
+                            title="ID Front"
+                            imageUrl={guarantor.id_front_url}
+                            placeholder="No ID front available"
+                            icon={IdentificationIcon}
+                          />
+                          <DocumentCard
+                            title="ID Back"
+                            imageUrl={guarantor.id_back_url}
+                            placeholder="No ID back available"
+                            icon={IdentificationIcon}
+                          />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -642,7 +650,7 @@ const CustomerDetailsPage = () => {
                           </div>
 
                           {/* Item Image(s) */}
-                          {item.images && item.images.length > 0 && (
+                          {imageUploadEnabled && item.images && item.images.length > 0 && (
                             <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {item.images.map((imgUrl, i) => (
                                 <img
@@ -708,7 +716,7 @@ const CustomerDetailsPage = () => {
                           </div>
 
                           {/* Item Image(s) */}
-                          {item.images?.length > 0 && (
+                          {imageUploadEnabled && item.images?.length > 0 && (
                             <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                               {item.images.map((imgUrl, i) => (
                                 <img
@@ -821,75 +829,77 @@ const CustomerDetailsPage = () => {
           )}
 
           {/* Documents Verification Section */}
-          <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
-            <div className="p-8">
-              <div className="border-b border-gray-200 pb-6 mb-8">
-                <h2 className="text-lg font-bold text-slate-600 flex items-center">
-                  <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                  Document Verification
-                </h2>
-                <p className="text-gray-600 mt-2">
-                  Verification and officer images
-                </p>
-              </div>
+          {documentUploadEnabled && (
+            <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
+              <div className="p-8">
+                <div className="border-b border-gray-200 pb-6 mb-8">
+                  <h2 className="text-lg font-bold text-slate-600 flex items-center">
+                    <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                    Document Verification
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Verification and officer images
+                  </p>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  {
-                    key: "first_officer_client",
-                    label: "First Officer & Client",
-                    document: documents.find(d => d.document_type === "First Officer and Client Image")
-                  },
-                  {
-                    key: "second_officer_client",
-                    label: "Second Officer & Client",
-                    document: documents.find(d => d.document_type === "Second Officer and Client Image")
-                  },
-                  {
-                    key: "both_officers",
-                    label: "Both Officers",
-                    document: documents.find(d => d.document_type === "Both Officers Image")
-                  }
-                ].map(({ key, label, document }) => (
-                  <DocumentCard
-                    key={key}
-                    title={label}
-                    imageUrl={document?.document_url}
-                    placeholder="No image available"
-                    icon={DocumentTextIcon}
-                  />
-                ))}
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    {
+                      key: "first_officer_client",
+                      label: "First Officer & Client",
+                      document: documents.find(d => d.document_type === "First Officer and Client Image")
+                    },
+                    {
+                      key: "second_officer_client",
+                      label: "Second Officer & Client",
+                      document: documents.find(d => d.document_type === "Second Officer and Client Image")
+                    },
+                    {
+                      key: "both_officers",
+                      label: "Both Officers",
+                      document: documents.find(d => d.document_type === "Both Officers Image")
+                    }
+                  ].map(({ key, label, document }) => (
+                    <DocumentCard
+                      key={key}
+                      title={label}
+                      imageUrl={document?.document_url}
+                      placeholder="No image available"
+                      icon={DocumentTextIcon}
+                    />
+                  ))}
+                </div>
 
-              {/* Additional Documents */}
-              {documents.filter(d => ![
-                "First Officer and Client Image",
-                "Second Officer and Client Image",
-                "Both Officers Image"
-              ].includes(d.document_type)).length > 0 && (
-                  <div className="mt-8">
-                    <h3 className="text-xl font-semibold text-gray-600 mb-6">Additional Documents</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {documents
-                        .filter(d => ![
-                          "First Officer and Client Image",
-                          "Second Officer and Client Image",
-                          "Both Officers Image"
-                        ].includes(d.document_type))
-                        .map((document, index) => (
-                          <DocumentCard
-                            key={index}
-                            title={document.document_type}
-                            imageUrl={document.document_url}
-                            placeholder="No image available"
-                            icon={DocumentTextIcon}
-                          />
-                        ))}
+                {/* Additional Documents */}
+                {documents.filter(d => ![
+                  "First Officer and Client Image",
+                  "Second Officer and Client Image",
+                  "Both Officers Image"
+                ].includes(d.document_type)).length > 0 && (
+                    <div className="mt-8">
+                      <h3 className="text-xl font-semibold text-gray-600 mb-6">Additional Documents</h3>
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {documents
+                          .filter(d => ![
+                            "First Officer and Client Image",
+                            "Second Officer and Client Image",
+                            "Both Officers Image"
+                          ].includes(d.document_type))
+                          .map((document, index) => (
+                            <DocumentCard
+                              key={index}
+                              title={document.document_type}
+                              imageUrl={document.document_url}
+                              placeholder="No image available"
+                              icon={DocumentTextIcon}
+                            />
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )}
+                  )}
+              </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
 

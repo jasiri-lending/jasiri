@@ -20,6 +20,7 @@ import LoanArrearsReport from './LoanArrearsReport';
 import InactiveCustomers from './InactiveCustomers';
 import LoginModal from '../registry/LoginModal';
 import Spinner from '../../components/Spinner';
+import ROCumulativePerformanceReport from './ROCumulativePerformanceReport';
 
 const Reports = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -76,6 +77,14 @@ const Reports = () => {
       description: "Performance metrics and statistics for each loan officer",
       component: LoanOfficerPerformanceReport,
       route: '/reports/loan-officer-performance',
+      permission: 'report.loan_officer_performance'
+    },
+    {
+      id: 17,
+      name: "RO Cumulative Performance",
+      description: "Cumulative Performance Report for Relationship Officers",
+      component: ROCumulativePerformanceReport,
+      route: '/reports/ro-cumulative',
       permission: 'report.loan_officer_performance'
     },
     {

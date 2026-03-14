@@ -1,10 +1,9 @@
-// src/components/Verification.jsx
 import { useState, useEffect } from "react";
 import { supabase } from "../../supabaseClient";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useToast } from "../../components/Toast";
 import { useAuth } from "../../hooks/userAuth";
 import { useParams, useNavigate } from "react-router-dom";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -31,11 +30,57 @@ import {
 } from "@heroicons/react/24/outline";
 import Spinner from "../../components/Spinner";
 
+// Helper Components defined outside to prevent re-rendering
+const DetailRow = ({ label, value }) => (
+  <div className="flex justify-between">
+    <span className="text-sm font-medium text-gray-600">{label}:</span>
+    <span className="text-sm font-semibold text-gray-900">
+      {value || "Not provided"}
+    </span>
+  </div>
+);
+
+// Map Component for Business Location
+const BusinessMap = ({ lat, lng, businessName }) => {
+  if (!lat || !lng) {
+    return (
+      <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
+        <div className="text-center">
+          <MapPinIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+          <p className="text-gray-500">No location coordinates available</p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
+      <iframe
+        width="100%"
+        height="100%"
+        frameBorder="0"
+        scrolling="no"
+        marginHeight="0"
+        marginWidth="0"
+        src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
+        title={`Business location of ${businessName}`}
+      />
+      <div className="p-2 bg-white border-t">
+        <p className="text-sm text-gray-600 text-center">
+          Business Coordinates: {lat.toFixed(6)}, {lng.toFixed(6)}
+        </p>
+      </div>
+    </div>
+  );
+};
+
 const Verification = () => {
   const { customerId } = useParams();
   const navigate = useNavigate();
   const [step, setStep] = useState(1);
   const { profile } = useAuth();
+  const toast = useToast();
+  const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
   const [customer, setCustomer] = useState(null);
   const [guarantors, setGuarantors] = useState([]);
   const [securityItems, setSecurityItems] = useState([]);
@@ -362,7 +407,7 @@ const Verification = () => {
       { key: "security", name: "Security", component: "Customer Security Items" },
       { key: "guarantorSecurity", name: "Security", component: "Guarantor Security Items" },
       { key: "nextOfKin", name: "Next of Kin", component: "Next of Kin Details" },
-      { key: "document", name: "Documents", component: "Document Verification" },
+      ...(documentUploadEnabled ? [{ key: "document", name: "Documents", component: "Document Verification" }] : []),
       // { key: "loan", name: "Loan", component: "Loan Assessment" },
     ];
 
@@ -668,48 +713,6 @@ const Verification = () => {
     </div>
   );
 
-  const DetailRow = ({ label, value }) => (
-    <div className="flex justify-between">
-      <span className="text-sm font-medium text-gray-600">{label}:</span>
-      <span className="text-sm font-semibold text-gray-900">
-        {value || "Not provided"}
-      </span>
-    </div>
-  );
-
-  // Map Component for Business Location
-  const BusinessMap = ({ lat, lng, businessName }) => {
-    if (!lat || !lng) {
-      return (
-        <div className="w-full h-64 bg-gray-100 rounded-lg flex items-center justify-center">
-          <div className="text-center">
-            <MapPinIcon className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-            <p className="text-gray-500">No location coordinates available</p>
-          </div>
-        </div>
-      );
-    }
-
-    return (
-      <div className="w-full h-64 bg-gray-100 rounded-lg overflow-hidden">
-        <iframe
-          width="100%"
-          height="100%"
-          frameBorder="0"
-          scrolling="no"
-          marginHeight="0"
-          marginWidth="0"
-          src={`https://maps.google.com/maps?q=${lat},${lng}&z=15&output=embed`}
-          title={`Business location of ${businessName}`}
-        />
-        <div className="p-2 bg-white border-t">
-          <p className="text-sm text-gray-600 text-center">
-            Business Coordinates: {lat.toFixed(6)}, {lng.toFixed(6)}
-          </p>
-        </div>
-      </div>
-    );
-  };
 
   const validateCurrentStep = () => {
     switch (step) {
@@ -926,7 +929,7 @@ const Verification = () => {
     <button
       onClick={saveAsDraft}
       disabled={isSavingDraft}
-      className="flex items-center px-4 py-2 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+      className="flex items-center px-3 py-1.5 bg-gray-200 text-gray-700 rounded-xl font-medium hover:bg-gray-300 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
     >
       {isSavingDraft ? (
         <>
@@ -955,40 +958,50 @@ const Verification = () => {
         </div>
 
         {/* Progress Steps */}
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-4 border border-indigo-100">
-          <div className="flex items-center justify-between">
+        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-2 mb-6 border border-white/50">
+          <div className="flex justify-between items-center gap-1 md:gap-2 px-2">
             {[
-              { num: 1, label: "Customer", icon: UserCircleIcon },
-              { num: 2, label: "Business", icon: BuildingOffice2Icon },
-              { num: 3, label: "Guarantors", icon: UserGroupIcon },
-              { num: 4, label: "Security", icon: ShieldCheckIcon },
-              { num: 5, label: "Next of Kin", icon: UserCircleIcon },
-              { num: 6, label: "Documents", icon: DocumentTextIcon },
-              { num: 7, label: "Loan", icon: CurrencyDollarIcon },
-              { num: 8, label: "Decision", icon: ClipboardDocumentCheckIcon },
-            ].map(({ num, label, icon: Icon }) => (
-              <div key={num} className="flex flex-col items-center">
+              { num: 1, label: "Customer", icon: UserCircleIcon, enabled: true },
+              { num: 2, label: "Business", icon: BuildingOffice2Icon, enabled: true },
+              { num: 3, label: "Guarantors", icon: UserGroupIcon, enabled: true },
+              { num: 4, label: "Security", icon: ShieldCheckIcon, enabled: true },
+              { num: 5, label: "Next of Kin", icon: UserCircleIcon, enabled: true },
+              {
+                num: 6,
+                label: "Documents",
+                icon: DocumentTextIcon,
+                enabled: documentUploadEnabled
+              },
+              { num: 7, label: "Loan", icon: CurrencyDollarIcon, enabled: true },
+              { num: 8, label: "Decision", icon: ClipboardDocumentCheckIcon, enabled: true },
+            ].filter(s => s.enabled).map(({ num, label, icon: Icon }) => (
+              <button
+                key={num}
+                type="button"
+                onClick={() => setStep(num)}
+                className="flex flex-col items-center gap-1 transition-all duration-300 group flex-1"
+              >
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center border-2 transition-all duration-300 ${step === num
-                    ? "border-primary bg-brand-primary text-white shadow-lg shadow-indigo-200 scale-110"
+                  className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${step === num
+                    ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105"
                     : step > num
-                      ? "border-emerald-500 bg-emerald-500 text-white shadow-md"
-                      : "border-gray-300 bg-white text-gray-400 hover:border-gray-400"
+                      ? "bg-accent text-white shadow-lg shadow-accent/30 border-2 border-accent"
+                      : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
                     }`}
                 >
-                  <Icon className="h-6 w-6" />
+                  <Icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <span
-                  className={`text-sm mt-3 font-medium transition-colors ${step === num
-                    ? "text-indigo-700"
+                  className={`text-[9px] sm:text-[11px] font-medium text-center transition-all duration-300 line-clamp-1 ${step === num
+                    ? "text-brand-primary font-bold"
                     : step > num
-                      ? "text-emerald-700"
-                      : "text-gray-600"
+                      ? "text-accent font-semibold"
+                      : "text-slate-700 group-hover:text-slate-900"
                     }`}
                 >
                   {label}
                 </span>
-              </div>
+              </button>
             ))}
           </div>
         </div>
@@ -1023,22 +1036,29 @@ const Verification = () => {
                         })
                       }
                     >
-                      {customer.passport_url ? (
+                      {customer.passport_url && imageUploadEnabled ? (
                         <img
                           src={customer.passport_url}
                           alt="Profile"
-                          className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full bg-muted flex items-center justify-center">
                           <UserCircleIcon className="h-20 w-20 text-gray-400" />
                         </div>
                       )}
-                      {customer.passport_url && (
-                        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                          <div className="bg-white bg-opacity-95 rounded-full p-2 shadow-lg border border-indigo-100">
-                            <DocumentMagnifyingGlassIcon className="h-5 w-5 text-indigo-600" />
-                          </div>
+
+                      {customer.passport_url && imageUploadEnabled && (
+                        <div
+                          className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center cursor-pointer"
+                          onClick={() =>
+                            setSelectedImage({
+                              url: customer.passport_url,
+                              title: "Customer Passport photo",
+                            })
+                          }
+                        >
+                          <DocumentMagnifyingGlassIcon className="h-10 w-10 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                         </div>
                       )}
                     </div>
@@ -1151,25 +1171,29 @@ const Verification = () => {
               )}
 
               {/* Documents Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <DocumentCard
-                  title="ID Front"
-                  imageUrl={customer.id_front_url}
-                  placeholder="No ID front available"
-                  icon={IdentificationIcon}
-                />
-                <DocumentCard
-                  title="ID Back"
-                  imageUrl={customer.id_back_url}
-                  placeholder="No ID back available"
-                  icon={IdentificationIcon}
-                />
-                <DocumentCard
-                  title="Residence"
-                  imageUrl={customer.house_image_url}
-                  placeholder="No residence image available"
-                  icon={HomeIcon}
-                />
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {documentUploadEnabled && imageUploadEnabled && (
+                  <>
+                    <DocumentCard
+                      title="ID Front"
+                      imageUrl={customer.id_front_url}
+                      placeholder="No ID front available"
+                      icon={IdentificationIcon}
+                    />
+                    <DocumentCard
+                      title="ID Back"
+                      imageUrl={customer.id_back_url}
+                      placeholder="No ID back available"
+                      icon={IdentificationIcon}
+                    />
+                    <DocumentCard
+                      title="Residence"
+                      imageUrl={customer.house_image_url}
+                      placeholder="No residence image available"
+                      icon={HomeIcon}
+                    />
+                  </>
+                )}
               </div>
 
               {/* Verification Controls */}
@@ -1339,67 +1363,69 @@ const Verification = () => {
               </div>
 
               {/* Business Images */}
-              {businessImages.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
-                  <BuildingOffice2Icon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
-                    No Business Images
-                  </h3>
-                  <p className="text-gray-600">
-                    This customer has not provided business images.
-                  </p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                    {businessImages.map((image, index) => (
-                      <div
-                        key={index}
-                        className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200"
-                      >
-                        <div className="p-4 bg-muted border-b">
-                          <h4 className="text-sm font-semibold text-gray-800 flex items-center">
-                            <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
-                            Business Image {index + 1}
-                          </h4>
-                        </div>
-                        <div className="p-4">
-                          <div
-                            className="relative group cursor-pointer"
-                            onClick={() =>
-                              setSelectedImage({
-                                url: image.image_url,
-                                title: `Business Image ${index + 1}`,
-                              })
-                            }
-                          >
-                            <img
-                              src={image.image_url}
-                              alt={`Business ${index + 1}`}
-                              className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-200"
-                            />
+              {imageUploadEnabled && (
+                businessImages.length === 0 ? (
+                  <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                    <BuildingOffice2Icon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                      No Business Images
+                    </h3>
+                    <p className="text-gray-600">
+                      This customer has not provided business images.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      {businessImages.map((image, index) => (
+                        <div
+                          key={index}
+                          className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200"
+                        >
+                          <div className="p-4 bg-muted border-b">
+                            <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+                              <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
+                              Business Image {index + 1}
+                            </h4>
+                          </div>
+                          <div className="p-4">
+                            <div
+                              className="relative group cursor-pointer"
+                              onClick={() =>
+                                setSelectedImage({
+                                  url: image.image_url,
+                                  title: `Business Image ${index + 1}`,
+                                })
+                              }
+                            >
+                              <img
+                                src={image.image_url}
+                                alt={`Business ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-200"
+                              />
 
-                            {/* Icon overlay only */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <div className="bg-white bg-opacity-95 rounded-full p-3 shadow-lg border border-indigo-100">
-                                  <DocumentMagnifyingGlassIcon className="h-6 w-6 text-indigo-600" />
+                              {/* Icon overlay only */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                  <div className="bg-white bg-opacity-95 rounded-full p-3 shadow-lg border border-indigo-100">
+                                    <DocumentMagnifyingGlassIcon className="h-6 w-6 text-indigo-600" />
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
 
-                          {image.description && (
-                            <p className="mt-3 text-sm text-gray-600">
-                              {image.description}
-                            </p>
-                          )}
+                            {image.description && (
+                              <p className="mt-3 text-sm text-gray-600">
+                                {image.description}
+                              </p>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      ))}
+                    </div>
                   </div>
-                </div>
-              )}
+                ))
+              }
 
               {/* Business Verification Controls */}
               <div className="bg-muted p-8 rounded-2xl border border-blue-100 mt-8">
@@ -1499,22 +1525,29 @@ const Verification = () => {
                                 })
                               }
                             >
-                              {guarantor.passport_url ? (
+                              {guarantor.passport_url && imageUploadEnabled ? (
                                 <img
                                   src={guarantor.passport_url}
                                   alt="Guarantor"
-                                  className="w-full h-full object-cover transition-transform duration-200 group-hover:scale-105"
+                                  className="w-full h-full object-cover"
                                 />
                               ) : (
                                 <div className="w-full h-full bg-muted flex items-center justify-center">
                                   <UserCircleIcon className="h-20 w-20 text-gray-400" />
                                 </div>
                               )}
-                              {guarantor.passport_url && (
-                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                  <div className="bg-white bg-opacity-95 rounded-full p-2 shadow-lg border border-indigo-100">
-                                    <DocumentMagnifyingGlassIcon className="h-5 w-5 text-indigo-600" />
-                                  </div>
+
+                              {guarantor.passport_url && imageUploadEnabled && (
+                                <div
+                                  className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-30 transition-all duration-200 flex items-center justify-center cursor-pointer"
+                                  onClick={() =>
+                                    setSelectedImage({
+                                      url: guarantor.passport_url,
+                                      title: "Guarantor Passport photo",
+                                    })
+                                  }
+                                >
+                                  <DocumentMagnifyingGlassIcon className="h-10 w-10 text-white opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
                                 </div>
                               )}
                             </div>
@@ -1603,26 +1636,28 @@ const Verification = () => {
                       </div>
 
                       {/* Documents */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <DocumentCard
-                          title="ID Front"
-                          imageUrl={guarantor.id_front_url}
-                          placeholder="No ID front available"
-                          icon={IdentificationIcon}
-                        />
-                        <DocumentCard
-                          title="ID Back"
-                          imageUrl={guarantor.id_back_url}
-                          placeholder="No ID back available"
-                          icon={IdentificationIcon}
-                        />
-                        <DocumentCard
-                          title="Residence"
-                          imageUrl={guarantor.house_image_url}
-                          placeholder="No residence image available"
-                          icon={HomeIcon}
-                        />
-                      </div>
+                      {documentUploadEnabled && imageUploadEnabled && (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                          <DocumentCard
+                            title="ID Front"
+                            imageUrl={guarantor.id_front_url}
+                            placeholder="No ID front available"
+                            icon={IdentificationIcon}
+                          />
+                          <DocumentCard
+                            title="ID Back"
+                            imageUrl={guarantor.id_back_url}
+                            placeholder="No ID back available"
+                            icon={IdentificationIcon}
+                          />
+                          <DocumentCard
+                            title="Residence"
+                            imageUrl={guarantor.house_image_url}
+                            placeholder="No residence image available"
+                            icon={HomeIcon}
+                          />
+                        </div>
+                      )}
 
                       {/* Verification Controls */}
                       <div className="bg-muted p-8 rounded-2xl border border-blue-100">
@@ -1773,14 +1808,13 @@ const Verification = () => {
                         </div>
 
                         {/* Item Image(s) */}
-                        {item.images && item.images.length > 0 && (
+                        {imageUploadEnabled && item.images && item.images.length > 0 && (
                           <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {item.images.map((imgUrl, i) => (
                               <img
                                 key={i}
                                 src={imgUrl}
-                                alt={`${item.item || "Security Item"} - Image ${i + 1
-                                  }`}
+                                alt={`${item.item || "Security Item"} - Image ${i + 1}`}
                                 className="w-full h-40 object-cover rounded-lg shadow-sm hover:scale-105 transition-transform duration-200 cursor-pointer"
                                 onError={(e) =>
                                   (e.currentTarget.style.display = "none")
@@ -1788,8 +1822,7 @@ const Verification = () => {
                                 onClick={() =>
                                   setSelectedImage({
                                     url: imgUrl,
-                                    title: `${item.item || "Security Item"
-                                      } - Image ${i + 1}`,
+                                    title: `${item.item || "Security Item"} - Image ${i + 1}`,
                                   })
                                 }
                               />
@@ -1908,7 +1941,7 @@ const Verification = () => {
                               "N/A"}
                           </span>
                         </div>
-                        {item.images?.length > 0 && (
+                        {imageUploadEnabled && item.images?.length > 0 && (
                           <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
                             {item.images
                               .filter((imgUrl) => !!imgUrl)
@@ -2163,125 +2196,127 @@ const Verification = () => {
 
           {/* Step 6: Documents - Already complete */}
           {step === 6 && (
-            <div className="p-8">
-              <div className="border-b border-gray-200 pb-6 mb-8">
-                <h2 className="text-lg font-semibold text-slate-600 flex items-center">
-                  <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                  Document Verification
-                </h2>
-                <p className="text-gray-600 mt-2">
-                  Verify officer and client meeting documentation
-                </p>
-              </div>
-
-              {documentImages.length === 0 ? (
-                <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
-                  <DocumentTextIcon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
-                  <h3 className="text-xl font-semibold text-slate-600 mb-2">
-                    No Document Images
-                  </h3>
-                  <p className="text-gray-600">
-                    No meeting documentation images have been uploaded.
+            documentUploadEnabled ? (
+              <div className="p-8">
+                <div className="border-b border-gray-200 pb-6 mb-8">
+                  <h2 className="text-lg font-semibold text-slate-600 flex items-center">
+                    <DocumentTextIcon className="h-8 w-8 text-indigo-600 mr-3" />
+                    Document Verification
+                  </h2>
+                  <p className="text-gray-600 mt-2">
+                    Verify officer and client meeting documentation
                   </p>
                 </div>
-              ) : (
-                <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
-                  <h3 className="text-lg font-semibold text-slate-600 mb-6 flex items-center">
-                    <DocumentTextIcon className="h-6 w-6 text-indigo-600 mr-3" />
-                    Meeting Documentation
-                  </h3>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                    {documentImages.map((doc, index) => (
-                      <div
-                        key={doc.id || index}
-                        className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200"
-                      >
-                        <div className="p-4 bg-muted border-b">
-                          <h4 className="text-sm font-semibold text-gray-800 flex items-center">
-                            <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
-                            {doc.document_type || `Document ${index + 1}`}
-                          </h4>
-                        </div>
-                        <div className="p-4">
-                          <div
-                            className="relative group cursor-pointer"
-                            onClick={() =>
-                              setSelectedImage({
-                                url: doc.document_url,
-                                title:
-                                  doc.document_type || `Document ${index + 1}`,
-                              })
-                            }
-                          >
-                            <img
-                              src={doc.document_url}
-                              alt={doc.document_type || `Document ${index + 1}`}
-                              className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-200"
-                            />
+                {documentImages.length === 0 ? (
+                  <div className="text-center py-16 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300">
+                    <DocumentTextIcon className="mx-auto h-20 w-20 text-gray-400 mb-4" />
+                    <h3 className="text-xl font-semibold text-slate-600 mb-2">
+                      No Document Images
+                    </h3>
+                    <p className="text-gray-600">
+                      No meeting documentation images have been uploaded.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-white border border-gray-200 rounded-2xl p-8 shadow-sm">
+                    <h3 className="text-lg font-semibold text-slate-600 mb-6 flex items-center">
+                      <DocumentTextIcon className="h-6 w-6 text-indigo-600 mr-3" />
+                      Meeting Documentation
+                    </h3>
 
-                            {/* Icon overlay */}
-                            <div className="absolute inset-0 flex items-center justify-center">
-                              <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                                <div className="bg-white bg-opacity-95 rounded-full p-3 shadow-lg border border-indigo-100">
-                                  <DocumentMagnifyingGlassIcon className="h-6 w-6 text-indigo-600" />
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                      {imageUploadEnabled && documentImages.map((doc, index) => (
+                        <div
+                          key={doc.id || index}
+                          className="bg-white rounded-xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-lg transition-all duration-200"
+                        >
+                          <div className="p-4 bg-muted border-b">
+                            <h4 className="text-sm font-semibold text-gray-800 flex items-center">
+                              <PhotoIcon className="h-4 w-4 text-indigo-600 mr-2" />
+                              {doc.document_type || `Document ${index + 1}`}
+                            </h4>
+                          </div>
+                          <div className="p-4">
+                            <div
+                              className="relative group cursor-pointer"
+                              onClick={() =>
+                                setSelectedImage({
+                                  url: doc.document_url,
+                                  title:
+                                    doc.document_type || `Document ${index + 1}`,
+                                })
+                              }
+                            >
+                              <img
+                                src={doc.document_url}
+                                alt={doc.document_type || `Document ${index + 1}`}
+                                className="w-full h-48 object-cover rounded-lg group-hover:scale-105 transition-transform duration-200"
+                              />
+
+                              {/* Icon overlay */}
+                              <div className="absolute inset-0 flex items-center justify-center">
+                                <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                                  <div className="bg-white bg-opacity-95 rounded-full p-3 shadow-lg border border-indigo-100">
+                                    <DocumentMagnifyingGlassIcon className="h-6 w-6 text-indigo-600" />
+                                  </div>
                                 </div>
                               </div>
                             </div>
+
+                            {doc.description && (
+                              <p className="mt-3 text-sm text-gray-600">
+                                {doc.description}
+                              </p>
+                            )}
                           </div>
-
-                          {doc.description && (
-                            <p className="mt-3 text-sm text-gray-600">
-                              {doc.description}
-                            </p>
-                          )}
                         </div>
+                      ))}
+                    </div>
+
+                    {/* Document Verification Controls */}
+                    <div className="bg-muted p-8 rounded-2xl border border-purple-100">
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-lg font-semibold text-slate-600">
+                          Document Verification Status
+                        </h3>
+                        <ToggleSwitch
+                          checked={verificationData.document.verified}
+                          onChange={(e) =>
+                            handleVerificationChange(
+                              "verified",
+                              e.target.checked,
+                              "document"
+                            )
+                          }
+                          label="Verify Documents"
+                        />
                       </div>
-                    ))}
-                  </div>
 
-                  {/* Document Verification Controls */}
-                  <div className="bg-muted p-8 rounded-2xl border border-purple-100">
-                    <div className="flex items-center justify-between mb-6">
-                      <h3 className="text-lg font-semibold text-slate-600">
-                        Document Verification Status
-                      </h3>
-                      <ToggleSwitch
-                        checked={verificationData.document.verified}
-                        onChange={(e) =>
-                          handleVerificationChange(
-                            "verified",
-                            e.target.checked,
-                            "document"
-                          )
-                        }
-                        label="Verify Documents"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-slate-600 mb-3">
-                        Document Verification Comments
-                      </label>
-                      <textarea
-                        value={verificationData.document.comment}
-                        onChange={(e) =>
-                          handleVerificationChange(
-                            "comment",
-                            e.target.value,
-                            "document"
-                          )
-                        }
-                        placeholder="Add comments about document quality, meeting evidence, officer presence confirmation, etc."
-                        className="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
-                        rows={4}
-                        required
-                      />
+                      <div>
+                        <label className="block text-sm font-semibold text-slate-600 mb-3">
+                          Document Verification Comments
+                        </label>
+                        <textarea
+                          value={verificationData.document.comment}
+                          onChange={(e) =>
+                            handleVerificationChange(
+                              "comment",
+                              e.target.value,
+                              "document"
+                            )
+                          }
+                          placeholder="Add comments about document quality, meeting evidence, officer presence confirmation, etc."
+                          className="w-full border border-gray-300 rounded-xl p-4 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 text-sm resize-none"
+                          rows={4}
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
+            ) : null
           )}
 
           {/* Step 7: Loan Information - Enhanced with validation */}
@@ -2353,8 +2388,9 @@ const Verification = () => {
                     CSO Recommendation & Insights
                   </h3>
 
-                  {/* CA Scored Amount - Input */}
-                  {/* <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border-2 border-emerald-200 mb-6">
+                  {/* CA Scored Amount - Input (Removed per user request) */}
+                  {/*
+                  <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border-2 border-emerald-200 mb-6">
                     <div className="flex items-center justify-between mb-4">
                       <h4 className="font-semibold text-emerald-900">
                         Your Scored Amount
@@ -2396,7 +2432,8 @@ const Verification = () => {
                     <p className="text-sm text-emerald-600">
                       Enter your assessment amount
                     </p>
-                  </div> */}
+                  </div>
+                  */}
 
                   {/* CSO Comments Textarea */}
                   <div>
@@ -2567,8 +2604,9 @@ const Verification = () => {
 
                   {/* Amount and Summary */}
                   <div className="lg:col-span-2">
-                    {/* Recommended Loan Amount */}
-                    {/* <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-200 mb-6">
+                    {/* Recommended Loan Amount (Removed per user request) */}
+                    {/*
+                    <div className="bg-gradient-to-br from-indigo-50 to-blue-50 rounded-xl p-6 border border-indigo-200 mb-6">
                       <h4 className="text-lg font-semibold text-indigo-900 mb-4">
                         Recommended Loan Amount
                       </h4>
@@ -2592,7 +2630,8 @@ const Verification = () => {
                           disabled
                         />
                       </div>
-                    </div> */}
+                    </div>
+                    */}
 
                     {/* Amendment Fields Display */}
                     {fieldsToAmend.length > 0 && (
@@ -2667,10 +2706,10 @@ const Verification = () => {
                             label: "Next of Kin",
                             verified: verificationData.nextOfKin.verified,
                           },
-                          {
+                          ...(documentUploadEnabled ? [{
                             label: "Documents",
                             verified: verificationData.document.verified,
-                          },
+                          }] : []),
                           {
                             label: "Guarantors",
                             verified: verificationData.guarantors.every(
@@ -2728,9 +2767,15 @@ const Verification = () => {
         <div className="bg-white rounded-2xl shadow-lg p-6 flex justify-between items-center border border-indigo-100">
           <div className="flex items-center gap-4">
             <button
-              onClick={() => setStep(step - 1)}
+              onClick={() => {
+                if (step === 7 && !documentUploadEnabled) {
+                  setStep(5);
+                } else {
+                  setStep(step - 1);
+                }
+              }}
               disabled={step === 1}
-              className={`flex items-center px-6 py-3 rounded-xl font-medium transition-all ${step === 1
+              className={`flex items-center px-5 py-2 rounded-xl font-medium transition-all ${step === 1
                 ? "bg-gray-100 text-gray-400 cursor-not-allowed"
                 : "bg-gray-200 text-gray-700 hover:bg-gray-300 hover:shadow-md"
                 }`}
@@ -2747,10 +2792,14 @@ const Verification = () => {
             <button
               onClick={() => {
                 if (validateCurrentStep()) {
-                  setStep(step + 1);
+                  if (step === 5 && !documentUploadEnabled) {
+                    setStep(7);
+                  } else {
+                    setStep(step + 1);
+                  }
                 }
               }}
-              className="flex items-center px-6 py-3 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg"
+              className="flex items-center px-5 py-2 text-white rounded-xl font-medium transition-all shadow-md hover:shadow-lg"
               style={{
                 backgroundColor: "#586ab1",
                 hover: { backgroundColor: "#49579a" }
@@ -2769,7 +2818,7 @@ const Verification = () => {
                   }
                 }}
                 disabled={loading}
-                className={`px-6 py-3 rounded-xl font-medium transition-all ${loading
+                className={`px-5 py-2 rounded-xl font-medium transition-all ${loading
                   ? "bg-gray-400 text-gray-200 cursor-not-allowed"
                   : "bg-gradient-to-r from-emerald-600 to-green-600 text-white hover:from-emerald-700 hover:to-green-700 shadow-md hover:shadow-lg"
                   }`}

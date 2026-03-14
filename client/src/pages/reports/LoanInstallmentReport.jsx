@@ -18,7 +18,7 @@ import {
 import { saveAs } from "file-saver";
 
 const LoanInstallmentReport = () => {
-  const { tenant } = useAuth();
+  const { tenant, profile } = useAuth();
   const [reports, setReports] = useState([]);
   const [filteredReports, setFilteredReports] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -55,8 +55,7 @@ const LoanInstallmentReport = () => {
         if (!tenant?.id) return;
         setLoading(true);
 
-        // Fetch all necessary data with joins
-        const { data: loans, error } = await supabase
+        let loansQuery = supabase
           .from("loans")
           .select(`
             id, 
@@ -97,6 +96,16 @@ const LoanInstallmentReport = () => {
           `)
           .eq("tenant_id", tenant.id)
           .in("status", ["active", "disbursed"]);
+
+        if (profile?.role === "relationship_officer") {
+          loansQuery = loansQuery.eq("booked_by", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          loansQuery = loansQuery.eq("region_id", profile.region_id);
+        }
+
+        const { data: loans, error } = await loansQuery;
 
         if (error) throw error;
 
@@ -292,7 +301,7 @@ const LoanInstallmentReport = () => {
     };
 
     fetchInstallmentData();
-  }, [tenant?.id]);
+  }, [tenant?.id, profile?.id, profile?.role, profile?.branch_id, profile?.region_id]);
 
   // Apply filters
   useEffect(() => {
@@ -575,7 +584,7 @@ const LoanInstallmentReport = () => {
         const partialCount = filteredReports.filter(r => r.partial_installments > 0).length;
 
         doc.text(
-          `Generated: ${new Date().toLocaleDateString()} | Total: ${filteredReports.length} | P&O: ${partialOverdueCount} | Overdue: ${overdueCount} | Partial: ${partialCount}`,
+          `Generated: ${new Date().toLocaleDateString()} | Total: ${filteredReports.length} | P & O: ${partialOverdueCount} | Overdue: ${overdueCount} | Partial: ${partialCount} `,
           data.settings.margin.left,
           80
         );
@@ -655,7 +664,7 @@ const LoanInstallmentReport = () => {
           new Paragraph({
             children: [new TextRun({ text: "Loan Installment Report", size: 24 })]
           }),
-          new Paragraph({ text: `Generated on: ${new Date().toLocaleString()}` }),
+          new Paragraph({ text: `Generated on: ${new Date().toLocaleString()} ` }),
           new Paragraph({ text: "" }),
           table
         ]
@@ -701,12 +710,12 @@ const LoanInstallmentReport = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-      <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
-              
-             
-              
+
+
+
               <div>
                 <h1 className="text-sm font-bold text-stone-600">{tenant?.company_name || "Jasiri "}</h1>
                 <h2 className="text-lg font-semibold text-white mt-1">
@@ -715,7 +724,7 @@ const LoanInstallmentReport = () => {
               </div>
             </div>
             <div className="flex flex-col items-end gap-2 text-white">
-             
+
               <div className="flex gap-2 mt-2 flex-wrap justify-end">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-600" />
@@ -729,11 +738,11 @@ const LoanInstallmentReport = () => {
                 </div>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
+                  className={`px - 4 py - 2 rounded - lg flex items - center gap - 2 text - sm font - medium transition - all border
                     ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
                       : "text-white border-white/20 hover:bg-white/10"
-                    }`}
+                    } `}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
@@ -764,23 +773,24 @@ const LoanInstallmentReport = () => {
           </div>
         </div>
 
-        {/* FILTERS */}
         {showFilters && (
           <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900">Filter Results</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <select
-                value={filters.branch}
-                onChange={(e) => handleFilterChange("branch", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">All Branches</option>
-                {branches.map((b) => (
-                  <option key={b.id} value={b.name}>
-                    {b.name}
-                  </option>
-                ))}
-              </select>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.branch}
+                  onChange={(e) => handleFilterChange("branch", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+                >
+                  <option value="">All Branches</option>
+                  {branches.map((b) => (
+                    <option key={b.id} value={b.name}>
+                      {b.name}
+                    </option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filters.installmentRange}
@@ -885,7 +895,7 @@ const LoanInstallmentReport = () => {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {currentReports.map((report) => (
-                    <tr key={`${report.id}-${report.customer_id}`} className="hover:bg-gray-50 transition-colors">
+                    <tr key={`${report.id} -${report.customer_id} `} className="hover:bg-gray-50 transition-colors">
                       <td className="px-3 py-3 font-medium text-gray-900">
                         <div className="truncate max-w-[150px]" title={report.customer_name}>
                           {report.customer_name}
@@ -931,10 +941,10 @@ const LoanInstallmentReport = () => {
                       </td>
                       <td className="px-3 py-3 text-center">
                         {report.max_days_overdue > 0 ? (
-                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${report.max_days_overdue <= 7 ? 'bg-yellow-100 text-yellow-700' :
-                            report.max_days_overdue <= 14 ? 'bg-orange-100 text-orange-700' :
-                              'bg-red-100 text-red-700'
-                            }`}>
+                          <span className={`px - 2 py - 0.5 rounded - full text - [10px] font - bold ${report.max_days_overdue <= 7 ? 'bg-yellow-100 text-yellow-700' :
+                              report.max_days_overdue <= 14 ? 'bg-orange-100 text-orange-700' :
+                                'bg-red-100 text-red-700'
+                            } `}>
                             {report.max_days_overdue}d
                           </span>
                         ) : (
@@ -971,10 +981,10 @@ const LoanInstallmentReport = () => {
                         {i > 0 && arr[i - 1] !== p - 1 && <span className="text-gray-400">...</span>}
                         <button
                           onClick={() => setCurrentPage(p)}
-                          className={`w-10 h-10 rounded-lg font-medium transition-all ${currentPage === p
-                            ? "bg-accent text-white shadow-md"
-                            : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-300"
-                            }`}
+                          className={`w - 10 h - 10 rounded - lg font - medium transition - all ${currentPage === p
+                              ? "bg-accent text-white shadow-md"
+                              : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-300"
+                            } `}
                         >
                           {p}
                         </button>

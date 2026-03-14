@@ -6,8 +6,8 @@ import crypto from "crypto";
 
 const mpesaConfigRouter = express.Router();
 
-// Apply authentication globally to this router
-mpesaConfigRouter.use(verifySupabaseToken);
+// Apply authentication directly to routes to avoid global leak
+// mpesaConfigRouter.use(verifySupabaseToken);
 
 // Basic encryption logic
 const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "jasiri_default_encryption_key_32ch";
@@ -28,7 +28,7 @@ function encrypt(text) {
 }
 
 // CREATE OR UPDATE TENANT MPESA CONFIG
-mpesaConfigRouter.post("/tenant-mpesa-config", checkTenantAccess, async (req, res) => {
+mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   const {
     tenant_id,
     paybill_number,
@@ -124,7 +124,7 @@ mpesaConfigRouter.post("/tenant-mpesa-config", checkTenantAccess, async (req, re
 });
 
 // GET tenant MPESA config
-mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", checkTenantAccess, async (req, res) => {
+mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   try {
     const { tenant_id } = req.params;
     const { data, error } = await supabaseAdmin

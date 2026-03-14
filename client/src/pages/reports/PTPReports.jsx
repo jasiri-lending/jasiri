@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient';
 import { exportToCSV } from '../../utils/exportUtils';
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
-import { Loader2 } from 'lucide-react';
+import { Loader2, Filter, RefreshCw, Download, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { useAuth } from '../../hooks/userAuth.js';
 
 const PTPReports = () => {
@@ -13,12 +13,16 @@ const PTPReports = () => {
     endDate: '',
     status: 'all',
     officer: 'all',
-    branch: 'all'
+    branch: 'all',
+    region: 'all'
   });
+
+  const [showFilters, setShowFilters] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [reportData, setReportData] = useState(null);
   const [branches, setBranches] = useState([]);
+  const [regions, setRegions] = useState([]);
   const [officers, setOfficers] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [sortConfig, setSortConfig] = useState({ key: 'promised_date', direction: 'desc' });
@@ -52,6 +56,16 @@ const PTPReports = () => {
 
       if (officerError) throw officerError;
       setOfficers(officerData || []);
+
+      // Load regions
+      const { data: regionData, error: regionError } = await supabase
+        .from('regions')
+        .select('id, name')
+        .eq('tenant_id', profile?.tenant_id)
+        .order('name');
+
+      if (regionError) throw regionError;
+      setRegions(regionData || []);
     } catch (error) {
       console.error('Error loading static data:', error);
     }
@@ -64,32 +78,39 @@ const PTPReports = () => {
       let query = supabase
         .from('promise_to_pay')
         .select(`
-          id,
-          loan_id,
-          customer_id,
-          promised_amount,
-          promised_date,
-          status,
-          remarks,
-          created_at,
-          created_by,
-          customers!promise_to_pay_customer_id_fkey (
-            id,
-            Firstname,
-            Middlename,
-            Surname,
-            mobile
-          ),
+          *,
           loans!promise_to_pay_loan_id_fkey (
             id,
             scored_amount
           ),
-          users!promise_to_pay_created_by_fkey (
-            id,
+          customers (
+            Firstname,
+            Middlename,
+            Surname,
+            mobile,
+            branch:branch_id (
+              name,
+              region:region_id (name)
+            )
+          ),
+          collector:created_by (
             full_name
           )
-        `)
-        .eq('tenant_id', profile?.tenant_id);
+        `, { count: 'exact' })
+        .eq('tenant_id', profile.tenant_id);
+
+      // RBAC implementation
+      if (profile.role === 'relationship_officer') {
+        query = query.eq('created_by', profile.id);
+      } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+        if (profile.branch_id) {
+          query = query.filter('loans.branch_id', 'eq', profile.branch_id);
+        }
+      } else if (profile.role === 'regional_manager') {
+        if (profile.region_id) {
+          query = query.filter('loans.region_id', 'eq', profile.region_id);
+        }
+      }
 
       // Apply filters
       if (filters.startDate) {
@@ -104,26 +125,18 @@ const PTPReports = () => {
       if (filters.officer !== 'all') {
         query = query.eq('created_by', filters.officer);
       }
+      if (filters.branch !== 'all') {
+        query = query.filter('customers.branch.name', 'eq', filters.branch);
+      }
+      if (filters.region !== 'all') {
+        query = query.filter('customers.branch.region.name', 'eq', filters.region);
+      }
 
       const { data: ptpData, error: ptpError } = await query.order('promised_date', { ascending: false });
 
       if (ptpError) throw ptpError;
 
-      // If branch filter is applied, we need to filter by customer's branch
       let filteredPtps = ptpData || [];
-      if (filters.branch !== 'all') {
-        // Get customers in this branch
-        const { data: branchCustomers, error: bcError } = await supabase
-          .from('customers')
-          .select('id')
-          .eq('branch_id', filters.branch)
-          .eq('tenant_id', profile?.tenant_id);
-
-        if (bcError) throw bcError;
-
-        const branchCustomerIds = branchCustomers.map(c => c.id);
-        filteredPtps = filteredPtps.filter(ptp => branchCustomerIds.includes(ptp.customer_id));
-      }
 
       // Calculate summary statistics
       const totalPromises = filteredPtps.length;
@@ -154,7 +167,7 @@ const PTPReports = () => {
         promised_amount: parseFloat(ptp.promised_amount || 0),
         promised_date: ptp.promised_date,
         status: ptp.status,
-        officer_name: ptp.users?.full_name || 'Unknown',
+        officer_name: ptp.collector?.full_name || 'Unknown',
         remarks: ptp.remarks || '',
         created_at: ptp.created_at
       }));
@@ -172,10 +185,10 @@ const PTPReports = () => {
     }
   };
 
-  // const handleFilterChange = (e) => {
-  //   const { name, value } = e.target;
-  //   setFilters(prev => ({ ...prev, [name]: value }));
-  // };
+  const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setFilters(prev => ({ ...prev, [name]: value }));
+  };
 
   const handleSort = (key) => {
     setSortConfig({
@@ -286,295 +299,265 @@ const PTPReports = () => {
 
   return (
     <div className="space-y-6 bg-brand-surface p-6 min-h-screen">
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        <h1 className="text-sm  text-gray-600">Promise to Pay Reports </h1>
-        <div className="flex space-x-3">
-          <button
-            onClick={generateReport}
-            disabled={loading}
-            className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 disabled:opacity-50 flex items-center gap-2"
-          >
-            {loading && <Loader2 className="h-4 w-4 animate-spin" />}
-            Refresh
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={!reportData}
-            className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50"
-          >
-            Export CSV
-          </button>
+      {/* Header Section */}
+      <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div>
+              <h1 className="text-sm font-bold text-stone-600 uppercase tracking-wider">Reports</h1>
+              <h2 className="text-lg font-semibold text-white mt-1">
+                Promise to Pay Report
+              </h2>
+            </div>
+          </div>
+
+          <div className="flex flex-col items-end gap-2">
+            <div className="flex gap-2 mt-2 flex-wrap justify-end">
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
+                  ${showFilters
+                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                    : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                  }`}
+              >
+                <Filter className="w-4 h-4" />
+                <span>Filters</span>
+                {Object.values(filters).some(val => val && val !== 'all') && !showFilters && (
+                  <span className="bg-blue-100 text-blue-800 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">
+                    Active
+                  </span>
+                )}
+              </button>
+
+              <button
+                onClick={generateReport}
+                disabled={loading}
+                className="px-4 py-2 bg-white border border-gray-200 text-gray-700 rounded-lg hover:bg-brand-secondary hover:text-white flex items-center gap-2 transition-all shadow-sm text-sm font-medium"
+              >
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+                {loading ? 'Refreshing...' : 'Refresh Data'}
+              </button>
+
+              <button
+                onClick={handleExport}
+                disabled={!reportData || loading}
+                className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-brand-secondary disabled:opacity-50 flex items-center gap-2 transition-all shadow-sm text-sm font-medium"
+              >
+                <Download className="w-4 h-4" />
+                Export CSV
+              </button>
+            </div>
+          </div>
         </div>
       </div>
 
       {/* Filters */}
-      {/* <div className="bg-white p-6 rounded-lg shadow-sm border">
-        <h2 className="text-lg font-semibold text-gray-600 mb-4">Filter PTP Reports</h2>
-        
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Start Date
-            </label>
-            <input
-              type="date"
-              name="startDate"
-              value={filters.startDate}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
+      {showFilters && (
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 animate-in fade-in slide-in-from-top-2 duration-300">
+          <div className="flex items-center gap-2 mb-6">
+            <div className="p-2 bg-indigo-50 rounded-lg">
+              <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            </div>
+            <h3 className="text-lg font-bold text-gray-900">Report Filters</h3>
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              End Date
-            </label>
-            <input
-              type="date"
-              name="endDate"
-              value={filters.endDate}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            />
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Status
-            </label>
-            <select
-              name="status"
-              value={filters.status}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Statuses</option>
-              <option value="pending">Pending</option>
-              <option value="kept">Kept</option>
-              <option value="broken">Broken</option>
-            </select>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Officer
-            </label>
-            <select
-              name="officer"
-              value={filters.officer}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-            >
-              <option value="all">All Officers</option>
-              {officers.map(officer => (
-                <option key={officer.id} value={officer.id}>{officer.full_name}</option>
-              ))}
-            </select>
-          </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Branch
-            </label>
-            <select
-              name="branch"
-              value={filters.branch}
-              onChange={handleFilterChange}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Start Date</label>
+              <input
+                type="date"
+                name="startDate"
+                value={filters.startDate}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">End Date</label>
+              <input
+                type="date"
+                name="endDate"
+                value={filters.endDate}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all"
+              />
+            </div>
+            <div className="flex-1">
+              <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Status</label>
+              <select
+                name="status"
+                value={filters.status}
+                onChange={handleFilterChange}
+                className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+              >
+                <option value="all">All Statuses</option>
+                <option value="pending">Pending</option>
+                <option value="kept">Kept</option>
+                <option value="broken">Broken</option>
+              </select>
+            </div>
+
+            {!['relationship_officer'].includes(profile?.role) && (
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Officer</label>
+                <select
+                  name="officer"
+                  value={filters.officer}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="all">All Officers</option>
+                  {officers.map(officer => (
+                    <option key={officer.id} value={officer.id}>{officer.full_name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Region</label>
+                <select
+                  name="region"
+                  value={filters.region}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="all">All Regions</option>
+                  {regions.map(region => (
+                    <option key={region.id} value={region.name}>{region.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
+              <div className="flex-1">
+                <label className="block text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Branch</label>
+                <select
+                  name="branch"
+                  value={filters.branch}
+                  onChange={handleFilterChange}
+                  className="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 outline-none transition-all appearance-none cursor-pointer"
+                >
+                  <option value="all">All Branches</option>
+                  {branches
+                    .filter(b => filters.region === 'all' || b.region?.name === filters.region)
+                    .map(branch => (
+                      <option key={branch.id} value={branch.name}>{branch.name}</option>
+                    ))}
+                </select>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-8 flex justify-end">
+            <button
+              onClick={generateReport}
+              disabled={loading}
+              className="px-8 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2 transition-all shadow-md font-bold"
             >
-              <option value="all">All Branches</option>
-              {branches.map(branch => (
-                <option key={branch.id} value={branch.id}>{branch.name}</option>
-              ))}
-            </select>
+              {loading && <Loader2 className="h-5 w-5 animate-spin" />}
+              {loading ? 'Generating...' : 'Generate Report'}
+            </button>
           </div>
         </div>
-        
-        <div className="mt-4">
-          <button
-            onClick={generateReport}
-            disabled={loading}
-            className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-          >
-            {loading && <Loader2 className="h-5 w-5 animate-spin" />}
-            {loading ? 'Generating...' : 'Generate Report'}
-          </button>
-        </div>
-      </div> */}
+      )}
 
       {loading && !reportData ? (
-        <div className="py-20">
+        <div className="py-20 flex flex-col items-center justify-center">
           <Spinner text="Generating promise to pay report..." />
         </div>
       ) : reportData && (
         <>
           {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Promises</p>
-                  <p className="text-2xl font-bold text-gray-900">{reportData.summary.totalPromises}</p>
-                  <p className="text-xs text-gray-600 mt-1">All promises</p>
-                </div>
-              </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+              <p className="text-sm text-muted font-medium">Total Promises</p>
+              <p className="text-2xl font-bold mt-1 text-primary">{reportData.summary.totalPromises}</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Kept Promises</p>
-                  <p className="text-2xl font-bold text-green-600">{reportData.summary.keptPromises}</p>
-                  <p className="text-xs text-gray-600 mt-1">{formatPercentage(reportData.summary.keptPercentage)} rate</p>
-                </div>
-              </div>
+            <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+              <p className="text-sm text-muted font-medium">Kept Promises</p>
+              <p className="text-2xl font-bold mt-1 text-accent">{reportData.summary.keptPromises}</p>
+              <p className="text-[10px] text-accent font-bold uppercase tracking-tighter mt-1">{formatPercentage(reportData.summary.keptPercentage)} Settlement rate</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center">
-                <div className="p-2 bg-red-100 rounded-lg">
-                  <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Broken Promises</p>
-                  <p className="text-2xl font-bold text-red-600">{reportData.summary.brokenPromises}</p>
-                  <p className="text-xs text-gray-600 mt-1">{formatPercentage(reportData.summary.brokenPercentage)} rate</p>
-                </div>
-              </div>
+            <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+              <p className="text-sm text-muted font-medium">Broken Promises</p>
+              <p className="text-2xl font-bold mt-1 text-gray-900">{reportData.summary.brokenPromises}</p>
+              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-tighter mt-1">{formatPercentage(reportData.summary.brokenPercentage)} Failure rate</p>
             </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="flex items-center">
-                <div className="p-2 bg-yellow-100 rounded-lg">
-                  <svg className="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Pending Promises</p>
-                  <p className="text-2xl font-bold text-yellow-600">{reportData.summary.pendingPromises}</p>
-                  <p className="text-xs text-gray-600 mt-1">{formatPercentage(reportData.summary.pendingPercentage)} pending</p>
-                </div>
-              </div>
+            <div className="bg-blue-50 p-5 rounded-xl shadow-sm border border-gray-100 transition-all hover:shadow-md">
+              <p className="text-sm text-muted font-medium">Pending Promises</p>
+              <p className="text-2xl font-bold mt-1 text-blue-600">{reportData.summary.pendingPromises}</p>
+              <p className="text-[10px] text-blue-500 font-bold uppercase tracking-tighter mt-1">{formatPercentage(reportData.summary.pendingPercentage)} Waiting</p>
             </div>
           </div>
 
-          {/* Financial Summary */}
-          {/* <div className="grid grid-cols-1 gap-6">
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-              <div className="text-center">
-                <p className="text-sm font-medium text-gray-600">Total Promised Amount</p>
-                <p className="text-3xl font-bold text-indigo-600">{formatCurrency(reportData.summary.totalPromisedAmount)}</p>
-                <p className="text-sm text-gray-600 mt-2">Amount customers promised to pay</p>
-              </div>
-            </div>
-          </div> */}
+
 
           {/* PTP Details Table */}
-          <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-sm  text-slate-600">Promise to Pay Details</h3>
+          <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+            <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
+              <h3 className="text-lg font-bold text-gray-900">Promise to Pay Details</h3>
+              <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-white px-3 py-1.5 rounded-lg border border-gray-100">{sortedPtps.length} Records Found</span>
             </div>
 
             <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+              <table className="min-w-full text-sm text-left">
+                <thead className="bg-gray-100 border-b border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Customer Name
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Customer</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Contact</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Loan</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Amount</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap cursor-pointer hover:text-primary transition-colors" onClick={() => handleSort('promised_date')}>
+                      Due Date {sortConfig.key === 'promised_date' && (<span className="ml-1 text-primary font-bold">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>)}
                     </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Mobile
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Loan ID
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('promised_amount')}
-                    >
-                      Promised Amount
-                      {sortConfig.key === 'promised_amount' && (
-                        <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </th>
-                    <th
-                      className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap cursor-pointer hover:bg-gray-100"
-                      onClick={() => handleSort('promised_date')}
-                    >
-                      Promise Date
-                      {sortConfig.key === 'promised_date' && (
-                        <span className="ml-1">{sortConfig.direction === 'asc' ? '↑' : '↓'}</span>
-                      )}
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Status
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Officer
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Remarks
-                    </th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
-                      Actions
-                    </th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Status</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Officer</th>
+                    <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
+                <tbody className="divide-y divide-gray-100">
                   {paginatedPtps.length === 0 ? (
                     <tr>
-                      <td colSpan="9" className="px-6 py-12 text-center text-gray-500">
-                        No promises to pay found for the selected filters
+                      <td colSpan="8" className="px-6 py-20 text-center">
+                        <div className="flex flex-col items-center">
+                          <div className="p-4 bg-gray-50 rounded-full mb-4">
+                            <svg className="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.172 9.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                          </div>
+                          <p className="text-gray-400 font-medium">No results found matching your criteria</p>
+                        </div>
                       </td>
                     </tr>
                   ) : (
                     paginatedPtps.map((ptp) => (
-                      <tr key={ptp.id} className="hover:bg-gray-50">
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ptp.customer_name}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ptp.customer_mobile}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-blue-600">
-                          #{ptp.loan_id}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatCurrency(ptp.promised_amount)}
-                        </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {formatDate(ptp.promised_date)}
-                        </td>
+                      <tr key={ptp.id} className="hover:bg-gray-50/50 transition-colors group">
                         <td className="px-6 py-4 whitespace-nowrap">
-                          {getStatusBadge(ptp.status)}
+                          <div className="font-bold text-gray-900">{ptp.customer_name}</div>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                          {ptp.officer_name}
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{ptp.customer_mobile}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black bg-blue-50 text-blue-600 border border-blue-100 uppercase tracking-tighter">#{ptp.loan_id}</span>
                         </td>
-                        <td className="px-6 py-4 text-sm text-gray-900 max-w-xs truncate">
-                          {ptp.remarks || '-'}
+                        <td className="px-6 py-4 whitespace-nowrap font-bold text-gray-900">{formatCurrency(ptp.promised_amount)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600 font-medium">{formatDate(ptp.promised_date)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(ptp.status)}</td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-indigo-50 flex items-center justify-center text-[10px] font-bold text-indigo-600">{ptp.officer_name.charAt(0)}</div>
+                            <span className="text-sm font-medium text-gray-700">{ptp.officer_name}</span>
+                          </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                           <select
                             value={ptp.status}
                             onChange={(e) => handleStatusUpdate(ptp.id, e.target.value)}
-                            className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="bg-white border border-gray-200 text-gray-600 text-xs rounded-lg px-2 py-1.5 focus:ring-2 focus:ring-indigo-500 outline-none transition-all cursor-pointer shadow-sm hover:border-gray-300"
                           >
                             <option value="pending">Pending</option>
                             <option value="kept">Kept</option>
@@ -590,27 +573,27 @@ const PTPReports = () => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-700">
-                  Showing {((currentPage - 1) * itemsPerPage) + 1} to {Math.min(currentPage * itemsPerPage, sortedPtps.length)} of {sortedPtps.length} promises
+              <div className="px-6 py-5 border-t border-gray-100 flex items-center justify-between bg-gray-50/30">
+                <div className="text-sm text-gray-600">
+                  Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, sortedPtps.length)}</span> of <span className="font-medium">{sortedPtps.length}</span> entries
                 </div>
-                <div className="flex space-x-2">
+                <div className="flex gap-2">
                   <button
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                     disabled={currentPage === 1}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm bg-white"
                   >
-                    Previous
+                    <ChevronLeft className="w-4 h-4" />
                   </button>
-                  <span className="px-3 py-1 text-sm text-gray-700">
+                  <span className="px-3 py-1 text-sm font-medium text-gray-900 bg-white border border-gray-300 rounded-lg shadow-sm">
                     Page {currentPage} of {totalPages}
                   </span>
                   <button
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                     disabled={currentPage === totalPages}
-                    className="px-3 py-1 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-3 py-1 border border-gray-300 rounded-lg text-gray-600 hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm bg-white"
                   >
-                    Next
+                    <ChevronRight className="w-4 h-4" />
                   </button>
                 </div>
               </div>

@@ -21,6 +21,7 @@ import {
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
 
@@ -113,6 +114,7 @@ const CustomerDraft = () => {
   const customerId = draftId;
   const [activeSection, setActiveSection] = useState("personal");
   const { profile } = useAuth();
+  const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -530,7 +532,7 @@ const CustomerDraft = () => {
     { id: "guarantor", label: "Guarantor", icon: UserGroupIcon },
     { id: "guarantorSecurity", label: "Guarantor Security", icon: ShieldCheckIcon },
     { id: "nextOfKin", label: "Next of Kin", icon: UserGroupIcon },
-    { id: "documents", label: "Documents", icon: DocumentTextIcon },
+    ...(documentUploadEnabled ? [{ id: "documents", label: "Documents", icon: DocumentTextIcon }] : []),
   ];
 
 
@@ -1977,50 +1979,52 @@ const CustomerDraft = () => {
         <FormField label="Town/City" name="town" value={formData.town} onChange={handleChange} handleNestedChange={handleNestedChange} />
       </div>
 
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold text-slate-600 mb-6">Personal Documents</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {[
-            { key: "passport", label: "Passport Photo", handler: setPassportFile },
-            { key: "idFront", label: "ID Front", handler: setIdFrontFile },
-            { key: "idBack", label: "ID Back", handler: setIdBackFile },
-            { key: "house", label: "House Image", handler: setHouseImageFile },
-          ].map((file) => (
-            <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
-              <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
-                  <ArrowUpTrayIcon className="w-5 h-5" />
-                  <span className="text-sm font-medium">Upload</span>
-                  <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                </label>
-                <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
-                  <CameraIcon className="w-5 h-5" />
-                  <span className="text-sm font-medium">Camera</span>
-                  <input type="file" accept="image/*" capture={file.key === "passport" ? "user" : "environment"} onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                </label>
-              </div>
-              {previews[file.key] && (
-                <div className="mt-4 w-full">
-                  <div className="relative">
-                    <img src={previews[file.key]?.url || undefined} alt={`${file.label} preview`} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
-                    <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                    <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
-                      {previews[file.key].isExisting ? '📁 ' : '📄 '}
-                      {previews[file.key].fileName}
-                      {previews[file.key].isExisting && ' (Existing)'}
-                    </p>
-                  </div>
+      {imageUploadEnabled && (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-slate-600 mb-6">Personal Documents</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { key: "passport", label: "Passport Photo", handler: setPassportFile },
+              { key: "idFront", label: "ID Front", handler: setIdFrontFile },
+              { key: "idBack", label: "ID Back", handler: setIdBackFile },
+              { key: "house", label: "House Image", handler: setHouseImageFile },
+            ].map((file) => (
+              <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
+                <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
+                    <ArrowUpTrayIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                  </label>
+                  <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
+                    <CameraIcon className="w-5 h-5" />
+                    <span className="text-sm font-medium">Camera</span>
+                    <input type="file" accept="image/*" capture={file.key === "passport" ? "user" : "environment"} onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                  </label>
                 </div>
-              )}
-            </div>
-          ))}
+                {previews[file.key] && (
+                  <div className="mt-4 w-full">
+                    <div className="relative">
+                      <img src={previews[file.key]?.url || undefined} alt={`${file.label} preview`} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="mt-2 p-2 bg-white rounded border border-gray-200">
+                      <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
+                        {previews[file.key].isExisting ? '📁 ' : '📄 '}
+                        {previews[file.key].fileName}
+                        {previews[file.key].isExisting && ' (Existing)'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -2050,52 +2054,54 @@ const CustomerDraft = () => {
         <LocationPicker onLocationChange={handleLocationChange} county={formData.county} value={formData.businessCoordinates} />
       </div>
 
-      <div className="mt-8">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-slate-600">Business Images</h3>
-        </div>
-        <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface shadow-sm">
-          <label className="block text-sm font-medium mb-2 text-brand-primary">Business Images</label>
-          <div className="flex gap-3 mb-4">
-            <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-              <ArrowUpTrayIcon className="w-5 h-5" /> Upload
-              <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
-            </label>
-            <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
-              <CameraIcon className="w-5 h-5" /> Camera
-              <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden" />
-            </label>
+      {imageUploadEnabled && (
+        <div className="mt-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-lg font-semibold text-slate-600">Business Images</h3>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-            {previews.business && previews.business.length > 0 && previews.business.map((preview, index) => (
-              <div key={`preview-${index}`} className="relative group">
-                <img src={preview.url || undefined} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" onError={(e) => { console.error('Business image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                  <XMarkIcon className="w-4 h-4" />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                  <p className="text-xs truncate" title={preview.fileName}>
-                    {preview.isExisting ? '📁 ' : '📄 '}
-                    {preview.fileName}
-                    {preview.isExisting && ' (Existing)'}
-                  </p>
+          <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface shadow-sm">
+            <label className="block text-sm font-medium mb-2 text-brand-primary">Business Images</label>
+            <div className="flex gap-3 mb-4">
+              <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
+                <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+                <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
+              </label>
+              <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
+                <CameraIcon className="w-5 h-5" /> Camera
+                <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden" />
+              </label>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+              {previews.business && previews.business.length > 0 && previews.business.map((preview, index) => (
+                <div key={`preview-${index}`} className="relative group">
+                  <img src={preview.url || undefined} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" onError={(e) => { console.error('Business image failed to load:', preview.url); e.target.style.display = 'none'; }} />
+                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                    <p className="text-xs truncate" title={preview.fileName}>
+                      {preview.isExisting ? '📁 ' : '📄 '}
+                      {preview.fileName}
+                      {preview.isExisting && ' (Existing)'}
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {businessImages.map((img, index) => (
-              <div key={`current-${index}`} className="relative group">
-                <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" />
-                <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                  <XMarkIcon className="w-4 h-4" />
-                </button>
-                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                  <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+              ))}
+              {businessImages.map((img, index) => (
+                <div key={`current-${index}`} className="relative group">
+                  <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" />
+                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                    <XMarkIcon className="w-4 h-4" />
+                  </button>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                    <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -2159,47 +2165,49 @@ const CustomerDraft = () => {
               <FormField label="Est. Market Value (KES)" name="value" type="number" value={item.value} onChange={(e) => handleSecurityChange(e, index)} required />
             </div>
 
-            <div className="mt-6">
-              <label className="block text-sm font-medium mb-2 text-slate-600">Security Images</label>
-              <div className="flex gap-3 mb-3">
-                <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
-                  <ArrowUpTrayIcon className="w-5 h-5" /> Upload
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
-                </label>
-                <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
-                  <CameraIcon className="w-5 h-5" /> Camera
-                  <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
-                </label>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                {previews.security && previews.security[index] && previews.security[index].map((preview, imgIdx) => (
-                  <div key={`preview-${imgIdx}`} className="relative group">
-                    <img src={preview.url || undefined} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" onError={(e) => { console.error('Security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                    <button type="button" onClick={() => handleRemoveSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                      <p className="text-xs truncate" title={preview.fileName}>
-                        {preview.isExisting ? '📁 ' : '📄 '}
-                        {preview.fileName}
-                        {preview.isExisting && ' (Existing)'}
-                      </p>
+            {imageUploadEnabled && (
+              <div className="mt-6">
+                <label className="block text-sm font-medium mb-2 text-slate-600">Security Images</label>
+                <div className="flex gap-3 mb-3">
+                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
+                    <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+                    <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
+                  </label>
+                  <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
+                    <CameraIcon className="w-5 h-5" /> Camera
+                    <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                  {previews.security && previews.security[index] && previews.security[index].map((preview, imgIdx) => (
+                    <div key={`preview-${imgIdx}`} className="relative group">
+                      <img src={preview.url || undefined} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" onError={(e) => { console.error('Security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => handleRemoveSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                        <p className="text-xs truncate" title={preview.fileName}>
+                          {preview.isExisting ? '📁 ' : '📄 '}
+                          {preview.fileName}
+                          {preview.isExisting && ' (Existing)'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {securityItemImages[index] && securityItemImages[index].map((img, imgIdx) => (
-                  <div key={`current-${imgIdx}`} className="relative group">
-                    <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" />
-                    <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                      <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                  ))}
+                  {securityItemImages[index] && securityItemImages[index].map((img, imgIdx) => (
+                    <div key={`current-${imgIdx}`} className="relative group">
+                      <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" />
+                      <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                        <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
 
@@ -2257,50 +2265,52 @@ const CustomerDraft = () => {
         <FormField label="City/Town" name="cityTown" value={formData.guarantor.cityTown} section="guarantor" handleNestedChange={handleNestedChange} />
       </div>
 
-      <div className="mt-8">
-        <h3 className="text-lg font-semibold text-slate-600 mb-6">Guarantor Documents</h3>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            { key: "guarantorPassport", label: "Guarantor Passport", handler: setGuarantorPassportFile, icon: UserCircleIcon },
-            { key: "guarantorIdFront", label: "Guarantor ID Front", handler: setGuarantorIdFrontFile, icon: IdentificationIcon },
-            { key: "guarantorIdBack", label: "Guarantor ID Back", handler: setGuarantorIdBackFile, icon: IdentificationIcon },
-          ].map((file) => (
-            <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
-              <div className="flex items-center gap-2 mb-4">
-                <file.icon className="h-6 w-6 text-brand-primary" />
-                <h4 className="text-md font-medium text-brand-primary">{file.label}</h4>
-              </div>
-              <div className="flex flex-col sm:flex-row gap-3 w-full">
-                <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                  <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
-                  <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                </label>
-                <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
-                  <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
-                  <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                </label>
-              </div>
-              {previews[file.key] && (
-                <div className="mt-4 w-full">
-                  <div className="relative">
-                    <img src={previews[file.key]?.url || undefined} alt={file.label} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Guarantor image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
-                    <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                  </div>
-                  <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                    <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
-                      {previews[file.key].isExisting ? '📁 ' : '📄 '}
-                      {previews[file.key].fileName}
-                      {previews[file.key].isExisting && ' (Existing)'}
-                    </p>
-                  </div>
+      {imageUploadEnabled && (
+        <div className="mt-8">
+          <h3 className="text-lg font-semibold text-slate-600 mb-6">Guarantor Documents</h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {[
+              { key: "guarantorPassport", label: "Guarantor Passport", handler: setGuarantorPassportFile, icon: UserCircleIcon },
+              { key: "guarantorIdFront", label: "Guarantor ID Front", handler: setGuarantorIdFrontFile, icon: IdentificationIcon },
+              { key: "guarantorIdBack", label: "Guarantor ID Back", handler: setGuarantorIdBackFile, icon: IdentificationIcon },
+            ].map((file) => (
+              <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
+                <div className="flex items-center gap-2 mb-4">
+                  <file.icon className="h-6 w-6 text-brand-primary" />
+                  <h4 className="text-md font-medium text-brand-primary">{file.label}</h4>
                 </div>
-              )}
-            </div>
-          ))}
+                <div className="flex flex-col sm:flex-row gap-3 w-full">
+                  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
+                    <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
+                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                  </label>
+                  <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
+                    <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
+                    <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                  </label>
+                </div>
+                {previews[file.key] && (
+                  <div className="mt-4 w-full">
+                    <div className="relative">
+                      <img src={previews[file.key]?.url || undefined} alt={file.label} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Guarantor image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="mt-2 p-2 bg-white rounded border border-gray-200">
+                      <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
+                        {previews[file.key].isExisting ? '📁 ' : '📄 '}
+                        {previews[file.key].fileName}
+                        {previews[file.key].isExisting && ' (Existing)'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 
@@ -2359,47 +2369,49 @@ const CustomerDraft = () => {
               <FormField label="Est. Market Value (KES)" name="value" type="number" value={item.value} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
             </div>
 
-            <div className="mt-6">
-              <label className="block text-sm font-medium mb-2 text-slate-600">Item Images</label>
-              <div className="flex gap-3 mb-3">
-                <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
-                  <ArrowUpTrayIcon className="w-5 h-5" /> Upload
-                  <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
-                </label>
-                <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
-                  <CameraIcon className="w-5 h-5" /> Camera
-                  <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
-                </label>
-              </div>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                {previews.guarantorSecurity && previews.guarantorSecurity[index] && previews.guarantorSecurity[index].map((preview, imgIdx) => (
-                  <div key={`preview-${imgIdx}`} className="relative group">
-                    <img src={preview.url || undefined} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" onError={(e) => { console.error('Guarantor security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                    <button type="button" onClick={() => handleRemoveGuarantorSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                      <p className="text-xs truncate" title={preview.fileName}>
-                        {preview.isExisting ? '📁 ' : '📄 '}
-                        {preview.fileName}
-                        {preview.isExisting && ' (Existing)'}
-                      </p>
+            {imageUploadEnabled && (
+              <div className="mt-6">
+                <label className="block text-sm font-medium mb-2 text-slate-600">Item Images</label>
+                <div className="flex gap-3 mb-3">
+                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
+                    <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+                    <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
+                  </label>
+                  <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
+                    <CameraIcon className="w-5 h-5" /> Camera
+                    <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
+                  </label>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                  {previews.guarantorSecurity && previews.guarantorSecurity[index] && previews.guarantorSecurity[index].map((preview, imgIdx) => (
+                    <div key={`preview-${imgIdx}`} className="relative group">
+                      <img src={preview.url || undefined} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" onError={(e) => { console.error('Guarantor security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
+                      <button type="button" onClick={() => handleRemoveGuarantorSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                        <p className="text-xs truncate" title={preview.fileName}>
+                          {preview.isExisting ? '📁 ' : '📄 '}
+                          {preview.fileName}
+                          {preview.isExisting && ' (Existing)'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {guarantorSecurityImages[index] && guarantorSecurityImages[index].map((img, imgIdx) => (
-                  <div key={`current-${imgIdx}`} className="relative group">
-                    <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" />
-                    <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                      <XMarkIcon className="w-4 h-4" />
-                    </button>
-                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                      <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                  ))}
+                  {guarantorSecurityImages[index] && guarantorSecurityImages[index].map((img, imgIdx) => (
+                    <div key={`current-${imgIdx}`} className="relative group">
+                      <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" />
+                      <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+                        <XMarkIcon className="w-4 h-4" />
+                      </button>
+                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                        <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </div>
         ))}
 
@@ -2476,7 +2488,7 @@ const CustomerDraft = () => {
     </div>
   );
 
-  const renderDocumentsSection = () => (
+  const renderDocumentsSection = () => documentUploadEnabled ? (
     <div className="space-y-8">
       <div className="border-b border-gray-200 pb-6">
         <h2 className="text-lg font-semibold text-text flex items-center">
@@ -2525,7 +2537,7 @@ const CustomerDraft = () => {
         ))}
       </div>
     </div>
-  );
+  ) : null;
 
   return (
     <div className="min-h-screen bg-brand-surface py-8 font-body">

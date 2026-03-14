@@ -32,7 +32,7 @@ import {
 import { saveAs } from "file-saver";
 
 const OutstandingLoanBalanceReportEOM = () => {
-  const { tenant } = useAuth();
+  const { tenant, profile } = useAuth();
   const [reports, setReports] = useState([]);
   const [filtered, setFiltered] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -96,7 +96,7 @@ const OutstandingLoanBalanceReportEOM = () => {
       const cutoffDate = getCutoffDate();
       cutoffDate.setHours(23, 59, 59, 999);
 
-      const { data: loans, error } = await supabase
+      let loansQuery = supabase
         .from("loans")
         .select(`
           id, 
@@ -146,6 +146,16 @@ const OutstandingLoanBalanceReportEOM = () => {
         .eq("tenant_id", tenant.id)
         .in("status", ["disbursed", "approved", "ready_for_disbursement"])
         .neq("repayment_state", "completed");
+
+      if (profile?.role === "relationship_officer") {
+        loansQuery = loansQuery.eq("booked_by", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        loansQuery = loansQuery.eq("region_id", profile.region_id);
+      }
+
+      const { data: loans, error } = await loansQuery;
 
       if (error) throw error;
 
@@ -323,7 +333,7 @@ const OutstandingLoanBalanceReportEOM = () => {
     if (tenant?.id && regions.length > 0) {
       fetchOutstandingLoans();
     }
-  }, [tenant?.id, selectedMonth, regions]);
+  }, [tenant?.id, selectedMonth, regions, profile?.id, profile?.role, profile?.branch_id, profile?.region_id]);
 
   const groupByBranchAndOfficer = (data) => {
     const grouped = {};
@@ -744,47 +754,53 @@ const OutstandingLoanBalanceReportEOM = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Region</label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Region</label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => handleFilterChange("region", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map(r => <option key={r.id} value={r.name}>{r.name}</option>)}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Branch</label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Branches</option>
-                  {branches
-                    .filter(b => !filters.region || regions.find(r => r.name === filters.region)?.id === b.region_id)
-                    .map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                </select>
-              </div>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Branch</label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Branches</option>
+                    {branches
+                      .filter(b => !filters.region || regions.find(r => r.name === filters.region)?.id === b.region_id)
+                      .map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Officer</label>
-                <select
-                  value={filters.loanOfficer}
-                  onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Officers</option>
-                  {officers.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {profile?.role !== "relationship_officer" && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Officer</label>
+                  <select
+                    value={filters.loanOfficer}
+                    onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Officers</option>
+                    {officers.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">Payment Status</label>

@@ -12,8 +12,10 @@ import {
   Clock,
   AlertCircle,
   RefreshCw,
+  Globe
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth.js";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components (unchanged) ==========
@@ -157,15 +159,7 @@ PaginationControls.displayName = 'PaginationControls';
 
 // ========== Main Component ==========
 const MpesaRepaymentReports = () => {
-  const [tenant] = useState(() => {
-    try {
-      const savedTenant = localStorage.getItem("tenant");
-      return savedTenant ? JSON.parse(savedTenant) : null;
-    } catch (e) {
-      console.error("Error loading tenant:", e);
-      return null;
-    }
-  });
+  const { profile, tenant } = useAuth();
 
   // State
   const [rawRepayments, setRawRepayments] = useState([]);
@@ -253,7 +247,7 @@ const MpesaRepaymentReports = () => {
 
   // Core fetch function (reusable, uses isMounted and abort signal)
   const fetchRepayments = useCallback(async (signal) => {
-    if (!tenantId) return;
+    if (!tenantId || !profile) return;
 
     try {
       setLoading(true);
@@ -261,7 +255,7 @@ const MpesaRepaymentReports = () => {
       isTimeout.current = false;
 
       // Try cache first
-      const cacheKey = `mpesa-repayments-raw-data-${tenantId}`;
+      const cacheKey = `mpesa-repayments-raw-data-${tenantId}-${profile?.id}`;
       try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -279,7 +273,7 @@ const MpesaRepaymentReports = () => {
       }
 
       // Fetch loan_payments
-      const { data: payments, error: paymentsError } = await supabase
+      let query = supabase
         .from("loan_payments")
         .select(`
           id,
@@ -291,6 +285,8 @@ const MpesaRepaymentReports = () => {
           loan_id,
           loans!inner (
             id,
+            booked_by,
+            branch_id,
             customers!inner (
               id,
               Firstname,
@@ -306,7 +302,22 @@ const MpesaRepaymentReports = () => {
           )
         `)
         .eq("payment_method", "mpesa_c2b")
-        .eq("loans.customers.tenant_id", tenantId)
+        .eq("loans.customers.tenant_id", tenantId);
+
+      // RBAC Implementation
+      if (profile.role === 'relationship_officer') {
+        query = query.eq('loans.booked_by', profile.id);
+      } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+        if (profile.branch_id) {
+          query = query.eq('loans.branch_id', profile.branch_id);
+        }
+      } else if (profile.role === 'regional_manager') {
+        if (profile.region_id) {
+          query = query.filter('loans.branches.region_id', 'eq', profile.region_id);
+        }
+      }
+
+      const { data: payments, error: paymentsError } = await query
         .order("paid_at", { ascending: false })
         .abortSignal(signal);
 
@@ -661,10 +672,10 @@ const MpesaRepaymentReports = () => {
 
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                    : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
-                    }`}
+                  className={`px - 4 py - 2 rounded - lg flex items - center gap - 2 text - sm font - medium transition - all border ${showFilters
+                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    } `}
                 >
                   <Filter className="w-4 h-4" />
                   <span>Filters</span>
@@ -704,20 +715,24 @@ const MpesaRepaymentReports = () => {
               </button>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Region</label>
-                <select value={filters.region} onChange={(e) => handleFilterChange("region", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">All Regions</option>
-                  {regions.map(region => <option key={region.id} value={region.name}>{region.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
-                <select value={filters.branch} onChange={(e) => handleFilterChange("branch", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">All Branches</option>
-                  {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                </select>
-              </div>
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Region</label>
+                  <select value={filters.region} onChange={(e) => handleFilterChange("region", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
+                    <option value="">All Regions</option>
+                    {regions.map(region => <option key={region.id} value={region.name}>{region.name}</option>)}
+                  </select>
+                </div>
+              )}
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
+                  <select value={filters.branch} onChange={(e) => handleFilterChange("branch", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
+                    <option value="">All Branches</option>
+                    {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
                 <select value={filters.dateRangeType} onChange={(e) => handleFilterChange("dateRangeType", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">

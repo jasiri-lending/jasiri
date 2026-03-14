@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import {
   UserCircleIcon,
   BuildingOffice2Icon,
@@ -22,6 +23,7 @@ import {
 import { supabase } from "../../supabaseClient.js";
 
 function CustomerDetailsEdit() {
+  const { imageUploadEnabled, documentUploadEnabled } = useTenantFeatures();
   const [activeSection, setActiveSection] = useState('personal');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
@@ -1032,65 +1034,67 @@ function CustomerDetailsEdit() {
         </div>
       );
 
-      fields.push(
-        <div key="personal-docs" className="mt-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Supporting Documents</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { key: 'passport', label: 'Passport Photo' },
-              { key: 'idFront', label: 'ID Front' },
-              { key: 'idBack', label: 'ID Back' },
-              { key: 'houseImage', label: 'House Image' },
-            ].map(doc => (
-              <div key={doc.key} className="border rounded-lg p-3" style={{ borderColor: primaryColor }}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {doc.label}
-                </label>
-                <div className="flex gap-2">
-                  <label className="flex-1 text-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200 text-sm">
-                    <ArrowUpTrayIcon className="w-4 h-4 inline mr-1" />
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, doc.key)}
-                      className="hidden"
-                    />
+      if (imageUploadEnabled) {
+        fields.push(
+          <div key="personal-docs" className="mt-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-3">Supporting Documents</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {[
+                { key: 'passport', label: 'Passport Photo' },
+                { key: 'idFront', label: 'ID Front' },
+                { key: 'idBack', label: 'ID Back' },
+                { key: 'houseImage', label: 'House Image' },
+              ].map(doc => (
+                <div key={doc.key} className="border rounded-lg p-3" style={{ borderColor: primaryColor }}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {doc.label}
                   </label>
-                  <label className="flex-1 md:hidden text-center px-3 py-1.5 rounded cursor-pointer hover:bg-blue-200 text-sm"
-                    style={{ backgroundColor: primaryLight, color: primaryColor }}>
-                    <CameraIcon className="w-4 h-4 inline mr-1" />
-                    Camera
-                    <input
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      onChange={(e) => handleFileUpload(e, doc.key)}
-                      className="hidden"
-                    />
-                  </label>
-                </div>
-                {previews[doc.key] && (
-                  <div className="mt-3 relative">
-                    <img
-                      src={previews[doc.key].url}
-                      alt={doc.label}
-                      className="w-full h-40 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile(doc.key)}
-                      className="absolute top-1.5 right-1.5 bg-red-600 text-white rounded-full p-1"
-                    >
-                      <XMarkIcon className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex gap-2">
+                    <label className="flex-1 text-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200 text-sm">
+                      <ArrowUpTrayIcon className="w-4 h-4 inline mr-1" />
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, doc.key)}
+                        className="hidden"
+                      />
+                    </label>
+                    <label className="flex-1 md:hidden text-center px-3 py-1.5 rounded cursor-pointer hover:bg-blue-200 text-sm"
+                      style={{ backgroundColor: primaryLight, color: primaryColor }}>
+                      <CameraIcon className="w-4 h-4 inline mr-1" />
+                      Camera
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => handleFileUpload(e, doc.key)}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
-                )}
-              </div>
-            ))}
+                  {previews[doc.key] && (
+                    <div className="mt-3 relative">
+                      <img
+                        src={previews[doc.key].url}
+                        alt={doc.label}
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(doc.key)}
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white rounded-full p-1"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     }
 
     if (section === 'business') {
@@ -1331,52 +1335,54 @@ function CustomerDetailsEdit() {
         </div>
       );
 
-      fields.push(
-        <div key="guarantor-docs" className="mt-6">
-          <h3 className="text-base font-semibold text-gray-900 mb-3">Guarantor Documents</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { key: 'guarantorPassport', label: 'Passport Photo' },
-              { key: 'guarantorIdFront', label: 'ID Front' },
-              { key: 'guarantorIdBack', label: 'ID Back' },
-            ].map(doc => (
-              <div key={doc.key} className="border rounded-lg p-3" style={{ borderColor: primaryColor }}>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  {doc.label}
-                </label>
-                <div className="flex gap-2">
-                  <label className="flex-1 text-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200 text-sm">
-                    <ArrowUpTrayIcon className="w-4 h-4 inline mr-1" />
-                    Upload
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => handleFileUpload(e, doc.key)}
-                      className="hidden"
-                    />
+      if (imageUploadEnabled) {
+        fields.push(
+          <div key="guarantor-docs" className="mt-6">
+            <h3 className="text-base font-semibold text-gray-900 mb-3">Guarantor Documents</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {[
+                { key: 'guarantorPassport', label: 'Passport Photo' },
+                { key: 'guarantorIdFront', label: 'ID Front' },
+                { key: 'guarantorIdBack', label: 'ID Back' },
+              ].map(doc => (
+                <div key={doc.key} className="border rounded-lg p-3" style={{ borderColor: primaryColor }}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {doc.label}
                   </label>
-                </div>
-                {previews[doc.key] && (
-                  <div className="mt-3 relative">
-                    <img
-                      src={previews[doc.key].url}
-                      alt={doc.label}
-                      className="w-full h-40 object-cover rounded-lg"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveFile(doc.key)}
-                      className="absolute top-1.5 right-1.5 bg-red-600 text-white rounded-full p-1"
-                    >
-                      <XMarkIcon className="w-3.5 h-3.5" />
-                    </button>
+                  <div className="flex gap-2">
+                    <label className="flex-1 text-center px-3 py-1.5 bg-gray-100 text-gray-700 rounded cursor-pointer hover:bg-gray-200 text-sm">
+                      <ArrowUpTrayIcon className="w-4 h-4 inline mr-1" />
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileUpload(e, doc.key)}
+                        className="hidden"
+                      />
+                    </label>
                   </div>
-                )}
-              </div>
-            ))}
+                  {previews[doc.key] && (
+                    <div className="mt-3 relative">
+                      <img
+                        src={previews[doc.key].url}
+                        alt={doc.label}
+                        className="w-full h-40 object-cover rounded-lg"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveFile(doc.key)}
+                        className="absolute top-1.5 right-1.5 bg-red-600 text-white rounded-full p-1"
+                      >
+                        <XMarkIcon className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-      );
+        );
+      }
     }
 
     if (section === 'nextOfKin') {

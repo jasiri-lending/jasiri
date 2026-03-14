@@ -116,7 +116,7 @@ export const useDisbursementStore = create(
                 status,
                 loan_id
               ),
-              mpesa:mpesa_b2c_transactions(
+              mpesa:loan_disbursement_transactions(
                 transaction_id,
                 loan_id,
                 status

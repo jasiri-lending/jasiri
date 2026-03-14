@@ -10,6 +10,7 @@ import {
   Search,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth";
 import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
 
 // ========== Memoized Helper Components ==========
@@ -97,6 +98,7 @@ const LoanOfficerPerformanceReport = () => {
       return null;
     }
   });
+  const { profile } = useAuth();
 
   // State
   const [rawReports, setRawReports] = useState([]);
@@ -155,14 +157,25 @@ const LoanOfficerPerformanceReport = () => {
 
     const fetchInitialData = async () => {
       try {
+        let branchesQuery = supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId);
+        let regionsQuery = supabase.from("regions").select("id, name").eq("tenant_id", tenantId);
+        let usersQuery = supabase.from("users").select("id, full_name").eq("role", "relationship_officer").eq("tenant_id", tenantId);
+
+        if (profile?.role === "relationship_officer") {
+          usersQuery = usersQuery.eq("id", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          branchesQuery = branchesQuery.eq("id", profile.branch_id);
+          usersQuery = usersQuery.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          regionsQuery = regionsQuery.eq("id", profile.region_id);
+          branchesQuery = branchesQuery.eq("region_id", profile.region_id);
+          usersQuery = usersQuery.eq("region_id", profile.region_id);
+        }
+
         const [branchesRes, regionsRes, usersRes] = await Promise.all([
-          supabase.from("branches").select("id, name, region_id").eq("tenant_id", tenantId),
-          supabase.from("regions").select("id, name").eq("tenant_id", tenantId),
-          supabase
-            .from("users")
-            .select("id, full_name")
-            .eq("role", "relationship_officer")
-            .eq("tenant_id", tenantId),
+          branchesQuery,
+          regionsQuery,
+          usersQuery,
         ]);
 
         if (mounted) {
@@ -178,7 +191,7 @@ const LoanOfficerPerformanceReport = () => {
     fetchInitialData();
 
     return () => { mounted = false; };
-  }, []);
+  }, [profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
 
   // Helper: Portfolio at Risk calculation
   const calculatePAR = useCallback((arrearsAmount, outstandingLoan) => {
@@ -255,7 +268,7 @@ const LoanOfficerPerformanceReport = () => {
         if (mounted) setLoading(true);
 
         // 1️⃣ Fetch loans with branch and regions
-        const loansQuery = supabase
+        let loansQuery = supabase
           .from("loans")
           .select(`
             id,
@@ -277,25 +290,43 @@ const LoanOfficerPerformanceReport = () => {
           .eq("tenant_id", tenantId)
           .abortSignal(abortControllerRef.current.signal);
 
+        let installmentsQuery = supabase
+          .from("loan_installments")
+          .select("loan_id, due_date, due_amount, paid_amount, status, days_overdue")
+          .eq("tenant_id", tenantId)
+          .abortSignal(abortControllerRef.current.signal);
+
+        let paymentsQuery = supabase
+          .from("loan_payments")
+          .select("loan_id, paid_amount, paid_at")
+          .eq("tenant_id", tenantId)
+          .abortSignal(abortControllerRef.current.signal);
+
+        let usersQuery = supabase
+          .from("users")
+          .select("id, full_name")
+          .eq("role", "relationship_officer")
+          .eq("tenant_id", tenantId)
+          .abortSignal(abortControllerRef.current.signal);
+
+        // Role-based restrictions
+        if (profile?.role === "relationship_officer") {
+          loansQuery = loansQuery.eq("booked_by", profile.id);
+          usersQuery = usersQuery.eq("id", profile.id);
+        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+          loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+          usersQuery = usersQuery.eq("branch_id", profile.branch_id);
+        } else if (profile?.role === "regional_manager") {
+          loansQuery = loansQuery.eq("region_id", profile.region_id);
+          usersQuery = usersQuery.eq("region_id", profile.region_id);
+        }
+
         // 2️⃣ Fetch other data sources
         const [loansRes, installmentsRes, paymentsRes, usersRes] = await Promise.all([
           loansQuery,
-          supabase
-            .from("loan_installments")
-            .select("loan_id, due_date, due_amount, paid_amount, status, days_overdue")
-            .eq("tenant_id", tenantId)
-            .abortSignal(abortControllerRef.current.signal),
-          supabase
-            .from("loan_payments")
-            .select("loan_id, paid_amount, paid_at")
-            .eq("tenant_id", tenantId)
-            .abortSignal(abortControllerRef.current.signal),
-          supabase
-            .from("users")
-            .select("id, full_name")
-            .eq("role", "relationship_officer")
-            .eq("tenant_id", tenantId)
-            .abortSignal(abortControllerRef.current.signal),
+          installmentsQuery,
+          paymentsQuery,
+          usersQuery,
         ]);
 
         if (loansRes.error) throw loansRes.error;
@@ -478,7 +509,7 @@ const LoanOfficerPerformanceReport = () => {
         abortControllerRef.current.abort();
       }
     };
-  }, [filters.dateRange, getDateRange, calculatePAR]); // Re-run when dateRange changes
+  }, [filters.dateRange, getDateRange, calculatePAR, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]); // Re-run when dateRange changes
 
   // ========== MEMOIZED DERIVED DATA ==========
 
@@ -757,41 +788,47 @@ const LoanOfficerPerformanceReport = () => {
         {showFilters && (
           <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4">
             <h3 className="font-semibold text-gray-900">Filter Results</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-              <select
-                value={filters.region}
-                onChange={(e) => handleFilterChange("region", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">All Regions</option>
-                {regions.map((r) => (
-                  <option key={r.id} value={r.name}>{r.name}</option>
-                ))}
-              </select>
-
-              <select
-                value={filters.branch}
-                onChange={(e) => handleFilterChange("branch", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">All Branches</option>
-                {branches
-                  .filter(b => !filters.region || regions.find(r => r.name === filters.region)?.id === b.region_id)
-                  .map((b) => (
-                    <option key={b.id} value={b.name}>{b.name}</option>
+            <div className="flex flex-wrap items-center gap-4">
+              {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.region}
+                  onChange={(e) => handleFilterChange("region", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
+                >
+                  <option value="">All Regions</option>
+                  {regions.map((r) => (
+                    <option key={r.id} value={r.name}>{r.name}</option>
                   ))}
-              </select>
+                </select>
+              )}
 
-              <select
-                value={filters.loanOfficer}
-                onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="">All Loan Officers</option>
-                {getFilteredLoanOfficers().map((officer) => (
-                  <option key={officer.id} value={officer.id}>{officer.full_name}</option>
-                ))}
-              </select>
+              {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.branch}
+                  onChange={(e) => handleFilterChange("branch", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
+                >
+                  <option value="">All Branches</option>
+                  {branches
+                    .filter(b => !filters.region || regions.find(r => r.name === filters.region)?.id === b.region_id)
+                    .map((b) => (
+                      <option key={b.id} value={b.name}>{b.name}</option>
+                    ))}
+                </select>
+              )}
+
+              {profile?.role !== "relationship_officer" && (
+                <select
+                  value={filters.loanOfficer}
+                  onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
+                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
+                >
+                  <option value="">All Loan Officers</option>
+                  {getFilteredLoanOfficers().map((officer) => (
+                    <option key={officer.id} value={officer.id}>{officer.full_name}</option>
+                  ))}
+                </select>
+              )}
 
               <select
                 value={filters.dateRange}
@@ -911,8 +948,8 @@ const LoanOfficerPerformanceReport = () => {
                       onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                       disabled={currentPage === 1}
                       className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === 1
-                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                         }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
@@ -935,8 +972,8 @@ const LoanOfficerPerformanceReport = () => {
                             key={pageNum}
                             onClick={() => setCurrentPage(pageNum)}
                             className={`px-3 py-2 rounded-lg transition-colors ${currentPage === pageNum
-                                ? 'bg-blue-600 text-white font-semibold'
-                                : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                              ? 'bg-blue-600 text-white font-semibold'
+                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                               }`}
                           >
                             {pageNum}
@@ -948,8 +985,8 @@ const LoanOfficerPerformanceReport = () => {
                       onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
                       disabled={currentPage === pagination.totalPages}
                       className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === pagination.totalPages
-                          ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                          : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
                         }`}
                     >
                       Next

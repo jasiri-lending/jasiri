@@ -24,6 +24,7 @@ import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
 import { checkUniqueValue } from "../../utils/Unique";
 import { useAuth } from "../../hooks/userAuth";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
 
@@ -220,6 +221,7 @@ const AddCustomer = () => {
   ]);
 
   const { profile } = useAuth();
+  const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
 
   // File upload state
   const [passportFile, setPassportFile] = useState(null);
@@ -260,7 +262,8 @@ const AddCustomer = () => {
       icon: ShieldCheckIcon,
     },
     { id: "nextOfKin", label: "Next of Kin", icon: UserGroupIcon },
-    { id: "documents", label: "Documents", icon: DocumentTextIcon },
+    // Only show documents tab if enabled
+    ...(documentUploadEnabled ? [{ id: "documents", label: "Documents", icon: DocumentTextIcon }] : []),
   ];
 
   // Auto-geocode business address when fields change
@@ -1253,6 +1256,7 @@ const AddCustomer = () => {
   };
 
   const validateDocuments = () => {
+    if (!documentUploadEnabled) return true;
     let errorsFound = {};
     let hasErrors = false;
 
@@ -1806,12 +1810,12 @@ const AddCustomer = () => {
         gender: formData.gender || null,
         id_number: formData.idNumber || null,
         postal_address: formData.postalAddress || null,
-        code: formData.code || null,
+        code: formData.code ? parseInt(formData.code, 10) || null : null,
         town: formData.town || null,
         county: formData.county || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
-        daily_Sales: Number(formData.daily_Sales) || null,
+        daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
         business_location: formData.businessLocation || null,
         business_lat: formData.businessCoordinates?.lat || null,
@@ -1819,7 +1823,7 @@ const AddCustomer = () => {
         road: formData.road || null,
         landmark: formData.landmark || null,
         has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
-        prequalifiedAmount: Number(formData.prequalifiedAmount) || null,
+        prequalifiedAmount: formData.prequalifiedAmount ? Math.round(parseFloat(formData.prequalifiedAmount)) || null : null,
         passport_url: passportUrl,
         id_front_url: idFrontUrl,
         id_back_url: idBackUrl,
@@ -1928,7 +1932,7 @@ const AddCustomer = () => {
             alternative_number: guarantor.alternativeMobile || null,
             residence_status: guarantor.residenceStatus || null,
             postal_address: guarantor.postalAddress || null,
-            code: guarantor.code ? parseInt(guarantor.code) : null,
+            code: guarantor.code ? parseInt(guarantor.code, 10) || null : null,
             occupation: guarantor.occupation || null,
             relationship: guarantor.relationship || null,
             date_of_birth: guarantor.dateOfBirth || null,
@@ -2315,95 +2319,42 @@ const AddCustomer = () => {
                   />
                 </div>
 
-                {/* Document Uploads - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-text mb-6">
-                    Personal Documents
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[
-                      {
-                        key: "passport",
-                        label: "Passport Photo",
-                        handler: setPassportFile,
-                      },
-                      {
-                        key: "idFront",
-                        label: "ID Front",
-                        handler: setIdFrontFile,
-                      },
-                      {
-                        key: "idBack",
-                        label: "ID Back",
-                        handler: setIdBackFile,
-                      },
-                      {
-                        key: "house",
-                        label: "House Image",
-                        handler: setHouseImageFile,
-                      },
-                    ].map((file) => (
-                      <div
-                        key={file.key}
-                        className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition"
-                      >
-                        <label className="block text-sm font-medium text-brand-primary mb-3">
-                          {file.label}
-                        </label>
-
-                        <div className="flex flex-col sm:flex-row gap-3 w-full">
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
-
-                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
-                            <CameraIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Camera</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture={file.key === "passport" ? "user" : "environment"}
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {previews[file.key] && (
-                          <div className="mt-4 w-full">
-                            <div className="relative">
-                              <img
-                                src={previews[file.key].url}
-                                alt={`${file.label} preview`}
-                                className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFile(file.key, file.handler)}
-                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
+                {/* Conditionally reveal PERSONAL document uploaders */}
+                {imageUploadEnabled && (
+                  <div className="mt-10 pt-8 border-t border-gray-100">
+                    <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                      <IdentificationIcon className="w-5 h-5" />
+                      Personal Documents
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      {[
+                        { key: "passport", label: "Passport Photo", handler: setPassportFile },
+                        { key: "idFront", label: "ID Front", handler: setIdFrontFile },
+                        { key: "idBack", label: "ID Back", handler: setIdBackFile },
+                        { key: "houseImage", label: "Residence Image", handler: setHouseImageFile },
+                      ].map((file) => (
+                        <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                          <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                          <div className="flex gap-2">
+                            <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
+                              <ArrowUpTrayIcon className="w-4 h-4" />
+                              Upload
+                              <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                            </label>
+                          </div>
+                          {previews[file.key] && (
+                            <div className="mt-3 relative">
+                              <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white shadow-sm" />
+                              <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
+                                <XMarkIcon className="w-3 h-3" />
                               </button>
                             </div>
-                            {/* Professional file name display */}
-                            <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                              <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
-                                📄 {previews[file.key].fileName}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -2512,80 +2463,41 @@ const AddCustomer = () => {
                 {/* GPS Location Picker */}
                 <div className="mt-8">
                   <LocationPicker
-                    onLocationChange={handleLocationChange}
-                    county={formData.county}
                     value={formData.businessCoordinates}
+                    onChange={handleLocationChange}
+                    county={formData.county}
                   />
                 </div>
 
-                {/* Business Images - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-text">
+                {/* Conditionally reveal BUSINESS image uploaders */}
+                {imageUploadEnabled && (
+                  <div className="mt-10 pt-8 border-t border-gray-100">
+                    <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                      <BuildingOffice2Icon className="w-5 h-5" />
                       Business Images
                     </h3>
-                  </div>
-
-                  <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface">
-                    <label className="block text-sm font-medium mb-2 text-text">
-                      Business Images
-                    </label>
-                    <div className="flex gap-3 mb-4">
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition">
+                    <div className="flex gap-4 mb-6">
+                      <label className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-xl cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
                         <ArrowUpTrayIcon className="w-5 h-5" />
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleBusinessImages}
-                          className="hidden"
-                        />
-                      </label>
-
-                      <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
-                        <CameraIcon className="w-5 h-5" />
-                        Camera
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          multiple
-                          onChange={handleBusinessImages}
-                          className="hidden"
-                        />
+                        Add Business Images
+                        <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
                       </label>
                     </div>
 
-                    {/* Display Business Images Grid */}
                     {businessImages.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                        {businessImages.map((img, index) => (
-                          <div key={index} className="relative group">
-                            <img
-                              src={URL.createObjectURL(img)}
-                              alt={`Business Image ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveBusinessImage(index)}
-                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                            >
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                        {businessImages.map((file, idx) => (
+                          <div key={idx} className="relative group rounded-xl overflow-hidden border border-gray-200">
+                            <img src={URL.createObjectURL(file)} alt="Business" className="w-full h-32 object-cover" />
+                            <button type="button" onClick={() => handleRemoveBusinessImage(idx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
                               <XMarkIcon className="w-4 h-4" />
                             </button>
-                            {/* File name display */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                              <p className="text-xs truncate" title={img.name}>
-                                {img.name}
-                              </p>
-                            </div>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -2695,65 +2607,67 @@ const AddCustomer = () => {
                       </div>
 
                       {/* Security Images Section - USING BRAND COLORS */}
-                      <div className="mt-6">
-                        <label className="block text-sm font-medium mb-2 text-text">
-                          Security Images
-                        </label>
-                        <div className="flex gap-3 mb-3">
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 font-medium">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
-                              className="hidden"
-                            />
+                      {imageUploadEnabled && (
+                        <div className="mt-6">
+                          <label className="block text-sm font-medium mb-2 text-text">
+                            Security Images
                           </label>
+                          <div className="flex gap-3 mb-3">
+                            <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 font-medium">
+                              <ArrowUpTrayIcon className="w-5 h-5" />
+                              Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
+                                className="hidden"
+                              />
+                            </label>
 
-                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
-                            <CameraIcon className="w-5 h-5" />
-                            Camera
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {/* Display Image Grid */}
-                        {securityItemImages[index] && securityItemImages[index].length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                            {securityItemImages[index].map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative group">
-                                <img
-                                  src={URL.createObjectURL(img)}
-                                  alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages, "borrower")}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
-                                {/* File name display */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                                  <p className="text-xs truncate" title={img.name}>
-                                    {img.name}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                            <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
+                              <CameraIcon className="w-5 h-5" />
+                              Camera
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                        )}
-                      </div>
+
+                          {/* Display Image Grid */}
+                          {securityItemImages[index] && securityItemImages[index].length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                              {securityItemImages[index].map((img, imgIdx) => (
+                                <div key={imgIdx} className="relative group">
+                                  <img
+                                    src={URL.createObjectURL(img)}
+                                    alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages, "borrower")}
+                                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                  {/* File name display */}
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                    <p className="text-xs truncate" title={img.name}>
+                                      {img.name}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -2964,96 +2878,39 @@ const AddCustomer = () => {
                   />
                 </div>
 
-                {/* Guarantor Documents - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-text mb-6">
-                    Guarantor Documents
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[
-                      {
-                        key: "guarantorPassport",
-                        label: "Guarantor Passport",
-                        handler: setGuarantorPassportFile,
-                        icon: UserCircleIcon,
-                      },
-                      {
-                        key: "guarantorIdFront",
-                        label: "Guarantor ID Front",
-                        handler: setGuarantorIdFrontFile,
-                        icon: IdentificationIcon,
-                      },
-                      {
-                        key: "guarantorIdBack",
-                        label: "Guarantor ID Back",
-                        handler: setGuarantorIdBackFile,
-                        icon: IdentificationIcon,
-                      },
-                    ].map((file) => (
-                      <div
-                        key={file.key}
-                        className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition"
-                      >
-                        <div className="flex items-center gap-2 mb-4">
-                          <file.icon className="h-6 w-6 text-brand-primary" />
-                          <h4 className="text-md font-medium text-brand-primary">
-                            {file.label}
-                          </h4>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-3 w-full">
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
+                {/* Conditional Guarantor Documents */}
+                {imageUploadEnabled && (
+                  <div className="mt-10 pt-8 border-t border-gray-100">
+                    <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                      <IdentificationIcon className="w-5 h-5" />
+                      Guarantor Documents
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      {[
+                        { key: "guarantorPassport", label: "Passport Photo", handler: setGuarantorPassportFile },
+                        { key: "guarantorIdFront", label: "ID Front", handler: setGuarantorIdFrontFile },
+                        { key: "guarantorIdBack", label: "ID Back", handler: setGuarantorIdBackFile },
+                      ].map((file) => (
+                        <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                          <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                          <label className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm font-medium">
+                            <ArrowUpTrayIcon className="w-4 h-4" />
+                            Upload
+                            <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                           </label>
-
-                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
-                            <CameraIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Camera</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {previews[file.key] && (
-                          <div className="mt-4 w-full">
-                            <div className="relative">
-                              <img
-                                src={previews[file.key].url}
-                                alt={file.label}
-                                className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFile(file.key, file.handler)}
-                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
+                          {previews[file.key] && (
+                            <div className="mt-3 relative">
+                              <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white" />
+                              <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
+                                <XMarkIcon className="w-3 h-3" />
                               </button>
                             </div>
-                            {/* File name display */}
-                            <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                              <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
-                                📄 {previews[file.key].fileName}
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -3161,65 +3018,68 @@ const AddCustomer = () => {
                         />
                       </div>
 
-                      {/* Images - USING BRAND COLORS */}
-                      <div className="mt-6">
-                        <label className="block text-sm font-medium mb-2 text-text">
-                          Item Images
-                        </label>
-                        <div className="flex gap-3 mb-3">
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
-                              className="hidden"
-                            />
+                      {/* Images - Conditional */}
+                      {imageUploadEnabled && (
+                        <div className="mt-6">
+                          <label className="block text-sm font-medium mb-3 text-text">
+                            Item Images
                           </label>
+                          <div className="flex gap-3 mb-4">
+                            <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
+                              <ArrowUpTrayIcon className="w-5 h-5" />
+                              Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
+                                className="hidden"
+                              />
+                            </label>
 
-                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
-                            <CameraIcon className="w-5 h-5" />
-                            Camera
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                            {guarantorSecurityImages[index].map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative group">
-                                <img
-                                  src={URL.createObjectURL(img)}
-                                  alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages, "guarantor")}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
-                                {/* File name display */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                                  <p className="text-xs truncate" title={img.name}>
-                                    {img.name}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                            <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition-all duration-200">
+                              <CameraIcon className="w-5 h-5" />
+                              Camera
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                        )}
-                      </div>
+
+                          {
+                            guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
+                              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                                {guarantorSecurityImages[index].map((img, imgIdx) => (
+                                  <div key={imgIdx} className="relative group">
+                                    <img
+                                      src={URL.createObjectURL(img)}
+                                      alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`}
+                                      className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages, "guarantor")}
+                                      className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                                    >
+                                      <XMarkIcon className="w-4 h-4" />
+                                    </button>
+                                    {/* File name display */}
+                                    <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                      <p className="text-xs truncate" title={img.name}>
+                                        {img.name}
+                                      </p>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
@@ -3584,9 +3444,9 @@ const AddCustomer = () => {
               </div>
             </div>
           </form>
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   );
 };
 

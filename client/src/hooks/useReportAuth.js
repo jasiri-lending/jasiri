@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useAuth } from "../hooks/userAuth";
 
 export function useReportAuth() {
-  const { user, profile, initializing } = useAuth();
+  const { profile, initializing } = useAuth();
   const [reportUser, setReportUser] = useState(null);
   const [checking, setChecking] = useState(true);
 
-  const validateReportUser = () => {
-    if (!user || !profile?.tenant_id) {
-      localStorage.removeItem("reportUser");
+  const validateReportUser = useCallback(() => {
+    if (!profile?.tenant_id) {
       setReportUser(null);
       setChecking(false);
       return;
@@ -36,12 +35,12 @@ export function useReportAuth() {
     }
 
     setChecking(false);
-  };
+  }, [profile?.tenant_id]);
 
   useEffect(() => {
     if (initializing) return;
     validateReportUser();
-  }, [user, profile, initializing]);
+  }, [profile, initializing, validateReportUser]);
 
   // ✅ LISTEN FOR REPORT LOGIN
   useEffect(() => {
@@ -52,7 +51,7 @@ export function useReportAuth() {
 
     window.addEventListener("report-login", refresh);
     return () => window.removeEventListener("report-login", refresh);
-  }, [user, profile]);
+  }, [validateReportUser]);
 
   return {
     reportUser,

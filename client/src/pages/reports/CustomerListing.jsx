@@ -11,9 +11,11 @@ import {
   Users,
   UserCheck,
   UserPlus,
-  Lock
+  Lock,
+  Globe
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
+import { useAuth } from "../../hooks/userAuth.js";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
@@ -112,16 +114,7 @@ SortableHeader.displayName = "SortableHeader";
 // ========== Main Component ==========
 
 const CustomerListing = () => {
-  // Get tenant from localStorage ONCE
-  const [tenant] = useState(() => {
-    try {
-      const savedTenant = localStorage.getItem("tenant");
-      return savedTenant ? JSON.parse(savedTenant) : null;
-    } catch (e) {
-      console.error("Error loading tenant:", e);
-      return null;
-    }
-  });
+  const { profile, tenant } = useAuth();
 
   // ========== State ==========
   const [rawCustomers, setRawCustomers] = useState([]);
@@ -228,19 +221,20 @@ const CustomerListing = () => {
       return;
     }
 
-    // Already fetched – skip if data already exists to avoid extra calls on re-mount if state is persisted elsewhere (though here it's local state)
-    // However, since we depend on tenant?.id, it will only rerun if tenant changes.
+    // Already fetched – skip if data already exists
     if (hasFetchedRef.current && rawCustomers.length > 0) {
       if (mounted) setLoading(false);
       clearTimeout(safetyTimeout);
       return;
     }
 
+    if (!profile) return;
+
     hasFetchedRef.current = true;
 
     const fetchCustomers = async () => {
       try {
-        const cacheKey = `customer-listing-raw-data-${tenantId}`;
+        const cacheKey = `customer-listing-raw-data-${tenantId}-${profile?.id}`;
 
         // Try cache first
         try {
@@ -264,7 +258,7 @@ const CustomerListing = () => {
         // No cache or expired – fetch from DB
         if (mounted) setLoading(true);
 
-        const { data, error } = await supabase
+        let query = supabase
           .from("customers")
           .select(
             `
@@ -287,8 +281,22 @@ const CustomerListing = () => {
           `
           )
           .eq("form_status", "submitted")
-          .eq("tenant_id", tenantId)
-          .order("created_at", { ascending: false });
+          .eq("tenant_id", tenantId);
+
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          query = query.eq('created_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            query = query.eq('branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            query = query.filter('branch.region_id', 'eq', profile.region_id);
+          }
+        }
+
+        const { data, error } = await query.order("created_at", { ascending: false });
 
         if (error) throw error;
         if (!mounted) return;
@@ -665,7 +673,7 @@ const CustomerListing = () => {
     <div className="min-h-screen bg-brand-surface p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
-       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-4">
 
@@ -734,47 +742,51 @@ const CustomerListing = () => {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Region
-                </label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map((r) => (
-                    <option key={r.id} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Branch
-                </label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                >
-                  <option value="">All Branches</option>
-                  {branches
-                    .filter(
-                      (b) =>
-                        !filters.region ||
-                        regions.find((r) => r.name === filters.region)?.id === b.region_id
-                    )
-                    .map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name}
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Region
+                  </label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => handleFilterChange("region", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.name}>
+                        {r.name}
                       </option>
                     ))}
-                </select>
-              </div>
+                  </select>
+                </div>
+              )}
+
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Branch
+                  </label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  >
+                    <option value="">All Branches</option>
+                    {branches
+                      .filter(
+                        (b) =>
+                          !filters.region ||
+                          regions.find((r) => r.name === filters.region)?.id === b.region_id
+                      )
+                      .map((b) => (
+                        <option key={b.id} value={b.name}>
+                          {b.name}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
@@ -792,23 +804,25 @@ const CustomerListing = () => {
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  RO
-                </label>
-                <select
-                  value={filters.officer}
-                  onChange={(e) => handleFilterChange("officer", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                >
-                  <option value="">All Officers</option>
-                  {officers.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!['relationship_officer'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    RO
+                  </label>
+                  <select
+                    value={filters.officer}
+                    onChange={(e) => handleFilterChange("officer", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  >
+                    <option value="">All Officers</option>
+                    {officers.map((officer, index) => (
+                      <option key={index} value={officer}>
+                        {officer}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1.5">
                 <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">

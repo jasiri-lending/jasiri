@@ -10,10 +10,8 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  UserX,
-  Phone,
-  Calendar,
   MapPin,
+  Globe
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { jsPDF } from "jspdf";
@@ -29,6 +27,7 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import Spinner from "../../components/Spinner";
+import { useAuth } from "../../hooks/userAuth.js";
 
 // ========== Memoized Helper Components ==========
 
@@ -52,8 +51,8 @@ const InactiveCustomerRow = React.memo(
       customer.inactive_days > 90
         ? "bg-red-100 text-red-700"
         : customer.inactive_days > 60
-        ? "bg-orange-100 text-orange-700"
-        : "bg-blue-100 text-blue-700";
+          ? "bg-orange-100 text-orange-700"
+          : "bg-blue-100 text-blue-700";
 
     return (
       <tr className="hover:bg-gray-50/50 transition-colors group">
@@ -118,15 +117,7 @@ InactiveCustomerRow.displayName = "InactiveCustomerRow";
 // ========== Main Component ==========
 
 const InactiveCustomers = () => {
-  const [tenant] = useState(() => {
-    try {
-      const savedTenant = localStorage.getItem("tenant");
-      return savedTenant ? JSON.parse(savedTenant) : null;
-    } catch (e) {
-      console.error("Error loading tenant:", e);
-      return null;
-    }
-  });
+  const { profile, tenant } = useAuth();
 
   // State
   const [inactiveCustomers, setInactiveCustomers] = useState([]);
@@ -155,7 +146,7 @@ const InactiveCustomers = () => {
           minInactivityDays: parsed.minInactivityDays || 30,
         };
       }
-    } catch (e) {}
+    } catch (e) { }
     return {
       search: "",
       region: "",
@@ -235,7 +226,7 @@ const InactiveCustomers = () => {
       }
     }, 15000);
 
-    if (!tenantId) {
+    if (!tenantId || !profile) {
       if (mounted) setLoading(false);
       clearTimeout(safetyTimeout);
       return;
@@ -250,24 +241,24 @@ const InactiveCustomers = () => {
 
     hasFetchedRef.current = true;
 
-  const fetchInactiveCustomers = async () => {
-  try {
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
+    const fetchInactiveCustomers = async () => {
+      try {
+        if (abortControllerRef.current) {
+          abortControllerRef.current.abort();
+        }
+        abortControllerRef.current = new AbortController();
 
-    const cacheKey = `inactive-customers-${tenantId}-${days}`;
-    // … cache check (unchanged) …
+        const cacheKey = `inactive-customers-${tenantId}-${profile?.id}-${days}`;
+        // … cache check (unchanged) …
 
-    if (mounted) setLoading(true);
+        if (mounted) setLoading(true);
 
-    // --------------------------------------------------------------
-    // NEW QUERY: include repayment_state and created_by user details
-    // --------------------------------------------------------------
-    const { data: customersData, error } = await supabase
-      .from('customers')
-      .select(`
+        // --------------------------------------------------------------
+        // NEW QUERY: include repayment_state and created_by user details
+        // --------------------------------------------------------------
+        let query = supabase
+          .from('customers')
+          .select(`
         id,
         Firstname,
         Middlename,
@@ -276,7 +267,10 @@ const InactiveCustomers = () => {
         id_number,
         created_at,
         branch_id,
-        branch:branch_id ( name ),
+        branch:branch_id ( 
+          name,
+          region_id
+        ),
         created_by,
         created_by_user:created_by ( full_name ),
         loans!left (
@@ -288,87 +282,101 @@ const InactiveCustomers = () => {
           booked_by_user:booked_by ( full_name )
         )
       `)
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false });
+          .eq('tenant_id', tenantId);
 
-    if (error) throw error;
-    if (!mounted) return;
+        // RBAC Implementation
+        if (profile.role === 'relationship_officer') {
+          query = query.eq('created_by', profile.id);
+        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
+          if (profile.branch_id) {
+            query = query.eq('branch_id', profile.branch_id);
+          }
+        } else if (profile.role === 'regional_manager') {
+          if (profile.region_id) {
+            query = query.filter('branch.region_id', 'eq', profile.region_id);
+          }
+        }
 
-    // Process each customer
-    const processed = customersData.map(cust => {
-      // Build full name
-      const customer_name = [cust.Firstname, cust.Middlename, cust.Surname]
-        .filter(Boolean)
-        .join(' ') || 'Unknown';
+        const { data: customersData, error } = await query.order('created_at', { ascending: false });
 
-      // Consider only disbursed loans
-      const disbursedLoans = cust.loans?.filter(l => l.status === 'disbursed') || [];
+        if (error) throw error;
+        if (!mounted) return;
 
-      // 1. Exclude if any disbursed loan is still active (not completed)
-      const hasActiveLoan = disbursedLoans.some(l => 
-        l.repayment_state && l.repayment_state !== 'completed'
-      );
-      if (hasActiveLoan) return null;
+        // Process each customer
+        const processed = customersData.map(cust => {
+          // Build full name
+          const customer_name = [cust.Firstname, cust.Middlename, cust.Surname]
+            .filter(Boolean)
+            .join(' ') || 'Unknown';
 
-      // Find latest disbursed loan (if any)
-      let latestLoan = null;
-      if (disbursedLoans.length > 0) {
-        latestLoan = disbursedLoans.reduce((latest, current) => {
-          const latestDate = latest?.disbursed_at ? new Date(latest.disbursed_at) : new Date(0);
-          const currentDate = current.disbursed_at ? new Date(current.disbursed_at) : new Date(0);
-          return currentDate > latestDate ? current : latest;
-        }, null);
+          // Consider only disbursed loans
+          const disbursedLoans = cust.loans?.filter(l => l.status === 'disbursed') || [];
+
+          // 1. Exclude if any disbursed loan is still active (not completed)
+          const hasActiveLoan = disbursedLoans.some(l =>
+            l.repayment_state && l.repayment_state !== 'completed'
+          );
+          if (hasActiveLoan) return null;
+
+          // Find latest disbursed loan (if any)
+          let latestLoan = null;
+          if (disbursedLoans.length > 0) {
+            latestLoan = disbursedLoans.reduce((latest, current) => {
+              const latestDate = latest?.disbursed_at ? new Date(latest.disbursed_at) : new Date(0);
+              const currentDate = current.disbursed_at ? new Date(current.disbursed_at) : new Date(0);
+              return currentDate > latestDate ? current : latest;
+            }, null);
+          }
+
+          // 2. Determine relationship officer
+          let loanOfficerName = 'N/A';
+          if (latestLoan?.booked_by_user?.full_name) {
+            loanOfficerName = latestLoan.booked_by_user.full_name;
+          } else if (cust.created_by_user?.full_name) {
+            loanOfficerName = cust.created_by_user.full_name;
+          }
+          // No fallback to "Global" – if missing, keep 'N/A'
+
+          // 3. Compute last activity date & inactive days
+          const lastActivityDate = latestLoan?.disbursed_at || cust.created_at;
+          const inactiveDays = lastActivityDate
+            ? Math.floor((new Date() - new Date(lastActivityDate)) / (1000 * 60 * 60 * 24))
+            : 0;
+
+          // 4. Apply minimum inactivity threshold
+          if (inactiveDays < days) return null;
+
+          // 5. Branch name
+          const branchName = cust.branch?.name || 'Unassigned';
+
+          return {
+            customer_id: cust.id,
+            customer_name,
+            mobile: cust.mobile || 'N/A',
+            id_number: cust.id_number ? String(cust.id_number) : 'N/A',
+            branch_name: branchName,
+            loan_officer: loanOfficerName,
+            disbursement_date: latestLoan?.disbursed_at || null,
+            account_created: cust.created_at,
+            inactive_days: inactiveDays,
+          };
+        }).filter(Boolean); // Remove nulls (active customers or below threshold)
+
+        if (!mounted) return;
+
+        setInactiveCustomers(processed);
+        // Extract unique officers (only from inactive customers, as before)
+        const uniqueOfficers = [...new Set(processed.map(c => c.loan_officer).filter(Boolean))];
+        setOfficers(uniqueOfficers);
+
+        // Cache the results (unchanged) …
+      } catch (err) {
+        // error handling (unchanged) …
+      } finally {
+        if (mounted) setLoading(false);
+        clearTimeout(safetyTimeout);
       }
-
-      // 2. Determine relationship officer
-      let loanOfficerName = 'N/A';
-      if (latestLoan?.booked_by_user?.full_name) {
-        loanOfficerName = latestLoan.booked_by_user.full_name;
-      } else if (cust.created_by_user?.full_name) {
-        loanOfficerName = cust.created_by_user.full_name;
-      }
-      // No fallback to "Global" – if missing, keep 'N/A'
-
-      // 3. Compute last activity date & inactive days
-      const lastActivityDate = latestLoan?.disbursed_at || cust.created_at;
-      const inactiveDays = lastActivityDate
-        ? Math.floor((new Date() - new Date(lastActivityDate)) / (1000 * 60 * 60 * 24))
-        : 0;
-
-      // 4. Apply minimum inactivity threshold
-      if (inactiveDays < days) return null;
-
-      // 5. Branch name
-      const branchName = cust.branch?.name || 'Unassigned';
-
-      return {
-        customer_id: cust.id,
-        customer_name,
-        mobile: cust.mobile || 'N/A',
-        id_number: cust.id_number ? String(cust.id_number) : 'N/A',
-        branch_name: branchName,
-        loan_officer: loanOfficerName,
-        disbursement_date: latestLoan?.disbursed_at || null,
-        account_created: cust.created_at,
-        inactive_days: inactiveDays,
-      };
-    }).filter(Boolean); // Remove nulls (active customers or below threshold)
-
-    if (!mounted) return;
-
-    setInactiveCustomers(processed);
-    // Extract unique officers (only from inactive customers, as before)
-    const uniqueOfficers = [...new Set(processed.map(c => c.loan_officer).filter(Boolean))];
-    setOfficers(uniqueOfficers);
-
-    // Cache the results (unchanged) …
-  } catch (err) {
-    // error handling (unchanged) …
-  } finally {
-    if (mounted) setLoading(false);
-    clearTimeout(safetyTimeout);
-  }
-};
+    };
     fetchInactiveCustomers();
 
     return () => {
@@ -384,9 +392,9 @@ const InactiveCustomers = () => {
   const handleManualRefresh = useCallback(() => {
     const tenantId = tenantIdRef.current;
     const days = filters.minInactivityDays;
-    if (!tenantId) return;
+    if (!tenantId || !profile) return;
 
-    const cacheKey = `inactive-customers-${tenantId}-${days}`;
+    const cacheKey = `inactive-customers-${tenantId}-${profile?.id}-${days}`;
     try {
       localStorage.removeItem(cacheKey);
     } catch (e) {
@@ -535,8 +543,7 @@ const InactiveCustomers = () => {
     const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
     saveAs(
       blob,
-      `${tenant?.company_name || "Jasiri"}_inactive_customers_${
-        new Date().toISOString().split("T")[0]
+      `${tenant?.company_name || "Jasiri"}_inactive_customers_${new Date().toISOString().split("T")[0]
       }.csv`
     );
   }, [filteredData, tenant, formatDate]);
@@ -558,8 +565,7 @@ const InactiveCustomers = () => {
     XLSX.utils.book_append_sheet(workbook, worksheet, "Inactive Customers");
     XLSX.writeFile(
       workbook,
-      `${tenant?.company_name || "Jasiri"}_inactive_customers_${
-        new Date().toISOString().split("T")[0]
+      `${tenant?.company_name || "Jasiri"}_inactive_customers_${new Date().toISOString().split("T")[0]
       }.xlsx`
     );
   }, [filteredData, tenant, formatDate]);
@@ -611,8 +617,7 @@ const InactiveCustomers = () => {
     });
 
     doc.save(
-      `${companyName.toLowerCase().replace(/ /g, "_")}_inactive_customers_${
-        new Date().toISOString().split("T")[0]
+      `${companyName.toLowerCase().replace(/ /g, "_")}_inactive_customers_${new Date().toISOString().split("T")[0]
       }.pdf`
     );
   }, [filteredData, tenant, getCurrentTimestamp]);
@@ -682,8 +687,7 @@ const InactiveCustomers = () => {
     const blob = await Packer.toBlob(doc);
     saveAs(
       blob,
-      `${tenant?.company_name || "Jasiri"}_inactive_customers_${
-        new Date().toISOString().split("T")[0]
+      `${tenant?.company_name || "Jasiri"}_inactive_customers_${new Date().toISOString().split("T")[0]
       }.docx`
     );
   }, [filteredData, tenant, getCurrentTimestamp]);
@@ -758,90 +762,89 @@ const InactiveCustomers = () => {
     );
   }
 
- 
+
 
 
   return (
     <div className="min-h-screen bg-brand-surface pb-12">
       {/* HEADER SECTION */}
-   <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-      
-      {/* LEFT SECTION (Company Name + Report Title) */}
-      <div>
-        <h1 className="text-sm font-black text-stone-600 tracking-tight">
-          {tenant?.company_name || "Jasiri"}
-        </h1>
+      <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
 
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
-          <p className="text-lg font-bold text-white">
-            Inactive Customers Report
-          </p>
+            {/* LEFT SECTION (Company Name + Report Title) */}
+            <div>
+              <h1 className="text-sm font-black text-stone-600 tracking-tight">
+                {tenant?.company_name || "Jasiri"}
+              </h1>
 
-          <div className="flex items-center gap-1.5 text-xs text-blue-100 font-medium bg-white/10 px-2 py-0.5 rounded-md border border-white/20">
-            <Clock className="w-3.5 h-3.5" />
-            <span>
-              Period:{" "}
-              <span className="text-white font-bold">
-                {filters.minInactivityDays} Days
-              </span>
-            </span>
-          </div>
-        </div>
-      </div>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1">
+                <p className="text-lg font-bold text-white">
+                  Inactive Customers Report
+                </p>
 
-      {/* RIGHT SECTION (Search + Filters + Export) */}
-      <div className="flex flex-col items-end gap-1">
-        <div className="flex gap-2 mt-2 flex-wrap justify-end">
-          
-          <SearchBox
-            value={filters.search}
-            onChange={(val) => handleFilterChange("search", val)}
-          />
+                <div className="flex items-center gap-1.5 text-xs text-blue-100 font-medium bg-white/10 px-2 py-0.5 rounded-md border border-white/20">
+                  <Clock className="w-3.5 h-3.5" />
+                  <span>
+                    Period:{" "}
+                    <span className="text-white font-bold">
+                      {filters.minInactivityDays} Days
+                    </span>
+                  </span>
+                </div>
+              </div>
+            </div>
 
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-              ${
-                showFilters
-                  ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                  : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
-              }`}
-          >
-            <Filter className="w-4 h-4" />
-            <span>Filters</span>
-          </button>
+            {/* RIGHT SECTION (Search + Filters + Export) */}
+            <div className="flex flex-col items-end gap-1">
+              <div className="flex gap-2 mt-2 flex-wrap justify-end">
 
-          <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-            <select
-              value={exportFormat}
-              onChange={(e) => setExportFormat(e.target.value)}
-              className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-            >
-              {exportFormatOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
+                <SearchBox
+                  value={filters.search}
+                  onChange={(val) => handleFilterChange("search", val)}
+                />
 
-            <button
-              onClick={handleExport}
-              className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
+              ${showFilters
+                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
+                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                    }`}
+                >
+                  <Filter className="w-4 h-4" />
+                  <span>Filters</span>
+                </button>
+
+                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
+                  >
+                    {exportFormatOptions.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    onClick={handleExport}
+                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
                        hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
-            >
-              <Download className="w-3.5 h-3.5" />
-              Export
-            </button>
-          </div>
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    Export
+                  </button>
+                </div>
 
+              </div>
+            </div>
+
+          </div>
         </div>
       </div>
-
-    </div>
-  </div>
-</div>
 
 
       <div className="max-w-[1600px] mx-auto px-6 mt-6 space-y-6">
@@ -858,14 +861,14 @@ const InactiveCustomers = () => {
                 filters.officer ||
                 filters.search ||
                 filters.minInactivityDays !== 30) && (
-                <button
-                  onClick={clearFilters}
-                  className="text-sm font-semibold text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
-                >
-                  <RefreshCw className="w-3 h-3" />
-                  Reset Filters
-                </button>
-              )}
+                  <button
+                    onClick={clearFilters}
+                    className="text-sm font-semibold text-red-500 hover:text-red-600 flex items-center gap-1 transition-colors"
+                  >
+                    <RefreshCw className="w-3 h-3" />
+                    Reset Filters
+                  </button>
+                )}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -888,59 +891,65 @@ const InactiveCustomers = () => {
                 </select>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Region
-                </label>
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map((r) => (
-                    <option key={r.id} value={r.name}>
-                      {r.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Region
+                  </label>
+                  <select
+                    value={filters.region}
+                    onChange={(e) => handleFilterChange("region", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Regions</option>
+                    {regions.map((r) => (
+                      <option key={r.id} value={r.name}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Branch
-                </label>
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Branches</option>
-                  {branchOptions.map((b) => (
-                    <option key={b.id} value={b.name}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Branch
+                  </label>
+                  <select
+                    value={filters.branch}
+                    onChange={(e) => handleFilterChange("branch", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Branches</option>
+                    {branchOptions.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Loan Officer
-                </label>
-                <select
-                  value={filters.officer}
-                  onChange={(e) => handleFilterChange("officer", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
-                >
-                  <option value="">All Officers</option>
-                  {officerOptions.map((o) => (
-                    <option key={o} value={o}>
-                      {o}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {!['relationship_officer'].includes(profile?.role) && (
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
+                    Loan Officer
+                  </label>
+                  <select
+                    value={filters.officer}
+                    onChange={(e) => handleFilterChange("officer", e.target.value)}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-accent outline-none transition-all"
+                  >
+                    <option value="">All Officers</option>
+                    {officerOptions.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -1038,11 +1047,10 @@ const InactiveCustomers = () => {
                     <button
                       disabled={currentPage === 1}
                       onClick={() => setCurrentPage((p) => p - 1)}
-                      className={`p-2 rounded-lg border transition-all ${
-                        currentPage === 1
-                          ? "bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed"
-                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-accent active:scale-95"
-                      }`}
+                      className={`p-2 rounded-lg border transition-all ${currentPage === 1
+                        ? "bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed"
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-accent active:scale-95"
+                        }`}
                     >
                       <ChevronLeft className="w-4 h-4" />
                     </button>
@@ -1063,11 +1071,10 @@ const InactiveCustomers = () => {
                             <button
                               key={pageNum}
                               onClick={() => setCurrentPage(pageNum)}
-                              className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${
-                                currentPage === pageNum
-                                  ? "bg-accent text-white shadow-md shadow-accent/20 border-transparent scale-105"
-                                  : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
-                              }`}
+                              className={`w-9 h-9 flex items-center justify-center rounded-lg text-sm font-bold transition-all ${currentPage === pageNum
+                                ? "bg-accent text-white shadow-md shadow-accent/20 border-transparent scale-105"
+                                : "bg-white text-gray-600 border border-gray-200 hover:bg-gray-50"
+                                }`}
                             >
                               {pageNum}
                             </button>
@@ -1078,11 +1085,10 @@ const InactiveCustomers = () => {
                     <button
                       disabled={currentPage === pagination.totalPages}
                       onClick={() => setCurrentPage((p) => p + 1)}
-                      className={`p-2 rounded-lg border transition-all ${
-                        currentPage === pagination.totalPages
-                          ? "bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed"
-                          : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-accent active:scale-95"
-                      }`}
+                      className={`p-2 rounded-lg border transition-all ${currentPage === pagination.totalPages
+                        ? "bg-gray-50 text-gray-300 border-gray-200 cursor-not-allowed"
+                        : "bg-white text-gray-700 border-gray-200 hover:bg-gray-50 hover:border-accent active:scale-95"
+                        }`}
                     >
                       <ChevronRight className="w-4 h-4" />
                     </button>

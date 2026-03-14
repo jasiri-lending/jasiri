@@ -52,6 +52,8 @@ export default function AdminCreateTenant() {
     sms_api_key: "",
     sms_partner_id: "",
     sms_shortcode: "",
+    document_upload_enabled: false,
+    image_upload_enabled: false,
   });
 
   const navigate = useNavigate();
@@ -135,6 +137,8 @@ export default function AdminCreateTenant() {
           license: formData.license,
           tenant_id_number: formData.tenant_id_number,
           phone_number: formData.phone_number,
+          document_upload_enabled: formData.document_upload_enabled,
+          image_upload_enabled: formData.image_upload_enabled,
         }),
       });
 
@@ -338,20 +342,28 @@ export default function AdminCreateTenant() {
       sms_api_key: "",
       sms_partner_id: "",
       sms_shortcode: "",
+      document_upload_enabled: false,
+      image_upload_enabled: false,
     }));
     setCurrentStep(1);
     setShowForm(true);
     setError("");
     setSuccess(false);
 
-    // Fetch all MPESA configs and SMS config
+    // Fetch all MPESA configs, SMS config and Tenant Features
     try {
-      const [mpesaAllRes, smsRes] = await Promise.all([
+      const [mpesaAllRes, smsRes, featuresRes] = await Promise.all([
         apiFetch(`/api/tenant-mpesa-config/${tenant.id}/all`),
         apiFetch(`/api/tenant/sms-config/${tenant.id}`),
+        supabase.from('tenant_features').select('document_upload_enabled, image_upload_enabled').eq('tenant_id', tenant.id).maybeSingle(),
       ]);
 
       const updates = {};
+
+      if (featuresRes.data) {
+        updates.document_upload_enabled = featuresRes.data.document_upload_enabled;
+        updates.image_upload_enabled = featuresRes.data.image_upload_enabled;
+      }
 
       if (mpesaAllRes.ok) {
         const { data: configs } = await mpesaAllRes.json();
@@ -456,6 +468,8 @@ export default function AdminCreateTenant() {
       sms_api_key: "",
       sms_partner_id: "",
       sms_shortcode: "",
+      document_upload_enabled: false,
+      image_upload_enabled: false,
     });
     setCurrentStep(1);
     setNewTenantId(null);
@@ -494,6 +508,17 @@ export default function AdminCreateTenant() {
           })
           .eq("id", editingTenant.id);
         if (updateErr) throw updateErr;
+
+        // 1.5 Update tenant features
+        const { error: featureErr } = await supabase
+          .from("tenant_features")
+          .upsert({
+            tenant_id: editingTenant.id,
+            document_upload_enabled: formData.document_upload_enabled,
+            image_upload_enabled: formData.image_upload_enabled,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'tenant_id' });
+        if (featureErr) throw featureErr;
 
         // 2. Save C2B config (repayments)
         const adminId = (await supabase.auth.getUser()).data.user?.id;
@@ -1050,6 +1075,50 @@ export default function AdminCreateTenant() {
                                 />
                               </div>
                             </div>
+                          </div>
+
+                          {/* Feature Toggles */}
+                          <div className="space-y-4 pt-4 border-t border-gray-100">
+                            <div className="pb-2">
+                              <h3 className="text-sm font-semibold text-gray-900">Feature Settings</h3>
+                              <p className="text-gray-500 text-xs mt-1">Enable or disable specific features for this tenant</p>
+                            </div>
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-xs font-bold text-gray-700 block">Document Uploads</label>
+                                  <p className="text-[10px] text-gray-500">Allow relationship officers to upload customer documents</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, document_upload_enabled: !formData.document_upload_enabled })}
+                                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.document_upload_enabled ? 'bg-brand-primary' : 'bg-gray-200'}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.document_upload_enabled ? 'translate-x-5' : 'translate-x-0'}`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+
+                            <div className="bg-gray-50 rounded-lg p-4 border border-gray-100 mt-4">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <label className="text-xs font-bold text-gray-700 block">Image Uploads</label>
+                                  <p className="text-[10px] text-gray-500">Allow relationship officers to upload customer photos and business images</p>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setFormData({ ...formData, image_upload_enabled: !formData.image_upload_enabled })}
+                                  className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${formData.image_upload_enabled ? 'bg-brand-primary' : 'bg-gray-200'}`}
+                                >
+                                  <span
+                                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${formData.image_upload_enabled ? 'translate-x-5' : 'translate-x-0'}`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+
                           </div>
 
                           {/* SMS Sender ID Preview */}
