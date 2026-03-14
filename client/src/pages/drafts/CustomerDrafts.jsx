@@ -121,7 +121,7 @@ const CustomerDrafts = () => {
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
           <div>
            
-            <h1 className="text-sm font-bold text-slate-900 tracking-tight">
+            <h1 className="text-sm  text-slate-600 tracking-tight">
               Customer Drafts
             </h1>
           
@@ -140,7 +140,7 @@ const CustomerDrafts = () => {
         {/* Action Bar */}
         <div className="bg-white/70 backdrop-blur-md rounded-2xl p-4 border border-white shadow-xl shadow-slate-200/50 mb-6 flex flex-col md:flex-row gap-4 items-center">
           <div className="relative flex-1 w-full">
-            <MagnifyingGlassIcon className="h-5 w-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+            <MagnifyingGlassIcon className="h-3 w-3 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input
               type="text"
               placeholder="Search by name, ID, or mobile number..."
@@ -152,9 +152,9 @@ const CustomerDrafts = () => {
 
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition-all shadow-sm"
+            className="flex items-center gap-2 px-3 py-1.5 bg-white border border-slate-200 rounded-xl hover:bg-slate-50 text-slate-600 font-medium transition-all shadow-sm"
           >
-            <AdjustmentsHorizontalIcon className="h-5 w-5" />
+            <AdjustmentsHorizontalIcon className="h-3 w-3" />
             <span>Filters</span>
           </button>
         </div>
