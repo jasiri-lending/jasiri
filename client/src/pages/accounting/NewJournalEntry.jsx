@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, User, Phone, Building, X, ArrowRight } from "lucide-react";
@@ -9,7 +8,7 @@ import { useToast } from "../../components/Toast.jsx";
 function NewJournalEntry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const { addToast } = useToast(); // Add useToast hook
+  const { addToast } = useToast();
 
   // Search state for Primary Customer (Sender/Main)
   const [searchingCustomers, setSearchingCustomers] = useState(false);
@@ -91,7 +90,7 @@ function NewJournalEntry() {
 
     try {
       const response = await apiFetch(
-        `/ api / journals / search - customers ? tenant_id = ${ profile.tenant_id }& search=${ encodeURIComponent(searchTerm) } `
+        `/api/journals/search-customers?tenant_id=${profile.tenant_id}&search=${encodeURIComponent(searchTerm)}`
       );
       const data = await response.json();
       if (data.success) {
@@ -216,11 +215,9 @@ function NewJournalEntry() {
         recipient_id: formData.recipient_id || null
       };
 
-      const response = await apiFetch(`/ api / journals`, {
+      const response = await apiFetch(`/api/journals`, {
         method: 'POST',
-          customer_name: formData.customer_name,
-          recipient_id: formData.recipient_id || null
-        })
+        body: JSON.stringify(payload)
       });
 
       const data = await response.json();
@@ -229,7 +226,7 @@ function NewJournalEntry() {
         alert("Journal created successfully!");
         navigate("/accounting/journals");
       } else {
-        alert(`Failed to create journal: ${ data.error } `);
+        alert(`Failed to create journal: ${data.error}`);
       }
     } catch (error) {
       console.error("Error creating journal:", error);
@@ -349,7 +346,6 @@ function NewJournalEntry() {
 
               {showAccountDropdown && customers.length > 0 && (
                 <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                  {/* Reuse existing customer list UI */}
                   {customers.map((customer) => (
                     <div
                       key={customer.id}
@@ -525,7 +521,7 @@ function NewJournalEntry() {
             <button
               onClick={createJournal}
               disabled={loading}
-              className={`px - 6 py - 2 rounded text - sm font - medium text - white bg - brand - primary hover: bg - [#1E3A8A] transition - colors ${ loading ? 'opacity-70 cursor-not-allowed' : '' } `}
+              className={`px-6 py-2 rounded text-sm font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>
