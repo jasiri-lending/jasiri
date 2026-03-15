@@ -1,4 +1,3 @@
-```javascript
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Plus, ArrowLeft, Upload, FileSpreadsheet, X } from 'lucide-react';
@@ -41,7 +40,7 @@ function GeneralLedgerEntries() {
 
     const fetchAccounts = async () => {
         try {
-            const response = await apiFetch(`/ api / chart - of - accounts ? tenant_id = ${ profile?.tenant_id } `);
+            const response = await apiFetch(`/api/chart-of-accounts?tenant_id=${profile?.tenant_id}`);
             const data = await response.json();
             if (data.success) {
                 setAccounts(data.accounts || []);
@@ -106,14 +105,14 @@ function GeneralLedgerEntries() {
             const ws = wb.Sheets[wsname];
             const data = XLSX.utils.sheet_to_json(ws);
             setParsedData(data);
-            toast.success(`Parsed ${ data.length } rows`);
+            toast.success(`Parsed ${data.length} rows`);
         };
         reader.readAsBinaryString(selectedFile);
     };
 
     const handleManualSubmit = async () => {
         if (Math.abs(difference) > 0.01) {
-            toast.error(`Entries must balance.Difference: ${ difference.toFixed(2) } `);
+            toast.error(`Entries must balance. Difference: ${difference.toFixed(2)}`);
             return;
         }
 
@@ -124,7 +123,7 @@ function GeneralLedgerEntries() {
 
         setLoading(true);
         try {
-            const response = await apiFetch(`/ api / journal - entries`, {
+            const response = await apiFetch(`/api/journal-entries`, {
                 method: 'POST',
                 body: JSON.stringify({
                     tenant_id: profile?.tenant_id,
@@ -163,7 +162,7 @@ function GeneralLedgerEntries() {
 
         setLoading(true);
         try {
-            const response = await apiFetch(`/ api / journal - entries / upload`, {
+            const response = await apiFetch(`/api/journal-entries/upload`, {
                 method: 'POST',
                 body: JSON.stringify({
                     tenant_id: profile?.tenant_id,
@@ -173,7 +172,7 @@ function GeneralLedgerEntries() {
 
             const data = await response.json();
             if (data.success) {
-                toast.success(`Successfully uploaded ${ data.count } entries`);
+                toast.success(`Successfully uploaded ${data.count} entries`);
                 navigate("/accounting/journals");
             } else {
                 toast.error(data.error || "Failed to upload entries");
@@ -213,11 +212,10 @@ function GeneralLedgerEntries() {
                         <div className="flex gap-2">
                             <button
                                 onClick={() => setUploadMode(!uploadMode)}
-                                className={`px - 3 py - 1.5 rounded - md text - xs font - medium border transition - colors flex items - center gap - 2 ${
-    uploadMode
-        ? 'bg-brand-secondary text-white border-transparent'
-        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
-} `}
+                                className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors flex items-center gap-2 ${uploadMode
+                                        ? 'bg-brand-secondary text-white border-transparent'
+                                        : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                    }`}
                             >
                                 {uploadMode ? <FileSpreadsheet size={16} /> : <Upload size={16} />}
                                 {uploadMode ? 'Switch to Manual Entry' : 'Import from Excel'}
