@@ -13,6 +13,12 @@ import {
   PencilSquareIcon,
   ExclamationTriangleIcon,
   FunnelIcon,
+  ChevronDownIcon,
+  CalendarIcon,
+  ClockIcon,
+  ArrowUpTrayIcon,
+  PhotoIcon,
+  ShieldCheckIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
@@ -27,11 +33,19 @@ function CustomerEdits() {
   const [statusFilter, setStatusFilter] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Inline search states (for initiating new edits)
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState([]);
+  const [searching, setSearching] = useState(false);
+
   // Modal states
   const [showEditModal, setShowEditModal] = useState(false);
   const [editType, setEditType] = useState(null); // 'id_phone' or 'other_details'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
   const [viewingRequest, setViewingRequest] = useState(null);
+
+  const primaryColor = "#586ab1";
+  const primaryLight = "rgba(88, 106, 177, 0.1)";
 
   // Form states for ID/Phone edit
   const [idPhoneForm, setIdPhoneForm] = useState({
@@ -134,6 +148,58 @@ function CustomerEdits() {
     }
 
     setFilteredRequests(filtered);
+  };
+
+  const handleSearchChange = async (e) => {
+    const value = e.target.value;
+    setSearchTerm(value);
+
+    if (value.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      let query = supabase.from("customers").select("*").eq('tenant_id', profile.tenant_id).limit(10);
+
+      if (profile?.role === "relationship_officer") {
+        query = query.eq("created_by", profile.id);
+      } else if (profile?.role === "branch_manager" && profile.branch_id) {
+        query = query.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager" && profile.region_id) {
+        query = query.eq("region_id", profile.region_id);
+      }
+
+      const isNumeric = /^\d+$/.test(value);
+      if (isNumeric) {
+        query = query.or(`Firstname.ilike.%${value}%,Middlename.ilike.%${value}%,Surname.ilike.%${value}%,mobile.ilike.%${value}%,id_number.eq.${value}`);
+      } else {
+        query = query.or(`Firstname.ilike.%${value}%,Middlename.ilike.%${value}%,Surname.ilike.%${value}%,mobile.ilike.%${value}%`);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+      setSearchResults(data || []);
+    } catch (err) {
+      console.error("Search error:", err.message);
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  const handleCustomerSelect = (customer) => {
+    setSelectedCustomer(customer);
+    setSearchTerm('');
+    setSearchResults([]);
+    setIdPhoneForm({
+      newMobile: '',
+      newIdNumber: '',
+      reason: '',
+      document: null,
+      documentPreview: null
+    });
   };
 
   const handleDocumentUpload = (e) => {
@@ -281,7 +347,7 @@ function CustomerEdits() {
       if (newStatus === 'confirmed' && profile.role === 'branch_manager') {
         updateData.confirmed_by = profile.id;
         updateData.confirmed_at = new Date().toISOString();
-      } else if (newStatus === 'approved' && profile.role === 'credit_analyst_officer') {
+      } else if (newStatus === 'approved' && profile.role === 'regional_manager') {
         updateData.approved_by = profile.id;
         updateData.approved_at = new Date().toISOString();
       } else if (newStatus === 'rejected') {
@@ -331,23 +397,27 @@ function CustomerEdits() {
   const getStatusBadge = (status) => {
     const configs = {
       'pending_branch_manager': {
-        bg: 'bg-amber-100',
-        text: 'text-amber-800',
-        label: 'Pending Manager'
+        bg: 'bg-amber-50 border-amber-200',
+        text: 'text-amber-700',
+        dot: 'bg-amber-400',
+        label: 'Pending BM'
       },
       'confirmed': {
-        bg: 'bg-blue-100',
-        text: 'text-blue-800',
-        label: 'Manager Approved'
+        bg: 'bg-blue-50 border-blue-200',
+        text: 'text-blue-700',
+        dot: 'bg-blue-400',
+        label: 'Pending RM Approval'
       },
       'approved': {
-        bg: 'bg-accent/20',
-        text: 'text-accent',
+        bg: 'bg-emerald-50 border-emerald-200',
+        text: 'text-emerald-700',
+        dot: 'bg-emerald-400',
         label: 'Approved'
       },
       'rejected': {
-        bg: 'bg-red-100',
-        text: 'text-red-800',
+        bg: 'bg-red-50 border-red-200',
+        text: 'text-red-700',
+        dot: 'bg-red-400',
         label: 'Rejected'
       }
     };
@@ -355,7 +425,8 @@ function CustomerEdits() {
     const config = configs[status] || configs['pending_branch_manager'];
 
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider border ${config.bg} ${config.text}`}>
+        <span className={`w-1.5 h-1.5 rounded-full ${config.dot} animate-pulse`}></span>
         {config.label}
       </span>
     );
@@ -370,500 +441,239 @@ function CustomerEdits() {
   };
 
   const canApprove = (request) => {
-    return profile?.role === 'credit_analyst_officer' && request.status === 'confirmed';
+    return profile?.role === 'regional_manager' && request.status === 'confirmed';
   };
 
   const canReject = (request) => {
     return (profile?.role === 'branch_manager' && request.status === 'pending_branch_manager') ||
-      (profile?.role === 'credit_analyst_officer' && request.status === 'confirmed');
-  };
-
-  // Customer Search Modal
-  const CustomerSearchModal = ({ onClose, onSelect }) => {
-    const [searchTerm, setSearchTerm] = useState('');
-    const [searchResults, setSearchResults] = useState([]);
-    const [searching, setSearching] = useState(false);
-
-    const handleSearch = async (value) => {
-      setSearchTerm(value);
-
-      if (value.trim().length < 2) {
-        setSearchResults([]);
-        return;
-      }
-
-      setSearching(true);
-
-      try {
-        let query = supabase.from("customers").select("*").eq('tenant_id', profile.tenant_id).limit(10);
-
-        if (profile?.role === "relationship_officer") {
-          query = query.eq("created_by", profile.id);
-        } else if (profile?.role === "branch_manager" && profile.branch_id) {
-          query = query.eq("branch_id", profile.branch_id);
-        } else if (profile?.role === "regional_manager" && profile.region_id) {
-          query = query.eq("region_id", profile.region_id);
-        }
-
-        const isNumeric = /^\d+$/.test(value);
-
-        if (isNumeric) {
-          query = query.or(
-            `Firstname.ilike.%${value}%,Middlename.ilike.%${value}%,Surname.ilike.%${value}%,mobile.ilike.%${value}%,id_number.eq.${value}`
-          );
-        } else {
-          query = query.or(
-            `Firstname.ilike.%${value}%,Middlename.ilike.%${value}%,Surname.ilike.%${value}%,mobile.ilike.%${value}%`
-          );
-        }
-
-        const { data, error } = await query;
-
-        if (error) {
-          console.error("Search error:", error.message);
-          setSearchResults([]);
-          return;
-        }
-
-        setSearchResults(data || []);
-      } catch (err) {
-        console.error("Unexpected error:", err.message);
-        setSearchResults([]);
-      } finally {
-        setSearching(false);
-      }
-    };
-
-    return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl max-w-2xl w-full shadow-2xl">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <h3 className="text-xl font-heading font-semibold text-primary">Search Customer</h3>
-            <button onClick={onClose} className="p-2 hover:bg-neutral rounded-lg transition-colors">
-              <XMarkIcon className="w-6 h-6 text-muted" />
-            </button>
-          </div>
-
-          <div className="p-6">
-            <div className="relative mb-4">
-              <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
-              <input
-                type="text"
-                value={searchTerm}
-                onChange={(e) => handleSearch(e.target.value)}
-                placeholder="Search by name, phone, or ID number..."
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body"
-                autoFocus
-              />
-              {searching && (
-                <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
-                  <ArrowPathIcon className="w-5 h-5 text-muted animate-spin" />
-                </div>
-              )}
-            </div>
-
-            <div className="max-h-96 overflow-y-auto">
-              {searchResults.length === 0 && searchTerm.length >= 2 && !searching && (
-                <div className="text-center py-8 text-muted font-body">
-                  No customers found
-                </div>
-              )}
-
-              {searchResults.map(customer => (
-                <div
-                  key={customer.id}
-                  onClick={() => {
-                    onSelect(customer);
-                    onClose();
-                  }}
-                  className="p-4 hover:bg-brand-surface cursor-pointer rounded-xl transition-colors mb-2 border border-transparent hover:border-brand-secondary"
-                >
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-brand-surface rounded-xl flex items-center justify-center mr-4">
-                      <UserIcon className="w-6 h-6 text-brand-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-heading font-semibold text-text">
-                        {`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}
-                      </p>
-                      <div className="flex items-center gap-4 mt-1">
-                        {customer.mobile && (
-                          <span className="text-sm text-muted flex items-center font-body">
-                            <PhoneIcon className="w-4 h-4 mr-1.5" /> {customer.mobile}
-                          </span>
-                        )}
-                        {customer.id_number && (
-                          <span className="text-sm text-muted flex items-center font-body">
-                            <CreditCardIcon className="w-4 h-4 mr-1.5" /> {customer.id_number}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // ID/Phone Edit Modal
-  const IdPhoneEditModal = ({ onClose }) => {
-    return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div className="bg-white rounded-2xl max-w-3xl w-full shadow-2xl my-8">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-brand-surface sticky top-0">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-3">
-                <PencilSquareIcon className="w-6 h-6 text-brand-primary" />
-              </div>
-              <div>
-                <h3 className="text-xl font-heading font-semibold text-primary">Edit ID / Phone Number</h3>
-                <p className="text-sm text-muted font-body">Request changes to customer contact details</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">
-              <XMarkIcon className="w-6 h-6 text-muted" />
-            </button>
-          </div>
-
-          <form onSubmit={handleSubmitIdPhoneEdit} className="p-6">
-            {/* Customer Info Display */}
-            {selectedCustomer && (
-              <div className="mb-6 p-4 bg-brand-surface rounded-xl border border-brand-secondary">
-                <div className="flex items-center">
-                  <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center mr-4">
-                    <UserIcon className="w-6 h-6 text-brand-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <h4 className="font-heading font-semibold text-text">
-                      {`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}
-                    </h4>
-                    <div className="flex items-center gap-4 mt-1">
-                      <span className="text-sm text-muted font-body flex items-center">
-                        <PhoneIcon className="w-4 h-4 mr-1" /> {selectedCustomer.mobile || 'N/A'}
-                      </span>
-                      <span className="text-sm text-muted font-body flex items-center">
-                        <CreditCardIcon className="w-4 h-4 mr-1" /> {selectedCustomer.id_number || 'N/A'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Phone Number */}
-            <div className="mb-6">
-              <label className="block text-sm font-heading font-medium text-text mb-3">
-                New Phone Number <span className="text-muted font-body text-xs">(Optional if updating ID)</span>
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted mb-2 font-body">Current</p>
-                  <div className="p-3 bg-neutral rounded-xl border border-gray-300 font-body text-text">
-                    {selectedCustomer?.mobile || 'Not set'}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted mb-2 font-body">New</p>
-                  <input
-                    type="text"
-                    value={idPhoneForm.newMobile}
-                    onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newMobile: e.target.value }))}
-                    placeholder="Enter new phone number"
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* ID Number */}
-            <div className="mb-6">
-              <label className="block text-sm font-heading font-medium text-text mb-3">
-                New ID Number <span className="text-muted font-body text-xs">(Optional if updating phone)</span>
-              </label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs text-muted mb-2 font-body">Current</p>
-                  <div className="p-3 bg-neutral rounded-xl border border-gray-300 font-body text-text">
-                    {selectedCustomer?.id_number || 'Not set'}
-                  </div>
-                </div>
-                <div>
-                  <p className="text-xs text-muted mb-2 font-body">New</p>
-                  <input
-                    type="text"
-                    value={idPhoneForm.newIdNumber}
-                    onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newIdNumber: e.target.value }))}
-                    placeholder="Enter new ID number"
-                    className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Reason */}
-            <div className="mb-6">
-              <label className="block text-sm font-heading font-medium text-text mb-2">
-                Reason for Change <span className="text-red-500">*</span>
-              </label>
-              <textarea
-                value={idPhoneForm.reason}
-                onChange={(e) => setIdPhoneForm(prev => ({ ...prev, reason: e.target.value }))}
-                placeholder="Provide detailed reason for this change..."
-                rows="4"
-                className="w-full p-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body"
-                required
-              />
-            </div>
-
-            {/* Document Upload */}
-            {documentUploadEnabled && (
-              <div className="mb-6">
-                <label className="block text-sm font-heading font-medium text-text mb-2">
-                  Supporting Document <span className="text-red-500">*</span>
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-brand-btn transition-colors">
-                  <input
-                    type="file"
-                    id="document-upload"
-                    onChange={handleDocumentUpload}
-                    accept=".jpg,.jpeg,.png,.pdf"
-                    className="hidden"
-                    required={documentUploadEnabled}
-                  />
-                  <DocumentTextIcon className="w-12 h-12 text-muted mx-auto mb-3" />
-                  <p className="text-sm text-text mb-1 font-body">
-                    {idPhoneForm.document ? idPhoneForm.document.name : 'Upload new ID copy or supporting document'}
-                  </p>
-                  <p className="text-xs text-muted mb-4 font-body">JPG, PNG, PDF (Max 5MB)</p>
-                  <label
-                    htmlFor="document-upload"
-                    className="inline-block px-6 py-2.5 bg-brand-btn text-white rounded-xl hover:bg-brand-primary font-medium font-body cursor-pointer transition-colors"
-                  >
-                    Choose File
-                  </label>
-
-                  {idPhoneForm.documentPreview && (
-                    <div className="mt-4">
-                      <img
-                        src={idPhoneForm.documentPreview}
-                        alt="Document preview"
-                        className="max-h-48 mx-auto rounded-xl border-2 border-gray-200"
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="flex items-center justify-end gap-3 pt-6 border-t border-gray-200">
-              <button
-                type="button"
-                onClick={onClose}
-                className="px-6 py-2.5 border border-gray-300 text-text rounded-xl hover:bg-neutral font-medium font-body transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={loading}
-                className="px-6 py-2.5 bg-brand-btn text-white rounded-xl hover:bg-brand-primary disabled:opacity-50 font-medium font-body transition-colors flex items-center"
-              >
-                {loading ? (
-                  <>
-                    <ArrowPathIcon className="w-5 h-5 mr-2 animate-spin" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Request'
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
-      </div>
-    );
+      (profile?.role === 'regional_manager' && request.status === 'confirmed');
   };
 
   // View Request Modal with Document Comparison
   const ViewRequestModal = ({ request, onClose }) => {
     const customerName = request.customer
       ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
-      : 'Unknown Customer';
+      : 'Unknown Entity';
 
     const isPdf = request.document_url?.toLowerCase().endsWith('.pdf');
 
     return (
-      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
-        <div className="bg-white rounded-2xl max-w-5xl w-full shadow-2xl my-8">
-          <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-brand-surface sticky top-0">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center mr-3">
-                <EyeIcon className="w-6 h-6 text-brand-primary" />
+      <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[100] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300">
+        <div className="bg-white rounded-[2rem] max-w-6xl w-full shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-white/20 animate-in zoom-in-95 duration-500">
+          {/* Modal Header */}
+          <div className="flex items-center justify-between p-6 border-b border-slate-100 bg-[#E7F0FA]/30">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-[#586ab1]/10 rounded-2xl flex items-center justify-center shadow-inner">
+                <EyeIcon className="w-6 h-6 text-[#586ab1]" />
               </div>
               <div>
-                <h3 className="text-xl font-heading font-semibold text-primary">Review Edit Request</h3>
-                <p className="text-sm text-muted font-body">{customerName}</p>
+                <h3 className="text-xl font-black text-slate-800 tracking-tight">Review Record Amendment</h3>
+                <div className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1">
+                  <span>{customerName}</span>
+                  <span className="text-slate-300">•</span>
+                  <span>ID: {request.customer?.id_number || 'N/A'}</span>
+                </div>
               </div>
             </div>
-            <button onClick={onClose} className="p-2 hover:bg-white rounded-lg transition-colors">
-              <XMarkIcon className="w-6 h-6 text-muted" />
+            <button
+              onClick={onClose}
+              className="p-2 hover:bg-red-50 hover:text-red-500 rounded-xl transition-all active:scale-90"
+            >
+              <XMarkIcon className="w-6 h-6" />
             </button>
           </div>
 
-          <div className="p-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Left: Changes & Details */}
-              <div className="space-y-4">
-                {/* Status */}
-                <div className="p-4 bg-neutral rounded-xl">
-                  <p className="text-xs font-heading font-medium text-muted uppercase tracking-wide mb-2">Status</p>
-                  {getStatusBadge(request.status)}
-                </div>
-
-                {/* Customer Current Info */}
-                <div className="p-4 bg-neutral rounded-xl">
-                  <p className="text-xs font-heading font-medium text-muted uppercase tracking-wide mb-3">Current Information</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center">
-                      <PhoneIcon className="w-4 h-4 text-muted mr-2" />
-                      <span className="text-sm font-body text-text">{request.current_mobile || 'Not set'}</span>
+          {/* Modal Body */}
+          <div className="flex-1 overflow-y-auto p-8 custom-scrollbar bg-white">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
+              {/* Left Column: Details & Comparisons */}
+              <div className="space-y-8">
+                {/* Visual Comparison Card */}
+                <div className="relative group">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-[#586ab1] to-indigo-500 rounded-[2rem] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
+                  <div className="relative p-6 bg-white rounded-[2rem] border border-slate-100 shadow-sm space-y-6">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Data Diff Comparison</p>
+                      {getStatusBadge(request.status)}
                     </div>
-                    <div className="flex items-center">
-                      <CreditCardIcon className="w-4 h-4 text-muted mr-2" />
-                      <span className="text-sm font-body text-text">{request.current_id_number || 'Not set'}</span>
+
+                    <div className="space-y-4">
+                      {/* Identity Row */}
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100">
+                          <p className="text-[10px] font-black text-slate-400 uppercase mb-2">Original State</p>
+                          <div className="space-y-2">
+                            <div className="flex items-center gap-2 opacity-60 text-xs font-bold truncate text-slate-600">
+                              <PhoneIcon className="w-3.5 h-3.5" />
+                              {request.current_mobile || 'None'}
+                            </div>
+                            <div className="flex items-center gap-2 opacity-60 text-xs font-bold truncate text-slate-600">
+                              <CreditCardIcon className="w-3.5 h-3.5" />
+                              {request.current_id_number || 'None'}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="p-4 bg-[#586ab1]/5 rounded-2xl border border-[#586ab1]/10 relative overflow-hidden">
+                          <div className="absolute top-0 right-0 p-2 opacity-10">
+                            <ArrowPathIcon className="w-12 h-12" />
+                          </div>
+                          <p className="text-[10px] font-black text-[#586ab1] uppercase mb-2 leading-none">Proposed Update</p>
+                          <div className="space-y-2 relative z-10">
+                            <div className={`flex items-center gap-2 text-xs font-black tracking-tight ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1]' : 'text-slate-400'}`}>
+                              <PhoneIcon className="w-3.5 h-3.5" />
+                              {request.new_mobile || '---'}
+                            </div>
+                            <div className={`flex items-center gap-2 text-xs font-black tracking-tight ${request.current_id_number !== request.new_id_number ? 'text-[#586ab1]' : 'text-slate-400'}`}>
+                              <CreditCardIcon className="w-3.5 h-3.5" />
+                              {request.new_id_number || '---'}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="pt-4 border-t border-slate-50">
+                      <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest leading-none">Reasoning & Justification</p>
+                      <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100 text-xs font-bold text-slate-600 leading-relaxed italic">
+                        &ldquo;{request.reason}&rdquo;
+                      </div>
                     </div>
                   </div>
                 </div>
 
-                {/* Requested Changes */}
-                <div className="p-4 bg-accent/10 rounded-xl border-2 border-accent/30">
-                  <p className="text-xs font-heading font-medium text-accent uppercase tracking-wide mb-3">Requested Changes</p>
-                  <div className="space-y-3">
-                    {request.current_mobile !== request.new_mobile && (
-                      <div>
-                        <p className="text-xs text-muted font-body mb-1">New Phone Number</p>
-                        <p className="text-base font-heading font-semibold text-accent">{request.new_mobile}</p>
-                      </div>
-                    )}
-                    {request.current_id_number !== request.new_id_number && (
-                      <div>
-                        <p className="text-xs text-muted font-body mb-1">New ID Number</p>
-                        <p className="text-base font-heading font-semibold text-accent">{request.new_id_number}</p>
-                      </div>
-                    )}
+                {/* Audit Trail Card */}
+                <div className="p-6 bg-slate-50/50 rounded-[2rem] border border-slate-100">
+                  <div className="flex items-center gap-3 mb-4">
+                    <ClockIcon className="w-4 h-4 text-slate-400" />
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-tight">Request Lifecycle</p>
+                  </div>
+                  <div className="grid grid-cols-2 gap-6">
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Initiator</p>
+                      <p className="text-xs font-black text-slate-800 tracking-tight leading-tight">{request.created_by_user?.full_name || 'System Auto'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-black text-slate-400 uppercase leading-none mb-1">Timestamp</p>
+                      <p className="text-xs font-black text-slate-800 tracking-tight leading-tight">{new Date(request.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Reason */}
-                <div className="p-4 bg-neutral rounded-xl">
-                  <p className="text-xs font-heading font-medium text-muted uppercase tracking-wide mb-2">Reason</p>
-                  <p className="text-sm font-body text-text leading-relaxed">{request.reason}</p>
-                </div>
-
-                {/* Request Info */}
-                <div className="p-4 bg-neutral rounded-xl">
-                  <p className="text-xs font-heading font-medium text-muted uppercase tracking-wide mb-2">Request Details</p>
-                  <div className="space-y-1.5">
-                    <p className="text-sm font-body text-text">
-                      <span className="text-muted">Submitted by:</span> {request.created_by_user?.full_name || 'Unknown'}
-                    </p>
-                    <p className="text-sm font-body text-text">
-                      <span className="text-muted">Date:</span> {new Date(request.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Rejection Reason */}
+                {/* Rejection Alert */}
                 {request.rejection_reason && request.status === 'rejected' && (
-                  <div className="p-4 bg-red-50 rounded-xl border border-red-200">
-                    <div className="flex items-start">
-                      <ExclamationTriangleIcon className="w-5 h-5 text-red-600 mr-2 flex-shrink-0 mt-0.5" />
+                  <div className="p-6 bg-red-50 rounded-[2rem] border border-red-100 animate-in slide-in-from-top-4 duration-500">
+                    <div className="flex items-start gap-4">
+                      <div className="w-10 h-10 bg-red-100 rounded-xl flex items-center justify-center shrink-0">
+                        <ExclamationTriangleIcon className="w-4 h-4 text-red-600" />
+                      </div>
                       <div>
-                        <p className="text-xs font-heading font-medium text-red-900 uppercase tracking-wide mb-1">Rejection Reason</p>
-                        <p className="text-sm font-body text-red-700">{request.rejection_reason}</p>
+                        <p className="text-[10px] font-black text-red-900 uppercase tracking-widest mb-1 leading-none">Rejection Grounds</p>
+                        <p className="text-xs font-bold text-red-700 leading-relaxed italic">{request.rejection_reason}</p>
                       </div>
                     </div>
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                {(canConfirm(request) || canApprove(request) || canReject(request)) && (
-                  <div className="flex flex-col gap-2 pt-4">
-                    {canConfirm(request) && (
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'confirmed')}
-                        disabled={loading}
-                        className="w-full px-4 py-3 bg-brand-btn text-white rounded-xl hover:bg-brand-primary disabled:opacity-50 font-medium font-heading transition-colors"
-                      >
-                        Approve as Branch Manager
-                      </button>
-                    )}
-
-                    {canApprove(request) && (
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'approved')}
-                        disabled={loading}
-                        className="w-full px-4 py-3 bg-accent text-white rounded-xl hover:bg-accent/90 disabled:opacity-50 font-medium font-heading transition-colors"
-                      >
-                        Give Final Approval
-                      </button>
-                    )}
-
-                    {canReject(request) && (
-                      <button
-                        onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                        disabled={loading}
-                        className="w-full px-4 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 disabled:opacity-50 font-medium font-heading transition-colors"
-                      >
-                        Reject Request
-                      </button>
-                    )}
                   </div>
                 )}
               </div>
 
-              {/* Right: Supporting Document */}
-              <div>
-                <div className="sticky top-24">
-                  <div className="p-4 bg-neutral rounded-xl mb-4">
-                    <p className="text-xs font-heading font-medium text-muted uppercase tracking-wide mb-3">Supporting Document</p>
-                    <p className="text-sm font-body text-text mb-4">
-                      Compare the document provided with the requested changes
-                    </p>
+              {/* Right Column: Documentation Review */}
+              <div className="relative h-full min-h-[400px]">
+                <div className="sticky top-0 h-full flex flex-col">
+                  <div className="flex items-center justify-between mb-4 px-2">
+                    <div className="flex items-center gap-2">
+                      <DocumentTextIcon className="w-4 h-4 text-[#586ab1]" />
+                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none text-nowrap">Evidence Submission</p>
+                    </div>
+                    {isPdf && (
+                      <a
+                        href={request.document_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-black text-[#586ab1] uppercase tracking-widest hover:underline"
+                      >
+                        Source PDF
+                      </a>
+                    )}
                   </div>
 
-                  <div className="border-2 border-gray-200 rounded-xl overflow-hidden bg-white">
+                  <div className="flex-1 bg-slate-50/50 rounded-[2rem] border border-slate-100 overflow-hidden relative shadow-inner group">
                     {isPdf ? (
-                      <div className="p-8 text-center bg-neutral">
-                        <DocumentTextIcon className="w-16 h-16 text-muted mx-auto mb-4" />
-                        <p className="text-sm text-text font-body mb-4">PDF Document</p>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-50/50">
+                        <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110">
+                          <DocumentTextIcon className="w-8 h-8 text-[#586ab1]" />
+                        </div>
+                        <h4 className="text-base font-black text-slate-800 mb-2">Electronic Document</h4>
+                        <p className="text-xs text-slate-500 font-bold mb-8 max-w-xs">PDF evidence is ready for detailed analysis in a secure environment.</p>
                         <a
                           href={request.document_url}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center px-6 py-2.5 bg-brand-btn text-white rounded-xl hover:bg-brand-primary font-medium font-body transition-colors"
+                          className="px-10 py-3 bg-[#586ab1] text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#586ab1]/20 hover:scale-[1.05] transition-all active:scale-95"
                         >
-                          <EyeIcon className="w-5 h-5 mr-2" />
-                          Open PDF in New Tab
+                          Launch PDF Viewer
                         </a>
                       </div>
                     ) : (
-                      <img
-                        src={request.document_url}
-                        alt="Supporting Document"
-                        className="w-full h-auto"
-                      />
+                      <div className="w-full h-full p-4">
+                        <img
+                          src={request.document_url}
+                          alt="Supporting Evidence"
+                          className="w-full h-full object-contain rounded-xl shadow-lg border border-white transition-all group-hover:scale-[1.01]"
+                        />
+                      </div>
                     )}
                   </div>
                 </div>
               </div>
             </div>
           </div>
+
+          {/* Modal Footer: Action Zone */}
+          {(canConfirm(request) || canApprove(request) || canReject(request)) && (
+            <div className="p-8 border-t border-slate-100 bg-[#E7F0FA]/20">
+              <div className="flex flex-col sm:flex-row gap-4">
+                {canConfirm(request) && (
+                  <button
+                    onClick={() => handleStatusUpdate(request.id, 'confirmed')}
+                    disabled={loading}
+                    className="flex-1 group relative px-8 py-4 bg-[#586ab1] text-white rounded-2xl overflow-hidden font-black text-[10px] uppercase tracking-widest shadow-xl shadow-[#586ab1]/10 transition-all hover:scale-[1.02] active:scale-95 disabled:grayscale"
+                  >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex items-center justify-center gap-3">
+                      <ShieldCheckIcon className="w-4 h-4" />
+                      <span>Confirm as Branch Manager</span>
+                    </div>
+                  </button>
+                )}
+
+                {canApprove(request) && (
+                  <button
+                    onClick={() => handleStatusUpdate(request.id, 'approved')}
+                    disabled={loading}
+                    className="flex-1 group relative px-8 py-4 bg-emerald-600 text-white rounded-2xl overflow-hidden font-black text-[10px] uppercase tracking-widest shadow-xl shadow-emerald-500/10 transition-all hover:scale-[1.02] active:scale-95 disabled:grayscale"
+                  >
+                    <div className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                    <div className="flex items-center justify-center gap-3">
+                      <CheckCircleIcon className="w-4 h-4" />
+                      <span>Finalize Approval (RM)</span>
+                    </div>
+                  </button>
+                )}
+
+                {canReject(request) && (
+                  <button
+                    onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                    disabled={loading}
+                    className="flex-1 group px-8 py-4 bg-white border border-red-100 text-red-600 rounded-2xl font-black text-[10px] uppercase tracking-widest transition-all hover:bg-red-50 hover:border-red-200 active:scale-95 disabled:opacity-50"
+                  >
+                    <div className="flex items-center justify-center gap-3">
+                      <XMarkIcon className="w-4 h-4" />
+                      <span>Decline Request</span>
+                    </div>
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -881,45 +691,7 @@ function CustomerEdits() {
   }
 
   return (
-    <div className="min-h-screen bg-muted">
-      {/* Modals */}
-      {showEditModal && editType === 'customer_search' && (
-        <CustomerSearchModal
-          onClose={() => {
-            setShowEditModal(false);
-            setEditType(null);
-          }}
-          onSelect={(customer) => {
-            setSelectedCustomer(customer);
-            setIdPhoneForm({
-              newMobile: '',
-              newIdNumber: '',
-              reason: '',
-              document: null,
-              documentPreview: null
-            });
-            setEditType('id_phone');
-          }}
-        />
-      )}
-
-      {showEditModal && editType === 'id_phone' && selectedCustomer && (
-        <IdPhoneEditModal
-          onClose={() => {
-            setShowEditModal(false);
-            setEditType(null);
-            setSelectedCustomer(null);
-            setIdPhoneForm({
-              newMobile: '',
-              newIdNumber: '',
-              reason: '',
-              document: null,
-              documentPreview: null
-            });
-          }}
-        />
-      )}
-
+    <div className="min-h-screen bg-neutral/30 font-body">
       {viewingRequest && (
         <ViewRequestModal
           request={viewingRequest}
@@ -927,200 +699,403 @@ function CustomerEdits() {
         />
       )}
 
-      {/* Main Container */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-heading font-bold text-primary">Customer Information Updates</h1>
-              <p className="text-muted mt-2 font-body">Manage customer contact detail change requests</p>
+      {/* Main Content Area */}
+      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-8">
+        {/* Compact Metrics Grid */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {[
+            { label: 'Total Volume', value: editRequests.length, icon: DocumentTextIcon, color: 'text-[#586ab1]', light: 'bg-[#586ab1]/5' },
+            { label: 'Pending BM', value: editRequests.filter(r => r.status === 'pending_branch_manager').length, icon: ClockIcon, color: 'text-amber-500', light: 'bg-amber-50' },
+            { label: 'Pending RM', value: editRequests.filter(r => r.status === 'confirmed').length, icon: ShieldCheckIcon, color: 'text-blue-500', light: 'bg-blue-50' },
+            { label: 'Approved Today', value: editRequests.filter(r => r.status === 'approved' && new Date(r.updated_at).toDateString() === new Date().toDateString()).length, icon: CheckCircleIcon, color: 'text-emerald-500', light: 'bg-emerald-50' },
+          ].map((stat, idx) => (
+            <div key={idx} className="group bg-white p-4 rounded-2xl border border-slate-100 hover:border-[#586ab1]/30 transition-all duration-300">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
+                  <p className="text-xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
+                </div>
+                <div className={`p-2 rounded-xl ${stat.light} ${stat.color}`}>
+                  <stat.icon className="w-4 h-4" />
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="flex items-center space-x-3 px-5 py-3 bg-white rounded-xl shadow-sm border border-gray-200">
-                <div className="w-10 h-10 bg-brand-surface rounded-xl flex items-center justify-center">
-                  <UserIcon className="w-5 h-5 text-brand-primary" />
+          ))}
+        </div>
+
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="relative group flex-1 md:max-w-md">
+            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={handleSearchChange}
+              placeholder="Search customers to initiate edit..."
+              className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+            />
+            {searching && (
+              <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
+              </div>
+            )}
+
+            {/* Premium Search Results Dropdown */}
+            {searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
+                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Results found ({searchResults.length})</span>
+                </div>
+                <div className="max-h-[300px] overflow-y-auto">
+                  {searchResults.map(customer => (
+                    <button
+                      key={customer.id}
+                      onClick={() => handleCustomerSelect(customer)}
+                      className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-[#586ab1] group-hover:text-white transition-all text-sm">
+                          {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                        </div>
+                        <div>
+                          <p className="text-sm font-black text-slate-700 leading-none mb-1 group-hover:text-[#586ab1] transition-colors">
+                            {customer.Firstname} {customer.Middlename} {customer.Surname}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">{customer.id_number}</span>
+                            <span className="text-[10px] font-bold text-slate-400">{customer.mobile}</span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
+                        <PencilSquareIcon className="w-4 h-4" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Inline Edit Form */}
+        {selectedCustomer && (
+          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-[#586ab1] flex items-center justify-center text-white shadow-lg shadow-[#586ab1]/20">
+                  <PencilSquareIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <p className="text-sm font-medium text-text font-body">{profile.full_name || profile.email}</p>
-                  <p className="text-xs text-muted capitalize font-body">{profile.role?.replace('_', ' ')}</p>
+                  <h3 className="text-lg font-black text-slate-800 tracking-tight">Edit Identity & Contact</h3>
+                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                    Customer: {selectedCustomer.Firstname} {selectedCustomer.Surname}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedCustomer(null)}
+                className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 transition-all border border-transparent hover:border-slate-100"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmitIdPhoneEdit} className="p-8 space-y-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Phone Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-1.5 bg-[#586ab1] rounded-full"></span>
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phone Number Update</h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current Mobile</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                        {selectedCustomer.mobile || 'Not provided'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New Mobile Number</label>
+                      <input
+                        type="text"
+                        value={idPhoneForm.newMobile}
+                        onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newMobile: e.target.value }))}
+                        placeholder="Enter new phone number..."
+                        className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ID Section */}
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ID Number Update</h4>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current ID</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                        {selectedCustomer.id_number || 'Not provided'}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New ID Number</label>
+                      <input
+                        type="text"
+                        value={idPhoneForm.newIdNumber}
+                        onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newIdNumber: e.target.value }))}
+                        placeholder="Enter new ID number..."
+                        className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Reason Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason for Change</h4>
+                </div>
+                <textarea
+                  value={idPhoneForm.reason}
+                  onChange={(e) => setIdPhoneForm(prev => ({ ...prev, reason: e.target.value }))}
+                  placeholder="Please provide a detailed reason for this modification request..."
+                  rows="3"
+                  className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                  required
+                />
+              </div>
+
+              {/* Document Section */}
+              {documentUploadEnabled && (
+                <div className="space-y-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Supporting Evidence</h4>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="group relative border-2 border-dashed border-slate-200 rounded-2xl p-8 transition-all hover:border-[#586ab1] hover:bg-[#586ab1]/5 flex flex-col items-center justify-center text-center">
+                      <input
+                        type="file"
+                        id="document-upload"
+                        onChange={handleDocumentUpload}
+                        accept=".jpg,.jpeg,.png,.pdf"
+                        className="hidden"
+                        required={documentUploadEnabled}
+                      />
+                      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
+                        <ArrowUpTrayIcon className="w-8 h-8" />
+                      </div>
+                      <p className="text-sm font-black text-slate-700 mb-1">Click to Upload Document</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Copy / Support Document</p>
+                      <label
+                        htmlFor="document-upload"
+                        className="absolute inset-0 cursor-pointer"
+                      />
+                    </div>
+                    {idPhoneForm.documentPreview ? (
+                      <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 group">
+                        <img src={idPhoneForm.documentPreview} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
+                            className="p-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 transition-colors"
+                          >
+                            <XMarkIcon className="w-6 h-6" />
+                          </button>
+                        </div>
+                      </div>
+                    ) : idPhoneForm.document ? (
+                      <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                          <DocumentTextIcon className="w-6 h-6 text-[#586ab1]" />
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          <p className="text-sm font-black text-slate-700 truncate">{idPhoneForm.document.name}</p>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase">PDF DOCUMENT</p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
+                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                        >
+                          <XMarkIcon className="w-5 h-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center italic text-slate-400 text-xs">
+                        Document preview will appear here
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Form Footer */}
+              <div className="flex items-center justify-end gap-4 pt-8 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setSelectedCustomer(null)}
+                  className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                >
+                  Discard
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="px-10 py-3 bg-[#586ab1] text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#475589] transition-all shadow-xl shadow-[#586ab1]/20 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
+                  {loading ? 'Submitting...' : 'Submit Update Request'}
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+
+        {/* Filters & Table Section */}
+        <div className="bg-white rounded-[2.5rem] shadow-2xl shadow-gray-200/50 border border-gray-100 overflow-hidden">
+          {/* Enhanced Control Bar */}
+          <div className="p-8 border-b border-gray-100 bg-gray-50/30 flex flex-col md:flex-row items-center gap-6">
+            <div className="flex-1 w-full relative group">
+              <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
+                <MagnifyingGlassIcon className="h-5 w-5 text-gray-400 group-focus-within:text-brand-primary transition-colors" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search by customer name, mobile or ID..."
+                className="block w-full pl-14 pr-6 py-4 bg-white/60 backdrop-blur-sm border-2 border-gray-100 rounded-2xl focus:ring-4 focus:ring-brand-primary/10 focus:border-brand-primary/30 transition-all font-body text-gray-700 placeholder:text-gray-400"
+              />
+            </div>
+
+            <div className="flex items-center gap-4 w-full md:w-auto">
+              <div className="relative group min-w-[200px]">
+                <FunnelIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 group-focus-within:text-brand-primary" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-12 pr-10 py-4 bg-white/60 backdrop-blur-sm border-2 border-gray-100 rounded-2xl focus:ring-4 focus:ring-brand-primary/10 focus:border-brand-primary/30 transition-all appearance-none text-gray-600 font-bold text-sm cursor-pointer"
+                >
+                  <option value="all">All Access Records</option>
+                  <option value="pending_branch_manager">Pending BM Action</option>
+                  <option value="confirmed">Pending RM Action</option>
+                  <option value="approved">Successfully Approved</option>
+                  <option value="rejected">Rejected/Archived</option>
+                </select>
+                <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronDownIcon className="w-4 h-4 text-gray-400" />
                 </div>
               </div>
             </div>
           </div>
 
-          {/* Action Buttons */}
-          {canSubmitRequest() && (
-            <div className="flex flex-wrap gap-3">
-              <button
-                onClick={() => {
-                  setEditType('customer_search');
-                  setShowEditModal(true);
-                }}
-                className="inline-flex items-center px-6 py-3 bg-brand-btn text-white rounded-xl hover:bg-brand-primary font-medium font-heading transition-colors shadow-sm hover:shadow-md"
-              >
-                <PencilSquareIcon className="w-5 h-5 mr-2" />
-                Edit ID / Phone Number
-              </button>
-
-              <button
-                onClick={() => alert('Other details editing coming soon')}
-                className="inline-flex items-center px-6 py-3 bg-white border-2 border-brand-btn text-brand-btn rounded-xl hover:bg-brand-surface font-medium font-heading transition-colors"
-              >
-                <DocumentTextIcon className="w-5 h-5 mr-2" />
-                Edit Other Details
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Filters */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Search */}
-            <div className="md:col-span-2">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search by customer name, phone, or ID..."
-                  className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body"
-                />
-              </div>
-            </div>
-
-            {/* Status Filter */}
-            <div className="relative">
-              <FunnelIcon className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-muted pointer-events-none" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-12 pr-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-btn focus:border-transparent font-body appearance-none bg-white"
-              >
-                <option value="all">All Status</option>
-                <option value="pending_branch_manager">Pending Manager</option>
-                <option value="confirmed">Manager Approved</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-              </select>
-            </div>
-          </div>
-        </div>
-
-        {/* Requests Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {/* Table Area */}
+          <div className="overflow-x-auto min-h-[400px]">
+            <table className="w-full border-collapse font-sans">
               <thead>
-                <tr className="bg-brand-surface border-b border-gray-200">
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Customer
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Current Info
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Requested Changes
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-4 text-left text-xs font-heading font-semibold text-primary uppercase tracking-wider">
-                    Actions
-                  </th>
+                <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Customer</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Current Phone</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">New Phone</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Current ID</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">New ID</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Status</th>
+                  <th className="px-6 py-4 text-left text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Timeline</th>
+                  <th className="px-6 py-4 text-right text-[10px] font-black text-slate-600 uppercase tracking-widest whitespace-nowrap">Review Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <ArrowPathIcon className="w-8 h-8 text-brand-btn animate-spin mx-auto mb-3" />
-                      <p className="text-muted font-body">Loading requests...</p>
+                    <td colSpan="8" className="px-8 py-24 text-center">
+                      <div className="inline-flex flex-col items-center gap-4">
+                        <div className="p-4 bg-slate-50 rounded-full animate-pulse border-4 border-slate-100">
+                          <ArrowPathIcon className="w-10 h-10 text-[#586ab1] animate-spin" />
+                        </div>
+                        <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Synchronizing Records...</p>
+                      </div>
                     </td>
                   </tr>
                 ) : filteredRequests.length === 0 ? (
                   <tr>
-                    <td colSpan="6" className="px-6 py-12 text-center">
-                      <DocumentTextIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                      <p className="text-muted font-body">No edit requests found</p>
+                    <td colSpan="8" className="px-8 py-24 text-center">
+                      <div className="inline-flex flex-col items-center gap-4">
+                        <div className="p-6 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 grayscale opacity-40">
+                          <DocumentTextIcon className="w-16 h-16 text-slate-400" />
+                        </div>
+                        <div className="space-y-1">
+                          <p className="font-black text-slate-400 tracking-tight text-xl uppercase italic">No Activity Found</p>
+                          <p className="text-slate-400 text-sm font-bold">Refine your filters or search query.</p>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                 ) : (
-                  filteredRequests.map(request => {
+                  filteredRequests.map((request, idx) => {
                     const customerName = request.customer
                       ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
-                      : 'Unknown';
+                      : 'Unknown Entity';
 
                     return (
-                      <tr key={request.id} className="hover:bg-neutral transition-colors">
+                      <tr key={request.id} className={`group hover:bg-[#586ab1]/5 transition-all h-20 border-b border-slate-50 ${idx % 2 === 0 ? '' : 'bg-slate-50/50'}`}>
                         <td className="px-6 py-4">
-                          <div className="flex items-center">
-                            <div className="w-10 h-10 bg-brand-surface rounded-lg flex items-center justify-center mr-3">
-                              <UserIcon className="w-5 h-5 text-brand-primary" />
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center transition-transform group-hover:scale-110">
+                              <UserIcon className="w-5 h-5 text-[#586ab1]/60" />
                             </div>
                             <div>
-                              <p className="font-heading font-medium text-text">{customerName}</p>
-                              <p className="text-xs text-muted font-body">
-                                by {request.created_by_user?.full_name || 'Unknown'}
-                              </p>
+                              <p className="font-black text-slate-800 tracking-tight leading-tight group-hover:text-[#586ab1] transition-colors">{customerName}</p>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="bg-[#586ab1]/10 text-[9px] font-black text-[#586ab1] px-1.5 py-0.5 rounded tracking-tighter uppercase">ID Request</span>
+                              </div>
                             </div>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            {request.customer?.mobile && (
-                              <div className="flex items-center text-sm text-muted font-body">
-                                <PhoneIcon className="w-4 h-4 mr-1.5" />
-                                {request.customer.mobile}
-                              </div>
-                            )}
-                            {request.customer?.id_number && (
-                              <div className="flex items-center text-sm text-muted font-body">
-                                <CreditCardIcon className="w-4 h-4 mr-1.5" />
-                                {request.customer.id_number}
-                              </div>
-                            )}
-                          </div>
+                        <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                          {request.current_mobile || '---'}
                         </td>
                         <td className="px-6 py-4">
-                          <div className="space-y-1">
-                            {request.current_mobile !== request.new_mobile && (
-                              <div className="text-sm font-body">
-                                <span className="text-muted">Phone:</span>{' '}
-                                <span className="text-accent font-medium">{request.new_mobile}</span>
-                              </div>
-                            )}
-                            {request.current_id_number !== request.new_id_number && (
-                              <div className="text-sm font-body">
-                                <span className="text-muted">ID:</span>{' '}
-                                <span className="text-accent font-medium">{request.new_id_number}</span>
-                              </div>
-                            )}
-                          </div>
+                          <span className={`text-xs font-black ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1]' : 'text-slate-400'}`}>
+                            {request.new_mobile || '---'}
+                          </span>
+                        </td>
+                        <td className="px-6 py-4 text-xs font-bold text-slate-600">
+                          {request.current_id_number || '---'}
+                        </td>
+                        <td className="px-6 py-4">
+                          <span className={`text-xs font-black ${request.current_id_number !== request.new_id_number ? 'text-indigo-600' : 'text-slate-400'}`}>
+                            {request.new_id_number || '---'}
+                          </span>
                         </td>
                         <td className="px-6 py-4">
                           {getStatusBadge(request.status)}
                         </td>
                         <td className="px-6 py-4">
-                          <p className="text-sm text-text font-body">
-                            {new Date(request.created_at).toLocaleDateString()}
-                          </p>
-                          <p className="text-xs text-muted font-body">
-                            {new Date(request.created_at).toLocaleTimeString()}
-                          </p>
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-2">
+                              <CalendarIcon className="w-3.5 h-3.5 text-slate-300" />
+                              <span className="text-xs font-bold text-slate-700">{new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase tracking-wider pl-5">
+                              {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                            </div>
+                          </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 text-right">
                           <button
                             onClick={() => setViewingRequest(request)}
-                            className="inline-flex items-center px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary font-medium text-sm font-body transition-colors"
+                            className="inline-flex items-center gap-2 px-5 py-2 bg-white border border-slate-100 text-[#586ab1] rounded-xl hover:bg-[#586ab1] hover:text-white hover:border-[#586ab1] hover:shadow-lg hover:shadow-[#586ab1]/20 transition-all font-black text-[10px] uppercase tracking-widest active:scale-95"
                           >
-                            <EyeIcon className="w-4 h-4 mr-1.5" />
-                            View
+                            <EyeIcon className="w-3.5 h-3.5" />
+                            <span>Quick Review</span>
                           </button>
                         </td>
                       </tr>
@@ -1131,23 +1106,6 @@ function CustomerEdits() {
             </table>
           </div>
         </div>
-
-        {/* Summary Stats */}
-        {editRequests.length > 0 && (
-          <div className="mt-6 grid grid-cols-1 md:grid-cols-4 gap-4">
-            {[
-              { label: 'Total Requests', value: editRequests.length, color: 'bg-blue-100 text-blue-800' },
-              { label: 'Pending', value: editRequests.filter(r => r.status === 'pending_branch_manager').length, color: 'bg-amber-100 text-amber-800' },
-              { label: 'Approved', value: editRequests.filter(r => r.status === 'approved').length, color: 'bg-accent/20 text-accent' },
-              { label: 'Rejected', value: editRequests.filter(r => r.status === 'rejected').length, color: 'bg-red-100 text-red-800' },
-            ].map((stat, idx) => (
-              <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-                <p className="text-sm font-body text-muted mb-1">{stat.label}</p>
-                <p className={`text-3xl font-heading font-bold ${stat.color.split(' ')[1]}`}>{stat.value}</p>
-              </div>
-            ))}
-          </div>
-        )}
       </div>
     </div>
   );

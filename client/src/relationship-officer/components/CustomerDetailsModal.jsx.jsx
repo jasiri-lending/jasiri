@@ -222,7 +222,7 @@ const CustomerDetailsPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface">
+    <div className="min-h-screen bg-muted">
       {/* Header */}
 
 

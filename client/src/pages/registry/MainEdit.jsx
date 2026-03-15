@@ -52,7 +52,7 @@ function ParentCustomerEditComponent() {
   // Role check
   const allowedRoles = [
     'relationship_officer',
-    'branch_manager', 
+    'branch_manager',
     'regional_manager',
     'credit_analyst_officer',
     'customer_service_officer',
@@ -85,43 +85,37 @@ function ParentCustomerEditComponent() {
   }
 
   return (
-    <div className="space-y-6 p-4 max-w-7xl mx-auto">
-      {/* Header */}
-      <h1 className="text-sm  text-gray-900 mb-4" style={{ color: primaryColor }}>
-        Customer Edits
-      </h1>
+    <div className="p-6 max-w-7xl mx-auto space-y-6">
+      {/* Clean Header */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+        <div>
+          <h1 className="text-xl font-black text-slate-800 tracking-tight">
+            Customer <span className="text-[#586ab1]">Edits</span>
+          </h1>
+          <p className="text-xs text-slate-500 font-medium mt-1">Manage contact and profile modification requests.</p>
+        </div>
 
-      {/* Navigation Buttons */}
-      <div className="flex flex-wrap justify-center gap-3 mb-6">
-        <button
-          onClick={() => setActiveView('phone-id')}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm min-w-max whitespace-nowrap ${
-            activeView === 'phone-id'
-              ? 'text-white shadow-sm'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          style={activeView === 'phone-id' ? { backgroundColor: primaryColor } : {}}
-        >
-          <PhoneIcon className="h-4 w-4" />
-          Edit Phone & ID
-        </button>
-
-        <button
-          onClick={() => setActiveView('details')}
-          className={`flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-medium transition-all text-sm min-w-max whitespace-nowrap ${
-            activeView === 'details'
-              ? 'text-white shadow-sm'
-              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-          }`}
-          style={activeView === 'details' ? { backgroundColor: primaryColor } : {}}
-        >
-          <DocumentTextIcon className="h-4 w-4" />
-          Edit Other Details
-        </button>
+        {/* Minimal Navigation Buttons */}
+        <div className="flex items-center p-1 bg-slate-100 rounded-xl border border-slate-200/50">
+          <button
+            onClick={() => setActiveView('phone-id')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeView === 'phone-id' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <PhoneIcon className="h-4 w-4" />
+            Phone & ID
+          </button>
+          <button
+            onClick={() => setActiveView('details')}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeView === 'details' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+          >
+            <DocumentTextIcon className="h-4 w-4" />
+            Other Details
+          </button>
+        </div>
       </div>
 
       {/* Render Selected Component */}
-      <div className="transition-all duration-300 ease-in-out">
+      <div className="animate-in fade-in duration-500">
         {activeView === 'phone-id' ? <CustomerEdits /> : <CustomerDetailsEdit />}
       </div>
     </div>
