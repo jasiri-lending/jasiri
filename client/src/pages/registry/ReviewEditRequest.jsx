@@ -239,18 +239,22 @@ const ReviewEditRequest = () => {
             const updateData = { status: newStatus };
             const now = new Date().toISOString();
 
-            if (newStatus === 'confirmed') {
+            if (newStatus === 'confirmed' && hasPermission('amendments.confirm')) {
                 updateData.confirmed_by = profile.id;
                 updateData.confirmed_at = now;
-            } else if (newStatus === 'approved') {
+            } else if (newStatus === 'approved' && hasPermission('amendments.authorize')) {
                 updateData.approved_by = profile.id;
                 updateData.approved_at = now;
                 // Apply changes to target tables
                 await applyApprovedChanges();
-            } else if (newStatus.includes('rejected')) {
+            } else if (newStatus.includes('rejected') && (hasPermission('amendments.confirm') || hasPermission('amendments.authorize'))) {
                 updateData.rejected_by = profile.id;
                 updateData.rejected_at = now;
                 updateData.status = 'rejected';
+            } else {
+                toast.error('You do not have permission to perform this action');
+                setProcessing(false);
+                return;
             }
 
             const { error } = await supabase
@@ -279,21 +283,20 @@ const ReviewEditRequest = () => {
     };
 
     const getStatusBadge = (status) => {
-        const styles = {
-            approved: 'bg-emerald-50 text-emerald-700 border-emerald-100',
-            rejected: 'bg-red-50 text-red-700 border-red-100',
-            confirmed: 'bg-blue-50 text-blue-700 border-blue-100',
-            pending_branch_manager: 'bg-amber-50 text-amber-700 border-amber-100',
-            pending_superadmin: 'bg-purple-50 text-purple-700 border-purple-100',
-            default: 'bg-slate-50 text-slate-700 border-slate-100',
+        const configs = {
+            approved: { style: 'bg-emerald-50 text-emerald-700 border-emerald-100', label: 'APPROVED' },
+            rejected: { style: 'bg-red-50 text-red-700 border-red-100', label: 'REJECTED' },
+            confirmed: { style: 'bg-blue-50 text-blue-700 border-blue-100', label: 'AWAITING AUTHORIZATION' },
+            pending_branch_manager: { style: 'bg-amber-50 text-amber-700 border-amber-100', label: 'WAITING CONFIRMATION' },
+            pending_superadmin: { style: 'bg-purple-50 text-purple-700 border-purple-100', label: 'AWAITING REVIEW' },
+            default: { style: 'bg-slate-50 text-slate-700 border-slate-100', label: status?.toUpperCase() || 'UNKNOWN' }
         };
 
-        const label = status?.replace(/_/g, ' ').toUpperCase() || 'UNKNOWN';
-        const style = styles[status] || styles.default;
+        const config = configs[status] || configs.default;
 
         return (
-            <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${style}`}>
-                {label}
+            <span className={`px-3 py-1 rounded-full text-[10px] font-black tracking-widest border ${config.style}`}>
+                {config.label}
             </span>
         );
     };

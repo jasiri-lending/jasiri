@@ -747,6 +747,11 @@ function CustomerDetailsEdit() {
   const handleSubmit = async (e, section) => {
     e.preventDefault();
 
+    if (!hasPermission('amendments.initiate')) {
+      alert('You do not have permission to initiate amendments.');
+      return;
+    }
+
     if (!selectedCustomer) {
       alert('Please select a customer first');
       return;
@@ -962,15 +967,19 @@ function CustomerDetailsEdit() {
         updated_at: new Date().toISOString()
       };
 
-      if (newStatus === 'confirmed' && userRole === 'branch_manager') {
+      if (newStatus === 'confirmed' && hasPermission('amendments.confirm')) {
         updateData.confirmed_by = currentUser.id;
         updateData.confirmed_at = new Date().toISOString();
-      } else if (newStatus === 'approved' && userRole === 'regional_manager') {
+      } else if (newStatus === 'approved' && hasPermission('amendments.authorize')) {
         updateData.approved_by = currentUser.id;
         updateData.approved_at = new Date().toISOString();
-      } else if (newStatus === 'rejected') {
+      } else if (newStatus === 'rejected' && (hasPermission('amendments.confirm') || hasPermission('amendments.authorize'))) {
         updateData.rejected_by = currentUser.id;
         updateData.rejected_at = new Date().toISOString();
+      } else {
+        alert('You do not have permission to perform this action.');
+        setLoading(false);
+        return;
       }
 
       const { error } = await supabase
@@ -998,13 +1007,13 @@ function CustomerDetailsEdit() {
         bg: 'bg-amber-50 border-amber-200',
         text: 'text-amber-700',
         dot: 'bg-amber-400',
-        label: 'Pending BM'
+        label: 'Waiting Confirmation'
       },
       'confirmed': {
         bg: 'bg-blue-50 border-blue-200',
         text: 'text-blue-700',
         dot: 'bg-blue-400',
-        label: 'Pending RM Approval'
+        label: 'Awaiting Authorization'
       },
       'approved': {
         bg: 'bg-emerald-50 border-emerald-200',
@@ -1016,7 +1025,7 @@ function CustomerDetailsEdit() {
         bg: 'bg-purple-50 border-purple-200',
         text: 'text-purple-700',
         dot: 'bg-purple-400',
-        label: 'Pending Superadmin'
+        label: 'Awaiting Review'
       },
       'rejected': {
         bg: 'bg-red-50 border-red-200',
@@ -1055,11 +1064,10 @@ function CustomerDetailsEdit() {
   const getStatusText = (status) => {
     switch (status) {
       case 'pending_branch_manager':
-        return 'Pending BM Approval';
+        return 'Waiting Confirmation';
       case 'pending_regional_manager':
-        return 'Pending RM Approval';
       case 'confirmed':
-        return 'Confirmed by BM';
+        return 'Awaiting Authorization';
       case 'approved':
         return 'Approved';
       case 'rejected':
@@ -1112,7 +1120,7 @@ function CustomerDetailsEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">First Name *</label>
+            <label className="block text-sm  text-gray-700 mb-1.5">First Name *</label>
             <input
               type="text"
               name="Firstname"
@@ -1125,7 +1133,7 @@ function CustomerDetailsEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Middle Name</label>
+            <label className="block text-sm  text-gray-600 mb-1.5">Middle Name</label>
             <input
               type="text"
               name="Middlename"
@@ -1137,7 +1145,7 @@ function CustomerDetailsEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Surname *</label>
+            <label className="block text-sm  text-gray-600 mb-1.5">Surname *</label>
             <input
               type="text"
               name="Surname"
@@ -1150,7 +1158,7 @@ function CustomerDetailsEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Mobile *</label>
+            <label className="block text-sm  text-gray-600 mb-1.5">Mobile *</label>
             <input
               type="text"
               name="mobile"
@@ -1163,7 +1171,7 @@ function CustomerDetailsEdit() {
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Alternative Mobile</label>
+            <label className="block text-sm  text-gray-600 mb-1.5">Alternative Mobile</label>
             <input
               type="text"
               name="alternativeMobile"
@@ -2149,344 +2157,355 @@ function CustomerDetailsEdit() {
   return (
     <div className="space-y-4 px-4 md:px-6 pb-16">
 
-      {/* Search Bar */}
-      <div className="relative">
-        <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-        <input
-          type="text"
-          value={searchTerm}
-          onChange={handleSearchChange}
-          placeholder="Search by ID, mobile or name..."
-          className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#586ab1]/20 focus:border-[#586ab1] transition-all"
-        />
-        {searching && (
-          <ArrowPathIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#586ab1] animate-spin" />
-        )}
-
-        {/* Search Results Dropdown */}
-        {searchResults.length > 0 && (
-          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-slate-200 shadow-lg z-[100] overflow-hidden">
-            <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
-              <span className="text-[10px] text-[#586ab1] font-semibold">Click to select</span>
-            </div>
-            <div className="max-h-64 overflow-y-auto">
-              {searchResults.map(customer => (
-                <button
-                  key={customer.id}
-                  onClick={() => handleCustomerSelect(customer)}
-                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#586ab1]/5 transition-all text-left border-b border-slate-50 last:border-0"
-                >
-                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold shrink-0">
-                    {customer.Firstname?.[0]}{customer.Surname?.[0]}
-                  </div>
-                  <div>
-                    <p className="font-semibold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
-                    <p className="text-[10px] text-slate-400">ID: {customer.id_number} · {customer.mobile}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {!selectedCustomer && (
-        <>
-          {/* Amendment Stream — on TOP when no customer selected */}
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
-                <p className="text-[10px] text-slate-400">Recent edit requests awaiting review or updated</p>
-              </div>
-              <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
-            </div>
-            {editRequests.length > 0 ? (
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                    <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {editRequests.map((request, idx) => (
-                    <tr
-                      key={request.id}
-                      className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
-                      onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
-                    >
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <UserIcon className="w-4 h-4 text-slate-400" />
-                          </div>
-                          <span className="font-semibold text-slate-800 text-[11px]">
-                            {request.customer?.Firstname} {request.customer?.Surname}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
-                        {sections.find(s => s.id === request.section_type)?.label || request.section_type}
-                      </td>
-                      <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                      <td className="px-5 py-3.5">
-                        <div className="text-[10px] text-slate-600 font-medium">
-                          {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                        <div className="text-[9px] text-slate-400">
-                          {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
-                        {request.created_by_user?.full_name || '—'}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
-                          title="Review Request"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                No requests yet
-              </div>
-            )}
-          </div>
-
-          {/* Empty Selection State */}
-          <div className="py-12 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm">
-              <MagnifyingGlassIcon className="w-4 h-4 text-slate-400" />
-            </div>
-            <h3 className="text-sm font-bold text-slate-700 mb-0.5">Search for a customer</h3>
-            <p className="text-xs text-slate-400">Select a client to unlock the amendment interface</p>
-          </div>
-        </>
-      )}
-
-      {/* Section Nav — wraps naturally, no scroll */}
-      {selectedCustomer && (
-        <div className="flex flex-wrap gap-1.5 pt-2">
-          {allNavLinks.map(link => (
-            <a
-              key={link.id}
-              href={`#${link.id}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all shadow-sm"
-            >
-              <link.icon className="w-3 h-3 shrink-0" />
-              {link.label}
-            </a>
-          ))}
+      {/* Search Bar — Hidden if no permission to initiate */}
+      {hasPermission('amendments.initiate') && (
+        <div className="relative">
+          <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search by ID, mobile or name..."
+            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#586ab1]/20 focus:border-[#586ab1] transition-all"
+          />
+          {searching && (
+            <ArrowPathIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#586ab1] animate-spin" />
+          )}
         </div>
       )}
 
-      {/* Selected Customer Banner */}
-      {selectedCustomer && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl shadow-sm">
-          <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
-            {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
+      {/* Search Results Dropdown */}
+      {searchResults.length > 0 && (
+        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-slate-200 shadow-lg z-[100] overflow-hidden">
+          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+            <span className="text-[10px] text-[#586ab1] font-semibold">Click to select</span>
           </div>
-          <div className="flex-1 min-w-0">
-            <p className="font-semibold text-slate-800 text-sm truncate">{`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}</p>
-            <p className="text-[10px] text-slate-400">ID: {selectedCustomer.id_number} · {selectedCustomer.mobile}</p>
-          </div>
-          <button
-            onClick={() => { setSelectedCustomer(null); setSearchTerm(''); setSecurityItems([]); setGuarantorSecurityItems([]); }}
-            className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-          >
-            <XMarkIcon className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
-      {/* Main Forms — shown only when customer selected */}
-      {selectedCustomer && (
-        <div className="space-y-6">
-          {sections.map(section => (
-            <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-                <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
+          <div className="max-h-64 overflow-y-auto">
+            {searchResults.map(customer => (
+              <button
+                key={customer.id}
+                onClick={() => handleCustomerSelect(customer)}
+                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#586ab1]/5 transition-all text-left border-b border-slate-50 last:border-0"
+              >
+                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold shrink-0">
+                  {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                </div>
                 <div>
-                  <h2 className="text-sm font-bold text-slate-800">{section.label}</h2>
-                  <p className="text-[10px] text-slate-400">Propose changes — requires Branch Manager approval</p>
+                  <p className="font-semibold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
+                  <p className="text-[10px] text-slate-400">ID: {customer.id_number} · {customer.mobile}</p>
                 </div>
-              </div>
-              <div className="p-5 space-y-5">
-                <form onSubmit={(e) => handleSubmit(e, section.id)} className="space-y-5">
-                  {renderFormFields(section.id)}
-                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                    <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                    <button
-                      type="submit"
-                      disabled={loading}
-                      className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
-                    >
-                      {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                      Submit Change Request
-                    </button>
-                  </div>
-                </form>
-                {renderHistoricalImages(section.id)}
-              </div>
-            </div>
-          ))}
-
-          {/* Borrower Security */}
-          <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">Security & Collateral</h2>
-                <p className="text-[10px] text-slate-400">Borrower security items</p>
-              </div>
-            </div>
-            <div className="p-5">
-              <form onSubmit={(e) => handleSubmit(e, 'security')} className="space-y-5">
-                {renderFormFields('security')}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
-                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                    Submit Change Request
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Guarantor Security */}
-          <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">Guarantor Security</h2>
-                <p className="text-[10px] text-slate-400">Guarantor security items</p>
-              </div>
-            </div>
-            <div className="p-5">
-              <form onSubmit={(e) => handleSubmit(e, 'guarantor_security')} className="space-y-5">
-                {renderFormFields('guarantor_security')}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
-                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                    Submit Change Request
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-
-          {/* Collateral History */}
-          <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">Collateral History</h2>
-                <p className="text-[10px] text-slate-400">Existing security registry</p>
-              </div>
-            </div>
-            <div className="p-5">{renderSecurityItems()}</div>
-          </div>
-
-          {/* Field Verification */}
-          <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">Field Verification</h2>
-                <p className="text-[10px] text-slate-400">Meeting documents and verification media</p>
-              </div>
-            </div>
-            <div className="p-5">{renderFieldVerification()}</div>
-          </div>
-
-          {/* Amendment Stream — moves to BOTTOM when customer selected */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-              <div>
-                <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
-                <p className="text-[10px] text-slate-400">Edit requests for this customer</p>
-              </div>
-              <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
-            </div>
-            {editRequests.length > 0 ? (
-              <table className="w-full text-left text-xs">
-                <thead>
-                  <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                    <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50">
-                  {editRequests.map((request, idx) => (
-                    <tr
-                      key={request.id}
-                      className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
-                      onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
-                    >
-                      <td className="px-5 py-3.5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <UserIcon className="w-4 h-4 text-slate-400" />
-                          </div>
-                          <span className="font-semibold text-slate-800 text-[11px]">
-                            {request.customer?.Firstname} {request.customer?.Surname}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
-                        {sections.find(s => s.id === request.section_type)?.label || request.section_type}
-                      </td>
-                      <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                      <td className="px-5 py-3.5">
-                        <div className="text-[10px] text-slate-600 font-medium">
-                          {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                        </div>
-                        <div className="text-[9px] text-slate-400">
-                          {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                        </div>
-                      </td>
-                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
-                        {request.created_by_user?.full_name || '—'}
-                      </td>
-                      <td className="px-5 py-3.5 text-right">
-                        <button
-                          className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
-                          title="Review Request"
-                        >
-                          <EyeIcon className="w-4 h-4" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            ) : (
-              <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                No requests currently pending
-              </div>
-            )}
+              </button>
+            ))}
           </div>
         </div>
       )}
     </div>
+
+      {
+    !selectedCustomer && (
+      <>
+        {/* Amendment Stream — on TOP when no customer selected */}
+        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+              <p className="text-[10px] text-slate-400">Recent edit requests awaiting review or updated</p>
+            </div>
+            <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
+          </div>
+          {editRequests.length > 0 ? (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                  <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {editRequests.map((request, idx) => (
+                  <tr
+                    key={request.id}
+                    className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
+                    onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <UserIcon className="w-4 h-4 text-slate-400" />
+                        </div>
+                        <span className="font-semibold text-slate-800 text-[11px]">
+                          {request.customer?.Firstname} {request.customer?.Surname}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                      {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                    </td>
+                    <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="text-[10px] text-slate-600 font-medium">
+                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className="text-[9px] text-slate-400">
+                        {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                      {request.created_by_user?.full_name || '—'}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button
+                        className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                        title="Review Request"
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              No requests yet
+            </div>
+          )}
+        </div>
+
+        {/* Empty Selection State */}
+        <div className="py-12 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm">
+            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400" />
+          </div>
+          <h3 className="text-sm font-bold text-slate-700 mb-0.5">Search for a customer</h3>
+          <p className="text-xs text-slate-400">Select a client to unlock the amendment interface</p>
+        </div>
+      </>
+    )
+  }
+
+  {/* Section Nav — wraps naturally, no scroll */ }
+  {
+    selectedCustomer && (
+      <div className="flex flex-wrap gap-1.5 pt-2">
+        {allNavLinks.map(link => (
+          <a
+            key={link.id}
+            href={`#${link.id}`}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all shadow-sm"
+          >
+            <link.icon className="w-3 h-3 shrink-0" />
+            {link.label}
+          </a>
+        ))}
+      </div>
+    )
+  }
+
+  {/* Selected Customer Banner */ }
+  {
+    selectedCustomer && (
+      <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl shadow-sm">
+        <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
+          {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-800 text-sm truncate">{`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}</p>
+          <p className="text-[10px] text-slate-400">ID: {selectedCustomer.id_number} · {selectedCustomer.mobile}</p>
+        </div>
+        <button
+          onClick={() => { setSelectedCustomer(null); setSearchTerm(''); setSecurityItems([]); setGuarantorSecurityItems([]); }}
+          className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+        >
+          <XMarkIcon className="w-4 h-4" />
+        </button>
+      </div>
+    )
+  }
+
+  {/* Main Forms — shown only when customer selected and has permission */ }
+  {
+    selectedCustomer && hasPermission('amendments.initiate') && (
+      <div className="space-y-6">
+        {sections.map(section => (
+          <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+              <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">{section.label}</h2>
+                <p className="text-[10px] text-slate-400">Propose changes — requires Branch Manager approval</p>
+              </div>
+            </div>
+            <div className="p-5 space-y-5">
+              <form onSubmit={(e) => handleSubmit(e, section.id)} className="space-y-5">
+                {renderFormFields(section.id)}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
+                  >
+                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                    Submit Change Request
+                  </button>
+                </div>
+              </form>
+              {renderHistoricalImages(section.id)}
+            </div>
+          </div>
+        ))}
+
+        {/* Borrower Security */}
+        <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+            <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Security & Collateral</h2>
+              <p className="text-[10px] text-slate-400">Borrower security items</p>
+            </div>
+          </div>
+          <div className="p-5">
+            <form onSubmit={(e) => handleSubmit(e, 'security')} className="space-y-5">
+              {renderFormFields('security')}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                  {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                  Submit Change Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Guarantor Security */}
+        <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+            <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Guarantor Security</h2>
+              <p className="text-[10px] text-slate-400">Guarantor security items</p>
+            </div>
+          </div>
+          <div className="p-5">
+            <form onSubmit={(e) => handleSubmit(e, 'guarantor_security')} className="space-y-5">
+              {renderFormFields('guarantor_security')}
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                  {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                  Submit Change Request
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+
+        {/* Collateral History */}
+        <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+            <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Collateral History</h2>
+              <p className="text-[10px] text-slate-400">Existing security registry</p>
+            </div>
+          </div>
+          <div className="p-5">{renderSecurityItems()}</div>
+        </div>
+
+        {/* Field Verification */}
+        <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+            <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
+            <div>
+              <h2 className="text-sm font-bold text-slate-800">Field Verification</h2>
+              <p className="text-[10px] text-slate-400">Meeting documents and verification media</p>
+            </div>
+          </div>
+          <div className="p-5">{renderFieldVerification()}</div>
+        </div>
+
+        {/* Amendment Stream — moves to BOTTOM when customer selected */}
+        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+              <p className="text-[10px] text-slate-400">Edit requests for this customer</p>
+            </div>
+            <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
+          </div>
+          {editRequests.length > 0 ? (
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                  <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-50">
+                {editRequests.map((request, idx) => (
+                  <tr
+                    key={request.id}
+                    className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
+                    onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
+                  >
+                    <td className="px-5 py-3.5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                          <UserIcon className="w-4 h-4 text-slate-400" />
+                        </div>
+                        <span className="font-semibold text-slate-800 text-[11px]">
+                          {request.customer?.Firstname} {request.customer?.Surname}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                      {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                    </td>
+                    <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                    <td className="px-5 py-3.5">
+                      <div className="text-[10px] text-slate-600 font-medium">
+                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                      <div className="text-[9px] text-slate-400">
+                        {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                      </div>
+                    </td>
+                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                      {request.created_by_user?.full_name || '—'}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <button
+                        className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                        title="Review Request"
+                      >
+                        <EyeIcon className="w-4 h-4" />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+              No requests currently pending
+            </div>
+          )}
+        </div>
+      </div>
+    )
+  }
+    </div >
   );
 }
 

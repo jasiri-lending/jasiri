@@ -528,16 +528,16 @@ function CustomerEdits() {
                 <div className="p-5 bg-white rounded-2xl border border-gray-100 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <ClockIcon className="w-4 h-4 text-slate-400" />
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Request Lifecycle</p>
+                    <p className="text-sm text-slate-600 mb-1">Request Lifecycle</p>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Initiator</p>
-                      <p className="text-xs font-medium text-slate-700">{request.created_by_user?.full_name || 'System Auto'}</p>
+                      <p className="text-sm  text-slate-600  mb-1">Initiator</p>
+                      <p className="text-xs  text-slate-700">{request.created_by_user?.full_name || 'System Auto'}</p>
                     </div>
                     <div>
-                      <p className="text-[10px] font-semibold text-slate-400 uppercase mb-1">Timestamp</p>
-                      <p className="text-xs font-medium text-slate-700">{new Date(request.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
+                      <p className="text-sm text-slate-600  mb-1">Timestamp</p>
+                      <p className="text-xs  text-slate-600">{new Date(request.created_at).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>
                     </div>
                   </div>
                 </div>
@@ -561,14 +561,14 @@ function CustomerEdits() {
                 <div className="flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
                     <DocumentTextIcon className="w-4 h-4 text-[#586ab1]" />
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Evidence Submission</p>
+                    <p className="text-sm text-slate-600 ">Evidence Submission</p>
                   </div>
                   {isPdf && (
                     <a
                       href={request.document_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-[10px] font-bold text-[#586ab1] uppercase tracking-widest hover:underline"
+                      className="text-sm text-[#586ab1]  hover:underline"
                     >
                       Source PDF
                     </a>
@@ -644,7 +644,7 @@ function CustomerEdits() {
           </div>
         )}
       </div>
-      </div >
+      
     );
 };
 

@@ -260,6 +260,11 @@ function CustomerEdits() {
   const handleSubmitIdPhoneEdit = async (e) => {
     e.preventDefault();
 
+    if (!hasPermission('amendments.initiate')) {
+      alert('You do not have permission to initiate amendments.');
+      return;
+    }
+
     if (!selectedCustomer) {
       alert('Please select a customer first');
       return;
@@ -357,19 +362,23 @@ function CustomerEdits() {
         updated_at: new Date().toISOString()
       };
 
-      if (newStatus === 'confirmed' && profile.role === 'branch_manager') {
+      if (newStatus === 'confirmed' && hasPermission('amendments.confirm')) {
         updateData.confirmed_by = profile.id;
         updateData.confirmed_at = new Date().toISOString();
-      } else if (newStatus === 'approved' && profile.role === 'regional_manager') {
+      } else if (newStatus === 'approved' && hasPermission('amendments.authorize')) {
         updateData.approved_by = profile.id;
         updateData.approved_at = new Date().toISOString();
-      } else if (newStatus === 'rejected') {
+      } else if (newStatus === 'rejected' && (hasPermission('amendments.confirm') || hasPermission('amendments.authorize'))) {
         updateData.rejected_by = profile.id;
         updateData.rejected_at = new Date().toISOString();
         const rejectionReason = prompt('Please provide a reason for rejection:');
         if (rejectionReason) {
           updateData.rejection_reason = rejectionReason;
         }
+      } else {
+        alert('You do not have permission to perform this action.');
+        setLoading(false);
+        return;
       }
 
       const { error } = await supabase
@@ -418,9 +427,15 @@ function CustomerEdits() {
     } else if (statusValue.includes('rejected')) {
       color = '#ef4444';
       label = 'Rejected';
-    } else if (statusValue.includes('pending') || statusValue.includes('confirmed')) {
+    } else if (statusValue === 'confirmed') {
+      color = '#3b82f6';
+      label = 'Awaiting Authorization';
+    } else if (statusValue === 'pending_branch_manager') {
       color = '#f59e0b';
-      label = statusValue === 'confirmed' ? 'Pending RM' : 'Pending BM';
+      label = 'Waiting Confirmation';
+    } else if (statusValue === 'pending_superadmin') {
+      color = '#a855f7';
+      label = 'Awaiting Review';
     }
 
     return (
@@ -685,57 +700,59 @@ function CustomerEdits() {
 
 
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="relative group flex-1 md:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder="Search customers to initiate edit..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-            />
-            {searching && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
-              </div>
-            )}
-
-            {/* Premium Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
-                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Results found ({searchResults.length})</span>
+          {hasPermission('amendments.initiate') && (
+            <div className="relative group flex-1 md:max-w-md">
+              <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={handleSearchChange}
+                placeholder="Search customers to initiate edit..."
+                className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+              />
+              {searching && (
+                <div className="absolute right-4 top-1/2 -translate-y-1/2">
+                  <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
                 </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {searchResults.map(customer => (
-                    <button
-                      key={customer.id}
-                      onClick={() => handleCustomerSelect(customer)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-[#586ab1] group-hover:text-white transition-all text-sm">
-                          {customer.Firstname?.[0]}{customer.Surname?.[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-700 leading-none mb-1 group-hover:text-[#586ab1] transition-colors">
-                            {customer.Firstname}  {customer.Surname}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">{customer.id_number}</span>
-                            <span className="text-[10px] font-bold text-slate-400">{customer.mobile}</span>
+              )}
+
+              {/* Premium Search Results Dropdown */}
+              {searchResults.length > 0 && (
+                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
+                  <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                    <span className="text-sm   text-slate-600  px-2">Results found ({searchResults.length})</span>
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {searchResults.map(customer => (
+                      <button
+                        key={customer.id}
+                        onClick={() => handleCustomerSelect(customer)}
+                        className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
+                      >
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500  group-hover:bg-slate-400 group-hover:text-white transition-all text-sm">
+                            {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                          </div>
+                          <div>
+                            <p className="text-sm  text-slate-600 leading-none mb-1 group-hover:text-slate-600 transition-colors">
+                              {customer.Firstname}  {customer.Surname}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded ">{customer.id_number}</span>
+                              <span className="text-sm  text-slate-600">{customer.mobile}</span>
+                            </div>
                           </div>
                         </div>
-                      </div>
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
-                        <PencilSquareIcon className="w-4 h-4" />
-                      </div>
-                    </button>
-                  ))}
+                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
+                          <PencilSquareIcon className="w-4 h-4" />
+                        </div>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Inline Edit Form — shown only when customer selected and user has permission */}
@@ -747,8 +764,8 @@ function CustomerEdits() {
                   <PencilSquareIcon className="w-6 h-6" />
                 </div>
                 <div>
-                  <h3 className="text-lg font-black text-slate-800 tracking-tight">Edit Identity & Contact</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  <h3 className="text-sm  text-slate-600 ">Edit Identity & Contact</h3>
+                  <p className="text-xs  text-slate-600  mt-0.5">
                     Customer: {selectedCustomer.Firstname} {selectedCustomer.Surname}
                   </p>
                 </div>
@@ -767,17 +784,17 @@ function CustomerEdits() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="w-1.5 h-1.5 bg-[#586ab1] rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phone Number Update</h4>
+                    <h4 className="text-sm   text-slate-600 ">Phone Number Update</h4>
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current Mobile</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                      <label className="block text-sm text-slate-600  mb-2 px-1">Current Mobile</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm  text-slate-500 select-none">
                         {selectedCustomer.mobile || 'Not provided'}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New Mobile Number</label>
+                      <label className="block text-sm text-slate-600  mb-2 px-1">New Mobile Number</label>
                       <input
                         type="text"
                         value={idPhoneForm.newMobile}
@@ -793,17 +810,17 @@ function CustomerEdits() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ID Number Update</h4>
+                    <h4 className="text-sm  text-slate-600 ">ID Number Update</h4>
                   </div>
                   <div className="grid grid-cols-1 gap-4">
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current ID</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                      <label className="block text-sm  text-slate-600  mb-2 px-1">Current ID</label>
+                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm  text-slate-500 select-none">
                         {selectedCustomer.id_number || 'Not provided'}
                       </div>
                     </div>
                     <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New ID Number</label>
+                      <label className="block text-sm  text-slate-600  mb-2 px-1">New ID Number</label>
                       <input
                         type="text"
                         value={idPhoneForm.newIdNumber}
@@ -820,7 +837,7 @@ function CustomerEdits() {
               <div className="space-y-4">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason for Change</h4>
+                  <h4 className="text-sm  text-slate-600 ">Reason for Change</h4>
                 </div>
                 <textarea
                   value={idPhoneForm.reason}
@@ -837,7 +854,7 @@ function CustomerEdits() {
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 mb-2">
                     <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Supporting Evidence</h4>
+                    <h4 className="text-sm   text-slate-600 ">Supporting Evidence</h4>
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     <div className="group relative border-2 border-dashed border-slate-200 rounded-2xl p-8 transition-all hover:border-[#586ab1] hover:bg-[#586ab1]/5 flex flex-col items-center justify-center text-center">
@@ -852,8 +869,8 @@ function CustomerEdits() {
                       <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
                         <ArrowUpTrayIcon className="w-8 h-8" />
                       </div>
-                      <p className="text-sm font-black text-slate-700 mb-1">Click to Upload Document</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Copy / Support Document</p>
+                      <p className="text-sm  text-slate-900 mb-1">Click to Upload Document</p>
+                      <p className="text-sm text-slate-600 ">ID Copy / Support Document</p>
                       <label
                         htmlFor="document-upload"
                         className="absolute inset-0 cursor-pointer"
@@ -862,7 +879,7 @@ function CustomerEdits() {
                     {idPhoneForm.documentPreview ? (
                       <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 group">
                         <img src={idPhoneForm.documentPreview} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="absolute inset-0 bg-slate-600 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                           <button
                             type="button"
                             onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
@@ -878,8 +895,8 @@ function CustomerEdits() {
                           <DocumentTextIcon className="w-6 h-6 text-[#586ab1]" />
                         </div>
                         <div className="flex-1 overflow-hidden">
-                          <p className="text-sm font-black text-slate-700 truncate">{idPhoneForm.document.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">PDF DOCUMENT</p>
+                          <p className="text-sm  text-slate-600 truncate">{idPhoneForm.document.name}</p>
+                          <p className="text-sm text-slate-600 ">PDF DOCUMENT</p>
                         </div>
                         <button
                           type="button"
@@ -903,14 +920,14 @@ function CustomerEdits() {
                 <button
                   type="button"
                   onClick={() => setSelectedCustomer(null)}
-                  className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+                  className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl   hover:bg-slate-50 transition-all"
                 >
                   Discard
                 </button>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-10 py-3 bg-[#586ab1] text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#475589] transition-all shadow-xl shadow-[#586ab1]/20 disabled:opacity-50 flex items-center gap-2"
+                  className="px-10 py-3 bg-[#586ab1] text-white rounded-xl     hover:bg-[#475589] transition-all shadow-xl shadow-[#586ab1]/20 disabled:opacity-50 flex items-center gap-2"
                 >
                   {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
                   {loading ? 'Submitting...' : 'Submit Update Request'}
