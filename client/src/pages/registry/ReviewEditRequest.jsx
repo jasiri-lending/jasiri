@@ -15,12 +15,14 @@ import {
 } from '@heroicons/react/24/outline';
 import { supabase } from '../../supabaseClient.js';
 import { useAuth } from '../../hooks/userAuth.js';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 
 const ReviewEditRequest = () => {
     const { requestId, requestType } = useParams();
     const { profile } = useAuth();
+    const { hasPermission } = usePermissions();
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -269,11 +271,11 @@ const ReviewEditRequest = () => {
     };
 
     const canConfirm = () => {
-        return profile?.role === 'branch_manager' && request?.status === 'pending_branch_manager';
+        return hasPermission('amendments.confirm') && request?.status === 'pending_branch_manager';
     };
 
     const canApprove = () => {
-        return (profile?.role === 'regional_manager' || profile?.role === 'superadmin') && request?.status === 'confirmed';
+        return hasPermission('amendments.authorize') && request?.status === 'confirmed';
     };
 
     const getStatusBadge = (status) => {
@@ -282,6 +284,7 @@ const ReviewEditRequest = () => {
             rejected: 'bg-red-50 text-red-700 border-red-100',
             confirmed: 'bg-blue-50 text-blue-700 border-blue-100',
             pending_branch_manager: 'bg-amber-50 text-amber-700 border-amber-100',
+            pending_superadmin: 'bg-purple-50 text-purple-700 border-purple-100',
             default: 'bg-slate-50 text-slate-700 border-slate-100',
         };
 
@@ -392,34 +395,62 @@ const ReviewEditRequest = () => {
                         <div className="space-y-4">
                             {requestType === 'phone_id' ? (
                                 <>
-                                    <ComparisonCard
-                                        title="Mobile Number"
-                                        current={customer.mobile}
-                                        proposed={request.new_mobile}
-                                        icon={PhoneIcon}
-                                    />
-                                    <ComparisonCard
-                                        title="ID / Passport Number"
-                                        current={customer.id_number}
-                                        proposed={request.new_id_number}
-                                        icon={CreditCardIcon}
-                                    />
+                                    {String(customer.mobile || '') !== String(request.new_mobile || '') && (
+                                        <ComparisonCard
+                                            title="Mobile Number"
+                                            current={customer.mobile}
+                                            proposed={request.new_mobile}
+                                            icon={PhoneIcon}
+                                        />
+                                    )}
+                                    {String(customer.id_number || '') !== String(request.new_id_number || '') && (
+                                        <ComparisonCard
+                                            title="ID / Passport Number"
+                                            current={customer.id_number}
+                                            proposed={request.new_id_number}
+                                            icon={CreditCardIcon}
+                                        />
+                                    )}
                                 </>
                             ) : (
-                                Object.entries(request.new_values || {}).map(([key, value]) => (
-                                    <ComparisonCard
-                                        key={key}
-                                        title={key.replace(/([A-Z])/g, ' $1').toUpperCase()}
-                                        current={customer[key]}
-                                        proposed={value}
-                                        icon={DocumentTextIcon}
-                                    />
-                                ))
+                                Object.entries(request.new_values || {})
+                                    .filter(([key, value]) => {
+                                        // Skip common metadata or empty values that aren't changes
+                                        if (key === 'id' || key === 'customer_id' || key === 'tenant_id') return false;
+
+                                        // Determine which field map to use based on section_type
+                                        const fieldMap = ['personal', 'business'].includes(request.section_type)
+                                            ? CUSTOMER_FIELD_MAP
+                                            : (['guarantor', 'nextOfKin'].includes(request.section_type) ? GUARANTOR_FIELD_MAP : {});
+
+                                        const dbKey = fieldMap[key] || key;
+
+                                        // Only show if the proposed value is different from the current value
+                                        const curr = String(customer[dbKey] || '');
+                                        const prop = String(value || '');
+                                        return curr !== prop;
+                                    })
+                                    .map(([key, value]) => {
+                                        const fieldMap = ['personal', 'business'].includes(request.section_type)
+                                            ? CUSTOMER_FIELD_MAP
+                                            : (['guarantor', 'nextOfKin'].includes(request.section_type) ? GUARANTOR_FIELD_MAP : {});
+                                        const dbKey = fieldMap[key] || key;
+
+                                        return (
+                                            <ComparisonCard
+                                                key={key}
+                                                title={key.replace(/([A-Z])/g, ' $1').toUpperCase()}
+                                                current={customer[dbKey]}
+                                                proposed={value}
+                                                icon={DocumentTextIcon}
+                                            />
+                                        );
+                                    })
                             )}
                         </div>
 
-                        {/* Supporting Document */}
-                        {request.document_url && (
+                        {/* Supporting Documents */}
+                        {(request.document_url || (request.document_urls && Object.keys(request.document_urls).length > 0)) && (
                             <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden animate-in fade-in duration-700">
                                 <div className="p-5 bg-slate-50/50 border-b border-slate-100 flex items-center justify-between">
                                     <div className="flex items-center gap-3">
@@ -428,34 +459,72 @@ const ReviewEditRequest = () => {
                                         </div>
                                         <h3 className=" text-slate-600   text-sm">Supporting Evidence</h3>
                                     </div>
-                                    <a
-                                        href={request.document_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-[#586ab1] hover:text-[#475589] transition-colors"
-                                    >
-                                        View Full Scan <ArrowTopRightOnSquareIcon className="w-3 h-3" />
-                                    </a>
-                                </div>
-                                <div className="p-6 flex items-center justify-center bg-slate-50/20">
-                                    {request.document_url.toLowerCase().endsWith('.pdf') ? (
-                                        <div className="w-full aspect-video bg-white rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center p-8">
-                                            <div className="w-16 h-16 bg-slate-50 rounded-2xl flex items-center justify-center mb-4">
-                                                <DocumentTextIcon className="w-8 h-8 text-slate-300" />
-                                            </div>
-                                            <p className="text-xs text-slate-500 text-center">PDF Evidence Attachment</p>
-                                            <a href={request.document_url} target="_blank" rel="noopener noreferrer" className="mt-4 px-8 py-2.5 bg-white border border-slate-200 rounded-xl text-[9px] font-black text-slate-600 uppercase tracking-widest hover:bg-slate-50 transition-all shadow-sm">Open Viewer</a>
-                                        </div>
-                                    ) : (
-                                        <div className="relative group max-w-2xl w-full">
-                                            <img src={request.document_url} alt="Supporting Evidence" className="w-full h-auto rounded-2xl shadow-xl border-4 border-white transition-transform duration-500 group-hover:scale-[1.01]" />
-                                            <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 rounded-2xl transition-opacity pointer-events-none"></div>
-                                        </div>
+                                    {request.document_url && (
+                                        <a
+                                            href={request.document_url}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="px-4 py-2 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-50 transition-colors shadow-sm flex items-center gap-2"
+                                        >
+                                            View Original Document
+                                            <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5" />
+                                        </a>
                                     )}
                                 </div>
+
+                                {request.document_urls && Object.keys(request.document_urls).length > 0 && (
+                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                        {Object.entries(request.document_urls).map(([key, url]) => (
+                                            <a
+                                                key={key}
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="p-3 bg-slate-50 rounded-2xl border border-slate-100 hover:border-[#586ab1]/30 transition-all group flex items-center justify-between"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-white rounded-lg border border-slate-100 group-hover:bg-[#586ab1]/10 transition-colors">
+                                                        <DocumentTextIcon className="w-4 h-4 text-slate-400 group-hover:text-[#586ab1]" />
+                                                    </div>
+                                                    <span className="text-[11px] font-bold text-slate-600 capitalize">
+                                                        {key.replace(/([A-Z])/g, ' $1')}
+                                                    </span>
+                                                </div>
+                                                <ArrowTopRightOnSquareIcon className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#586ab1]" />
+                                            </a>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {request.document_url && (
+                                    <div className="p-6">
+                                        <div className="relative rounded-[1.5rem] overflow-hidden border border-slate-100 bg-slate-50 shadow-inner group">
+                                            {request.document_url.match(/\.(jpg|jpeg|png|gif)$/i) ? (
+                                                <img
+                                                    src={request.document_url}
+                                                    alt="Supporting Document"
+                                                    className="w-full h-auto object-contain max-h-[400px] mx-auto group-hover:scale-[1.02] transition-transform duration-500"
+                                                />
+                                            ) : (
+                                                <div className="py-20 text-center">
+                                                    <DocumentTextIcon className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+                                                    <p className="text-xs text-slate-400 font-medium">Document Preview Not Available</p>
+                                                    <a
+                                                        href={request.document_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        className="text-[10px] text-[#586ab1] font-bold mt-2 inline-block uppercase tracking-widest"
+                                                    >
+                                                        Download to View
+                                                    </a>
+                                                </div>
+                                            )}
+                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-colors pointer-events-none" />
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
-
                         {/* Inline Decision Block - BELOW Supporting Evidence */}
                         {(canConfirm() || canApprove()) && (
                             <div className="bg-white rounded-[2rem] border-2 border-[#586ab1]/10 p-8 shadow-xl shadow-[#586ab1]/5 animate-in slide-in-from-bottom-4 duration-500">

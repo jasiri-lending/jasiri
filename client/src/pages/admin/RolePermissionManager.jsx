@@ -34,7 +34,9 @@ export default function RolePermissionManager() {
         'user': 'User Management',
         'settings': 'System Settings',
         'report': 'Reports Access',
-        'customers': 'Customer Management'
+        'customers': 'Customer Management',
+        'amendments': 'Customer Amendments',
+        'penalty': 'Penalty Management'
     };
 
     const mountedRef = useRef(true);
@@ -56,7 +58,9 @@ export default function RolePermissionManager() {
         ],
         'settings': [
             'settings.view',
-            'settings.edit',
+            'settings.edit'
+        ],
+        'penalty': [
             'penalty_settings_manage'
         ],
         'report': [
@@ -83,6 +87,11 @@ export default function RolePermissionManager() {
             'customers.create',
             'customers.edit',
             'customers.delete'
+        ],
+        'amendments': [
+            'amendments.initiate',
+            'amendments.confirm',
+            'amendments.authorize'
         ]
     };
 
@@ -226,13 +235,18 @@ export default function RolePermissionManager() {
                 // Settings
                 { resource: 'settings', name: 'settings.view', description: 'View Settings' },
                 { resource: 'settings', name: 'settings.edit', description: 'Edit Settings' },
-                { resource: 'settings', name: 'penalty_settings_manage', description: 'Manage Penalty Settings' },
+                { resource: 'penalty', name: 'penalty_settings_manage', description: 'Allows creating and updating loan penalty rules and settings' },
 
                 // Customers
                 { resource: 'customers', name: 'customers.view', description: 'View Customers' },
                 { resource: 'customers', name: 'customers.create', description: 'Create Customer' },
                 { resource: 'customers', name: 'customers.edit', description: 'Edit Customer' },
                 { resource: 'customers', name: 'customers.delete', description: 'Delete Customer' },
+
+                // Amendments
+                { resource: 'amendments', name: 'amendments.initiate', description: 'Initiate Customer Amendments' },
+                { resource: 'amendments', name: 'amendments.confirm', description: 'Confirm Customer Amendments' },
+                { resource: 'amendments', name: 'amendments.authorize', description: 'Authorize Customer Amendments' },
             ];
 
             const { data: existingPerms, error: fetchError } = await supabase

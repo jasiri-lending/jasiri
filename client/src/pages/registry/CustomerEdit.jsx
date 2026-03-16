@@ -23,11 +23,13 @@ import {
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
+import { usePermissions } from "../../hooks/usePermissions.js";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures.js";
 
 function CustomerEdits() {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { hasPermission } = usePermissions();
   const { documentUploadEnabled } = useTenantFeatures();
   const [loading, setLoading] = useState(false);
   const [editRequests, setEditRequests] = useState([]);
@@ -283,13 +285,27 @@ function CustomerEdits() {
 
       const documentUrl = documentUploadEnabled ? await uploadSupportDocument(idPhoneForm.document) : null;
 
+      // Only include values if they are different from current ones
+      const newMobile = idPhoneForm.newMobile && idPhoneForm.newMobile !== selectedCustomer.mobile ? idPhoneForm.newMobile : selectedCustomer.mobile;
+      const newIdNumber = idPhoneForm.newIdNumber && idPhoneForm.newIdNumber !== selectedCustomer.id_number ? idPhoneForm.newIdNumber : selectedCustomer.id_number;
+
+      // Check if any actual change was made
+      const isPhoneChanged = idPhoneForm.newMobile && idPhoneForm.newMobile !== selectedCustomer.mobile;
+      const isIdChanged = idPhoneForm.newIdNumber && idPhoneForm.newIdNumber !== selectedCustomer.id_number;
+
+      if (!isPhoneChanged && !isIdChanged && !documentUrl) {
+        alert('No changes detected compared to existing records.');
+        setLoading(false);
+        return;
+      }
+
       const editRequestData = {
         customer_id: selectedCustomer.id,
         current_mobile: selectedCustomer.mobile,
         current_id_number: selectedCustomer.id_number,
-        new_mobile: idPhoneForm.newMobile || selectedCustomer.mobile,
-        new_id_number: idPhoneForm.newIdNumber || selectedCustomer.id_number,
-        edit_type: idPhoneForm.newMobile && idPhoneForm.newIdNumber ? 'both' : idPhoneForm.newMobile ? 'phone' : 'id',
+        new_mobile: newMobile,
+        new_id_number: newIdNumber,
+        edit_type: isPhoneChanged && isIdChanged ? 'both' : isPhoneChanged ? 'phone' : 'id',
         reason: idPhoneForm.reason,
         document_url: documentUrl,
         status: 'pending_branch_manager',
@@ -722,8 +738,8 @@ function CustomerEdits() {
           </div>
         </div>
 
-        {/* Inline Edit Form */}
-        {selectedCustomer && (
+        {/* Inline Edit Form — shown only when customer selected and user has permission */}
+        {selectedCustomer && hasPermission('amendments.initiate') && (
           <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
             <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
               <div className="flex items-center gap-4">
@@ -954,6 +970,7 @@ function CustomerEdits() {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">New ID</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Status</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Requested By</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -1030,6 +1047,9 @@ function CustomerEdits() {
                           <div className="text-[10px] text-slate-400 font-medium">
                             {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                           </div>
+                        </td>
+                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                          {request.created_by_user?.full_name || '—'}
                         </td>
                         <td className="px-4 py-3 text-right">
                           <button

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { usePermissions } from '../../hooks/usePermissions';
 import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import {
   UserCircleIcon,
@@ -34,6 +35,7 @@ function CustomerDetailsEdit() {
   const navigate = useNavigate();
   const { imageUploadEnabled, documentUploadEnabled } = useTenantFeatures();
   const [loading, setLoading] = useState(false);
+  const { hasPermission, loading: permsLoading } = usePermissions();
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -150,6 +152,35 @@ function CustomerDetailsEdit() {
     { id: 'guarantor_security', label: 'Guarantor Security', icon: ShieldCheckIcon },
   ];
 
+  const CUSTOMER_FIELD_MAP = {
+    alternativeMobile: 'alternative_mobile',
+    idNumber: 'id_number',
+    dateOfBirth: 'date_of_birth',
+    maritalStatus: 'marital_status',
+    residenceStatus: 'residence_status',
+    postalAddress: 'postal_address',
+    businessName: 'business_name',
+    businessType: 'business_type',
+    businessLocation: 'business_location',
+    yearEstablished: 'year_established',
+    hasLocalAuthorityLicense: 'has_local_authority_license',
+    prequalifiedAmount: 'prequalifiedAmount',
+    houseImage: 'house_image_url',
+    passport: 'passport_url',
+    idFront: 'id_front_url',
+    idBack: 'id_back_url',
+  };
+
+  const GUARANTOR_FIELD_MAP = {
+    idNumber: 'id_number',
+    dateOfBirth: 'date_of_birth',
+    maritalStatus: 'marital_status',
+    residenceStatus: 'residence_status',
+    postalAddress: 'postal_address',
+    alternativeMobile: 'alternative_number',
+    cityTown: 'city_town',
+  };
+
   useEffect(() => {
     fetchCurrentUser();
   }, []);
@@ -197,7 +228,8 @@ function CustomerDetailsEdit() {
         .from('customer_detail_edit_requests')
         .select(`
           *,
-          customer:customers(Firstname, Middlename, Surname, mobile, id_number, created_by, branch_id, region_id)
+          customer:customers(Firstname, Middlename, Surname, mobile, id_number, created_by, branch_id, region_id),
+          created_by_user:users!created_by(full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -811,10 +843,39 @@ function CustomerDetailsEdit() {
           }))
         };
       } else {
+        // Filter proposed changes to only include fields that are different from current data
+        const sectionData = formData[section];
+        const deltas = {};
+
+        Object.keys(sectionData).forEach(key => {
+          const newValue = sectionData[key];
+
+          // Determine which field map to use
+          const fieldMap = ['personal', 'business'].includes(section)
+            ? CUSTOMER_FIELD_MAP
+            : (['guarantor', 'nextOfKin'].includes(section) ? GUARANTOR_FIELD_MAP : {});
+
+          const dbKey = fieldMap[key] || key;
+          const currentValue = selectedCustomer[dbKey];
+
+          // For dates or other values that might be null/undefined, normalize to string for comparison
+          if (String(newValue || '') !== String(currentValue || '')) {
+            deltas[key] = newValue;
+          }
+        });
+
+        // Also include any new uploaded documents
         proposedChanges = {
-          ...formData[section],
+          ...deltas,
           ...uploadedDocs
         };
+      }
+
+      // If no changes were made and no document was uploaded, prevent submission
+      if (Object.keys(proposedChanges).length === 0) {
+        alert("No changes detected. Please modify at least one field before submitting.");
+        setLoading(false);
+        return;
       }
 
       const editRequestData = {
@@ -951,6 +1012,12 @@ function CustomerDetailsEdit() {
         dot: 'bg-emerald-400',
         label: 'Approved'
       },
+      'pending_superadmin': {
+        bg: 'bg-purple-50 border-purple-200',
+        text: 'text-purple-700',
+        dot: 'bg-purple-400',
+        label: 'Pending Superadmin'
+      },
       'rejected': {
         bg: 'bg-red-50 border-red-200',
         text: 'text-red-700',
@@ -1003,20 +1070,20 @@ function CustomerDetailsEdit() {
   };
 
   const canConfirm = (request) => {
-    return userRole === 'branch_manager' && request.status === 'pending_branch_manager';
+    return hasPermission('amendments.confirm') && request.status === 'pending_branch_manager';
   };
 
   const canApprove = (request) => {
-    return userRole === 'regional_manager' && request.status === 'confirmed';
+    return hasPermission('amendments.authorize') && request.status === 'confirmed';
   };
 
   const canReject = (request) => {
-    return (userRole === 'branch_manager' || userRole === 'regional_manager') &&
+    return (hasPermission('amendments.confirm') || hasPermission('amendments.authorize')) &&
       (request.status === 'pending_branch_manager' || request.status === 'confirmed');
   };
 
   const canSubmitRequest = () => {
-    return currentUser && ['relationship_officer', 'branch_manager', 'regional_manager'].includes(userRole);
+    return currentUser && hasPermission('amendments.initiate');
   };
 
   const renderFormFields = (section) => {
@@ -2124,14 +2191,99 @@ function CustomerDetailsEdit() {
         )}
       </div>
 
+      {!selectedCustomer && (
+        <>
+          {/* Amendment Stream — on TOP when no customer selected */}
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+                <p className="text-[10px] text-slate-400">Recent edit requests awaiting review or updated</p>
+              </div>
+              <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
+            </div>
+            {editRequests.length > 0 ? (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                    <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {editRequests.map((request, idx) => (
+                    <tr
+                      key={request.id}
+                      className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
+                      onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
+                    >
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <UserIcon className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span className="font-semibold text-slate-800 text-[11px]">
+                            {request.customer?.Firstname} {request.customer?.Surname}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                        {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                      </td>
+                      <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="text-[10px] text-slate-600 font-medium">
+                          {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div className="text-[9px] text-slate-400">
+                          {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                        {request.created_by_user?.full_name || '—'}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                          title="Review Request"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                No requests yet
+              </div>
+            )}
+          </div>
+
+          {/* Empty Selection State */}
+          <div className="py-12 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+            <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm">
+              <MagnifyingGlassIcon className="w-4 h-4 text-slate-400" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700 mb-0.5">Search for a customer</h3>
+            <p className="text-xs text-slate-400">Select a client to unlock the amendment interface</p>
+          </div>
+        </>
+      )}
+
       {/* Section Nav — wraps naturally, no scroll */}
       {selectedCustomer && (
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex flex-wrap gap-1.5 pt-2">
           {allNavLinks.map(link => (
             <a
               key={link.id}
               href={`#${link.id}`}
-              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all shadow-sm"
             >
               <link.icon className="w-3 h-3 shrink-0" />
               {link.label}
@@ -2142,7 +2294,7 @@ function CustomerDetailsEdit() {
 
       {/* Selected Customer Banner */}
       {selectedCustomer && (
-        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl">
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl shadow-sm">
           <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
             {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
           </div>
@@ -2160,10 +2312,10 @@ function CustomerDetailsEdit() {
       )}
 
       {/* Main Forms — shown only when customer selected */}
-      {selectedCustomer ? (
+      {selectedCustomer && (
         <div className="space-y-6">
           {sections.map(section => (
-            <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+            <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
               <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
                 <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
                 <div>
@@ -2179,7 +2331,7 @@ function CustomerDetailsEdit() {
                     <button
                       type="submit"
                       disabled={loading}
-                      className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
+                      className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
                     >
                       {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
                       Submit Change Request
@@ -2192,7 +2344,7 @@ function CustomerDetailsEdit() {
           ))}
 
           {/* Borrower Security */}
-          <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+          <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
               <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
               <div>
@@ -2205,7 +2357,7 @@ function CustomerDetailsEdit() {
                 {renderFormFields('security')}
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
                   <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
                     {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
                     Submit Change Request
                   </button>
@@ -2215,7 +2367,7 @@ function CustomerDetailsEdit() {
           </div>
 
           {/* Guarantor Security */}
-          <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+          <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
               <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
               <div>
@@ -2228,7 +2380,7 @@ function CustomerDetailsEdit() {
                 {renderFormFields('guarantor_security')}
                 <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
                   <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
                     {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
                     Submit Change Request
                   </button>
@@ -2238,7 +2390,7 @@ function CustomerDetailsEdit() {
           </div>
 
           {/* Collateral History */}
-          <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+          <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
               <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
               <div>
@@ -2250,7 +2402,7 @@ function CustomerDetailsEdit() {
           </div>
 
           {/* Field Verification */}
-          <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+          <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
               <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
               <div>
@@ -2261,8 +2413,8 @@ function CustomerDetailsEdit() {
             <div className="p-5">{renderFieldVerification()}</div>
           </div>
 
-          {/* Amendment Stream — full width table */}
-          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+          {/* Amendment Stream — moves to BOTTOM when customer selected */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
             <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
@@ -2273,37 +2425,54 @@ function CustomerDetailsEdit() {
             {editRequests.length > 0 ? (
               <table className="w-full text-left text-xs">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100">
-                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
-                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Section</th>
-                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
-                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
-                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Requested By</th>
-                    <th className="px-4 py-2.5"></th>
+                  <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                    <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                    <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-50">
-                  {editRequests.map((request) => (
+                  {editRequests.map((request, idx) => (
                     <tr
                       key={request.id}
+                      className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
                       onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
                     >
-                      <td className="px-4 py-3 font-semibold text-slate-800 text-[11px]">
-                        {request.customer?.Firstname} {request.customer?.Surname}
+                      <td className="px-5 py-3.5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <UserIcon className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <span className="font-semibold text-slate-800 text-[11px]">
+                            {request.customer?.Firstname} {request.customer?.Surname}
+                          </span>
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-[10px] text-slate-500 capitalize">
+                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
                         {sections.find(s => s.id === request.section_type)?.label || request.section_type}
                       </td>
-                      <td className="px-4 py-3">{getStatusBadge(request.status)}</td>
-                      <td className="px-4 py-3 text-[10px] text-slate-400">
-                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                      <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                      <td className="px-5 py-3.5">
+                        <div className="text-[10px] text-slate-600 font-medium">
+                          {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div className="text-[9px] text-slate-400">
+                          {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </div>
                       </td>
-                      <td className="px-4 py-3 text-[10px] text-slate-400">
+                      <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
                         {request.created_by_user?.full_name || '—'}
                       </td>
-                      <td className="px-4 py-3 text-right">
-                        <EyeIcon className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#586ab1] transition-colors inline" />
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                          title="Review Request"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -2311,19 +2480,10 @@ function CustomerDetailsEdit() {
               </table>
             ) : (
               <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-                No requests yet
+                No requests currently pending
               </div>
             )}
           </div>
-        </div>
-      ) : (
-        /* Empty state — no customer selected */
-        <div className="py-20 text-center">
-          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <MagnifyingGlassIcon className="w-5 h-5 text-slate-300" />
-          </div>
-          <h3 className="text-base font-bold text-slate-700 mb-1">Search for a customer</h3>
-          <p className="text-sm text-slate-400">Use the search bar above to find and load a customer's profile for editing.</p>
         </div>
       )}
     </div>
