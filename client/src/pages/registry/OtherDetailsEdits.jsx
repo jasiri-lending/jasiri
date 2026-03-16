@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import {
   UserCircleIcon,
@@ -12,25 +13,26 @@ import {
   CreditCardIcon,
   ArrowUpTrayIcon,
   CameraIcon,
+  PencilSquareIcon,
   XMarkIcon,
   ClockIcon,
   ExclamationCircleIcon,
   DocumentTextIcon,
-  PhotoIcon,
   DocumentIcon,
   ChevronDownIcon,
   CalendarIcon,
-  PencilSquareIcon,
   ArrowPathIcon,
   UserIcon,
   FunnelIcon,
+  EyeIcon,
+  PhotoIcon,
 } from "@heroicons/react/24/outline";
 
 import { supabase } from "../../supabaseClient.js";
 
 function CustomerDetailsEdit() {
+  const navigate = useNavigate();
   const { imageUploadEnabled, documentUploadEnabled } = useTenantFeatures();
-  const [activeSection, setActiveSection] = useState('personal');
   const [loading, setLoading] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
   const [userRole, setUserRole] = useState(null);
@@ -41,7 +43,11 @@ function CustomerDetailsEdit() {
   const [editRequests, setEditRequests] = useState([]);
   const [uploadedFiles, setUploadedFiles] = useState(new Set());
   const [previews, setPreviews] = useState({});
-  const [selectedRequest, setSelectedRequest] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [securityItems, setSecurityItems] = useState([]);
+  const [securityItemImages, setSecurityItemImages] = useState([]);
+  const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([]);
+  const [guarantorSecurityImages, setGuarantorSecurityImages] = useState([]);
 
   const primaryColor = "#586ab1";
   const primaryLight = "rgba(88, 106, 177, 0.1)";
@@ -98,35 +104,17 @@ function CustomerDetailsEdit() {
       cityTown: '',
     },
     nextOfKin: {
-      Firstname: '',
-      Surname: '',
-      Middlename: '',
-      idNumber: '',
-      relationship: '',
-      mobile: '',
-      alternativeNumber: '',
-      employmentStatus: '',
-      county: '',
-      cityTown: '',
-      companyName: '',
-      salary: '',
-      businessName: '',
-      businessIncome: '',
-      relationshipOther: '',
+      Firstname: '', Surname: '', Middlename: '', idNumber: '', relationship: '', mobile: '',
+      alternativeNumber: '', employmentStatus: '', county: '', cityTown: '', companyName: '',
+      salary: '', businessName: '', businessIncome: '', relationshipOther: '',
     },
-    existingBusinessImages: [],
-    documents: {
-      passport: null,
-      idFront: null,
-      idBack: null,
-      houseImage: null,
-      guarantorPassport: null,
-      guarantorIdFront: null,
-      guarantorIdBack: null,
-      businessImage: null,
-      officerClient1: null,
-      officerClient2: null,
-      bothOfficers: null,
+    borrowerSecurity: [],
+    guarantorSecurity: [],
+    meetingDocuments: [],
+    existingImages: {
+      passport: null, idFront: null, idBack: null, house: null, business: [],
+      security: [], guarantorPassport: null, guarantorIdFront: null, guarantorIdBack: null,
+      guarantorSecurity: [], officerClient1: null, officerClient2: null, bothOfficers: null,
     }
   });
 
@@ -158,6 +146,8 @@ function CustomerDetailsEdit() {
     { id: 'business', label: 'Business Details', icon: BuildingOffice2Icon },
     { id: 'guarantor', label: 'Guarantor Details', icon: UserGroupIcon },
     { id: 'nextOfKin', label: 'Next of Kin Details', icon: UserGroupIcon },
+    { id: 'security', label: 'Security & Collateral', icon: ShieldCheckIcon },
+    { id: 'guarantor_security', label: 'Guarantor Security', icon: ShieldCheckIcon },
   ];
 
   useEffect(() => {
@@ -313,8 +303,8 @@ function CustomerDetailsEdit() {
     setSearchResults([]);
     setSearchTerm(`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim());
 
-    setFormData({
-      ...formData,
+    setFormData(prev => ({
+      ...prev,
       personal: {
         prefix: customer.prefix || '',
         Firstname: customer.Firstname || '',
@@ -347,92 +337,112 @@ function CustomerDetailsEdit() {
         landmark: customer.landmark || '',
         hasLocalAuthorityLicense: customer.has_local_authority_license ? 'Yes' : 'No',
         prequalifiedAmount: customer.prequalifiedAmount || '',
+      },
+      existingImages: {
+        ...prev.existingImages,
+        passport: customer.passport_url,
+        idFront: customer.id_front_url,
+        idBack: customer.id_back_url,
       }
-    });
+    }));
 
     await fetchRelatedData(customer.id);
   };
 
   const fetchRelatedData = async (customerId) => {
     try {
-      const { data: guarantorData } = await supabase
-        .from('guarantors')
-        .select('*')
-        .eq('customer_id', customerId)
-        .single();
+      setLoading(true);
 
-      if (guarantorData) {
-        setFormData(prev => ({
-          ...prev,
-          guarantor: {
-            prefix: guarantorData.prefix || '',
-            Firstname: guarantorData.Firstname || '',
-            Surname: guarantorData.Surname || '',
-            Middlename: guarantorData.Middlename || '',
-            idNumber: guarantorData.id_number || '',
-            maritalStatus: guarantorData.marital_status || '',
-            gender: guarantorData.gender || '',
-            mobile: guarantorData.mobile || '',
-            alternativeMobile: guarantorData.alternative_number || '',
-            residenceStatus: guarantorData.residence_status || '',
-            postalAddress: guarantorData.postal_address || '',
-            code: guarantorData.code || '',
-            occupation: guarantorData.occupation || '',
-            relationship: guarantorData.relationship || '',
-            dateOfBirth: guarantorData.date_of_birth || '',
-            county: guarantorData.county || '',
-            cityTown: guarantorData.city_town || '',
-          }
-        }));
+      const [
+        { data: guarantorData },
+        { data: nextOfKinData },
+        { data: businessImagesData },
+        { data: securityItemsData },
+        { data: guarantorSecurityData },
+        { data: documentsData }
+      ] = await Promise.all([
+        supabase.from('guarantors').select('*').eq('customer_id', String(customerId)).single(),
+        supabase.from('next_of_kin').select('*').eq('customer_id', String(customerId)).single(),
+        supabase.from('business_images').select('*').eq('customer_id', String(customerId)),
+        supabase.from('security_items').select('*, security_item_images(image_url)').eq('customer_id', String(customerId)),
+        supabase.from('guarantor_security').select('*, guarantor_security_images(image_url)').eq('customer_id', String(customerId)),
+        supabase.from('documents').select('*').eq('customer_id', String(customerId))
+      ]);
+
+      setFormData(prev => ({
+        ...prev,
+        guarantor: guarantorData ? {
+          prefix: guarantorData.prefix || '',
+          Firstname: guarantorData.Firstname || '',
+          Surname: guarantorData.Surname || '',
+          Middlename: guarantorData.Middlename || '',
+          idNumber: guarantorData.id_number || '',
+          maritalStatus: guarantorData.marital_status || '',
+          gender: guarantorData.gender || '',
+          mobile: guarantorData.mobile || '',
+          alternativeMobile: guarantorData.alternative_number || '',
+          residenceStatus: guarantorData.residence_status || '',
+          postalAddress: guarantorData.postal_address || '',
+          code: guarantorData.code || '',
+          occupation: guarantorData.occupation || '',
+          relationship: guarantorData.relationship || '',
+          dateOfBirth: guarantorData.date_of_birth || '',
+          county: guarantorData.county || '',
+          cityTown: guarantorData.city_town || '',
+        } : prev.guarantor,
+        nextOfKin: nextOfKinData ? {
+          Firstname: nextOfKinData.Firstname || '',
+          Surname: nextOfKinData.Surname || '',
+          Middlename: nextOfKinData.Middlename || '',
+          idNumber: nextOfKinData.id_number || '',
+          relationship: nextOfKinData.relationship || '',
+          mobile: nextOfKinData.mobile || '',
+          alternativeNumber: nextOfKinData.alternative_number || '',
+          employmentStatus: nextOfKinData.employment_status || '',
+          county: nextOfKinData.county || '',
+          cityTown: nextOfKinData.city_town || '',
+          companyName: nextOfKinData.company_name || '',
+          salary: nextOfKinData.salary || '',
+          businessName: nextOfKinData.business_name || '',
+          businessIncome: nextOfKinData.business_income || '',
+          relationshipOther: nextOfKinData.relationship_other || '',
+        } : prev.nextOfKin,
+        documents: documentsData || [],
+        existingImages: {
+          ...prev.existingImages,
+          business: businessImagesData?.map(img => img.image_url) || [],
+          security: securityItemsData?.flatMap(item => item.security_item_images?.map(img => img.image_url) || []) || [],
+          guarantorSecurity: guarantorSecurityData?.flatMap(item => item.guarantor_security_images?.map(img => img.image_url) || []) || [],
+          guarantorPassport: guarantorData?.passport_url || '',
+          guarantorIdFront: guarantorData?.id_front_url || '',
+          guarantorIdBack: guarantorData?.id_back_url || '',
+        }
+      }));
+
+      if (securityItemsData) {
+        setSecurityItems(securityItemsData.map(item => ({
+          item_name: item.item_name || '',
+          item_description: item.item_description || '',
+          item_identification: item.item_identification || '',
+          item_value: item.item_value || ''
+        })));
+        setSecurityItemImages(new Array(securityItemsData.length).fill([]));
       }
 
-      const { data: nextOfKinData } = await supabase
-        .from('next_of_kin')
-        .select('*')
-        .eq('customer_id', customerId)
-        .single();
-
-      if (nextOfKinData) {
-        setFormData(prev => ({
-          ...prev,
-          nextOfKin: {
-            Firstname: nextOfKinData.Firstname || '',
-            Surname: nextOfKinData.Surname || '',
-            Middlename: nextOfKinData.Middlename || '',
-            idNumber: nextOfKinData.id_number || '',
-            relationship: nextOfKinData.relationship || '',
-            mobile: nextOfKinData.mobile || '',
-            alternativeNumber: nextOfKinData.alternative_number || '',
-            employmentStatus: nextOfKinData.employment_status || '',
-            county: nextOfKinData.county || '',
-            cityTown: nextOfKinData.city_town || '',
-            companyName: nextOfKinData.company_name || '',
-            salary: nextOfKinData.salary || '',
-            businessName: nextOfKinData.business_name || '',
-            businessIncome: nextOfKinData.business_income || '',
-            relationshipOther: nextOfKinData.relationship_other || '',
-          }
-        }));
+      if (guarantorSecurityData) {
+        setGuarantorSecurityItems(guarantorSecurityData.map(item => ({
+          item_name: item.item_name || '',
+          item_description: item.item_description || '',
+          item_identification: item.item_identification || '',
+          item_value: item.item_value || ''
+        })));
+        setGuarantorSecurityImages(new Array(guarantorSecurityData.length).fill([]));
       }
 
-      const { data: businessImages } = await supabase
-        .from('business_images')
-        .select('image_url')
-        .eq('customer_id', customerId);
-
-      if (businessImages && businessImages.length > 0) {
-        setFormData(prev => ({
-          ...prev,
-          existingBusinessImages: businessImages.map(img => img.image_url)
-        }));
-      } else {
-        setFormData(prev => ({
-          ...prev,
-          existingBusinessImages: []
-        }));
-      }
     } catch (error) {
       console.error('Error fetching related data:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -593,51 +603,113 @@ function CustomerDetailsEdit() {
     const errors = {};
 
     if (section === 'personal') {
-      if (!currentData.Firstname?.trim()) errors.Firstname = 'First name is required';
-      if (!currentData.Surname?.trim()) errors.Surname = 'Surname is required';
-      if (!currentData.mobile?.trim()) errors.mobile = 'Mobile number is required';
-      if (currentData.mobile && !/^[0-9]{10,15}$/.test(currentData.mobile.replace(/\D/g, ''))) {
+      if (!String(currentData.Firstname || '').trim()) errors.Firstname = 'First name is required';
+      if (!String(currentData.Surname || '').trim()) errors.Surname = 'Surname is required';
+      if (!String(currentData.mobile || '').trim()) errors.mobile = 'Mobile number is required';
+      if (currentData.mobile && !/^[0-9]{10,15}$/.test(String(currentData.mobile).replace(/\D/g, ''))) {
         errors.mobile = 'Invalid mobile number format';
       }
-      if (!currentData.idNumber?.trim()) errors.idNumber = 'ID number is required';
-      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(currentData.idNumber)) {
+      if (!String(currentData.idNumber || '').trim()) errors.idNumber = 'ID number is required';
+      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(String(currentData.idNumber))) {
         errors.idNumber = 'Invalid ID number format';
       }
     }
 
     if (section === 'business') {
-      if (!currentData.businessName?.trim()) errors.businessName = 'Business name is required';
-      if (!currentData.businessType?.trim()) errors.businessType = 'Business type is required';
-      if (!currentData.businessLocation?.trim()) errors.businessLocation = 'Business location is required';
+      if (!String(currentData.businessName || '').trim()) errors.businessName = 'Business name is required';
+      if (!String(currentData.businessType || '').trim()) errors.businessType = 'Business type is required';
+      if (!String(currentData.businessLocation || '').trim()) errors.businessLocation = 'Business location is required';
     }
 
     if (section === 'guarantor' && currentData.Firstname) {
-      if (!currentData.Firstname?.trim()) errors.Firstname = 'First name is required';
-      if (!currentData.Surname?.trim()) errors.Surname = 'Surname is required';
-      if (!currentData.mobile?.trim()) errors.mobile = 'Mobile number is required';
-      if (currentData.mobile && !/^[0-9]{10,15}$/.test(currentData.mobile.replace(/\D/g, ''))) {
+      if (!String(currentData.Firstname || '').trim()) errors.Firstname = 'First name is required';
+      if (!String(currentData.Surname || '').trim()) errors.Surname = 'Surname is required';
+      if (!String(currentData.mobile || '').trim()) errors.mobile = 'Mobile number is required';
+      if (currentData.mobile && !/^[0-9]{10,15}$/.test(String(currentData.mobile).replace(/\D/g, ''))) {
         errors.mobile = 'Invalid mobile number format';
       }
-      if (!currentData.idNumber?.trim()) errors.idNumber = 'ID number is required';
-      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(currentData.idNumber)) {
+      if (!String(currentData.idNumber || '').trim()) errors.idNumber = 'ID number is required';
+      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(String(currentData.idNumber))) {
         errors.idNumber = 'Invalid ID number format';
       }
     }
 
     if (section === 'nextOfKin' && currentData.Firstname) {
-      if (!currentData.Firstname?.trim()) errors.Firstname = 'First name is required';
-      if (!currentData.Surname?.trim()) errors.Surname = 'Surname is required';
-      if (!currentData.mobile?.trim()) errors.mobile = 'Mobile number is required';
-      if (currentData.mobile && !/^[0-9]{10,15}$/.test(currentData.mobile.replace(/\D/g, ''))) {
+      if (!String(currentData.Firstname || '').trim()) errors.Firstname = 'First name is required';
+      if (!String(currentData.Surname || '').trim()) errors.Surname = 'Surname is required';
+      if (!String(currentData.mobile || '').trim()) errors.mobile = 'Mobile number is required';
+      if (currentData.mobile && !/^[0-9]{10,15}$/.test(String(currentData.mobile).replace(/\D/g, ''))) {
         errors.mobile = 'Invalid mobile number format';
       }
-      if (!currentData.idNumber?.trim()) errors.idNumber = 'ID number is required';
-      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(currentData.idNumber)) {
+      if (!String(currentData.idNumber || '').trim()) errors.idNumber = 'ID number is required';
+      if (currentData.idNumber && !/^[0-9]{6,12}$/.test(String(currentData.idNumber))) {
         errors.idNumber = 'Invalid ID number format';
       }
     }
 
     return Object.keys(errors).length === 0 ? null : errors;
+  };
+
+  const addSecurityItem = () => {
+    setSecurityItems(prev => [
+      ...prev,
+      { item_name: '', item_description: '', item_identification: '', item_value: '' }
+    ]);
+    setSecurityItemImages(prev => [...prev, []]);
+  };
+
+  const removeSecurityItem = (index) => {
+    setSecurityItems(prev => prev.filter((_, i) => i !== index));
+    setSecurityItemImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const addGuarantorSecurityItem = () => {
+    setGuarantorSecurityItems(prev => [
+      ...prev,
+      { item_name: '', item_description: '', item_identification: '', item_value: '' }
+    ]);
+    setGuarantorSecurityImages(prev => [...prev, []]);
+  };
+
+  const removeGuarantorSecurityItem = (index) => {
+    setGuarantorSecurityItems(prev => prev.filter((_, i) => i !== index));
+    setGuarantorSecurityImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSecurityFileUpload = (e, index) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    setSecurityItemImages(prev => {
+      const newImages = [...prev];
+      newImages[index] = [...(newImages[index] || []), ...files];
+      return newImages;
+    });
+  };
+
+  const handleRemoveSecurityFile = (itemIndex, fileIndex) => {
+    setSecurityItemImages(prev => {
+      const newImages = [...prev];
+      newImages[itemIndex] = newImages[itemIndex].filter((_, i) => i !== fileIndex);
+      return newImages;
+    });
+  };
+
+  const handleGuarantorSecurityFileUpload = (e, index) => {
+    const files = Array.from(e.target.files);
+    if (files.length === 0) return;
+    setGuarantorSecurityImages(prev => {
+      const newImages = [...prev];
+      newImages[index] = [...(newImages[index] || []), ...files];
+      return newImages;
+    });
+  };
+
+  const handleRemoveGuarantorSecurityFile = (itemIndex, fileIndex) => {
+    setGuarantorSecurityImages(prev => {
+      const newImages = [...prev];
+      newImages[itemIndex] = newImages[itemIndex].filter((_, i) => i !== fileIndex);
+      return newImages;
+    });
   };
 
   const handleSubmit = async (e, section) => {
@@ -677,30 +749,82 @@ function CustomerDetailsEdit() {
       for (const key of docKeys) {
         const file = formData.documents[key];
         if (file) {
-          const fileExt = file.name.split('.').pop();
           const fileName = `${Date.now()}_${key}_${file.name}`;
           const filePath = `edit_requests/${fileName}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from('documents')
-            .upload(filePath, file);
-
+          const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
           if (!uploadError) {
-            const { data: { publicUrl } } = supabase.storage
-              .from('documents')
-              .getPublicUrl(filePath);
+            const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath);
             uploadedDocs[key] = publicUrl;
           }
         }
+      }
+
+      let securityImagesUrls = [];
+      if (section === 'security') {
+        for (let i = 0; i < securityItems.length; i++) {
+          const itemImages = securityItemImages[i] || [];
+          const itemUrls = [];
+          for (const file of itemImages) {
+            const fileName = `${Date.now()}_sec_${i}_${file.name}`;
+            const filePath = `security/${fileName}`;
+            const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath);
+              itemUrls.push(publicUrl);
+            }
+          }
+          securityImagesUrls[i] = itemUrls;
+        }
+      }
+
+      let guarantorSecurityImagesUrls = [];
+      if (section === 'guarantor_security') {
+        for (let i = 0; i < guarantorSecurityItems.length; i++) {
+          const itemImages = guarantorSecurityImages[i] || [];
+          const itemUrls = [];
+          for (const file of itemImages) {
+            const fileName = `${Date.now()}_gsec_${i}_${file.name}`;
+            const filePath = `security/${fileName}`;
+            const { error: uploadError } = await supabase.storage.from('documents').upload(filePath, file);
+            if (!uploadError) {
+              const { data: { publicUrl } } = supabase.storage.from('documents').getPublicUrl(filePath);
+              itemUrls.push(publicUrl);
+            }
+          }
+          guarantorSecurityImagesUrls[i] = itemUrls;
+        }
+      }
+
+      let proposedChanges = {};
+      if (section === 'security') {
+        proposedChanges = {
+          security_items: securityItems.map((item, idx) => ({
+            ...item,
+            images: securityImagesUrls[idx] || []
+          }))
+        };
+      } else if (section === 'guarantor_security') {
+        proposedChanges = {
+          guarantor_security: guarantorSecurityItems.map((item, idx) => ({
+            ...item,
+            images: guarantorSecurityImagesUrls[idx] || []
+          }))
+        };
+      } else {
+        proposedChanges = {
+          ...formData[section],
+          ...uploadedDocs
+        };
       }
 
       const editRequestData = {
         customer_id: selectedCustomer.id,
         section_type: section,
         current_values: {},
-        new_values: formData[section],
+        new_values: proposedChanges,
         status: 'pending_branch_manager',
         created_by: currentUser.id,
+        tenant_id: currentUser.tenant_id,
         document_urls: uploadedDocs,
         created_at: new Date().toISOString()
       };
@@ -721,13 +845,21 @@ function CustomerDetailsEdit() {
 
       alert(`Edit request for ${section.replace(/([A-Z])/g, ' $1')} submitted successfully!`);
 
-      setFormData(prev => ({
-        ...prev,
-        [section]: Object.keys(prev[section]).reduce((acc, key) => ({
-          ...acc,
-          [key]: ''
-        }), {})
-      }));
+      if (section === 'security') {
+        setSecurityItems([]);
+        setSecurityItemImages([]);
+      } else if (section === 'guarantor_security') {
+        setGuarantorSecurityItems([]);
+        setGuarantorSecurityImages([]);
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          [section]: Object.keys(prev[section]).reduce((acc, key) => ({
+            ...acc,
+            [key]: ''
+          }), {})
+        }));
+      }
 
       const sectionDocKeys = {
         personal: ['passport', 'idFront', 'idBack', 'houseImage'],
@@ -1582,152 +1714,219 @@ function CustomerDetailsEdit() {
       );
     }
 
+    if (section === 'security') {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Security & Collateral</h3>
+              <p className="text-[10px] text-slate-500 font-medium">Add or remove borrower security items</p>
+            </div>
+            <button
+              type="button"
+              onClick={addSecurityItem}
+              className="px-3 py-1.5 bg-white text-[#586ab1] border border-[#586ab1] rounded-lg text-[10px] font-bold hover:bg-[#586ab1] hover:text-white transition-all flex items-center gap-1.5"
+            >
+              <PencilSquareIcon className="w-3 h-3" /> Add Item
+            </button>
+          </div>
+
+          {securityItems.map((item, index) => (
+            <div key={index} className="p-4 bg-white border border-slate-200 rounded-xl space-y-4 relative group hover:border-[#586ab1] transition-all">
+              <button
+                type="button"
+                onClick={() => removeSecurityItem(index)}
+                className="absolute -top-2 -right-2 w-6 h-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-red-100 shadow-sm"
+              >
+                <XMarkIcon className="w-3 h-3" />
+              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Item Name *</label>
+                  <input
+                    type="text"
+                    value={item.item_name}
+                    onChange={(e) => {
+                      const newItems = [...securityItems];
+                      newItems[index].item_name = e.target.value;
+                      setSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    placeholder="e.g., Household Items"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Estimated Value (KES) *</label>
+                  <input
+                    type="number"
+                    value={item.item_value}
+                    onChange={(e) => {
+                      const newItems = [...securityItems];
+                      newItems[index].item_value = e.target.value;
+                      setSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Description / Identification</label>
+                  <textarea
+                    value={item.item_description}
+                    onChange={(e) => {
+                      const newItems = [...securityItems];
+                      newItems[index].item_description = e.target.value;
+                      setSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    rows="2"
+                    placeholder="Serial numbers, colors, conditions..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Item Images</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(securityItemImages[index] || []).map((file, fIdx) => (
+                    <div key={fIdx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img">
+                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveSecurityFile(index, fIdx)}
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer">
+                    <CameraIcon className="w-5 h-5 mb-1" />
+                    <span className="text-[8px] font-bold">ADD</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleSecurityFileUpload(e, index)}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
+    if (section === 'guarantor_security') {
+      return (
+        <div className="space-y-6">
+          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+            <div>
+              <h3 className="text-sm font-bold text-slate-800">Guarantor Security</h3>
+              <p className="text-[10px] text-slate-500 font-medium">Add or remove guarantor security items</p>
+            </div>
+            <button
+              type="button"
+              onClick={addGuarantorSecurityItem}
+              className="px-3 py-1.5 bg-white text-[#586ab1] border border-[#586ab1] rounded-lg text-[10px] font-bold hover:bg-[#586ab1] hover:text-white transition-all flex items-center gap-1.5"
+            >
+              <PencilSquareIcon className="w-3 h-3" /> Add Item
+            </button>
+          </div>
+
+          {guarantorSecurityItems.map((item, index) => (
+            <div key={index} className="p-4 bg-white border border-slate-200 rounded-xl space-y-4 relative group hover:border-[#586ab1] transition-all">
+              <button
+                type="button"
+                onClick={() => removeGuarantorSecurityItem(index)}
+                className="absolute -top-2 -right-2 w-6 h-6 bg-red-50 text-red-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity border border-red-100 shadow-sm"
+              >
+                <XMarkIcon className="w-3 h-3" />
+              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>Item Name *</label>
+                  <input
+                    type="text"
+                    value={item.item_name}
+                    onChange={(e) => {
+                      const newItems = [...guarantorSecurityItems];
+                      newItems[index].item_name = e.target.value;
+                      setGuarantorSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    placeholder="e.g., Household Items"
+                  />
+                </div>
+                <div>
+                  <label className={labelClass}>Estimated Value (KES) *</label>
+                  <input
+                    type="number"
+                    value={item.item_value}
+                    onChange={(e) => {
+                      const newItems = [...guarantorSecurityItems];
+                      newItems[index].item_value = e.target.value;
+                      setGuarantorSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className={labelClass}>Description / Identification</label>
+                  <textarea
+                    value={item.item_description}
+                    onChange={(e) => {
+                      const newItems = [...guarantorSecurityItems];
+                      newItems[index].item_description = e.target.value;
+                      setGuarantorSecurityItems(newItems);
+                    }}
+                    className={inputClass}
+                    rows="2"
+                    placeholder="Serial numbers, colors, conditions..."
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>Item Images</label>
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {(guarantorSecurityImages[index] || []).map((file, fIdx) => (
+                    <div key={fIdx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img">
+                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveGuarantorSecurityFile(index, fIdx)}
+                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                      >
+                        <XMarkIcon className="w-4 h-4 text-white" />
+                      </button>
+                    </div>
+                  ))}
+                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer">
+                    <CameraIcon className="w-5 h-5 mb-1" />
+                    <span className="text-[8px] font-bold">ADD</span>
+                    <input
+                      type="file"
+                      multiple
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => handleGuarantorSecurityFileUpload(e, index)}
+                    />
+                  </label>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      );
+    }
+
     return fields;
   };
 
-  const ViewRequestModal = ({ request, isOpen, onClose }) => {
-    if (!isOpen || !request) return null;
-
-    const sectionLabel = sections.find(s => s.id === request.section_type)?.label || request.section_type;
-    const customerName = request.customer
-      ? `${request.customer.Firstname || ''} ${request.customer.Surname || ''}`.trim()
-      : 'Unknown Customer';
-
-    return (
-      <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-        <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden flex flex-col border border-white/20 animate-in zoom-in-95 duration-300">
-          <div className="p-6 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-2xl bg-[#586ab1] flex items-center justify-center text-white shadow-lg">
-                <DocumentTextIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-black text-slate-800 tracking-tight">{sectionLabel} Edit Request</h3>
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">Customer: {customerName}</p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 transition-all border border-transparent hover:border-slate-100">
-              <XMarkIcon className="w-6 h-6" />
-            </button>
-          </div>
-
-          <div className="flex-1 overflow-y-auto p-8 space-y-8">
-            <div className="grid grid-cols-2 gap-8">
-              {/* Previous Data */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-1.5 h-1.5 bg-slate-300 rounded-full"></span>
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Previous Information</h4>
-                </div>
-                <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100/50 space-y-3">
-                  {Object.entries(request.current_values || {}).map(([key, value]) => (
-                    <div key={key} className="flex flex-col">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{key.replace(/([A-Z])/g, ' $1')}</span>
-                      <span className="text-sm font-medium text-slate-600">{value || '—'}</span>
-                    </div>
-                  ))}
-                  {(!request.current_values || Object.keys(request.current_values).length === 0) && (
-                    <p className="text-sm text-slate-400 italic">No previous data recorded for this section</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Proposed Data */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-1.5 h-1.5 bg-[#586ab1] rounded-full"></span>
-                  <h4 className="text-[10px] font-black uppercase text-[#586ab1] tracking-widest">Proposed Changes</h4>
-                </div>
-                <div className="bg-[#586ab1]/5 rounded-2xl p-6 border border-[#586ab1]/10 space-y-3 font-medium">
-                  {Object.entries(request.new_values || {}).map(([key, value]) => {
-                    const isChanged = request.current_values && request.current_values[key] !== value;
-                    return (
-                      <div key={key} className="flex flex-col">
-                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">{key.replace(/([A-Z])/g, ' $1')}</span>
-                        <span className={`text-sm ${isChanged ? 'text-[#586ab1] font-black' : 'text-slate-600'}`}>
-                          {typeof value === 'object' ? JSON.stringify(value) : (value || '—')}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            </div>
-
-            {/* Documents Section if any */}
-            {request.document_urls && Object.keys(request.document_urls).length > 0 && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Uploaded Documents</h4>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {Object.entries(request.document_urls).map(([key, url]) => (
-                    <div key={key} className="group relative rounded-2xl overflow-hidden border border-slate-200 aspect-square">
-                      <img src={url} alt={key} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent flex items-end p-3">
-                        <span className="text-[8px] font-black text-white uppercase tracking-widest">{key.replace(/([A-Z])/g, ' $1')}</span>
-                      </div>
-                      <a href={url} target="_blank" rel="noopener noreferrer" className="absolute top-2 right-2 p-1.5 bg-white/90 backdrop-blur-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                        <MagnifyingGlassIcon className="w-3.5 h-3.5 text-slate-700" />
-                      </a>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Audit Trail */}
-            <div className="bg-slate-50 rounded-2xl p-6 border border-slate-100">
-              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4 flex items-center gap-2">
-                <ClockIcon className="w-3 h-3" /> Audit History
-              </h4>
-              <div className="space-y-3">
-                <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
-                  <span className="flex items-center gap-2"><span className="w-1 h-1 bg-slate-400 rounded-full"></span> Submission</span>
-                  <span>{new Date(request.created_at).toLocaleString()}</span>
-                </div>
-                {request.confirmed_at && (
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
-                    <span className="flex items-center gap-2"><span className="w-1 h-1 bg-blue-400 rounded-full"></span> BM Confirmation</span>
-                    <span>{new Date(request.confirmed_at).toLocaleString()}</span>
-                  </div>
-                )}
-                {request.approved_at && (
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
-                    <span className="flex items-center gap-2"><span className="w-1 h-1 bg-emerald-400 rounded-full"></span> RM Approval</span>
-                    <span>{new Date(request.approved_at).toLocaleString()}</span>
-                  </div>
-                )}
-                {request.rejected_at && (
-                  <div className="flex items-center justify-between text-[11px] font-medium text-slate-600">
-                    <span className="flex items-center gap-2"><span className="w-1 h-1 bg-red-400 rounded-full"></span> Rejection</span>
-                    <span>{new Date(request.rejected_at).toLocaleString()}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="p-6 border-t border-slate-100 bg-slate-50/50 flex justify-end gap-3">
-            <button onClick={onClose} className="px-6 py-2.5 rounded-xl text-slate-600 font-bold text-xs uppercase tracking-widest hover:bg-white border border-transparent hover:border-slate-200 transition-all">
-              Dismiss
-            </button>
-            {canConfirm(request) && (
-              <button onClick={() => handleStatusUpdate(request.id, 'confirmed')} className="px-6 py-2.5 bg-[#586ab1] text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-[#586ab1]/20 hover:bg-[#475589] transition-all">
-                Verify & Confirm
-              </button>
-            )}
-            {canApprove(request) && (
-              <button onClick={() => handleStatusUpdate(request.id, 'approved')} className="px-6 py-2.5 bg-emerald-500 text-white rounded-xl font-bold text-xs uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:bg-emerald-600 transition-all">
-                Authorize Update
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
 
   const getStats = () => {
     return {
@@ -1739,6 +1938,125 @@ function CustomerDetailsEdit() {
         new Date(r.updated_at).toDateString() === new Date().toDateString()
       ).length
     };
+  };
+
+  const renderHistoricalImages = (sectionId) => {
+    let images = [];
+    if (sectionId === 'personal') {
+      images = [
+        { label: 'Passport Photo', url: formData.existingImages?.passport },
+        { label: 'ID Front', url: formData.existingImages?.idFront },
+        { label: 'ID Back', url: formData.existingImages?.idBack },
+      ].filter(img => img.url);
+    } else if (sectionId === 'business') {
+      images = formData.existingImages?.business?.map((url, idx) => ({ label: `Business Shop ${idx + 1}`, url })) || [];
+    } else if (sectionId === 'guarantor') {
+      images = [
+        { label: 'Guarantor Passport', url: formData.existingImages?.guarantorPassport },
+        { label: 'Guarantor ID Front', url: formData.existingImages?.guarantorIdFront },
+        { label: 'Guarantor ID Back', url: formData.existingImages?.guarantorIdBack },
+      ].filter(img => img.url);
+    }
+
+    if (images.length === 0) return null;
+
+    return (
+      <div className="mt-8 pt-8 border-t border-slate-50">
+        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <PhotoIcon className="w-3 h-3" /> Historical Visual Registry
+        </h3>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {images.map((img, idx) => (
+            <div key={idx} className="group relative aspect-square bg-slate-50 rounded-2xl overflow-hidden border border-slate-100 hover:border-[#586ab1] transition-all cursor-zoom-in">
+              <img src={img.url} alt={img.label} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+              <div className="absolute inset-0 bg-gradient-to-t from-slate-900/60 to-transparent flex items-end p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[8px] font-black text-white uppercase tracking-widest">{img.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderSecurityItems = () => {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {formData.borrowerSecurity?.map((item, idx) => (
+            <div key={idx} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-tight">{item.item_name}</h4>
+                <span className="px-2 py-0.5 bg-emerald-100 text-[9px] font-black text-emerald-600 rounded-full uppercase tracking-widest">Borrower Asset</span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium italic">"{item.item_description}"</p>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                {item.security_item_images?.map((img, i) => (
+                  <img key={i} src={img.image_url} alt="Security" className="w-16 h-16 rounded-xl object-cover border border-white shadow-sm shrink-0" />
+                ))}
+              </div>
+            </div>
+          ))}
+          {formData.guarantorSecurity?.map((item, idx) => (
+            <div key={idx} className="p-6 bg-slate-50/50 rounded-3xl border border-slate-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <h4 className="text-xs font-black text-slate-700 uppercase tracking-tight">{item.item_name}</h4>
+                <span className="px-2 py-0.5 bg-amber-100 text-[9px] font-black text-amber-600 rounded-full uppercase tracking-widest">Guarantor Asset</span>
+              </div>
+              <p className="text-xs text-slate-500 font-medium italic">"{item.item_description}"</p>
+              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
+                {item.guarantor_security_images?.map((img, i) => (
+                  <img key={i} src={img.image_url} alt="Security" className="w-16 h-16 rounded-xl object-cover border border-white shadow-sm shrink-0" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
+  const renderFieldVerification = () => {
+    const docImages = [
+      { label: 'House Image', url: formData.existingImages?.house },
+      { label: 'Officer Client 1', url: formData.existingImages?.officerClient1 },
+      { label: 'Officer Client 2', url: formData.existingImages?.officerClient2 },
+      { label: 'Both Officers', url: formData.existingImages?.bothOfficers },
+    ].filter(img => img.url);
+
+    return (
+      <div className="space-y-8">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          {docImages.map((img, idx) => (
+            <div key={idx} className="group relative aspect-video bg-slate-50 rounded-2xl overflow-hidden border border-slate-100">
+              <img src={img.url} alt={img.label} className="w-full h-full object-cover" />
+              <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="text-[10px] font-black text-white uppercase tracking-widest">{img.label}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {formData.documents?.map((doc, idx) => (
+            <div key={idx} className="p-4 bg-white rounded-2xl border border-slate-100 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center text-slate-400">
+                  <DocumentTextIcon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="text-xs font-bold text-slate-700">{doc.document_type || 'Field Document'}</p>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{new Date(doc.created_at).toLocaleDateString()}</p>
+                </div>
+              </div>
+              <a href={doc.document_url} target="_blank" rel="noopener noreferrer" className="p-2 hover:bg-slate-50 rounded-lg text-[#586ab1] transition-colors">
+                <ArrowUpTrayIcon className="w-4 h-4" />
+              </a>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
   };
 
   if (!currentUser) {
@@ -1755,251 +2073,259 @@ function CustomerDetailsEdit() {
     );
   }
 
-  const stats = getStats();
+  const allNavLinks = [
+    ...sections,
+    { id: 'collateral_history', label: 'Collateral', icon: ShieldCheckIcon },
+    { id: 'field_verification', label: 'Verification', icon: DocumentIcon },
+  ];
 
   return (
-    <div className="space-y-6">
-      {/* Compact Metrics Grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Total Volume', value: stats.total, icon: ArrowPathIcon, color: 'text-blue-500', light: 'bg-blue-50' },
-          { label: 'Pending BM', value: stats.pendingBM, icon: ClockIcon, color: 'text-amber-500', light: 'bg-amber-50' },
-          { label: 'Pending RM', value: stats.pendingRM, icon: ShieldCheckIcon, color: 'text-[#586ab1]', light: 'bg-[#586ab1]/10' },
-          { label: 'Approved Today', value: stats.approvedToday, icon: CheckCircleIcon, color: 'text-emerald-500', light: 'bg-emerald-50' }
-        ].map((stat, i) => (
-          <div key={i} className="group bg-white p-4 rounded-2xl border border-slate-100 hover:border-[#586ab1]/30 transition-all duration-300">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">{stat.label}</p>
-                <p className="text-xl font-black text-slate-800 tracking-tighter">{stat.value}</p>
-              </div>
-              <div className={`p-2 rounded-xl ${stat.light} ${stat.color}`}>
-                <stat.icon className="w-4 h-4" />
-              </div>
+    <div className="space-y-4 px-4 md:px-6 pb-16">
+
+      {/* Search Bar */}
+      <div className="relative">
+        <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+        <input
+          type="text"
+          value={searchTerm}
+          onChange={handleSearchChange}
+          placeholder="Search by ID, mobile or name..."
+          className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#586ab1]/20 focus:border-[#586ab1] transition-all"
+        />
+        {searching && (
+          <ArrowPathIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#586ab1] animate-spin" />
+        )}
+
+        {/* Search Results Dropdown */}
+        {searchResults.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-slate-200 shadow-lg z-[100] overflow-hidden">
+            <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+              <span className="text-[10px] text-[#586ab1] font-semibold">Click to select</span>
+            </div>
+            <div className="max-h-64 overflow-y-auto">
+              {searchResults.map(customer => (
+                <button
+                  key={customer.id}
+                  onClick={() => handleCustomerSelect(customer)}
+                  className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#586ab1]/5 transition-all text-left border-b border-slate-50 last:border-0"
+                >
+                  <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold shrink-0">
+                    {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                  </div>
+                  <div>
+                    <p className="font-semibold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
+                    <p className="text-[10px] text-slate-400">ID: {customer.id_number} · {customer.mobile}</p>
+                  </div>
+                </button>
+              ))}
             </div>
           </div>
-        ))}
+        )}
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-8">
-        {/* Dynamic Nav Tabs */}
-        <div className="mb-8 flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center p-1 bg-slate-100/80 backdrop-blur-sm rounded-xl border border-slate-200/50 w-full md:w-auto overflow-x-auto no-scrollbar">
-            <button
-              onClick={() => setActiveSection('personal')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeSection === 'personal' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
+      {/* Section Nav — wraps naturally, no scroll */}
+      {selectedCustomer && (
+        <div className="flex flex-wrap gap-1.5">
+          {allNavLinks.map(link => (
+            <a
+              key={link.id}
+              href={`#${link.id}`}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all"
             >
-              <UserIcon className="w-4 h-4" /> Personal
-            </button>
-            <button
-              onClick={() => setActiveSection('business')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeSection === 'business' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <BuildingOffice2Icon className="w-4 h-4" /> Business
-            </button>
-            <button
-              onClick={() => setActiveSection('guarantor')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeSection === 'guarantor' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <UserGroupIcon className="w-4 h-4" /> Guarantor
-            </button>
-            <button
-              onClick={() => setActiveSection('nextOfKin')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs uppercase tracking-wider transition-all duration-300 ${activeSection === 'nextOfKin' ? 'bg-white text-[#586ab1] shadow-sm ring-1 ring-slate-200' : 'text-slate-500 hover:text-slate-700'}`}
-            >
-              <UserGroupIcon className="w-4 h-4" /> Next of Kin
-            </button>
-          </div>
-
-          <div className="relative group flex-1 md:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder="Search customers to initiate edit..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-            />
-            {searching && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
-              </div>
-            )}
-
-            {/* Premium Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
-                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Results found ({searchResults.length})</span>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {searchResults.map(customer => (
-                    <button
-                      key={customer.id}
-                      onClick={() => handleCustomerSelect(customer)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-[#586ab1] group-hover:text-white transition-all text-sm">
-                          {customer.Firstname?.[0]}{customer.Surname?.[0]}
-                        </div>
-                        <div>
-                          <p className="font-bold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
-                          <p className="text-[10px] text-slate-400 font-medium">ID: {customer.id_number} • {customer.mobile}</p>
-                        </div>
-                      </div>
-                      <ShieldCheckIcon className="w-5 h-5 text-slate-200 group-hover:text-[#586ab1] transition-colors" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
+              <link.icon className="w-3 h-3 shrink-0" />
+              {link.label}
+            </a>
+          ))}
         </div>
+      )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Main Content Area */}
-          <div className="lg:col-span-8 space-y-8">
-            {selectedCustomer ? (
-              <div className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <div className="p-6 border-b border-slate-100 bg-[#586ab1]/5 flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white flex items-center justify-center text-[#586ab1] shadow-sm">
-                      {React.createElement(sections.find(s => s.id === activeSection)?.icon || UserIcon, { className: "w-6 h-6" })}
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black text-slate-800 tracking-tight">
-                        Edit <span className="text-[#586ab1]">{sections.find(s => s.id === activeSection)?.label}</span>
-                      </h2>
-                      <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-0.5">
-                        Selected: {`${selectedCustomer.Firstname || ''} ${selectedCustomer.Surname || ''}`.trim()}
-                      </p>
-                    </div>
+      {/* Selected Customer Banner */}
+      {selectedCustomer && (
+        <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl">
+          <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
+            {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="font-semibold text-slate-800 text-sm truncate">{`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}</p>
+            <p className="text-[10px] text-slate-400">ID: {selectedCustomer.id_number} · {selectedCustomer.mobile}</p>
+          </div>
+          <button
+            onClick={() => { setSelectedCustomer(null); setSearchTerm(''); setSecurityItems([]); setGuarantorSecurityItems([]); }}
+            className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+          >
+            <XMarkIcon className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      {/* Main Forms — shown only when customer selected */}
+      {selectedCustomer ? (
+        <div className="space-y-6">
+          {sections.map(section => (
+            <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">{section.label}</h2>
+                  <p className="text-[10px] text-slate-400">Propose changes — requires Branch Manager approval</p>
+                </div>
+              </div>
+              <div className="p-5 space-y-5">
+                <form onSubmit={(e) => handleSubmit(e, section.id)} className="space-y-5">
+                  {renderFormFields(section.id)}
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                    <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
+                    >
+                      {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                      Submit Change Request
+                    </button>
                   </div>
-                  <button
-                    onClick={() => { setSelectedCustomer(null); resetFormData(); }}
-                    className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-red-500 transition-all border border-transparent hover:border-slate-100"
-                  >
-                    <XMarkIcon className="w-5 h-5" />
+                </form>
+                {renderHistoricalImages(section.id)}
+              </div>
+            </div>
+          ))}
+
+          {/* Borrower Security */}
+          <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+              <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Security & Collateral</h2>
+                <p className="text-[10px] text-slate-400">Borrower security items</p>
+              </div>
+            </div>
+            <div className="p-5">
+              <form onSubmit={(e) => handleSubmit(e, 'security')} className="space-y-5">
+                {renderFormFields('security')}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                    Submit Change Request
                   </button>
                 </div>
+              </form>
+            </div>
+          </div>
 
-                <div className="p-8">
-                  <form onSubmit={(e) => handleSubmit(e, activeSection)} className="space-y-6">
-                    {renderFormFields(activeSection)}
-
-                    <div className="flex justify-end pt-6 border-t border-slate-100">
-                      <button
-                        type="submit"
-                        disabled={loading}
-                        className="group relative inline-flex items-center justify-center px-8 py-3 bg-[#586ab1] text-white font-bold rounded-2xl hover:bg-[#475589] transition-all duration-300 disabled:bg-slate-300 shadow-lg shadow-[#586ab1]/20 overflow-hidden"
-                      >
-                        <span className="relative flex items-center gap-2">
-                          {loading ? (
-                            <ArrowPathIcon className="w-5 h-5 animate-spin" />
-                          ) : (
-                            <CheckCircleIcon className="w-5 h-5" />
-                          )}
-                          {loading ? 'Processing...' : `Submit ${sections.find(s => s.id === activeSection)?.label} Update`}
-                        </span>
-                      </button>
-                    </div>
-                  </form>
-                </div>
+          {/* Guarantor Security */}
+          <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+              <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Guarantor Security</h2>
+                <p className="text-[10px] text-slate-400">Guarantor security items</p>
               </div>
-            ) : (
-              <div className="bg-[#586ab1]/5 border-2 border-dashed border-[#586ab1]/20 rounded-[2.5rem] p-24 text-center">
-                <div className="relative w-24 h-24 mx-auto mb-8">
-                  <div className="absolute inset-0 bg-[#586ab1]/10 rounded-full animate-ping opacity-25"></div>
-                  <div className="relative bg-white w-24 h-24 rounded-full flex items-center justify-center shadow-inner border border-white">
-                    <UserCircleIcon className="w-12 h-12 text-[#586ab1]" />
-                  </div>
+            </div>
+            <div className="p-5">
+              <form onSubmit={(e) => handleSubmit(e, 'guarantor_security')} className="space-y-5">
+                {renderFormFields('guarantor_security')}
+                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                  <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                    Submit Change Request
+                  </button>
                 </div>
-                <h3 className="text-2xl font-black text-slate-800 tracking-tight mb-3 uppercase">Start a new edit</h3>
-                <p className="text-slate-500 max-w-sm mx-auto text-sm font-medium leading-relaxed">
-                  Search and select a customer from the search bar above to begin updating their details.
-                </p>
+              </form>
+            </div>
+          </div>
+
+          {/* Collateral History */}
+          <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+              <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Collateral History</h2>
+                <p className="text-[10px] text-slate-400">Existing security registry</p>
+              </div>
+            </div>
+            <div className="p-5">{renderSecurityItems()}</div>
+          </div>
+
+          {/* Field Verification */}
+          <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+              <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
+              <div>
+                <h2 className="text-sm font-bold text-slate-800">Field Verification</h2>
+                <p className="text-[10px] text-slate-400">Meeting documents and verification media</p>
+              </div>
+            </div>
+            <div className="p-5">{renderFieldVerification()}</div>
+          </div>
+
+          {/* Amendment Stream — full width table */}
+          <div className="bg-white rounded-xl border border-slate-200 overflow-hidden">
+            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+                <p className="text-[10px] text-slate-400">Edit requests for this customer</p>
+              </div>
+              <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
+            </div>
+            {editRequests.length > 0 ? (
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="bg-slate-50 border-b border-slate-100">
+                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Customer</th>
+                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Section</th>
+                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Status</th>
+                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Date</th>
+                    <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Requested By</th>
+                    <th className="px-4 py-2.5"></th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50">
+                  {editRequests.map((request) => (
+                    <tr
+                      key={request.id}
+                      onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
+                      className="hover:bg-slate-50 transition-colors cursor-pointer group"
+                    >
+                      <td className="px-4 py-3 font-semibold text-slate-800 text-[11px]">
+                        {request.customer?.Firstname} {request.customer?.Surname}
+                      </td>
+                      <td className="px-4 py-3 text-[10px] text-slate-500 capitalize">
+                        {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                      </td>
+                      <td className="px-4 py-3">{getStatusBadge(request.status)}</td>
+                      <td className="px-4 py-3 text-[10px] text-slate-400">
+                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+                      </td>
+                      <td className="px-4 py-3 text-[10px] text-slate-400">
+                        {request.created_by_user?.full_name || '—'}
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <EyeIcon className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#586ab1] transition-colors inline" />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                No requests yet
               </div>
             )}
           </div>
-
-          {/* Sidebar / Requests Activity */}
-          <div className="lg:col-span-4 bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-fit">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <h3 className="font-black text-slate-800 uppercase tracking-tighter text-lg">Activity Stream</h3>
-              <button
-                onClick={fetchEditRequests}
-                className="p-2 hover:bg-slate-100 rounded-xl text-slate-400 hover:text-[#586ab1] transition-all"
-              >
-                <ArrowPathIcon className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              </button>
-            </div>
-
-            <div className="divide-y divide-slate-50 overflow-y-auto max-h-[800px]">
-              {editRequests.length === 0 ? (
-                <div className="p-12 text-center">
-                  <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">
-                    <DocumentIcon className="w-8 h-8 text-slate-300" />
-                  </div>
-                  <p className="text-sm font-bold text-slate-400 uppercase tracking-widest">No activity yet</p>
-                </div>
-              ) : (
-                editRequests.map(request => (
-                  <div
-                    key={request.id}
-                    className="p-5 hover:bg-slate-50 transition-colors group cursor-pointer"
-                    onClick={() => setSelectedRequest(request)}
-                  >
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1]/10 group-hover:text-[#586ab1] transition-colors">
-                          {getStatusIcon(request.status)}
-                        </div>
-                        <div>
-                          <p className="font-black text-slate-800 text-sm tracking-tight leading-none group-hover:text-[#586ab1] transition-colors">
-                            {request.customer
-                              ? `${request.customer.Firstname || ''} ${request.customer.Surname || ''}`.trim()
-                              : 'Unknown Customer'}
-                          </p>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-1.5 flex items-center gap-1">
-                            <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                            {sections.find(s => s.id === request.section_type)?.label || request.section_type} Edit
-                          </p>
-                        </div>
-                      </div>
-                      {getStatusBadge(request.status)}
-                    </div>
-
-                    <div className="flex items-center justify-between mt-4">
-                      <div className="flex items-center gap-3">
-                        <div className="flex items-center gap-1 text-slate-400">
-                          <CalendarIcon className="w-3 h-3" />
-                          <span className="text-[10px] font-bold">{new Date(request.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedRequest(request);
-                        }}
-                        className="text-[10px] font-black uppercase tracking-widest text-[#586ab1] hover:underline"
-                      >
-                        Details
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
         </div>
-
-        <ViewRequestModal
-          request={selectedRequest}
-          isOpen={!!selectedRequest}
-          onClose={() => setSelectedRequest(null)}
-        />
-      </div>
+      ) : (
+        /* Empty state — no customer selected */
+        <div className="py-20 text-center">
+          <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-4">
+            <MagnifyingGlassIcon className="w-5 h-5 text-slate-300" />
+          </div>
+          <h3 className="text-base font-bold text-slate-700 mb-1">Search for a customer</h3>
+          <p className="text-sm text-slate-400">Use the search bar above to find and load a customer's profile for editing.</p>
+        </div>
+      )}
     </div>
   );
 }

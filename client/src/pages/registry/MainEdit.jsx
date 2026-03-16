@@ -85,14 +85,13 @@ function ParentCustomerEditComponent() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto space-y-6">
+    <div className="p-6 max-w-7xl mx-auto space-y-6 bg-muted">
       {/* Clean Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
         <div>
-          <h1 className="text-xl font-black text-slate-800 tracking-tight">
-            Customer <span className="text-[#586ab1]">Edits</span>
+          <h1 className="text-sm  text-slate-600 tracking-tight">
+            Customer Edits
           </h1>
-          <p className="text-xs text-slate-500 font-medium mt-1">Manage contact and profile modification requests.</p>
         </div>
 
         {/* Minimal Navigation Buttons */}

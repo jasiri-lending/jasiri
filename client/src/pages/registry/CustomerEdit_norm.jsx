@@ -1,5 +1,4 @@
 ﻿import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
   PhoneIcon,
@@ -26,7 +25,6 @@ import { useAuth } from "../../hooks/userAuth.js";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures.js";
 
 function CustomerEdits() {
-  const navigate = useNavigate();
   const { profile } = useAuth();
   const { documentUploadEnabled } = useTenantFeatures();
   const [loading, setLoading] = useState(false);
@@ -41,9 +39,13 @@ function CustomerEdits() {
   const [searching, setSearching] = useState(false);
 
   // Modal states
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editType, setEditType] = useState(null); // 'id_phone' or 'other_details'
   const [selectedCustomer, setSelectedCustomer] = useState(null);
+  const [viewingRequest, setViewingRequest] = useState(null);
 
-
+  const primaryColor = "#586ab1";
+  const primaryLight = "rgba(88, 106, 177, 0.1)";
 
   // Form states for ID/Phone edit
   const [idPhoneForm, setIdPhoneForm] = useState({
@@ -317,6 +319,7 @@ function CustomerEdits() {
         documentPreview: null
       });
       setSelectedCustomer(null);
+      setShowEditModal(false);
 
       fetchEditRequests();
     } catch (error) {
@@ -381,6 +384,7 @@ function CustomerEdits() {
       }
 
       alert(`Request ${action}d successfully!`);
+      setViewingRequest(null);
       fetchEditRequests();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -417,9 +421,9 @@ function CustomerEdits() {
     );
   };
 
-  // const canSubmitRequest = () => {
-  //   return profile && ['relationship_officer', 'branch_manager', 'regional_manager'].includes(profile.role);
-  // };
+  const canSubmitRequest = () => {
+    return profile && ['relationship_officer', 'branch_manager', 'regional_manager'].includes(profile.role);
+  };
 
   const canConfirm = (request) => {
     return profile?.role === 'branch_manager' && request.status === 'pending_branch_manager';
@@ -453,7 +457,7 @@ function CustomerEdits() {
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-slate-700 tracking-tight">Review Record Amendment</h3>
-                <div className="flex items-center gap-2 text-[10px]  text-slate-400 uppercase tracking-widest mt-0.5">
+                <div className="flex items-center gap-2 text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">
                   <span>{customerName}</span>
                   <span className="text-slate-300">•</span>
                   <span>ID: {request.customer?.id_number || 'N/A'}</span>
@@ -640,417 +644,425 @@ function CustomerEdits() {
           </div>
         )}
       </div>
+      </div >
     );
-  };
+};
 
-  if (!profile) {
-    return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-btn mx-auto"></div>
-          <p className="mt-3 text-muted font-body">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
+if (!profile) {
   return (
-    <div className="min-h-screen bg-muted font-sans">
-
-      {/* Breadcrumb Header */}
-      <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
-        <h1 className="text-xs text-slate-500 mb-4 font-medium">
-          Information Updates / Customer Edits
-        </h1>
-      </div>
-
-      {/* Main Content Area */}
-      <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 text-slate-600">
-
-
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="relative group flex-1 md:max-w-md">
-            <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
-            <input
-              type="text"
-              value={searchTerm}
-              onChange={handleSearchChange}
-              placeholder="Search customers to initiate edit..."
-              className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-            />
-            {searching && (
-              <div className="absolute right-4 top-1/2 -translate-y-1/2">
-                <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
-              </div>
-            )}
-
-            {/* Premium Search Results Dropdown */}
-            {searchResults.length > 0 && (
-              <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
-                <div className="p-2 border-b border-slate-100 bg-slate-50/50">
-                  <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Results found ({searchResults.length})</span>
-                </div>
-                <div className="max-h-[300px] overflow-y-auto">
-                  {searchResults.map(customer => (
-                    <button
-                      key={customer.id}
-                      onClick={() => handleCustomerSelect(customer)}
-                      className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-[#586ab1] group-hover:text-white transition-all text-sm">
-                          {customer.Firstname?.[0]}{customer.Surname?.[0]}
-                        </div>
-                        <div>
-                          <p className="text-sm font-black text-slate-700 leading-none mb-1 group-hover:text-[#586ab1] transition-colors">
-                            {customer.Firstname}  {customer.Surname}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">{customer.id_number}</span>
-                            <span className="text-[10px] font-bold text-slate-400">{customer.mobile}</span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
-                        <PencilSquareIcon className="w-4 h-4" />
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Inline Edit Form */}
-        {selectedCustomer && (
-          <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
-            <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#586ab1] flex items-center justify-center text-white shadow-lg shadow-[#586ab1]/20">
-                  <PencilSquareIcon className="w-6 h-6" />
-                </div>
-                <div>
-                  <h3 className="text-lg font-black text-slate-800 tracking-tight">Edit Identity & Contact</h3>
-                  <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                    Customer: {selectedCustomer.Firstname} {selectedCustomer.Surname}
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setSelectedCustomer(null)}
-                className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 transition-all border border-transparent hover:border-slate-100"
-              >
-                <XMarkIcon className="w-6 h-6" />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmitIdPhoneEdit} className="p-8 space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Phone Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-1.5 h-1.5 bg-[#586ab1] rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phone Number Update</h4>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current Mobile</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
-                        {selectedCustomer.mobile || 'Not provided'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New Mobile Number</label>
-                      <input
-                        type="text"
-                        value={idPhoneForm.newMobile}
-                        onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newMobile: e.target.value }))}
-                        placeholder="Enter new phone number..."
-                        className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ID Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ID Number Update</h4>
-                  </div>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current ID</label>
-                      <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
-                        {selectedCustomer.id_number || 'Not provided'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New ID Number</label>
-                      <input
-                        type="text"
-                        value={idPhoneForm.newIdNumber}
-                        onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newIdNumber: e.target.value }))}
-                        placeholder="Enter new ID number..."
-                        className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Reason Section */}
-              <div className="space-y-4">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
-                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason for Change</h4>
-                </div>
-                <textarea
-                  value={idPhoneForm.reason}
-                  onChange={(e) => setIdPhoneForm(prev => ({ ...prev, reason: e.target.value }))}
-                  placeholder="Please provide a detailed reason for this modification request..."
-                  rows="3"
-                  className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
-                  required
-                />
-              </div>
-
-              {/* Document Section */}
-              {documentUploadEnabled && (
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
-                    <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Supporting Evidence</h4>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="group relative border-2 border-dashed border-slate-200 rounded-2xl p-8 transition-all hover:border-[#586ab1] hover:bg-[#586ab1]/5 flex flex-col items-center justify-center text-center">
-                      <input
-                        type="file"
-                        id="document-upload"
-                        onChange={handleDocumentUpload}
-                        accept=".jpg,.jpeg,.png,.pdf"
-                        className="hidden"
-                        required={documentUploadEnabled}
-                      />
-                      <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
-                        <ArrowUpTrayIcon className="w-8 h-8" />
-                      </div>
-                      <p className="text-sm font-black text-slate-700 mb-1">Click to Upload Document</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Copy / Support Document</p>
-                      <label
-                        htmlFor="document-upload"
-                        className="absolute inset-0 cursor-pointer"
-                      />
-                    </div>
-                    {idPhoneForm.documentPreview ? (
-                      <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 group">
-                        <img src={idPhoneForm.documentPreview} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
-                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <button
-                            type="button"
-                            onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
-                            className="p-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 transition-colors"
-                          >
-                            <XMarkIcon className="w-6 h-6" />
-                          </button>
-                        </div>
-                      </div>
-                    ) : idPhoneForm.document ? (
-                      <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
-                        <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
-                          <DocumentTextIcon className="w-6 h-6 text-[#586ab1]" />
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          <p className="text-sm font-black text-slate-700 truncate">{idPhoneForm.document.name}</p>
-                          <p className="text-[10px] font-bold text-slate-400 uppercase">PDF DOCUMENT</p>
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
-                          className="p-2 text-slate-400 hover:text-red-500 transition-colors"
-                        >
-                          <XMarkIcon className="w-5 h-5" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center italic text-slate-400 text-xs">
-                        Document preview will appear here
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Form Footer */}
-              <div className="flex items-center justify-end gap-4 pt-8 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedCustomer(null)}
-                  className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
-                >
-                  Discard
-                </button>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="px-10 py-3 bg-[#586ab1] text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#475589] transition-all shadow-xl shadow-[#586ab1]/20 disabled:opacity-50 flex items-center gap-2"
-                >
-                  {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
-                  {loading ? 'Submitting...' : 'Submit Update Request'}
-                </button>
-              </div>
-            </form>
-          </div>
-        )}
-
-        {/* Filters & Table Section */}
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-          {/* Enhanced Control Bar */}
-          <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
-            <div className="relative w-full md:w-72 group">
-              <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search requests..."
-                className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-sans"
-              />
-            </div>
-
-            <div className="flex items-center gap-4 w-full md:w-auto">
-              <div className="w-full md:w-auto">
-                <div className="relative group min-w-[200px]">
-                  <FunnelIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#586ab1]" />
-                  <select
-                    value={statusFilter}
-                    onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-sans"
-                  >
-                    <option value="all">All Access Records</option>
-                    <option value="pending_branch_manager">Pending BM Action</option>
-                    <option value="confirmed">Pending RM Action</option>
-                    <option value="approved">Successfully Approved</option>
-                    <option value="rejected">Rejected/Archived</option>
-                  </select>
-                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <ChevronDownIcon className="w-3 h-3 text-slate-400" />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Table Area */}
-          <div className="overflow-x-auto min-h-[400px]">
-            <table className="w-full border-collapse font-sans">
-              <thead>
-                <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Customer</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Current Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">New Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Current ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">New ID</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Date</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan="8" className="px-8 py-24 text-center">
-                      <div className="inline-flex flex-col items-center gap-4">
-                        <div className="p-4 bg-slate-50 rounded-full animate-pulse border-4 border-slate-100">
-                          <ArrowPathIcon className="w-10 h-10 text-[#586ab1] animate-spin" />
-                        </div>
-                        <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Synchronizing Records...</p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : filteredRequests.length === 0 ? (
-                  <tr>
-                    <td colSpan="8" className="px-8 py-24 text-center">
-                      <div className="inline-flex flex-col items-center gap-4">
-                        <div className="p-6 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 grayscale opacity-40">
-                          <DocumentTextIcon className="w-16 h-16 text-slate-400" />
-                        </div>
-                        <div className="space-y-1">
-                          <p className="font-black text-slate-400 tracking-tight text-xl uppercase italic">No Activity Found</p>
-                          <p className="text-slate-400 text-sm font-bold">Refine your filters or search query.</p>
-                        </div>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  filteredRequests.map((request, idx) => {
-                    const customerName = request.customer
-                      ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
-                      : 'Unknown Entity';
-
-                    return (
-                      <tr key={request.id} className={`group hover:bg-gray-100/50 transition-all border-b border-gray-100 ${idx % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center transition-transform group-hover:scale-110">
-                              <UserIcon className="w-4 h-4 text-slate-400" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-slate-700 leading-tight group-hover:text-[#586ab1] transition-colors whitespace-nowrap">{customerName}</p>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className="bg-[#E7F0FA] text-[9px] font-bold text-slate-600 px-1.5 py-0.5 rounded tracking-tighter uppercase">ID Request</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
-                          {request.current_mobile || '---'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1] font-semibold' : 'text-slate-400'}`}>
-                            {request.new_mobile || '---'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
-                          {request.current_id_number || '---'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`text-sm ${request.current_id_number !== request.new_id_number ? 'text-indigo-600 font-semibold' : 'text-slate-400'}`}>
-                            {request.new_id_number || '---'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3">
-                          {getStatusBadge(request.status)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="text-sm text-slate-600 whitespace-nowrap">
-                            {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                          </div>
-                          <div className="text-[10px] text-slate-400 font-medium">
-                            {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <button
-                            onClick={() => navigate(`/registry/customer-edits/review/${request.id}/phone_id`)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Quick Review"
-                          >
-                            <EyeIcon className="h-4 w-4" />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+    <div className="min-h-screen bg-muted flex items-center justify-center">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-btn mx-auto"></div>
+        <p className="mt-3 text-muted font-body">Loading...</p>
       </div>
     </div>
   );
 }
 
+return (
+  <div className="min-h-screen bg-muted font-sans">
+    {viewingRequest && (
+      <ViewRequestModal
+        request={viewingRequest}
+        onClose={() => setViewingRequest(null)}
+      />
+    )}
+
+    {/* Breadcrumb Header */}
+    <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+        Information Updates / Customer Edits
+      </h1>
+    </div>
+
+    {/* Main Content Area */}
+    <div className="max-w-7xl mx-auto p-4 md:p-6 space-y-6 text-slate-600">
+
+
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+        <div className="relative group flex-1 md:max-w-md">
+          <MagnifyingGlassIcon className="absolute left-4 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
+          <input
+            type="text"
+            value={searchTerm}
+            onChange={handleSearchChange}
+            placeholder="Search customers to initiate edit..."
+            className="w-full bg-white border border-slate-200 rounded-xl py-2.5 pl-11 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+          />
+          {searching && (
+            <div className="absolute right-4 top-1/2 -translate-y-1/2">
+              <ArrowPathIcon className="w-4 h-4 text-[#586ab1] animate-spin" />
+            </div>
+          )}
+
+          {/* Premium Search Results Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl border border-slate-200 shadow-2xl z-[100] overflow-hidden backdrop-blur-xl bg-white/95">
+              <div className="p-2 border-b border-slate-100 bg-slate-50/50">
+                <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest px-2">Results found ({searchResults.length})</span>
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {searchResults.map(customer => (
+                  <button
+                    key={customer.id}
+                    onClick={() => handleCustomerSelect(customer)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-[#586ab1]/5 transition-colors group text-left border-b border-slate-50 last:border-0"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 font-bold group-hover:bg-[#586ab1] group-hover:text-white transition-all text-sm">
+                        {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                      </div>
+                      <div>
+                        <p className="text-sm font-black text-slate-700 leading-none mb-1 group-hover:text-[#586ab1] transition-colors">
+                          {customer.Firstname}  {customer.Surname}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded tracking-tighter uppercase">{customer.id_number}</span>
+                          <span className="text-[10px] font-bold text-slate-400">{customer.mobile}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
+                      <PencilSquareIcon className="w-4 h-4" />
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inline Edit Form */}
+      {selectedCustomer && (
+        <div className="bg-white rounded-[2rem] border border-slate-200 shadow-xl overflow-hidden animate-in fade-in slide-in-from-top-4 duration-500">
+          <div className="p-6 border-b border-slate-100 bg-slate-50/50 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-[#586ab1] flex items-center justify-center text-white shadow-lg shadow-[#586ab1]/20">
+                <PencilSquareIcon className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-lg font-black text-slate-800 tracking-tight">Edit Identity & Contact</h3>
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                  Customer: {selectedCustomer.Firstname} {selectedCustomer.Surname}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setSelectedCustomer(null)}
+              className="p-2 hover:bg-white rounded-xl text-slate-400 hover:text-slate-600 transition-all border border-transparent hover:border-slate-100"
+            >
+              <XMarkIcon className="w-6 h-6" />
+            </button>
+          </div>
+
+          <form onSubmit={handleSubmitIdPhoneEdit} className="p-8 space-y-8">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Phone Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-1.5 h-1.5 bg-[#586ab1] rounded-full"></span>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Phone Number Update</h4>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current Mobile</label>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                      {selectedCustomer.mobile || 'Not provided'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New Mobile Number</label>
+                    <input
+                      type="text"
+                      value={idPhoneForm.newMobile}
+                      onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newMobile: e.target.value }))}
+                      placeholder="Enter new phone number..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* ID Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full"></span>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">ID Number Update</h4>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">Current ID</label>
+                    <div className="p-4 bg-slate-50 rounded-2xl border border-slate-100 text-sm font-bold text-slate-500 select-none">
+                      {selectedCustomer.id_number || 'Not provided'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 px-1">New ID Number</label>
+                    <input
+                      type="text"
+                      value={idPhoneForm.newIdNumber}
+                      onChange={(e) => setIdPhoneForm(prev => ({ ...prev, newIdNumber: e.target.value }))}
+                      placeholder="Enter new ID number..."
+                      className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-bold text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Reason Section */}
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full"></span>
+                <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Reason for Change</h4>
+              </div>
+              <textarea
+                value={idPhoneForm.reason}
+                onChange={(e) => setIdPhoneForm(prev => ({ ...prev, reason: e.target.value }))}
+                placeholder="Please provide a detailed reason for this modification request..."
+                rows="3"
+                className="w-full bg-white border border-slate-200 rounded-2xl p-4 text-sm font-medium text-slate-700 focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all"
+                required
+              />
+            </div>
+
+            {/* Document Section */}
+            {documentUploadEnabled && (
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-1.5 h-1.5 bg-purple-500 rounded-full"></span>
+                  <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Supporting Evidence</h4>
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <div className="group relative border-2 border-dashed border-slate-200 rounded-2xl p-8 transition-all hover:border-[#586ab1] hover:bg-[#586ab1]/5 flex flex-col items-center justify-center text-center">
+                    <input
+                      type="file"
+                      id="document-upload"
+                      onChange={handleDocumentUpload}
+                      accept=".jpg,.jpeg,.png,.pdf"
+                      className="hidden"
+                      required={documentUploadEnabled}
+                    />
+                    <div className="w-16 h-16 bg-slate-100 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-[#586ab1] group-hover:text-white transition-all">
+                      <ArrowUpTrayIcon className="w-8 h-8" />
+                    </div>
+                    <p className="text-sm font-black text-slate-700 mb-1">Click to Upload Document</p>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">ID Copy / Support Document</p>
+                    <label
+                      htmlFor="document-upload"
+                      className="absolute inset-0 cursor-pointer"
+                    />
+                  </div>
+                  {idPhoneForm.documentPreview ? (
+                    <div className="relative aspect-video rounded-2xl overflow-hidden border border-slate-200 group">
+                      <img src={idPhoneForm.documentPreview} alt="Preview" className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button
+                          type="button"
+                          onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
+                          className="p-3 bg-red-500 text-white rounded-xl shadow-lg hover:bg-red-600 transition-colors"
+                        >
+                          <XMarkIcon className="w-6 h-6" />
+                        </button>
+                      </div>
+                    </div>
+                  ) : idPhoneForm.document ? (
+                    <div className="flex items-center gap-4 p-6 bg-slate-50 rounded-2xl border border-slate-100">
+                      <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm">
+                        <DocumentTextIcon className="w-6 h-6 text-[#586ab1]" />
+                      </div>
+                      <div className="flex-1 overflow-hidden">
+                        <p className="text-sm font-black text-slate-700 truncate">{idPhoneForm.document.name}</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase">PDF DOCUMENT</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIdPhoneForm(prev => ({ ...prev, document: null, documentPreview: null }))}
+                        className="p-2 text-slate-400 hover:text-red-500 transition-colors"
+                      >
+                        <XMarkIcon className="w-5 h-5" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="p-6 bg-slate-50/50 rounded-2xl border border-dashed border-slate-200 flex items-center justify-center italic text-slate-400 text-xs">
+                      Document preview will appear here
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Form Footer */}
+            <div className="flex items-center justify-end gap-4 pt-8 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setSelectedCustomer(null)}
+                className="px-8 py-3 bg-white border border-slate-200 text-slate-500 rounded-xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Discard
+              </button>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-10 py-3 bg-[#586ab1] text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-[#475589] transition-all shadow-xl shadow-[#586ab1]/20 disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? <ArrowPathIcon className="w-4 h-4 animate-spin" /> : <CheckCircleIcon className="w-4 h-4" />}
+                {loading ? 'Submitting...' : 'Submit Update Request'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* Filters & Table Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        {/* Enhanced Control Bar */}
+        <div className="p-4 border-b border-gray-200 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="relative w-full md:w-72 group">
+            <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400 group-focus-within:text-[#586ab1] transition-colors" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search requests..."
+              className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-sans"
+            />
+          </div>
+
+          <div className="flex items-center gap-4 w-full md:w-auto">
+            <div className="w-full md:w-auto">
+              <div className="relative group min-w-[200px]">
+                <FunnelIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-[#586ab1]" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-sans"
+                >
+                  <option value="all">All Access Records</option>
+                  <option value="pending_branch_manager">Pending BM Action</option>
+                  <option value="confirmed">Pending RM Action</option>
+                  <option value="approved">Successfully Approved</option>
+                  <option value="rejected">Rejected/Archived</option>
+                </select>
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                  <ChevronDownIcon className="w-3 h-3 text-slate-400" />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Table Area */}
+        <div className="overflow-x-auto min-h-[400px]">
+          <table className="w-full border-collapse font-sans">
+            <thead>
+              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Customer</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Current Phone</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">New Phone</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Current ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">New ID</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Date</th>
+                <th className="px-4 py-3 text-right text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan="8" className="px-8 py-24 text-center">
+                    <div className="inline-flex flex-col items-center gap-4">
+                      <div className="p-4 bg-slate-50 rounded-full animate-pulse border-4 border-slate-100">
+                        <ArrowPathIcon className="w-10 h-10 text-[#586ab1] animate-spin" />
+                      </div>
+                      <p className="font-black text-slate-400 uppercase tracking-widest text-xs">Synchronizing Records...</p>
+                    </div>
+                  </td>
+                </tr>
+              ) : filteredRequests.length === 0 ? (
+                <tr>
+                  <td colSpan="8" className="px-8 py-24 text-center">
+                    <div className="inline-flex flex-col items-center gap-4">
+                      <div className="p-6 bg-slate-50 rounded-[2rem] border-2 border-dashed border-slate-200 grayscale opacity-40">
+                        <DocumentTextIcon className="w-16 h-16 text-slate-400" />
+                      </div>
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-400 tracking-tight text-xl uppercase italic">No Activity Found</p>
+                        <p className="text-slate-400 text-sm font-bold">Refine your filters or search query.</p>
+                      </div>
+                    </div>
+                  </td>
+                </tr>
+              ) : (
+                filteredRequests.map((request, idx) => {
+                  const customerName = request.customer
+                    ? `${request.customer.Firstname || ''} ${request.customer.Middlename || ''} ${request.customer.Surname || ''}`.trim()
+                    : 'Unknown Entity';
+
+                  return (
+                    <tr key={request.id} className={`group hover:bg-gray-100/50 transition-all border-b border-gray-100 ${idx % 2 === 0 ? '' : 'bg-gray-50'}`}>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center transition-transform group-hover:scale-110">
+                            <UserIcon className="w-4 h-4 text-slate-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-slate-700 leading-tight group-hover:text-[#586ab1] transition-colors whitespace-nowrap">{customerName}</p>
+                            <div className="flex items-center gap-2 mt-0.5">
+                              <span className="bg-[#E7F0FA] text-[9px] font-bold text-slate-600 px-1.5 py-0.5 rounded tracking-tighter uppercase">ID Request</span>
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        {request.current_mobile || '---'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-sm ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1] font-semibold' : 'text-slate-400'}`}>
+                          {request.new_mobile || '---'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        {request.current_id_number || '---'}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className={`text-sm ${request.current_id_number !== request.new_id_number ? 'text-indigo-600 font-semibold' : 'text-slate-400'}`}>
+                          {request.new_id_number || '---'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {getStatusBadge(request.status)}
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm text-slate-600 whitespace-nowrap">
+                          {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                        </div>
+                        <div className="text-[10px] text-slate-400 font-medium">
+                          {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <button
+                          onClick={() => setViewingRequest(request)}
+                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          title="Quick Review"
+                        >
+                          <EyeIcon className="h-4 w-4" />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+);
+}
+
 export default CustomerEdits;
+
