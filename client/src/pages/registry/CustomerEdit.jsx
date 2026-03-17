@@ -139,8 +139,8 @@ function CustomerEdits() {
         const customerName = req.customer
           ? `${req.customer.Firstname} ${req.customer.Middlename} ${req.customer.Surname}`.toLowerCase()
           : '';
-        const mobile = req.customer?.mobile?.toLowerCase() || '';
-        const idNumber = req.customer?.id_number?.toLowerCase() || '';
+        const mobile = String(req.customer?.mobile || '').toLowerCase();
+        const idNumber = String(req.customer?.id_number || '').toLowerCase();
         const query = searchQuery.toLowerCase();
 
         return customerName.includes(query) || mobile.includes(query) || idNumber.includes(query);
@@ -584,52 +584,54 @@ function CustomerEdits() {
               </div>
 
               {/* Right Column: Documentation Review */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-1">
-                  <div className="flex items-center gap-2">
-                    <DocumentTextIcon className="w-4 h-4 text-[#586ab1]" />
-                    <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Evidence Submission</p>
-                  </div>
-                  {isPdf && (
-                    <a
-                      href={request.document_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[10px] font-bold text-[#586ab1] uppercase tracking-widest hover:underline"
-                    >
-                      Source PDF
-                    </a>
-                  )}
-                </div>
-
-                <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm h-[320px] relative transition-all hover:border-[#586ab1]/30">
-                  {isPdf ? (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-50/50">
-                      <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110">
-                        <DocumentTextIcon className="w-8 h-8 text-[#586ab1]" />
-                      </div>
-                      <h4 className="text-base font-black text-slate-800 mb-2">Electronic Document</h4>
-                      <p className="text-xs text-slate-500 font-bold mb-8 max-w-xs">PDF evidence is ready for detailed analysis in a secure environment.</p>
+              {documentUploadEnabled && (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between px-1">
+                    <div className="flex items-center gap-2">
+                      <DocumentTextIcon className="w-4 h-4 text-[#586ab1]" />
+                      <p className="text-[10px] font-semibold text-slate-400 uppercase tracking-widest">Evidence Submission</p>
+                    </div>
+                    {isPdf && (
                       <a
                         href={request.document_url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="px-10 py-3 bg-[#586ab1] text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#586ab1]/20 hover:scale-[1.05] transition-all active:scale-95"
+                        className="text-[10px] font-bold text-[#586ab1] uppercase tracking-widest hover:underline"
                       >
-                        Launch PDF Viewer
+                        Source PDF
                       </a>
-                    </div>
-                  ) : (
-                    <div className="w-full h-full p-4">
-                      <img
-                        src={request.document_url}
-                        alt="Supporting Evidence"
-                        className="w-full h-full object-contain rounded-xl shadow-lg border border-white transition-all group-hover:scale-[1.01]"
-                      />
-                    </div>
-                  )}
+                    )}
+                  </div>
+
+                  <div className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm h-[320px] relative transition-all hover:border-[#586ab1]/30">
+                    {isPdf ? (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center p-8 text-center bg-slate-50/50">
+                        <div className="w-16 h-16 bg-white rounded-[2rem] shadow-xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110">
+                          <DocumentTextIcon className="w-8 h-8 text-[#586ab1]" />
+                        </div>
+                        <h4 className="text-base font-black text-slate-800 mb-2">Electronic Document</h4>
+                        <p className="text-xs text-slate-500 font-bold mb-8 max-w-xs">PDF evidence is ready for detailed analysis in a secure environment.</p>
+                        <a
+                          href={request.document_url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-10 py-3 bg-[#586ab1] text-white text-[10px] font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-[#586ab1]/20 hover:scale-[1.05] transition-all active:scale-95"
+                        >
+                          Launch PDF Viewer
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="w-full h-full p-4">
+                        <img
+                          src={request.document_url}
+                          alt="Supporting Evidence"
+                          className="w-full h-full object-contain rounded-xl shadow-lg border border-white transition-all group-hover:scale-[1.01]"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         </div>

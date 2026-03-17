@@ -36,7 +36,8 @@ export default function RolePermissionManager() {
         'report': 'Reports Access',
         'customers': 'Customer Management',
         'amendments': 'Customer Amendments',
-        'penalty': 'Penalty Management'
+        'penalty': 'Penalty Management',
+        'transfers': 'Customer Transfers'
     };
 
     const mountedRef = useRef(true);
@@ -92,10 +93,15 @@ export default function RolePermissionManager() {
             'amendments.initiate',
             'amendments.confirm',
             'amendments.authorize'
+        ],
+        'transfers': [
+            'transfers.initiate',
+            'transfers.confirm',
+            'transfers.authorize'
         ]
     };
 
-    const fetchRolesAndPermissions = useCallback(async () => {
+    const fetchRolesAndPermissions = useCallback(async (skipCache = false) => {
         if (!profile) return;
 
         try {
@@ -104,7 +110,7 @@ export default function RolePermissionManager() {
             // Caching
             const cacheKey = `roles_perms_${profile.tenant_id || 'all'}`;
             const cached = localStorage.getItem(cacheKey);
-            if (cached) {
+            if (cached && !skipCache) {
                 const parsed = JSON.parse(cached);
                 if (Date.now() - parsed.timestamp < 300000) { // 5 min cache
                     setRoles(parsed.roles);
@@ -163,7 +169,7 @@ export default function RolePermissionManager() {
 
     useEffect(() => {
         mountedRef.current = true;
-        fetchRolesAndPermissions();
+        fetchRolesAndPermissions(false);
         return () => { mountedRef.current = false; };
     }, [fetchRolesAndPermissions]);
 
@@ -247,6 +253,11 @@ export default function RolePermissionManager() {
                 { resource: 'amendments', name: 'amendments.initiate', description: 'Initiate Customer Amendments' },
                 { resource: 'amendments', name: 'amendments.confirm', description: 'Confirm Customer Amendments' },
                 { resource: 'amendments', name: 'amendments.authorize', description: 'Authorize Customer Amendments' },
+
+                // Transfers
+                { resource: 'transfers', name: 'transfers.initiate', description: 'Initiate Customer Transfers' },
+                { resource: 'transfers', name: 'transfers.confirm', description: 'Confirm Customer Transfers' },
+                { resource: 'transfers', name: 'transfers.authorize', description: 'Authorize Customer Transfers' },
             ];
 
             const { data: existingPerms, error: fetchError } = await supabase
@@ -273,8 +284,10 @@ export default function RolePermissionManager() {
             } else {
                 success("Permissions are up to date.");
             }
-
-            await fetchRolesAndPermissions();
+            // Clear cache and refresh
+            const cacheKey = `roles_perms_${profile.tenant_id || 'all'}`;
+            localStorage.removeItem(cacheKey);
+            await fetchRolesAndPermissions(true);
         } catch (err) {
             console.error("Error syncing permissions:", err);
             toastError(`Failed to sync permissions: ${err.message}`);
@@ -331,15 +344,6 @@ export default function RolePermissionManager() {
 
             success(`Added ${missingRoles.length} new roles.`);
             await syncPermissions(); // Sync permissions after adding roles
-
-            const { data: newRoles, error: refreshError } = await supabase
-                .from("roles")
-                .select("*")
-                .eq("tenant_id", profile.tenant_id)
-                .order("name");
-
-            if (refreshError) throw refreshError;
-            setRoles(newRoles);
 
         } catch (err) {
             console.error("Error syncing roles:", err);
@@ -426,7 +430,7 @@ export default function RolePermissionManager() {
             setNewRoleName("");
             setIsAddRoleOpen(false);
 
-            fetchRolesAndPermissions();
+            fetchRolesAndPermissions(true);
 
         } catch (err) {
             console.error("Error adding role:", err);
@@ -482,7 +486,7 @@ export default function RolePermissionManager() {
                                 className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
                             >
                                 <ShieldCheck className="h-4 w-4" />
-                                Sync Roles
+                                Sync Roles & Perms
                             </button>
                         </div>
                     </div>

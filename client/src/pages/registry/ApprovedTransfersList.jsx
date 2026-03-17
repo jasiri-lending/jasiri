@@ -1,8 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
+import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
+import { useToast } from '../../components/Toast.jsx';
 import Spinner from '../../components/Spinner.jsx';
 
-const ApprovedTransfersList = ({ onExecute }) => {
+const ApprovedTransfersList = ({ onExecute, currentUser }) => {
+  const workflowRoles = useWorkflowRoles();
+  const toast = useToast();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [executingTransfer, setExecutingTransfer] = useState(null);
@@ -55,13 +59,17 @@ const ApprovedTransfersList = ({ onExecute }) => {
       setTransfers(data || []);
     } catch (error) {
       console.error('Error fetching approved transfers:', error);
-      alert('Failed to load approved transfers: ' + error.message);
+      toast.error('Failed to load approved transfers. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleExecute = async (transferId) => {
+    if (!currentUser?.id || !currentUser?.tenant_id) {
+      toast.error('Authentication error. Please refresh and try again.');
+      return;
+    }
     if (window.confirm('Are you sure you want to execute this transfer? This action cannot be undone.')) {
       setExecutingTransfer(transferId);
       try {
@@ -174,7 +182,7 @@ const ApprovedTransfersList = ({ onExecute }) => {
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full bg-blue-500"></div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Initiated by {initiationLog.user?.full_name}</p>
+                          <p className="text-sm font-medium text-gray-900">Initiated by {initiationLog.user?.full_name} ({workflowRoles.initiate})</p>
                           <p className="text-xs text-gray-500">{formatDate(initiationLog.created_at)}</p>
                         </div>
                       </div>
@@ -183,7 +191,7 @@ const ApprovedTransfersList = ({ onExecute }) => {
                       <div className="flex items-center gap-3">
                         <div className="w-3 h-3 rounded-full bg-green-500"></div>
                         <div>
-                          <p className="text-sm font-medium text-gray-900">Approved by {approvalLog.user?.full_name}</p>
+                          <p className="text-sm font-medium text-gray-900">Approved by {approvalLog.user?.full_name} ({workflowRoles.confirm})</p>
                           <p className="text-xs text-gray-500">{formatDate(approvalLog.created_at)}</p>
                           {approvalLog.remarks && (
                             <p className="text-xs text-gray-600 mt-1">{approvalLog.remarks}</p>

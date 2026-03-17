@@ -453,20 +453,24 @@ function CustomerDetailsEdit() {
 
       if (securityItemsData) {
         setSecurityItems(securityItemsData.map(item => ({
+          id: item.id,
           item_name: item.item_name || '',
           item_description: item.item_description || '',
           item_identification: item.item_identification || '',
-          item_value: item.item_value || ''
+          item_value: item.item_value || '',
+          existing_images: item.security_item_images?.map(img => img.image_url) || []
         })));
         setSecurityItemImages(new Array(securityItemsData.length).fill([]));
       }
 
       if (guarantorSecurityData) {
         setGuarantorSecurityItems(guarantorSecurityData.map(item => ({
+          id: item.id,
           item_name: item.item_name || '',
           item_description: item.item_description || '',
           item_identification: item.item_identification || '',
-          item_value: item.item_value || ''
+          item_value: item.item_value || '',
+          existing_images: item.guarantor_security_images?.map(img => img.image_url) || []
         })));
         setGuarantorSecurityImages(new Array(guarantorSecurityData.length).fill([]));
       }
@@ -1860,34 +1864,64 @@ function CustomerDetailsEdit() {
                 </div>
               </div>
 
-              <div>
-                <label className={labelClass}>Item Images</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(securityItemImages[index] || []).map((file, fIdx) => (
-                    <div key={fIdx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img">
-                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveSecurityFile(index, fIdx)}
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                      >
-                        <XMarkIcon className="w-4 h-4 text-white" />
-                      </button>
+              {imageUploadEnabled && (
+                <div>
+                  <label className={labelClass}>Item Images</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {/* Existing Images */}
+                    {item.existing_images?.map((url, i) => (
+                      <div key={`existing-${i}`} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img shadow-sm">
+                        <img src={url} alt="existing" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-[6px] font-black text-white uppercase tracking-widest bg-black/40 px-1 py-0.5 rounded">Current</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* New Upload Previews */}
+                    {(securityItemImages[index] || []).map((file, fIdx) => (
+                      <div key={`new-${fIdx}`} className="relative w-16 h-16 rounded-lg overflow-hidden border border-[#586ab1]/30 group/img shadow-sm">
+                        <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveSecurityFile(index, fIdx)}
+                          className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                        >
+                          <XMarkIcon className="w-4 h-4 text-white" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-[#586ab1]/80 py-0.5 text-[6px] font-black text-white text-center uppercase tracking-tighter">NEW IMAGE</div>
+                      </div>
+                    ))}
+
+                    {/* Upload Controls */}
+                    <div className="flex gap-2">
+                      <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer bg-slate-50/50">
+                        <ArrowUpTrayIcon className="w-4 h-4 mb-0.5" />
+                        <span className="text-[7px] font-black uppercase">Browse</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleSecurityFileUpload(e, index)}
+                        />
+                      </label>
+                      <label className="md:hidden w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer bg-slate-50/50">
+                        <CameraIcon className="w-4 h-4 mb-0.5" />
+                        <span className="text-[7px] font-black uppercase">Camera</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleSecurityFileUpload(e, index)}
+                        />
+                      </label>
                     </div>
-                  ))}
-                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer">
-                    <CameraIcon className="w-5 h-5 mb-1" />
-                    <span className="text-[8px] font-bold">ADD</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleSecurityFileUpload(e, index)}
-                    />
-                  </label>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -1965,34 +1999,64 @@ function CustomerDetailsEdit() {
                 </div>
               </div>
 
-              <div>
-                <label className={labelClass}>Item Images</label>
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {(guarantorSecurityImages[index] || []).map((file, fIdx) => (
-                    <div key={fIdx} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img">
-                      <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveGuarantorSecurityFile(index, fIdx)}
-                        className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
-                      >
-                        <XMarkIcon className="w-4 h-4 text-white" />
-                      </button>
+              {imageUploadEnabled && (
+                <div>
+                  <label className={labelClass}>Item Images</label>
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {/* Existing Images */}
+                    {item.existing_images?.map((url, i) => (
+                      <div key={`existing-${i}`} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 group/img shadow-sm">
+                        <img src={url} alt="existing" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                          <span className="text-[6px] font-black text-white uppercase tracking-widest bg-black/40 px-1 py-0.5 rounded">Current</span>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* New Upload Previews */}
+                    {(guarantorSecurityImages[index] || []).map((file, fIdx) => (
+                      <div key={`new-${fIdx}`} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-500/30 group/img shadow-sm">
+                        <img src={URL.createObjectURL(file)} alt="preview" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveGuarantorSecurityFile(index, fIdx)}
+                          className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity"
+                        >
+                          <XMarkIcon className="w-4 h-4 text-white" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-[#586ab1]/80 py-0.5 text-[6px] font-black text-white text-center uppercase tracking-tighter">NEW IMAGE</div>
+                      </div>
+                    ))}
+
+                    {/* Upload Controls */}
+                    <div className="flex gap-2">
+                      <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer bg-slate-50/50">
+                        <ArrowUpTrayIcon className="w-4 h-4 mb-0.5" />
+                        <span className="text-[7px] font-black uppercase">Browse</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => handleGuarantorSecurityFileUpload(e, index)}
+                        />
+                      </label>
+                      <label className="md:hidden w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer bg-slate-50/50">
+                        <CameraIcon className="w-4 h-4 mb-0.5" />
+                        <span className="text-[7px] font-black uppercase">Camera</span>
+                        <input
+                          type="file"
+                          multiple
+                          accept="image/*"
+                          capture="environment"
+                          className="hidden"
+                          onChange={(e) => handleGuarantorSecurityFileUpload(e, index)}
+                        />
+                      </label>
                     </div>
-                  ))}
-                  <label className="w-16 h-16 rounded-lg border-2 border-dashed border-slate-200 flex flex-col items-center justify-center text-slate-400 hover:border-[#586ab1] hover:text-[#586ab1] transition-all cursor-pointer">
-                    <CameraIcon className="w-5 h-5 mb-1" />
-                    <span className="text-[8px] font-bold">ADD</span>
-                    <input
-                      type="file"
-                      multiple
-                      accept="image/*"
-                      className="hidden"
-                      onChange={(e) => handleGuarantorSecurityFileUpload(e, index)}
-                    />
-                  </label>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
         </div>
@@ -2171,340 +2235,339 @@ function CustomerDetailsEdit() {
           {searching && (
             <ArrowPathIcon className="absolute right-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#586ab1] animate-spin" />
           )}
-        </div>
-      )}
 
-      {/* Search Results Dropdown */}
-      {searchResults.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-slate-200 shadow-lg z-[100] overflow-hidden">
-          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
-            <span className="text-[10px] text-[#586ab1] font-semibold">Click to select</span>
-          </div>
-          <div className="max-h-64 overflow-y-auto">
-            {searchResults.map(customer => (
-              <button
-                key={customer.id}
-                onClick={() => handleCustomerSelect(customer)}
-                className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#586ab1]/5 transition-all text-left border-b border-slate-50 last:border-0"
-              >
-                <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold shrink-0">
-                  {customer.Firstname?.[0]}{customer.Surname?.[0]}
-                </div>
-                <div>
-                  <p className="font-semibold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
-                  <p className="text-[10px] text-slate-400">ID: {customer.id_number} · {customer.mobile}</p>
-                </div>
-              </button>
-            ))}
-          </div>
+          {/* Search Results Dropdown */}
+          {searchResults.length > 0 && (
+            <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl border border-slate-200 shadow-lg z-[100] overflow-hidden">
+              <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">{searchResults.length} result{searchResults.length !== 1 ? 's' : ''}</span>
+                <span className="text-[10px] text-[#586ab1] font-semibold">Click to select</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto">
+                {searchResults.map(customer => (
+                  <button
+                    key={customer.id}
+                    onClick={() => handleCustomerSelect(customer)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-[#586ab1]/5 transition-all text-left border-b border-slate-50 last:border-0"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 text-xs font-bold shrink-0">
+                      {customer.Firstname?.[0]}{customer.Surname?.[0]}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-slate-800 text-sm">{`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}</p>
+                      <p className="text-[10px] text-slate-400">ID: {customer.id_number} · {customer.mobile}</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
-    </div>
 
       {
-    !selectedCustomer && (
-      <>
-        {/* Amendment Stream — on TOP when no customer selected */}
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
-              <p className="text-[10px] text-slate-400">Recent edit requests awaiting review or updated</p>
-            </div>
-            <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
-          </div>
-          {editRequests.length > 0 ? (
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                  <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {editRequests.map((request, idx) => (
-                  <tr
-                    key={request.id}
-                    className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
-                    onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
-                  >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <UserIcon className="w-4 h-4 text-slate-400" />
-                        </div>
-                        <span className="font-semibold text-slate-800 text-[11px]">
-                          {request.customer?.Firstname} {request.customer?.Surname}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
-                      {sections.find(s => s.id === request.section_type)?.label || request.section_type}
-                    </td>
-                    <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="text-[10px] text-slate-600 font-medium">
-                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <div className="text-[9px] text-slate-400">
-                        {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
-                      {request.created_by_user?.full_name || '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button
-                        className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
-                        title="Review Request"
-                      >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-              No requests yet
-            </div>
-          )}
-        </div>
-
-        {/* Empty Selection State */}
-        <div className="py-12 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm">
-            <MagnifyingGlassIcon className="w-4 h-4 text-slate-400" />
-          </div>
-          <h3 className="text-sm font-bold text-slate-700 mb-0.5">Search for a customer</h3>
-          <p className="text-xs text-slate-400">Select a client to unlock the amendment interface</p>
-        </div>
-      </>
-    )
-  }
-
-  {/* Section Nav — wraps naturally, no scroll */ }
-  {
-    selectedCustomer && (
-      <div className="flex flex-wrap gap-1.5 pt-2">
-        {allNavLinks.map(link => (
-          <a
-            key={link.id}
-            href={`#${link.id}`}
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all shadow-sm"
-          >
-            <link.icon className="w-3 h-3 shrink-0" />
-            {link.label}
-          </a>
-        ))}
-      </div>
-    )
-  }
-
-  {/* Selected Customer Banner */ }
-  {
-    selectedCustomer && (
-      <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl shadow-sm">
-        <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
-          {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
-        </div>
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-slate-800 text-sm truncate">{`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}</p>
-          <p className="text-[10px] text-slate-400">ID: {selectedCustomer.id_number} · {selectedCustomer.mobile}</p>
-        </div>
-        <button
-          onClick={() => { setSelectedCustomer(null); setSearchTerm(''); setSecurityItems([]); setGuarantorSecurityItems([]); }}
-          className="text-slate-400 hover:text-slate-600 transition-colors p-1"
-        >
-          <XMarkIcon className="w-4 h-4" />
-        </button>
-      </div>
-    )
-  }
-
-  {/* Main Forms — shown only when customer selected and has permission */ }
-  {
-    selectedCustomer && hasPermission('amendments.initiate') && (
-      <div className="space-y-6">
-        {sections.map(section => (
-          <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-            <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-              <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
-              <div>
-                <h2 className="text-sm font-bold text-slate-800">{section.label}</h2>
-                <p className="text-[10px] text-slate-400">Propose changes — requires Branch Manager approval</p>
-              </div>
-            </div>
-            <div className="p-5 space-y-5">
-              <form onSubmit={(e) => handleSubmit(e, section.id)} className="space-y-5">
-                {renderFormFields(section.id)}
-                <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                  <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
-                  >
-                    {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                    Submit Change Request
-                  </button>
+        !selectedCustomer && (
+          <>
+            {/* Amendment Stream — on TOP when no customer selected */}
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+                  <p className="text-[10px] text-slate-400">Recent edit requests awaiting review or updated</p>
                 </div>
-              </form>
-              {renderHistoricalImages(section.id)}
-            </div>
-          </div>
-        ))}
-
-        {/* Borrower Security */}
-        <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-            <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Security & Collateral</h2>
-              <p className="text-[10px] text-slate-400">Borrower security items</p>
-            </div>
-          </div>
-          <div className="p-5">
-            <form onSubmit={(e) => handleSubmit(e, 'security')} className="space-y-5">
-              {renderFormFields('security')}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
-                  {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                  Submit Change Request
-                </button>
+                <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
               </div>
-            </form>
-          </div>
-        </div>
-
-        {/* Guarantor Security */}
-        <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-            <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Guarantor Security</h2>
-              <p className="text-[10px] text-slate-400">Guarantor security items</p>
-            </div>
-          </div>
-          <div className="p-5">
-            <form onSubmit={(e) => handleSubmit(e, 'guarantor_security')} className="space-y-5">
-              {renderFormFields('guarantor_security')}
-              <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
-                <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
-                <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
-                  {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
-                  Submit Change Request
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-
-        {/* Collateral History */}
-        <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-            <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Collateral History</h2>
-              <p className="text-[10px] text-slate-400">Existing security registry</p>
-            </div>
-          </div>
-          <div className="p-5">{renderSecurityItems()}</div>
-        </div>
-
-        {/* Field Verification */}
-        <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
-            <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
-            <div>
-              <h2 className="text-sm font-bold text-slate-800">Field Verification</h2>
-              <p className="text-[10px] text-slate-400">Meeting documents and verification media</p>
-            </div>
-          </div>
-          <div className="p-5">{renderFieldVerification()}</div>
-        </div>
-
-        {/* Amendment Stream — moves to BOTTOM when customer selected */}
-        <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
-          <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
-            <div>
-              <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
-              <p className="text-[10px] text-slate-400">Edit requests for this customer</p>
-            </div>
-            <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
-          </div>
-          {editRequests.length > 0 ? (
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                  <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                  <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {editRequests.map((request, idx) => (
-                  <tr
-                    key={request.id}
-                    className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
-                    onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
-                  >
-                    <td className="px-5 py-3.5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <UserIcon className="w-4 h-4 text-slate-400" />
-                        </div>
-                        <span className="font-semibold text-slate-800 text-[11px]">
-                          {request.customer?.Firstname} {request.customer?.Surname}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
-                      {sections.find(s => s.id === request.section_type)?.label || request.section_type}
-                    </td>
-                    <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                    <td className="px-5 py-3.5">
-                      <div className="text-[10px] text-slate-600 font-medium">
-                        {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
-                      </div>
-                      <div className="text-[9px] text-slate-400">
-                        {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
-                      </div>
-                    </td>
-                    <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
-                      {request.created_by_user?.full_name || '—'}
-                    </td>
-                    <td className="px-5 py-3.5 text-right">
-                      <button
-                        className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
-                        title="Review Request"
+              {editRequests.length > 0 ? (
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {editRequests.map((request, idx) => (
+                      <tr
+                        key={request.id}
+                        className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
+                        onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
                       >
-                        <EyeIcon className="w-4 h-4" />
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          ) : (
-            <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
-              No requests currently pending
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <UserIcon className="w-4 h-4 text-slate-400" />
+                            </div>
+                            <span className="font-semibold text-slate-800 text-[11px]">
+                              {request.customer?.Firstname} {request.customer?.Surname}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                          {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                        </td>
+                        <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                        <td className="px-5 py-3.5">
+                          <div className="text-[10px] text-slate-600 font-medium">
+                            {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                          <div className="text-[9px] text-slate-400">
+                            {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                          {request.created_by_user?.full_name || '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                            title="Review Request"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  No requests yet
+                </div>
+              )}
             </div>
-          )}
-        </div>
-      </div>
-    )
-  }
+
+            {/* Empty Selection State */}
+            <div className="py-12 text-center bg-slate-50/50 rounded-xl border border-dashed border-slate-200">
+              <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mx-auto mb-3 shadow-sm">
+                <MagnifyingGlassIcon className="w-4 h-4 text-slate-400" />
+              </div>
+              <h3 className="text-sm font-bold text-slate-700 mb-0.5">Search for a customer</h3>
+              <p className="text-xs text-slate-400">Select a client to unlock the amendment interface</p>
+            </div>
+          </>
+        )
+      }
+
+      {/* Section Nav — wraps naturally, no scroll */}
+      {
+        selectedCustomer && (
+          <div className="flex flex-wrap gap-1.5 pt-2">
+            {allNavLinks.map(link => (
+              <a
+                key={link.id}
+                href={`#${link.id}`}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-[10px] font-semibold text-slate-500 hover:text-[#586ab1] hover:border-[#586ab1]/30 transition-all shadow-sm"
+              >
+                <link.icon className="w-3 h-3 shrink-0" />
+                {link.label}
+              </a>
+            ))}
+          </div>
+        )
+      }
+
+      {/* Selected Customer Banner */}
+      {
+        selectedCustomer && (
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-[#586ab1]/5 border border-[#586ab1]/20 rounded-xl shadow-sm">
+            <div className="w-8 h-8 rounded-lg bg-[#586ab1] flex items-center justify-center text-white text-xs font-bold shrink-0">
+              {selectedCustomer.Firstname?.[0]}{selectedCustomer.Surname?.[0]}
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-slate-800 text-sm truncate">{`${selectedCustomer.Firstname || ''} ${selectedCustomer.Middlename || ''} ${selectedCustomer.Surname || ''}`.trim()}</p>
+              <p className="text-[10px] text-slate-400">ID: {selectedCustomer.id_number} · {selectedCustomer.mobile}</p>
+            </div>
+            <button
+              onClick={() => { setSelectedCustomer(null); setSearchTerm(''); setSecurityItems([]); setGuarantorSecurityItems([]); }}
+              className="text-slate-400 hover:text-slate-600 transition-colors p-1"
+            >
+              <XMarkIcon className="w-4 h-4" />
+            </button>
+          </div>
+        )
+      }
+
+      {/* Main Forms — shown only when customer selected and has permission */}
+      {
+        selectedCustomer && hasPermission('amendments.initiate') && (
+          <div className="space-y-6">
+            {sections.map(section => (
+              <div key={section.id} id={section.id} className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+                <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                  <section.icon className="w-4 h-4 text-[#586ab1] shrink-0" />
+                  <div>
+                    <h2 className="text-sm font-bold text-slate-800">{section.label}</h2>
+                    <p className="text-[10px] text-slate-400">Propose changes — requires Branch Manager approval</p>
+                  </div>
+                </div>
+                <div className="p-5 space-y-5">
+                  <form onSubmit={(e) => handleSubmit(e, section.id)} className="space-y-5">
+                    {renderFormFields(section.id)}
+                    <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                      <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                      <button
+                        type="submit"
+                        disabled={loading}
+                        className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0"
+                      >
+                        {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                        Submit Change Request
+                      </button>
+                    </div>
+                  </form>
+                  {renderHistoricalImages(section.id)}
+                </div>
+              </div>
+            ))}
+
+            {/* Borrower Security */}
+            <div id="security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">Security & Collateral</h2>
+                  <p className="text-[10px] text-slate-400">Borrower security items</p>
+                </div>
+              </div>
+              <div className="p-5">
+                <form onSubmit={(e) => handleSubmit(e, 'security')} className="space-y-5">
+                  {renderFormFields('security')}
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                    <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                    <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                      {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                      Submit Change Request
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Guarantor Security */}
+            <div id="guarantor_security" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                <ShieldCheckIcon className="w-4 h-4 text-[#586ab1] shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">Guarantor Security</h2>
+                  <p className="text-[10px] text-slate-400">Guarantor security items</p>
+                </div>
+              </div>
+              <div className="p-5">
+                <form onSubmit={(e) => handleSubmit(e, 'guarantor_security')} className="space-y-5">
+                  {renderFormFields('guarantor_security')}
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-between gap-4">
+                    <p className="text-[10px] text-amber-500 font-semibold">Requires BM validation before commit</p>
+                    <button type="submit" disabled={loading} className="px-5 py-2 bg-[#586ab1] text-white rounded-lg font-semibold text-xs shadow-sm hover:bg-[#4a5997] transition-all disabled:opacity-50 flex items-center gap-2 shrink-0">
+                      {loading ? <ArrowPathIcon className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheckIcon className="w-3.5 h-3.5" />}
+                      Submit Change Request
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            {/* Collateral History */}
+            <div id="collateral_history" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                <ShieldCheckIcon className="w-4 h-4 text-emerald-600 shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">Collateral History</h2>
+                  <p className="text-[10px] text-slate-400">Existing security registry</p>
+                </div>
+              </div>
+              <div className="p-5">{renderSecurityItems()}</div>
+            </div>
+
+            {/* Field Verification */}
+            <div id="field_verification" className="bg-white rounded-xl border border-slate-200 overflow-hidden scroll-mt-4 shadow-sm">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center gap-3">
+                <DocumentIcon className="w-4 h-4 text-amber-600 shrink-0" />
+                <div>
+                  <h2 className="text-sm font-bold text-slate-800">Field Verification</h2>
+                  <p className="text-[10px] text-slate-400">Meeting documents and verification media</p>
+                </div>
+              </div>
+              <div className="p-5">{renderFieldVerification()}</div>
+            </div>
+
+            {/* Amendment Stream — moves to BOTTOM when customer selected */}
+            <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+              <div className="px-5 py-3.5 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-800">Amendment Stream</h3>
+                  <p className="text-[10px] text-slate-400">Edit requests for this customer</p>
+                </div>
+                <span className="px-2 py-0.5 bg-[#586ab1]/10 rounded-full text-[9px] font-bold text-[#586ab1]">{editRequests.length}</span>
+              </div>
+              {editRequests.length > 0 ? (
+                <table className="w-full text-left text-xs">
+                  <thead>
+                    <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-50">
+                    {editRequests.map((request, idx) => (
+                      <tr
+                        key={request.id}
+                        className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
+                        onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
+                      >
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <UserIcon className="w-4 h-4 text-slate-400" />
+                            </div>
+                            <span className="font-semibold text-slate-800 text-[11px]">
+                              {request.customer?.Firstname} {request.customer?.Surname}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                          {sections.find(s => s.id === request.section_type)?.label || request.section_type}
+                        </td>
+                        <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
+                        <td className="px-5 py-3.5">
+                          <div className="text-[10px] text-slate-600 font-medium">
+                            {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+                          </div>
+                          <div className="text-[9px] text-slate-400">
+                            {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
+                          </div>
+                        </td>
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                          {request.created_by_user?.full_name || '—'}
+                        </td>
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
+                            title="Review Request"
+                          >
+                            <EyeIcon className="w-4 h-4" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="py-10 text-center text-[10px] font-bold text-slate-300 uppercase tracking-widest">
+                  No requests currently pending
+                </div>
+              )}
+            </div>
+          </div>
+        )
+      }
     </div >
   );
 }

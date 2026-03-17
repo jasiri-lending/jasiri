@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/userAuth.js';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
+import { useToast } from '../../components/Toast.jsx';
 
 // Import the missing components (create these files separately)
 import PendingTransfersList from './PendingTransfersList';
@@ -10,6 +13,7 @@ import ApprovedTransfersList from './ApprovedTransfersList';
 const CustomerTransferForm = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
+  const { hasPermission } = usePermissions();
   const [formData, setFormData] = useState({
     currentBranch: '',
     currentOfficer: '',
@@ -24,6 +28,74 @@ const CustomerTransferForm = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
+  const workflowRoles = useWorkflowRoles();
+  const toast = useToast();
+
+  // --- Helper Functions ---
+
+  const fetchBranches = async () => {
+    try {
+      if (!profile) return;
+      const { data, error } = await supabase
+        .from('branches')
+        .select('id, name')
+        .eq('tenant_id', profile.tenant_id)
+        .order('name');
+      if (error) throw error;
+      setBranches(data || []);
+    } catch (error) {
+      console.error('Error fetching branches:', error);
+    }
+  };
+
+
+  const fetchOfficersByBranch = async (branchId, type) => {
+    try {
+      if (!profile) return;
+      const { data, error } = await supabase
+        .from('users')
+        .select(`
+          id,
+          full_name,
+          role,
+          profiles!inner(branch_id)
+        `)
+        .eq('profiles.branch_id', branchId)
+        .eq('tenant_id', profile.tenant_id)
+        .eq('role', 'relationship_officer');
+
+      if (error) throw error;
+
+      const officers = data || [];
+      if (type === 'current') {
+        setCurrentOfficers(officers);
+      } else {
+        setNewOfficers(officers);
+      }
+    } catch (error) {
+      console.error('Error fetching officers:', error);
+      if (type === 'current') setCurrentOfficers([]);
+      else setNewOfficers([]);
+    }
+  };
+
+  const fetchCustomers = async () => {
+    try {
+      if (!profile) return;
+      const { data, error } = await supabase
+        .from('customers')
+        .select('*')
+        .eq('branch_id', formData.currentBranch)
+        .eq('created_by', formData.currentOfficer)
+        .eq('tenant_id', profile.tenant_id);
+      if (error) throw error;
+      setCustomers(data || []);
+    } catch (error) {
+      console.error('Error fetching customers:', error);
+    }
+  };
+
+  // --- Side Effects ---
 
   useEffect(() => {
     if (profile) {
@@ -58,93 +130,21 @@ const CustomerTransferForm = () => {
     }
   }, [formData.currentBranch, formData.currentOfficer]);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id, role, full_name')
-          .eq('id', user.id)
-          .single();
-        setCurrentUser(userData);
-        setUserRole(userData?.role || '');
-      }
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-    }
-  };
-
-  const fetchBranches = async () => {
-    try {
-      if (!profile) return;
-      const { data, error } = await supabase
-        .from('branches')
-        .select('id, name')
-        .eq('tenant_id', profile.tenant_id)
-        .order('name');
-      if (error) throw error;
-      setBranches(data || []);
-    } catch (error) {
-      console.error('Error fetching branches:', error);
-    }
-  };
-
-  const fetchOfficersByBranch = async (branchId, type) => {
-    try {
-      if (!profile) return;
-      const { data, error } = await supabase
-        .from('users')
-        .select(`
-          id,
-          full_name,
-          role
-        `)
-        .eq('branch_id', branchId)
-        .eq('tenant_id', profile.tenant_id)
-        .eq('role', 'relationship_officer');
-
-      if (error) throw error;
-
-      const officers = data || [];
-
-      if (type === 'current') {
-        setCurrentOfficers(officers);
-      } else {
-        setNewOfficers(officers);
-      }
-    } catch (error) {
-      console.error('Error fetching officers:', error);
-      if (type === 'current') setCurrentOfficers([]);
-      else setNewOfficers([]);
-    }
-  };
-
-  const fetchCustomers = async () => {
-    try {
-      if (!profile) return;
-      const { data, error } = await supabase
-        .from('customers')
-        .select('*')
-        .eq('branch_id', formData.currentBranch)
-        .eq('created_by', formData.currentOfficer)
-        .eq('tenant_id', profile.tenant_id);
-      if (error) throw error;
-      setCustomers(data || []);
-    } catch (error) {
-      console.error('Error fetching customers:', error);
-    }
-  };
+  // --- Handlers ---
 
   // Function to initiate transfer (Branch Manager)
   const handleInitiateTransfer = async () => {
+    if (!hasPermission('transfers.initiate')) {
+      toast.error('You do not have permission to initiate transfers.');
+      return;
+    }
     if (!formData.newBranch || !formData.newOfficer || selectedCustomers.length === 0) {
-      alert('Please fill all required fields and select at least one customer');
+      toast.warning('Please fill all required fields and select at least one customer');
       return;
     }
 
-    if (!profile?.id) {
-      alert('User not authenticated');
+    if (!profile?.id || !profile?.tenant_id) {
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -190,16 +190,16 @@ const CustomerTransferForm = () => {
           user_id: profile.id,
           tenant_id: profile.tenant_id,
           action: 'initiated',
-          remarks: 'Transfer initiated by branch manager'
+          remarks: null // Removed redundant text
         });
 
       if (logError) throw logError;
 
-      alert('Transfer request initiated successfully! Awaiting regional manager approval.');
+      toast.success(`Transfer request initiated successfully! Awaiting ${workflowRoles.confirm} approval.`);
       navigate('/customer-transfers/pending');
     } catch (error) {
       console.error('Error initiating transfer:', error);
-      alert('Failed to initiate transfer: ' + error.message);
+      toast.error('Failed to initiate transfer. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -207,8 +207,12 @@ const CustomerTransferForm = () => {
 
   // Function to approve transfer (Regional Manager)
   const handleApproveTransfer = async (transferId) => {
+    if (!hasPermission('transfers.confirm')) {
+      toast.error('You do not have permission to confirm transfers.');
+      return;
+    }
     if (!profile?.id) {
-      alert('User not authenticated');
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -240,10 +244,10 @@ const CustomerTransferForm = () => {
 
       if (logError) throw logError;
 
-      alert('Transfer approved successfully! Awaiting credit analyst execution.');
+      toast.success(`Transfer approved successfully! Awaiting ${workflowRoles.authorize} execution.`);
     } catch (error) {
       console.error('Error approving transfer:', error);
-      alert('Failed to approve transfer: ' + error.message);
+      toast.error('Failed to approve transfer. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -251,8 +255,12 @@ const CustomerTransferForm = () => {
 
   // Function to execute transfer (Credit Analyst)
   const handleExecuteTransfer = async (transferId) => {
+    if (!hasPermission('transfers.authorize')) {
+      toast.error('You do not have permission to authorize transfers.');
+      return;
+    }
     if (!profile?.id) {
-      alert('User not authenticated');
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -330,11 +338,11 @@ const CustomerTransferForm = () => {
 
       if (logError) throw logError;
 
-      alert(`Successfully transferred ${customerIds.length} customer(s)!`);
+      toast.success(`Successfully transferred ${customerIds.length} customer(s)!`);
       navigate('/customer-transfers/history');
     } catch (error) {
       console.error('Error executing transfer:', error);
-      alert('Failed to execute transfer: ' + error.message);
+      toast.error('Failed to execute transfer. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -342,8 +350,12 @@ const CustomerTransferForm = () => {
 
   // Function to reject transfer (Regional Manager)
   const handleRejectTransfer = async (transferId, reason) => {
+    if (!hasPermission('transfers.confirm')) {
+      toast.error('You do not have permission to reject transfers.');
+      return;
+    }
     if (!profile?.id) {
-      alert('User not authenticated');
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -373,10 +385,10 @@ const CustomerTransferForm = () => {
 
       if (logError) throw logError;
 
-      alert('Transfer request rejected.');
+      toast.success('Transfer request rejected.');
     } catch (error) {
       console.error('Error rejecting transfer:', error);
-      alert('Failed to reject transfer: ' + error.message);
+      toast.error('Failed to reject transfer. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -409,42 +421,45 @@ const CustomerTransferForm = () => {
     selectedCustomers.includes(customer.id)
   );
 
-  // Render based on user role
+  // Render based on user permissions
   const renderFormBasedOnRole = () => {
     if (!profile) return null;
 
-    switch (profile.role) {
-      case 'branch_manager':
-        return renderBranchManagerForm();
-      case 'regional_manager':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-lg text-slate-600 mb-6">Pending Transfers for Approval</h2>
-            <PendingTransfersList
-              currentUser={profile}
-              onApprove={handleApproveTransfer}
-              onReject={handleRejectTransfer}
-            />
-          </div>
-        );
-      case 'credit_analyst_officer':
-        return (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
-            <h2 className="text-sm  text-slate-900 mb-6">Approved Transfers for Execution</h2>
-            <ApprovedTransfersList
-              currentUser={profile}
-              onExecute={handleExecuteTransfer}
-            />
-          </div>
-        );
-      default:
-        return (
-          <div className="text-center py-8">
-            <p className="text-gray-600">You don't have permission to access this feature.</p>
-            <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
-          </div>
-        );
+    if (hasPermission('transfers.initiate')) {
+      return renderBranchManagerForm();
     }
+
+    if (hasPermission('transfers.confirm')) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-lg text-slate-600 mb-6">Pending Transfers for Approval</h2>
+          <PendingTransfersList
+            currentUser={profile}
+            onApprove={handleApproveTransfer}
+            onReject={handleRejectTransfer}
+          />
+        </div>
+      );
+    }
+
+    if (hasPermission('transfers.authorize')) {
+      return (
+        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <h2 className="text-sm  text-slate-900 mb-6">Approved Transfers for Execution</h2>
+          <ApprovedTransfersList
+            currentUser={profile}
+            onExecute={handleExecuteTransfer}
+          />
+        </div>
+      );
+    }
+
+    return (
+      <div className="text-center py-8">
+        <p className="text-gray-600">You don't have permission to access this feature.</p>
+        <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
+      </div>
+    );
   };
 
   const renderBranchManagerForm = () => {
@@ -464,7 +479,7 @@ const CustomerTransferForm = () => {
                   <span className="font-bold">1</span>
                 </div>
                 <span className="text-sm font-semibold mt-2">Initiate</span>
-                <span className="text-xs text-gray-500">Branch Manager</span>
+                <span className="text-xs text-gray-500">{workflowRoles.initiate}</span>
               </div>
               <div className="flex-1 h-1 bg-gray-300 mx-4"></div>
               <div className="flex flex-col items-center">
@@ -472,7 +487,7 @@ const CustomerTransferForm = () => {
                   <span className="font-bold">2</span>
                 </div>
                 <span className="text-sm font-semibold mt-2">Approve</span>
-                <span className="text-xs text-gray-500">Regional Manager</span>
+                <span className="text-xs text-gray-500">{workflowRoles.confirm}</span>
               </div>
               <div className="flex-1 h-1 bg-gray-300 mx-4"></div>
               <div className="flex flex-col items-center">
@@ -480,7 +495,7 @@ const CustomerTransferForm = () => {
                   <span className="font-bold">3</span>
                 </div>
                 <span className="text-sm font-semibold mt-2">Execute</span>
-                <span className="text-xs text-gray-500">Credit Analyst</span>
+                <span className="text-xs text-gray-500">{workflowRoles.authorize}</span>
               </div>
             </div>
           </div>

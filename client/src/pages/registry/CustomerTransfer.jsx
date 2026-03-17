@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../hooks/userAuth.js';
+import { usePermissions } from '../../hooks/usePermissions';
+import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
 import { useToast } from '../../components/Toast.jsx';
 import { supabase } from '../../supabaseClient';
 import Spinner from '../../components/Spinner.jsx';
@@ -9,7 +11,8 @@ const CustomerTransfer = () => {
   const navigate = useNavigate();
   const toast = useToast();
   const { profile } = useAuth();
-  const [currentUser, setCurrentUser] = useState(null);
+  const { hasPermission } = usePermissions();
+  const workflowRoles = useWorkflowRoles();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -17,31 +20,11 @@ const CustomerTransfer = () => {
   const [actionLoading, setActionLoading] = useState({});
 
   useEffect(() => {
-    fetchCurrentUser();
-  }, []);
-
-  useEffect(() => {
     if (profile) {
       fetchTransfers();
     }
   }, [profile]);
 
-  const fetchCurrentUser = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: userData } = await supabase
-          .from('users')
-          .select('id, role, full_name')
-          .eq('id', user.id)
-          .single();
-        setCurrentUser(userData);
-      }
-    } catch (error) {
-      console.error('Error fetching current user:', error);
-      toast.error('Failed to load user data');
-    }
-  };
 
   const fetchTransfers = async () => {
     try {
@@ -91,8 +74,12 @@ const CustomerTransfer = () => {
   };
 
   const handleApproveTransfer = async (transferId) => {
-    if (!profile?.id) {
-      toast.error('User not authenticated');
+    if (!hasPermission('transfers.confirm')) {
+      toast.error('You do not have permission to approve transfers');
+      return;
+    }
+    if (!profile?.id || !profile?.tenant_id) {
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -119,24 +106,28 @@ const CustomerTransfer = () => {
           user_id: profile.id,
           tenant_id: profile.tenant_id,
           action: 'approved',
-          remarks: 'Transfer approved by Regional Manager'
+          remarks: `Transfer approved by ${workflowRoles.confirm}`
         });
 
       if (logError) throw logError;
 
-      toast.success('Transfer approved successfully! Awaiting credit analyst execution.');
+      toast.success(`Transfer approved successfully! Awaiting ${workflowRoles.authorize} execution.`);
       await fetchTransfers();
     } catch (error) {
       console.error('Error approving transfer:', error);
-      toast.error('Failed to approve transfer: ' + error.message);
+      toast.error('Failed to approve transfer. Please try again.');
     } finally {
       setActionLoading(prev => ({ ...prev, [transferId]: false }));
     }
   };
 
   const handleRejectTransfer = async (transferId, reason) => {
-    if (!profile?.id) {
-      toast.error('User not authenticated');
+    if (!hasPermission('transfers.confirm')) {
+      toast.error('You do not have permission to reject transfers');
+      return;
+    }
+    if (!profile?.id || !profile?.tenant_id) {
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -176,15 +167,19 @@ const CustomerTransfer = () => {
       await fetchTransfers();
     } catch (error) {
       console.error('Error rejecting transfer:', error);
-      toast.error('Failed to reject transfer: ' + error.message);
+      toast.error('Failed to reject transfer. Please try again.');
     } finally {
       setActionLoading(prev => ({ ...prev, [transferId]: false }));
     }
   };
 
   const handleExecuteTransfer = async (transferId) => {
-    if (!profile?.id) {
-      toast.error('User not authenticated');
+    if (!hasPermission('transfers.authorize')) {
+      toast.error('You do not have permission to authorize transfers');
+      return;
+    }
+    if (!profile?.id || !profile?.tenant_id) {
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
@@ -259,7 +254,7 @@ const CustomerTransfer = () => {
       await fetchTransfers();
     } catch (error) {
       console.error('Error executing transfer:', error);
-      toast.error('Failed to execute transfer: ' + error.message);
+      toast.error('Failed to execute transfer. Please try again.');
     } finally {
       setActionLoading(prev => ({ ...prev, [transferId]: false }));
     }
@@ -288,51 +283,30 @@ const CustomerTransfer = () => {
   const getActionButtons = (transfer) => {
     if (!profile) return null;
 
-    switch (profile.role) {
-      case 'regional_manager':
-        if (transfer.status === 'pending_approval') {
-          return (
-            <div className="flex gap-2">
-              <button
-                onClick={() => handleApproveTransfer(transfer.id)}
-                disabled={actionLoading[transfer.id] === 'approving'}
-                className="px-3 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
-              >
-                {actionLoading[transfer.id] === 'approving' ? 'Approving...' : 'Approve'}
-              </button>
-              <button
-                onClick={() => {
-                  const reason = prompt('Please enter rejection reason:');
-                  if (reason) handleRejectTransfer(transfer.id, reason);
-                }}
-                disabled={actionLoading[transfer.id] === 'rejecting'}
-                className="px-3 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-              >
-                {actionLoading[transfer.id] === 'rejecting' ? 'Rejecting...' : 'Reject'}
-              </button>
-            </div>
-          );
-        }
-        break;
+    const canApprove  = transfer.status === 'pending_approval' && hasPermission('transfers.confirm');
+    const canExecute  = transfer.status === 'approved'         && hasPermission('transfers.authorize');
 
-      case 'credit_analyst_officer':
-      case 'credit_analyst':
-        if (transfer.status === 'approved') {
-          return (
-            <button
-              onClick={() => handleExecuteTransfer(transfer.id)}
-              disabled={actionLoading[transfer.id] === 'executing'}
-              className="px-3 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              {actionLoading[transfer.id] === 'executing' ? 'Executing...' : 'Execute Transfer'}
-            </button>
-          );
-        }
-        break;
-      default:
-        return null;
-    }
-    return null;
+    // Label and colour based on what the current user can do
+    const label = canApprove ? 'Review & Approve'
+                : canExecute ? 'Review & Execute'
+                : 'View Details';
+
+    const colorClass = canApprove ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
+                     : canExecute ? 'bg-blue-600   hover:bg-blue-700   text-white border-blue-600'
+                     : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300';
+
+    return (
+      <button
+        onClick={() => navigate(`/registry/customer-transfer/${transfer.id}/review`)}
+        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border shadow-sm transition-colors ${colorClass}`}
+      >
+        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        {label}
+      </button>
+    );
   };
 
   const toggleExpandTransfer = (transferId) => {
@@ -370,7 +344,7 @@ const CustomerTransfer = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 mb-4">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
             {/* Create Transfer Button */}
-            {currentUser?.role === 'branch_manager' && (
+            {hasPermission('transfers.initiate') && (
               <button
                 onClick={() => navigate('/transfer')}
                 className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
@@ -459,8 +433,8 @@ const CustomerTransfer = () => {
                   </tr>
                 ) : (
                   filteredTransfers.map((transfer) => (
-                    <>
-                      <tr key={transfer.id} className="hover:bg-gray-50 transition-colors">
+                    <React.Fragment key={transfer.id}>
+                      <tr className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap">
                           <span className="text-sm font-mono text-gray-900">
                             #{transfer.id.slice(0, 8)}
@@ -489,7 +463,7 @@ const CustomerTransfer = () => {
                         <td className="px-4 py-3">
                           <button
                             onClick={() => toggleExpandTransfer(transfer.id)}
-                            className="inline-flex items-center gap-1 text-brand-btn hover:text-brand-btn-hoover font-semibold text-sm transition-colors"
+                            className="inline-flex items-center gap-1 text-brand-btn hover:text-brand-btn-hover font-semibold text-sm transition-colors"
                           >
                             <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
                               {transfer.transfer_items?.length || 0}
@@ -514,7 +488,7 @@ const CustomerTransfer = () => {
                               {transfer.branch_manager?.full_name}
                             </p>
                             <p className="text-xs text-gray-500">
-                              Branch Manager
+                              {workflowRoles.initiate}
                             </p>
                           </div>
                         </td>
@@ -600,7 +574,7 @@ const CustomerTransfer = () => {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </React.Fragment>
                   ))
                 )}
               </tbody>

@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
+import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
+import { useToast } from '../../components/Toast.jsx';
 import Spinner from '../../components/Spinner.jsx';
 
-const PendingTransfersList = ({ onApprove, onReject }) => {
+const PendingTransfersList = ({ onApprove, onReject, currentUser }) => {
+  const workflowRoles = useWorkflowRoles();
+  const toast = useToast();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [rejectReason, setRejectReason] = useState('');
@@ -45,13 +49,17 @@ const PendingTransfersList = ({ onApprove, onReject }) => {
       setTransfers(data || []);
     } catch (error) {
       console.error('Error fetching pending transfers:', error);
-      alert('Failed to load pending transfers: ' + error.message);
+      toast.error('Failed to load pending transfers. Please try again.');
     } finally {
       setLoading(false);
     }
   };
 
   const handleApprove = async (transferId) => {
+    if (!currentUser?.id || !currentUser?.tenant_id) {
+      toast.error('Authentication error. Please refresh and try again.');
+      return;
+    }
     if (window.confirm('Are you sure you want to approve this transfer request?')) {
       await onApprove(transferId);
       setRefreshKey(prev => prev + 1); // Refresh the list
@@ -59,8 +67,12 @@ const PendingTransfersList = ({ onApprove, onReject }) => {
   };
 
   const handleReject = async (transferId) => {
+    if (!currentUser?.id || !currentUser?.tenant_id) {
+      toast.error('Authentication error. Please refresh and try again.');
+      return;
+    }
     if (!rejectReason.trim()) {
-      alert('Please provide a reason for rejection');
+      toast.warning('Please provide a reason for rejection');
       return;
     }
 
@@ -150,7 +162,7 @@ const PendingTransfersList = ({ onApprove, onReject }) => {
               <div className="mb-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-2">Initiated By</h4>
                 <p className="text-sm text-gray-600">
-                  {transfer.branch_manager?.full_name}
+                  {transfer.branch_manager?.full_name} ({workflowRoles.initiate})
                 </p>
                 {transfer.remarks && (
                   <div className="mt-2">

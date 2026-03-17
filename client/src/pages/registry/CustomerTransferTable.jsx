@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../supabaseClient.js';
+import { useAuth } from '../../hooks/userAuth.js';
+import { useToast } from '../../components/Toast.jsx';
 
 const CustomerTransferTable = () => {
+  const { profile } = useAuth();
+  const toast = useToast();
   const [transfers, setTransfers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -22,9 +26,11 @@ const CustomerTransferTable = () => {
 
   const fetchBranches = async () => {
     try {
+      if (!profile?.tenant_id) return;
       const { data, error } = await supabase
         .from('branches')
         .select('id, name')
+        .eq('tenant_id', profile.tenant_id)
         .order('name');
 
       if (error) throw error;
@@ -36,9 +42,11 @@ const CustomerTransferTable = () => {
 
   const fetchOfficers = async () => {
     try {
+      if (!profile?.tenant_id) return;
       const { data, error } = await supabase
         .from('users')
         .select('id, Firstname, Surname')
+        .eq('tenant_id', profile.tenant_id)
         .order('Firstname');
 
       if (error) throw error;
@@ -50,6 +58,7 @@ const CustomerTransferTable = () => {
 
   const fetchTransfers = async () => {
     try {
+      if (!profile?.tenant_id) return;
       setLoading(true);
       let query = supabase
         .from('customer_transfers')
@@ -61,6 +70,7 @@ const CustomerTransferTable = () => {
           new_officer:users!customer_transfers_new_officer_id_fkey(Firstname, Surname),
           created_by_user:users!customer_transfers_created_by_fkey(Firstname, Surname)
         `)
+        .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
       const { data, error } = await query;
@@ -69,6 +79,7 @@ const CustomerTransferTable = () => {
       setTransfers(data || []);
     } catch (error) {
       console.error('Error fetching transfers:', error);
+      toast.error('Failed to load transfers');
     } finally {
       setLoading(false);
     }
@@ -96,7 +107,7 @@ const CustomerTransferTable = () => {
   };
 
   if (showForm) {
-    return <CustomerTransferForm onClose={() => setShowForm(false)} onSuccess={fetchTransfers} />;
+    return <CustomerTransferForm currentUser={profile} onClose={() => setShowForm(false)} onSuccess={fetchTransfers} />;
   }
 
   return (
@@ -254,7 +265,8 @@ const CustomerTransferTable = () => {
 };
 
 // Customer Transfer Form Component
-const CustomerTransferForm = ({ onClose, onSuccess }) => {
+const CustomerTransferForm = ({ currentUser, onClose, onSuccess }) => {
+  const toast = useToast();
   const [formData, setFormData] = useState({
     currentBranch: '',
     currentOfficer: '',
@@ -284,9 +296,11 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
 
   const fetchBranches = async () => {
     try {
+      if (!currentUser?.tenant_id) return;
       const { data, error } = await supabase
         .from('branches')
         .select('id, name')
+        .eq('tenant_id', currentUser.tenant_id)
         .order('name');
 
       if (error) throw error;
@@ -298,9 +312,11 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
 
   const fetchOfficers = async () => {
     try {
+      if (!currentUser?.tenant_id) return;
       const { data, error } = await supabase
         .from('users')
         .select('id, Firstname, Surname')
+        .eq('tenant_id', currentUser.tenant_id)
         .order('Firstname');
 
       if (error) throw error;
@@ -312,6 +328,7 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
 
   const fetchCustomers = async () => {
     try {
+      if (!currentUser?.tenant_id) return;
       const { data, error } = await supabase
         .from('customers')
         .select(`
@@ -320,12 +337,14 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
           officer:users(Firstname, Surname)
         `)
         .eq('branch_id', formData.currentBranch)
-        .eq('created_by', formData.currentOfficer);
+        .eq('created_by', formData.currentOfficer)
+        .eq('tenant_id', currentUser.tenant_id);
 
       if (error) throw error;
       setCustomers(data || []);
     } catch (error) {
       console.error('Error fetching customers:', error);
+      toast.error('Failed to load customers. Please refresh.');
     }
   };
 
@@ -345,15 +364,18 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
     e.preventDefault();
 
     if (!formData.newBranch || !formData.newOfficer || selectedCustomers.length === 0) {
-      alert('Please fill all required fields and select at least one customer');
+      toast.warning('Please fill all required fields and select at least one customer');
+      return;
+    }
+
+    if (!currentUser?.id || !currentUser?.tenant_id) {
+      toast.error('User authentication error. Please refresh and try again.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-
       const transferData = {
         current_branch_id: formData.currentBranch,
         current_officer_id: formData.currentOfficer,
@@ -361,7 +383,8 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
         new_officer_id: formData.newOfficer,
         customer_ids: selectedCustomers,
         status: 'pending',
-        created_by: user?.id,
+        created_by: currentUser.id,
+        tenant_id: currentUser.tenant_id,
         created_at: new Date().toISOString()
       };
 
@@ -371,12 +394,12 @@ const CustomerTransferForm = ({ onClose, onSuccess }) => {
 
       if (error) throw error;
 
-      alert('Transfer request created successfully!');
+      toast.success('Transfer request created successfully!');
       onSuccess();
       onClose();
     } catch (error) {
       console.error('Error creating transfer:', error);
-      alert('Failed to create transfer request');
+      toast.error('Failed to create transfer request. Please try again.');
     } finally {
       setLoading(false);
     }

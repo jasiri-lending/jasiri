@@ -16,6 +16,7 @@ import {
 import { supabase } from '../../supabaseClient.js';
 import { useAuth } from '../../hooks/userAuth.js';
 import { usePermissions } from '../../hooks/usePermissions';
+import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
 
@@ -23,6 +24,7 @@ const ReviewEditRequest = () => {
     const { requestId, requestType } = useParams();
     const { profile } = useAuth();
     const { hasPermission } = usePermissions();
+    const { imageUploadEnabled } = useTenantFeatures();
     const navigate = useNavigate();
     const toast = useToast();
 
@@ -415,6 +417,64 @@ const ReviewEditRequest = () => {
                                         />
                                     )}
                                 </>
+                            ) : ['security', 'guarantor_security'].includes(request.section_type) ? (
+                                <div className="space-y-4">
+                                    {(request.new_values?.security_items || request.new_values?.guarantor_security || []).map((item, idx) => (
+                                        <div key={idx} className="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+                                            <div className="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <div className="p-2 bg-white rounded-xl shadow-sm">
+                                                        <ShieldCheckIcon className="w-5 h-5 text-[#586ab1]" />
+                                                    </div>
+                                                    <h3 className="text-slate-600 font-bold text-sm">
+                                                        {item.item_name || 'Unnamed Item'}
+                                                    </h3>
+                                                </div>
+                                                <span className="px-3 py-1 bg-[#586ab1]/10 text-[#586ab1] rounded-full text-[10px] font-black tracking-widest uppercase">
+                                                    Proposed Addition
+                                                </span>
+                                            </div>
+                                            <div className="p-6">
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-widest mb-1.5 ml-1">Estimated Value</p>
+                                                        <p className="text-sm font-bold text-[#586ab1] bg-[#586ab1]/5 p-3 rounded-xl border border-[#586ab1]/20">
+                                                            KES {Number(item.item_value).toLocaleString()}
+                                                        </p>
+                                                    </div>
+                                                    <div className="space-y-1">
+                                                        <p className="text-[10px] font-black text-slate-400 mt-2 uppercase tracking-widest mb-1.5 ml-1">Identification</p>
+                                                        <p className="text-sm font-medium text-slate-600 bg-slate-50 p-3 rounded-xl border border-dashed border-slate-200">
+                                                            {item.item_identification || item.item_description || '---'}
+                                                        </p>
+                                                    </div>
+                                                </div>
+
+                                                {imageUploadEnabled && item.images && item.images.length > 0 && (
+                                                    <div className="space-y-3">
+                                                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Supporting Images</p>
+                                                        <div className="flex flex-wrap gap-3">
+                                                            {item.images.map((url, i) => (
+                                                                <a
+                                                                    key={i}
+                                                                    href={url}
+                                                                    target="_blank"
+                                                                    rel="noopener noreferrer"
+                                                                    className="relative w-24 h-24 rounded-2xl overflow-hidden border border-slate-200 group/img shadow-sm"
+                                                                >
+                                                                    <img src={url} alt="security" className="w-full h-full object-cover" />
+                                                                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
+                                                                        <ArrowTopRightOnSquareIcon className="w-6 h-6 text-white" />
+                                                                    </div>
+                                                                </a>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
                                 Object.entries(request.new_values || {})
                                     .filter(([key, value]) => {

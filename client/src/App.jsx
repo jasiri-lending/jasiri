@@ -150,6 +150,7 @@ const FinancialDashboard = lazy(() => import("./pages/FinancialDashboard.jsx"));
 const UserProfile = lazy(() => import("./pages/UserProfile.jsx"));
 const ReportsLayout = lazy(() => import("./context/ReportsLayout.jsx"));
 const ReviewEditRequest = lazy(() => import("./pages/registry/ReviewEditRequest.jsx"));
+const TransferReviewPage = lazy(() => import("./pages/registry/TransferReviewPage.jsx"));
 
 // ReportWrapper component for permission-based report access
 const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) => {
@@ -490,6 +491,14 @@ function MainLayout({
                         element={
                           <ProtectedRoute>
                             <CustomerTransfer userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/registry/customer-transfer/:transferId/review"
+                        element={
+                          <ProtectedRoute>
+                            <TransferReviewPage userRole={role} />
                           </ProtectedRoute>
                         }
                       />
