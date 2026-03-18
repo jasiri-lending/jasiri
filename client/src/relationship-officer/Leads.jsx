@@ -66,16 +66,33 @@ const Leads = () => {
 
       setIsLoading(true);
 
-      const { data, error } = await supabase
+      const { data: leadsData, error: leadsError } = await supabase
         .from("leads")
         .select("*")
         .eq("created_by", profile.id);
 
-      if (error) {
+      if (leadsError) {
         toast.error("Failed to fetch leads");
-        console.error("Error fetching leads:", error);
+        console.error("Error fetching leads:", leadsError);
       } else {
-        setLeads(data || []);
+        // Fetch customers to determine if leads have been converted
+        const { data: customersData, error: customersError } = await supabase
+          .from("customers")
+          .select("lead_id")
+          .not("lead_id", "is", null);
+
+        if (customersError) {
+          console.error("Error fetching customers for lead mapping:", customersError);
+        }
+
+        const convertedLeadIds = new Set((customersData || []).map(c => c.lead_id));
+        
+        const processedLeads = (leadsData || []).map(lead => ({
+          ...lead,
+          is_converted: convertedLeadIds.has(lead.id) || lead.status === 'converted'
+        }));
+
+        setLeads(processedLeads);
       }
     } catch (err) {
       console.error("Error fetching leads:", err);
@@ -102,7 +119,7 @@ const Leads = () => {
   // Check uniqueness of mobile across ALL relevant tables
   const checkUniqueMobile = async (mobile) => {
     try {
-      console.log("🔍 [LEADS] Starting mobile uniqueness check for:", mobile);
+      console.log("[LEADS] Starting mobile uniqueness check for:", mobile);
 
       // normalize number (remove spaces/dashes)
       const cleanMobile = mobile.replace(/\D/g, "");
@@ -124,7 +141,7 @@ const Leads = () => {
           .eq("tenant_id", profile?.tenant_id);
 
         if (error) {
-          console.error(`❌ [LEADS] Error checking mobile in ${table}:`, {
+          console.error(` [LEADS] Error checking mobile in ${table}:`, {
             message: error.message,
             details: error.details,
             hint: error.hint,
@@ -136,7 +153,7 @@ const Leads = () => {
 
         if (data && data.length > 0) {
           // phone already exists in this table
-          console.warn(`⚠️ [LEADS] Duplicate found in table: ${table}, ID:`, data[0].id);
+          console.warn(` [LEADS] Duplicate found in table: ${table}, ID:`, data[0].id);
           toast.error(`This phone number already exists in ${table}`);
           return false;
         }
@@ -313,7 +330,7 @@ const Leads = () => {
   }
 
   return (
-    <div className="h-full bg-brand-surface p-8 min-h-screen font-body">
+    <div className="h-full bg-muted p-8 min-h-screen font-body">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Leads Management
       </h1>
@@ -481,11 +498,25 @@ const Leads = () => {
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <button
                         onClick={() => handleConvertToCustomer(lead)}
-                        className="px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all font-medium text-xs flex items-center gap-2 shadow-sm"
-                        title="Convert to Customer"
+                        disabled={lead.is_converted}
+                        className={`px-4 py-2 text-white rounded-lg transition-all font-medium text-xs flex items-center gap-2 shadow-sm ${
+                          lead.is_converted 
+                            ? 'bg-emerald-500 cursor-not-allowed opacity-90' 
+                            : 'bg-brand-primary hover:bg-brand-primary/90'
+                        }`}
+                        title={lead.is_converted ? "Already Converted" : "Convert to Customer"}
                       >
-                        <ArrowPathIcon className="h-3 w-3" />
-                        Convert
+                        {lead.is_converted ? (
+                          <>
+                            <CheckCircleIcon className="h-3 w-3" />
+                            Converted
+                          </>
+                        ) : (
+                          <>
+                            <ArrowPathIcon className="h-3 w-3" />
+                            Convert
+                          </>
+                        )}
                       </button>
                     </td>
                   </tr>

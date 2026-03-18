@@ -543,11 +543,21 @@ const CustomerDraft = () => {
 
     const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
 
-    const fetchCoordinates = async () => {
+    const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            "Accept-Language": "en-US,en;q=0.9",
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn("Geocoding failed:", response.status);
+          return;
+        }
+
         const data = await response.json();
 
         if (data && data.length > 0) {
@@ -564,9 +574,9 @@ const CustomerDraft = () => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    };
+    }, 1500);
 
-    fetchCoordinates();
+    return () => clearTimeout(timer);
   }, [
     formData.county,
     formData.businessLocation,
@@ -612,6 +622,11 @@ const CustomerDraft = () => {
 
   const handleLocationChange = useCallback((coords) => {
     setFormData((prev) => ({ ...prev, businessCoordinates: coords }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.businessCoordinates;
+      return newErrors;
+    });
   }, []);
 
   const isAtLeast18YearsOld = (dateString) => {

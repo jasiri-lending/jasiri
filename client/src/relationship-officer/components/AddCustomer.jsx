@@ -275,11 +275,21 @@ const AddCustomer = () => {
 
     const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
 
-    const fetchCoordinates = async () => {
+    const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            "Accept-Language": "en-US,en;q=0.9",
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn("Geocoding failed:", response.status);
+          return;
+        }
+
         const data = await response.json();
 
         if (data && data.length > 0) {
@@ -297,9 +307,9 @@ const AddCustomer = () => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    };
+    }, 1500);
 
-    fetchCoordinates();
+    return () => clearTimeout(timer);
   }, [
     formData.county,
     formData.businessLocation,
@@ -358,7 +368,7 @@ const AddCustomer = () => {
         if (!/^[0-9]{10,15}$/.test(cleaned)) {
           setErrors((prev) => ({
             ...prev,
-            alternativeMobile: "Invalid next of kin mobile format (10-15 digits)",
+            alternativeMobile: "Invalid alternative mobile format (10-15 digits)",
           }));
         } else {
           const exists = await checkUniqueValue(
@@ -594,6 +604,11 @@ const AddCustomer = () => {
 
   const handleLocationChange = useCallback((coords) => {
     setFormData((prev) => ({ ...prev, businessCoordinates: coords }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.businessCoordinates;
+      return newErrors;
+    });
   }, []);
 
   // Helper functions

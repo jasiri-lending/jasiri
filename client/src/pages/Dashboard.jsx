@@ -439,7 +439,7 @@ const LeadConversionCard = ({
   <div
     className="p-6 rounded-3xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col items-center group transition-all hover:shadow-[0_15px_40px_rgba(0,0,0,0.04)]"
   >
-    <h4 className="text-xs font-black uppercase tracking-widest text-slate-400 mb-6 group-hover:text-slate-600 transition-colors">
+    <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 mb-6 group-hover:text-slate-600 transition-colors whitespace-nowrap">
       {title}
     </h4>
     <div className="mb-4">
@@ -1010,7 +1010,7 @@ const Dashboard = () => {
       month: { collected: monthCollected, expected: monthExpected, rate: monthRate },
       tomorrow: { expected: tomorrowExpected, prepaid: prepaidAmount, rate: tomorrowRate },
     };
-  }, [allInstallments, allPayments]);
+  }, [allInstallments, allPayments, applyFilters, allLoans]); // Added applyFilters and allLoans to dependencies for safety
 
   const calculateCustomerMetrics = useCallback((filteredCustomers) => {
     const today = getTodayDate();
@@ -1060,6 +1060,19 @@ const Dashboard = () => {
     ).length;
 
     const filteredLeads = applyFilters(allLeads, "leads");
+
+    // NEW LOGIC: Conversion = customers created within period that have a lead_id
+    const convertedToday = filteredCustomers.filter(c =>
+      c.lead_id != null && 
+      c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) === today
+    ).length;
+
+    const convertedMonth = filteredCustomers.filter(c =>
+      c.lead_id != null && 
+      c.created_at && getLocalYYYYMMDD(new Date(c.created_at)) >= monthStart && getLocalYYYYMMDD(new Date(c.created_at)) <= getMonthEndDate()
+    ).length;
+
+    // Denominator = leads CREATED in the same period (converted or not)
     const leadsToday = filteredLeads.filter(lead =>
       lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) === today
     ).length;
@@ -1068,11 +1081,14 @@ const Dashboard = () => {
       lead.created_at && getLocalYYYYMMDD(new Date(lead.created_at)) >= monthStart
     ).length;
 
-    const convertedToday = newToday;
-    const convertedMonth = newMonth;
-
-    const conversionRateToday = leadsToday > 0 ? (convertedToday / leadsToday) * 100 : 0;
-    const conversionRateMonth = leadsMonth > 0 ? (convertedMonth / leadsMonth) * 100 : 0;
+    // Rate — cap at 100% for display sanity
+    const conversionRateToday = leadsToday > 0 
+      ? Math.min((convertedToday / leadsToday) * 100, 100) 
+      : 0;
+    
+    const conversionRateMonth = leadsMonth > 0 
+      ? Math.min((convertedMonth / leadsMonth) * 100, 100) 
+      : 0;
 
     return {
       total: filteredCustomers.length,
@@ -1080,7 +1096,7 @@ const Dashboard = () => {
       inactive: inactiveCustomers,
       newToday,
       newMonth,
-      newYTD, // Add this field
+      newYTD,
       leadsToday,
       leadsMonth,
       convertedToday,
@@ -1756,7 +1772,7 @@ const Dashboard = () => {
                     title="Leads Conversion Today"
                     percentage={Math.round(dashboardData.customers.conversionRateToday)}
                     label="Conversion"
-                    leadsText={`${dashboardData.customers.leadsToday} Leads generated today`}
+                    leadsText={`Leads: ${dashboardData.customers.leadsToday} | Converted: ${dashboardData.customers.convertedToday}`}
                   />
                 </div>
               </div>
@@ -1768,7 +1784,7 @@ const Dashboard = () => {
                     title="Lead Conversion This Month"
                     percentage={Math.round(dashboardData.customers.conversionRateMonth)}
                     label="Conversion"
-                    leadsText={`${dashboardData.customers.leadsMonth} Leads generated this month`}
+                    leadsText={`Leads: ${dashboardData.customers.leadsMonth} | Converted: ${dashboardData.customers.convertedMonth}`}
                   />
                 </div>
                 <div className="grid grid-cols-1 gap-4 w-full md:w-1/2">

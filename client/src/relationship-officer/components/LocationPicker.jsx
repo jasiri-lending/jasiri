@@ -159,7 +159,7 @@ const LocationPicker = ({
           <iframe
             width="100%"
             height="300"
-            src={mapUrl}
+            src={mapUrl || undefined}
             title="Location Map"
           ></iframe>
           <div className="bg-gray-50 p-2 text-xs text-gray-600 flex items-center gap-2">

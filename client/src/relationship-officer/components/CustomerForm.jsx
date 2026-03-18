@@ -295,11 +295,21 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
     const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
 
-    const fetchCoordinates = async () => {
+    const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
 
-        const response = await fetch(url);
+        const response = await fetch(url, {
+          headers: {
+            "Accept-Language": "en-US,en;q=0.9",
+          }
+        });
+        
+        if (!response.ok) {
+          console.warn("Geocoding failed:", response.status);
+          return;
+        }
+
         const data = await response.json();
 
         if (data && data.length > 0) {
@@ -317,9 +327,9 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    };
+    }, 1500); // 1.5s debounce to prevent 429 Too Many Requests
 
-    fetchCoordinates();
+    return () => clearTimeout(timer);
   }, [
     formData.county,
     formData.businessLocation,
@@ -378,7 +388,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         if (!/^[0-9]{10,15}$/.test(cleaned)) {
           setErrors((prev) => ({
             ...prev,
-            alternativeMobile: "Invalid next of kin mobile format (10-15 digits)",
+            alternativeMobile: "Invalid alternative mobile format (10-15 digits)",
           }));
         } else {
           const exists = await checkUniqueValue(
@@ -614,6 +624,11 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
   const handleLocationChange = useCallback((coords) => {
     setFormData((prev) => ({ ...prev, businessCoordinates: coords }));
+    setErrors((prev) => {
+      const newErrors = { ...prev };
+      delete newErrors.businessCoordinates;
+      return newErrors;
+    });
   }, []);
 
   // Helper functions
@@ -1514,6 +1529,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         tenant_id: profile?.tenant_id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
+        lead_id: leadData?.id || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -1536,6 +1552,18 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
       if (draftResult.error) throw draftResult.error;
       const customerId = draftResult.data.id;
+
+      // Update lead status if this was a conversion
+      if (leadData?.id) {
+        await supabase
+          .from("leads")
+          .update({
+            converted_at: new Date().toISOString(),
+            converted_by: profile?.id,
+            status: "converted"
+          })
+          .eq("id", leadData.id);
+      }
 
       // 4. PARALLEL UPSERT: All related records at once
       const upsertPromises = [];
@@ -1910,6 +1938,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
         tenant_id: profile?.tenant_id,
+        lead_id: leadData?.id || null,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -1922,6 +1951,18 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
       if (customerError) throw customerError;
       const customerId = customerData.id;
+
+      // Update lead status if this was a conversion
+      if (leadData?.id) {
+        await supabase
+          .from("leads")
+          .update({
+            converted_at: new Date().toISOString(),
+            converted_by: profile?.id,
+            status: "converted"
+          })
+          .eq("id", leadData.id);
+      }
 
       // 4. PARALLEL INSERT: All related records at once
       const insertPromises = [];
@@ -2141,11 +2182,11 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 font-body">
+    <div className="min-h-screen bg-muted py-8 font-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 mb-8 border border-white/50">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+        <div className="bg-gray-50 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
             {sections.map(({ id, label, icon: Icon }) => {
               const isCompleted = completedSections.has(id);
               const isActive = activeSection === id;
@@ -2154,24 +2195,24 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                 <button
                   key={id}
                   onClick={() => setActiveSection(id)}
-                  className="flex flex-col items-center gap-2 transition-all duration-300 group"
+                  className="flex flex-col items-center gap-1.5 transition-all duration-300 group"
                 >
                   <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
-                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-110"
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
+                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105"
                       : isCompleted
                         ? "bg-accent text-white shadow-lg shadow-accent/30 border-2 border-accent"
                         : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
                       }`}
                   >
                     {isCompleted && !isActive ? (
-                      <CheckCircleIcon className="h-7 w-7 text-white" />
+                      <CheckCircleIcon className="h-5 w-5 text-white" />
                     ) : (
-                      <Icon className={`h-7 w-7 ${isActive ? "text-white" : "text-slate-700"}`} />
+                      <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-700"}`} />
                     )}
                   </div>
                   <span
-                    className={`text-xs font-medium text-center transition-all duration-300 ${isActive
+                    className={`text-[10px] sm:text-xs font-medium text-center transition-all duration-300 ${isActive
                       ? "text-brand-primary font-bold"
                       : isCompleted
                         ? "text-accent font-semibold"
@@ -2187,12 +2228,12 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
+        <div className="bg-gray-50 rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
           <form onSubmit={handleSubmit} className="p-8">
             {/* Personal Information */}
             {activeSection === "personal" && (
-              <div className="space-y-8">
-                <div className="border-b border-gray-200 pb-6">
+              <div className="space-y-8 ">
+                <div className="border-b border-gray-200 pb-6 ">
                   <h2 className="text-lg font-semibold text-text flex items-center">
                     <UserCircleIcon className="h-8 w-8 text-brand-primary mr-3" />
                     Personal Information
