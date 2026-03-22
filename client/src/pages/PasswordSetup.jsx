@@ -16,43 +16,20 @@ export default function PasswordSetup() {
     const toast = useToast();
 
     useEffect(() => {
-        // 1. Check if the URL has a Supabase error fragment (like otp_expired)
-        const hash = window.location.hash || window.location.search;
-        if (hash.includes("error=access_denied") || hash.includes("error_code=otp_expired")) {
-            setError("This invitation link has expired or has already been used. Please request a new invitation from your administrator.");
+        // 1. Get email and code from URL query parameters (not fragment!)
+        const params = new URLSearchParams(window.location.search);
+        const emailParam = params.get("email");
+        const codeParam = params.get("code");
+
+        if (!emailParam || !codeParam) {
+            setError("Invalid invitation link. Please make sure you clicked the full link in your email.");
             setVerifying(false);
             return;
         }
 
-        // 2. Listen for the session as Supabase Auth processes the fragment
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-            console.log("Auth event in PasswordSetup:", event, !!session);
-            if (session) {
-                setVerifying(false);
-            }
-        });
-
-        // 3. Initial check and fallback timer
-        const checkInitialSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-                setVerifying(false);
-            } else {
-                // Wait up to 3 seconds for the fragment to be processed before giving up
-                setTimeout(async () => {
-                   const { data: { session: retrySession } } = await supabase.auth.getSession();
-                   if (!retrySession && !error) {
-                        setError("Could not establish a secure session. This can happen if the link was already used or scanned by your email provider. Please try clicking the link in your email again or request a new one.");
-                        setVerifying(false);
-                   }
-                }, 3000);
-            }
-        };
-
-        checkInitialSession();
-
-        return () => subscription.unsubscribe();
-    }, [error]);
+        // 2. Setup page is now instant - no session required
+        setVerifying(false);
+    }, []);
 
     const handleSetPassword = async (e) => {
         e.preventDefault();
@@ -84,37 +61,36 @@ export default function PasswordSetup() {
         }
 
         try {
-            // 1. Update password in Supabase Auth
-            const { error: authError } = await supabase.auth.updateUser({
-                password: newPassword,
-            });
-            if (authError) throw authError;
+            const params = new URLSearchParams(window.location.search);
+            const email = params.get("email");
+            const setupCode = params.get("code");
 
-            // 2. Update must_change_password flag and status in users table
-            const { data: { user } } = await supabase.auth.getUser();
-            if (user) {
-                const { error: dbError } = await supabase
-                    .from("users")
-                    .update({ 
-                        must_change_password: false,
-                        status: 'active' 
-                    })
-                    .eq("id", user.id);
-                if (dbError) console.warn("Could not update user flags (non-critical):", dbError);
+            // Call our new custom session-less setup API
+            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/setup-invite-password`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    email,
+                    setupCode,
+                    newPassword
+                })
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.error || "Failed to set password");
             }
 
             setSuccess(true);
             toast.success("Password set successfully! You can now log in.");
-            
-            // Sign out to ensure a clean login flow as requested
-            await supabase.auth.signOut();
             
             setTimeout(() => {
                 navigate("/login", { replace: true });
             }, 3000);
         } catch (err) {
             console.error("Set password error:", err);
-            setError(err.message || "Failed to set password");
+            setError(err.message || "Failed to set password. Link may have expired.");
         } finally {
             setLoading(false);
         }

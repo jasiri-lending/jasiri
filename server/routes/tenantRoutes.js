@@ -161,41 +161,11 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
       throw authErr;
     }
 
-    // 3.5️⃣ Generate Invitation Link
-    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
-    let linkType = 'invite';
-    let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: linkType,
-      email: admin_email,
-      options: {
-        redirectTo: `${frontendUrl}/passwordsetup`
-      }
-    });
-
-    // Fallback to 'signup' if 'invite' fails
-    if (linkError || !linkData?.properties?.action_link) {
-        console.warn(`⚠️ '${linkType}' link failed for tenant, trying 'signup' fallback...`);
-        linkType = 'signup';
-        const signupResult = await supabaseAdmin.auth.admin.generateLink({
-            type: 'signup',
-            email: admin_email,
-            options: { redirectTo: `${frontendUrl}/passwordsetup` }
-        });
-        linkData = signupResult.data;
-        linkError = signupResult.error;
-    }
-
-    if (linkError) {
-      console.error(`❌ ${linkType} Link Error for tenant:`, linkError);
-    }
+    // 3.5️⃣ Generate Setup Code (No more fragile Supabase sessions)
+    const setupCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const setupLink = `${process.env.FRONTEND_URL}/passwordsetup?email=${encodeURIComponent(admin_email)}&code=${setupCode}`;
     
-    console.log(`📝 Generated Tenant ${linkType} Link Data Keys:`, linkData ? Object.keys(linkData) : "null");
-    
-    const invitationLink = linkData?.properties?.action_link;
-    if (!invitationLink) {
-        console.error("❌ invitationLink for tenant is still null/undefined. linkData:", JSON.stringify(linkData));
-        throw new Error("Critical: Could not generate setup link for tenant admin. Please check Supabase Auth settings (SITE_URL).");
-    }
+    console.log(`📝 Generated Tenant Setup Code for ${admin_email}`);
 
     // 4️⃣ UPDATE the users table (trigger already created the record)
     // Wait a moment for trigger to complete
@@ -207,7 +177,9 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
         full_name: admin_full_name,
         role: "admin",
         tenant_id: tenant.id,
-        must_change_password: true // Force password change
+        must_change_password: true, // Force password change
+        verification_code: setupCode,
+        verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
       })
       .eq("id", authUser.user.id);
 
@@ -235,7 +207,7 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     // 6️⃣ Send credentials email
     console.log(`📧 Attempting to send onboarding email to: ${admin_email}`);
     try {
-      await sendTenantEmail(admin_email, invitationLink, tenant_slug, company_name);
+      await sendTenantEmail(admin_email, setupLink, tenant_slug, company_name);
       console.log(`✅ Onboarding email sent successfully to: ${admin_email}`);
     } catch (emailErr) {
       console.error(`❌ Failed to send onboarding email:`, emailErr);

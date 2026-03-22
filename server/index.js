@@ -221,42 +221,11 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     const userId = authData.user.id;
 
-    // 2.5️⃣ Generate Setup Link for password setup
-    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
-    let linkType = 'invite';
-    let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: linkType,
-      email,
-      options: {
-        redirectTo: `${frontendUrl}/passwordsetup`
-      }
-    });
-
-    // Fallback to 'signup' if 'invite' fails
-    if (linkError || !linkData?.properties?.action_link) {
-        console.warn(`⚠️ '${linkType}' link failed, trying 'signup' fallback...`);
-        linkType = 'signup';
-        const signupResult = await supabaseAdmin.auth.admin.generateLink({
-            type: 'signup',
-            email,
-            options: { redirectTo: `${frontendUrl}/passwordsetup` }
-        });
-        linkData = signupResult.data;
-        linkError = signupResult.error;
-    }
-
-    if (linkError) {
-      console.error(`❌ ${linkType} Link Error:`, linkError);
-    }
+    // 2.5️⃣ Generate Setup Code (No more fragile Supabase sessions)
+    const setupCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const setupLink = `${process.env.FRONTEND_URL}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
     
-    console.log(`📝 Generated ${linkType} Link Data Keys:`, linkData ? Object.keys(linkData) : "null");
-    if (linkData?.properties) console.log("📝 Properties Keys:", Object.keys(linkData.properties));
-
-    const invitationLink = linkData?.properties?.action_link;
-    if (!invitationLink) {
-        console.error("❌ invitationLink is still null/undefined. linkData:", JSON.stringify(linkData));
-        throw new Error("Critical: Could not generate setup link. Please check Supabase Auth settings (SITE_URL must be configured).");
-    }
+    console.log(`📝 Generated Setup Code for ${email}`);
 
     // 3️⃣ Upsert into users table
     const { error: usersError } = await supabaseAdmin
@@ -271,7 +240,9 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
           phone: phone || null,
           company_phone: req.body.company_phone || null,
           tenant_id: logged_in_tenant_id,
-          must_change_password: true // Force password change on first login via link
+          must_change_password: true, // Force password change on first login via link
+          verification_code: setupCode,
+          verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
         },
         { onConflict: "id" }
       );
@@ -311,7 +282,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
           <p>Your account has been created successfully. To complete your setup and access the Jasiri portal, please set your password by clicking the button below.</p>
           
           <div style="text-align: center; margin: 30px 0;">
-            <a href="${invitationLink}" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Set Up Your Password</a>
+            <a href="${setupLink}" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Set Up Your Password</a>
           </div>
 
           <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">

@@ -726,8 +726,52 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       success: true,
       message: "Password changed successfully"
     });
+    if (authUpdateError) {
+      console.error("Auth Admin Update Error:", authUpdateError);
+      return res.status(500).json({ success: false, error: "Failed to update authentication credentials" });
+    }
+
+    // 3. Update users table flags
+    const { error: dbUpdateError } = await supabaseAdmin
+      .from("users")
+      .update({
+        verification_code: null,
+        verification_expires_at: null,
+        must_change_password: false,
+        status: 'active'
+      })
+      .eq("id", user.id);
+
+    if (dbUpdateError) {
+      console.warn("User status update warning (non-critical):", dbUpdateError);
+    }
+
+    // 4. Send confirmation email
+    try {
+      await transporter.sendMail({
+        from: '"Jasiri" <noreply@jasirilending.software>',
+        to: email,
+        subject: "Account Activated - Password Set Successfully",
+        html: baseEmailTemplate("Welcome to Jasiri!", `
+          <p>Success! Your account has been activated and your password has been set.</p>
+          <p>You can now log in to your dashboard using your email and new password.</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="https://jasirilending.software/login" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Go to Login</a>
+          </div>
+        `)
+      });
+    } catch (e) {
+      console.warn("Confirmation email failed:", e);
+    }
+
+    res.json({
+      success: true,
+      message: "Password set and account activated successfully"
+    });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Setup password crash:", err);
+    res.status(500).json({ success: false, error: "Internal server error during password setup" });
   }
 });
 
