@@ -279,7 +279,10 @@ function MainLayout({
 
   // Enforce password change if required
   useEffect(() => {
-    if (!initializing && profile?.must_change_password && location.pathname !== "/change-password" && !isLoginPage) {
+    if (!initializing && profile?.must_change_password && 
+        location.pathname !== "/change-password" && 
+        location.pathname !== "/passwordsetup" && 
+        !isLoginPage) {
       console.log("🔒 Security: Redirecting to password setup...");
       navigate("/change-password", { replace: true });
     }
