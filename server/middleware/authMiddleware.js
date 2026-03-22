@@ -37,23 +37,32 @@ export const verifySupabaseToken = async (req, res, next) => {
 
         // 🛡️ SECURITY ENFORCEMENT: Check session in our database
         // This ensures the session hasn't been revoked/expired in our DB even if the JWT is still valid.
+        // We check BOTH id and auth_id to handle cases where they might differ for older users.
         const { data: userData, error: dbError } = await supabaseAdmin
             .from("users")
             .select("id, role, tenant_id, session_expires_at")
-            .eq("id", authUser.id)
+            .or(`id.eq.${authUser.id},auth_id.eq.${authUser.id}`)
             .single();
 
         if (dbError || !userData) {
-            console.error(`❌ User data fetch failed for ${authUser.id}:`, dbError?.message);
+            console.error(`❌ User data lookup failed for Auth ID: ${authUser.id}. This usually means a profile mismatch. Error:`, dbError?.message);
             return res.status(401).json({
                 success: false,
                 error: "User account verification failed",
             });
         }
+        
+        console.log(`✅ [Identity Verified] Auth ID: ${authUser.id} maps to DB ID: ${userData.id}`);
 
         // Check if session has expired in our DB
-        if (!userData.session_expires_at || new Date(userData.session_expires_at) < new Date()) {
-            console.warn(`⚠️ [Session Expired] User ${authUser.id} session expired at ${userData.session_expires_at}`);
+        const now = new Date();
+        const expiry = userData.session_expires_at ? new Date(userData.session_expires_at) : null;
+        
+        // Add a 5 minute grace period for clock skew
+        const graceExpiry = expiry ? new Date(expiry.getTime() + 5 * 60 * 1000) : null;
+
+        if (!expiry || graceExpiry < now) {
+            console.warn(`⚠️ [Session Expired] User ${authUser.id}. Expiry: ${userData.session_expires_at}, Grace: ${graceExpiry?.toISOString()}, Now: ${now.toISOString()}`);
             return res.status(401).json({
                 success: false,
                 error: "Session expired",

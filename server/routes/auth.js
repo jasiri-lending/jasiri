@@ -148,18 +148,18 @@ Authrouter.post("/login", async (req, res) => {
       .single();
 
     if (userError || !user) {
-      console.error(`[LOGIN] User not found in database for email: [${email}]`, userError);
+      console.error(`[LOGIN] User not found in database for email: [${cleanEmail}]`, userError);
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
 
     // 2️⃣ Verify credentials with Supabase Auth
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email,
+      email: cleanEmail,
       password
     });
 
     if (authError || !authData?.user) {
-      console.error(`[LOGIN] Supabase Auth verification failed for: [${email}]`, authError);
+      console.error(`[LOGIN] Supabase Auth verification failed for: [${cleanEmail}]`, authError);
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
 
@@ -304,6 +304,8 @@ Authrouter.post("/verify-code", async (req, res) => {
     const sessionToken = crypto.randomUUID();
     const sessionExpiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
 
+    console.log(`[VERIFY-CODE] Setting session expiry to: ${sessionExpiresAt} for user: ${userId}`);
+
     await supabaseAdmin.from("users").update({
       verification_code: null,
       verification_expires_at: null,
@@ -337,8 +339,6 @@ Authrouter.post("/verify-code", async (req, res) => {
       success: true,
       message: "Verification successful",
       email: user.email,
-  
-
       otpHandshake: true, // Signal to frontend that OTP is done
       session_expires_at: sessionExpiresAt, // Return expiry so client can sync timer
       profileData: await getFullProfileData(userId)
@@ -779,12 +779,17 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
 
     console.log(`[SETUP-PASSWORD] Supabase Auth update SUCCESS for target ID: [${userIdToUpdate}]`);
 
-    // 3. Update users table flags
+    // 3. Update users table flags 
+    // IMPORTANT: Also set session_expires_at so the first request doesn't return 401
+    const sessionExpiresAt = new Date(Date.now() + SESSION_DURATION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+    
+    console.log(`[SETUP-PASSWORD] Finalizing user activation and session expiry: ${sessionExpiresAt}`);
     const { error: dbUpdateError } = await supabaseAdmin
       .from("users")
       .update({
         verification_code: null,
         verification_expires_at: null,
+        session_expires_at: sessionExpiresAt,
         must_change_password: false,
         status: 'active'
       })

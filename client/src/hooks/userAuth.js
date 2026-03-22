@@ -27,12 +27,14 @@ export function useAuth() {
   };
 
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(getInitialProfile());
-  const [tenant, setTenant] = useState(getInitialTenant());
+  const [profile, setProfile] = useState(null); // REMOVED: Optimistic loading cause of the "jump"
+  const [tenant, setTenant] = useState(null);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
   const [initializing, setInitializing] = useState(true);
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
+  const isLoggingOutRef = useRef(false);
+  const isFetchingRef = useRef(false);
 
 
 
@@ -75,11 +77,19 @@ export function useAuth() {
 
   // Enhanced logout function
   const logout = useCallback(async () => {
-    if (logoutCalledRef.current) {
-      return;
-    }
-
     logoutCalledRef.current = true;
+    isLoggingOutRef.current = true;
+    sessionStorage.setItem("isLoggingOut", "true"); // PERSIST logout state across reloads
+    console.log("🔓 [AUTH HOOK] Starting logout sequence and setting sessionStorage lock...");
+
+    // 1️⃣ IMMEDIATELY clear localStorage before any async calls
+    // This breaks the loop if the page reloads mid-logout
+    localStorage.removeItem("profile");
+    localStorage.removeItem("tenant");
+    localStorage.removeItem("sessionToken");
+    localStorage.removeItem("userId");
+    localStorage.removeItem("sessionExpiresAt");
+    localStorage.removeItem("reportUser");
 
     if (logoutTimerRef.current) {
       clearTimeout(logoutTimerRef.current);
@@ -148,12 +158,10 @@ export function useAuth() {
 
   // Fetch profile with correct region logic
   const fetchProfile = useCallback(async (userId) => {
-    // Note: Do NOT check isSessionExpired() here.
-    // sessionExpiresAt is set BY the profile response, so on a fresh login
-    // it won't exist yet and isSessionExpired() would return true, causing
-    // an immediate logout before the profile even loads.
+    if (!userId || isLoggingOutRef.current || isFetchingRef.current) return;
 
     try {
+      isFetchingRef.current = true;
       setGlobalLoading(true);
 
       // Fetch profile data from our secure Node API layer
@@ -163,10 +171,11 @@ export function useAuth() {
 
       if (!response.ok) {
         if (response.status === 401 || response.status === 403) {
+          console.warn(`⚠️ [AUTH HOOK] API returned ${response.status} for ${userId}. Logging out...`);
           logout();
           return;
         }
-        throw new Error("Failed to fetch profile from API");
+        throw new Error(`API error ${response.status}`);
       }
 
       const profileData = await response.json();
@@ -187,6 +196,10 @@ export function useAuth() {
         setupAutoLogout();
       }
 
+      // Success! Clear the logout lock if it existed
+      sessionStorage.removeItem("isLoggingOut");
+      isLoggingOutRef.current = false;
+
 
 
     } catch (err) {
@@ -195,9 +208,10 @@ export function useAuth() {
       localStorage.removeItem("profile");
     } finally {
       setGlobalLoading(false);
+      isFetchingRef.current = false;
       setInitializing(false);
     }
-  }, [fetchTenantData, setGlobalLoading, logout]);
+  }, [logout]); // 🚩 REMOVED setGlobalLoading and fetchTenantData from dependencies
 
   useEffect(() => {
     // Only check session expiry if a session expiry timestamp actually exists.
@@ -209,9 +223,15 @@ export function useAuth() {
 
     const customSessionToken = localStorage.getItem("sessionToken");
     const customUserId = localStorage.getItem("userId");
+    const isLocked = sessionStorage.getItem("isLoggingOut") === "true";
+
+    if (isLocked) {
+      console.log("🔒 [AUTH HOOK] UseAuth blocked by sessionStorage logout lock.");
+      setInitializing(false);
+      return;
+    }
 
     // If we already have a token in localStorage, use it directly.
-    // Do NOT also call getSession() — that causes duplicate fetchProfile calls.
     if (customSessionToken && customUserId) {
       if (!profile || profile.id !== customUserId) {
         fetchProfile(customUserId);
@@ -239,18 +259,27 @@ export function useAuth() {
     // Listen for auth state changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        // 🚩 CRITICAL: If we are in the middle of a logout, ignore all SIGNED_IN events
+        const isLocked = sessionStorage.getItem("isLoggingOut") === "true";
+        if (isLoggingOutRef.current || isLocked) {
+          console.log(`🔇 [AUTH HOOK] Ignoring ${event} event because logout is in progress or lock is active.`);
+          return;
+        }
+
         // Only react to meaningful events, skip TOKEN_REFRESHED to avoid duplicate fetches
         if (event === "SIGNED_IN" && session?.user && session.access_token) {
+          console.log("🔑 [AUTH HOOK] SIGNED_IN event detected.");
+          
           setUser(session.user);
           localStorage.setItem("sessionToken", session.access_token);
           localStorage.setItem("userId", session.user.id);
+          
           // Only fetch if profile isn't already loaded for this user
           if (!profile || profile.id !== session.user.id) {
             fetchProfile(session.user.id);
-          } else {
-            setInitializing(false);
           }
-        } else if (event === "TOKEN_REFRESHED" && session?.access_token) {
+        }
+ else if (event === "TOKEN_REFRESHED" && session?.access_token) {
           // Just update the token, don't re-fetch profile
           localStorage.setItem("sessionToken", session.access_token);
         } else if (event === "SIGNED_OUT") {
@@ -287,8 +316,8 @@ export function useAuth() {
     initializing,
     isLoading: initializing,
     logout,
-    setUser,
-    setProfile,
+    setUser: (u) => { setUser(u); setInitializing(false); },
+    setProfile: (p) => { setProfile(p); setInitializing(false); },
     setTenant,
     refreshProfile
   };

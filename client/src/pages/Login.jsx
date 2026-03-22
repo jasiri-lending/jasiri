@@ -137,12 +137,14 @@ export default function Login() {
   // Step 1: login with email/password
   const handleLogin = async (e) => {
     e.preventDefault();
+    const cleanEmail = email.trim();
+    console.log(`[LOGIN] Attempting login for: [${cleanEmail}]`);
     setGlobalLoading(true);
     try {
       const res = await fetch(`${API_BASE_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email: cleanEmail, password }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
@@ -215,10 +217,9 @@ export default function Login() {
 
       if (data.otpHandshake) {
         // 4️⃣ Finalize Supabase Session
-        // Since the backend verified the user, we can now perform a secure signIn with Supabase
-        // using the same credentials or a magic link token.
+        const cleanEmail = email.trim();
         const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email,
+          email: cleanEmail,
           password
         });
 
@@ -249,6 +250,9 @@ export default function Login() {
         // Set user state directly so App.jsx knows we're authenticated
         setUser(authData.user);
 
+        // Clear any logout locks
+        sessionStorage.removeItem("isLoggingOut");
+
         toast.success("Login successful! Redirecting...");
 
         // DO NOT navigate manually here.
@@ -267,16 +271,17 @@ export default function Login() {
   const handleForgotPassword = async (e) => {
     e.preventDefault();
     setGlobalLoading(true);
+    const cleanEmail = email.trim();
     try {
       const res = await fetch(`${API_BASE_URL}/api/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify({ email: cleanEmail }),
       });
       const data = await res.json();
       if (!data.success) throw new Error(data.error);
 
-      toast.success(`Reset code sent to ${email}. Check your inbox!`);
+      toast.success(`Reset code sent to ${cleanEmail}. Check your inbox!`);
       setStep(4); // Go to reset password step
     } catch (err) {
       console.error("Forgot password error:", err);
@@ -318,11 +323,12 @@ export default function Login() {
 
     setGlobalLoading(true);
     try {
+      const cleanEmail = email.trim();
       const res = await fetch(`${API_BASE_URL}/api/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          email,
+          email: cleanEmail,
           resetCode,
           newPassword
         }),
