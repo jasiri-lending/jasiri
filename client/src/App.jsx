@@ -1,11 +1,12 @@
 // src/App.jsx
-import { useState, memo, lazy, Suspense } from "react";
+import { useState, memo, lazy, Suspense, useEffect } from "react";
 import {
   BrowserRouter as Router,
   Routes,
   Route,
   Navigate,
   useLocation,
+  useNavigate
 } from "react-router-dom";
 import { useAuth } from "./hooks/userAuth";
 import { ToastProvider } from "./components/Toast";
@@ -151,6 +152,7 @@ const UserProfile = lazy(() => import("./pages/UserProfile.jsx"));
 const ReportsLayout = lazy(() => import("./context/ReportsLayout.jsx"));
 const ReviewEditRequest = lazy(() => import("./pages/registry/ReviewEditRequest.jsx"));
 const TransferReviewPage = lazy(() => import("./pages/registry/TransferReviewPage.jsx"));
+const SetPassword = lazy(() => import("./pages/SetPassword.jsx"));
 
 // ReportWrapper component for permission-based report access
 const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) => {
@@ -271,8 +273,17 @@ function MainLayout({
   getDefaultRoute
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const isLoginPage = location.pathname === "/login";
   const showShell = !initializing && profile && !isLoginPage;
+
+  // Enforce password change if required
+  useEffect(() => {
+    if (!initializing && profile?.must_change_password && location.pathname !== "/change-password" && !isLoginPage) {
+      console.log("🔒 Security: Redirecting to password setup...");
+      navigate("/change-password", { replace: true });
+    }
+  }, [initializing, profile?.must_change_password, location.pathname, navigate, isLoginPage]);
 
   return (
     <PermissionProvider>
@@ -332,6 +343,19 @@ function MainLayout({
                         <ChangePassword />
                       ) : (
                         <Navigate to="/login" replace />
+                      )
+                    }
+                  />
+
+                  <Route
+                    path="/set-password"
+                    element={
+                      initializing ? (
+                        <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+                          <Spinner text="Loading password setup..." />
+                        </div>
+                      ) : (
+                        <SetPassword />
                       )
                     }
                   />

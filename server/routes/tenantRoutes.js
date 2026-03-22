@@ -12,7 +12,8 @@ const tenantRouter = express.Router();
 
 // Send tenant credentials email
 async function sendTenantEmail(adminEmail, invitationLink, tenantSlug, companyName) {
-  const loginUrl = `https://jasirilending.software/login?tenant=${tenantSlug}`;
+  const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+  const loginUrl = `${frontendUrl}/login?tenant=${tenantSlug}`;
   await transporter.sendMail({
     from: '"Jasiri" <noreply@jasirilending.software>',
     to: adminEmail,
@@ -146,7 +147,7 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     const { data: authUser, error: authErr } = await supabaseAdmin.auth.admin.createUser({
       email: admin_email,
       password: admin_password,
-      email_confirm: true,
+      email_confirm: false, // Set to false to allow setup link to confirm it
       user_metadata: {
         full_name: admin_full_name,
         role: "admin",
@@ -161,18 +162,40 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     }
 
     // 3.5️⃣ Generate Invitation Link
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
+    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+    let linkType = 'invite';
+    let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: linkType,
       email: admin_email,
       options: {
-        redirectTo: 'https://jasirilending.software/change-password'
+        redirectTo: `${frontendUrl}/set-password`
       }
     });
 
-    if (linkError) {
-      console.warn("⚠️ Failed to generate invitation link for tenant:", linkError);
+    // Fallback to 'signup' if 'invite' fails
+    if (linkError || !linkData?.properties?.action_link) {
+        console.warn(`⚠️ '${linkType}' link failed for tenant, trying 'signup' fallback...`);
+        linkType = 'signup';
+        const signupResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'signup',
+            email: admin_email,
+            options: { redirectTo: `${frontendUrl}/set-password` }
+        });
+        linkData = signupResult.data;
+        linkError = signupResult.error;
     }
+
+    if (linkError) {
+      console.error(`❌ ${linkType} Link Error for tenant:`, linkError);
+    }
+    
+    console.log(`📝 Generated Tenant ${linkType} Link Data Keys:`, linkData ? Object.keys(linkData) : "null");
+    
     const invitationLink = linkData?.properties?.action_link;
+    if (!invitationLink) {
+        console.error("❌ invitationLink for tenant is still null/undefined. linkData:", JSON.stringify(linkData));
+        throw new Error("Critical: Could not generate setup link for tenant admin. Please check Supabase Auth settings (SITE_URL).");
+    }
 
     // 4️⃣ UPDATE the users table (trigger already created the record)
     // Wait a moment for trigger to complete

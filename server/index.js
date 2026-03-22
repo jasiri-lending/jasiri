@@ -37,9 +37,11 @@ const app = express();
 app.use(cors({
   origin: [
     "https://jasirilending.software",
+    "http://localhost:5000",
     "http://localhost:3000",  // React dev server
     "http://localhost:5173",  // Vite default port
     "http://localhost:5174",  // Vite alternate port
+    "http://127.0.0.1:5000",
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173"
   ],
@@ -198,7 +200,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
       await supabaseAdmin.auth.admin.createUser({
         email,
         password: generatedPassword,
-        email_confirm: true,
+        email_confirm: false, // Set to false to allow setup link to confirm it
         user_metadata: {
           full_name,
           role,
@@ -219,19 +221,42 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     const userId = authData.user.id;
 
-    // 2.5️⃣ Generate Invitation Link for password setup
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'invite',
+    // 2.5️⃣ Generate Setup Link for password setup
+    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+    let linkType = 'invite';
+    let { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: linkType,
       email,
       options: {
-        redirectTo: 'https://jasirilending.software/change-password'
+        redirectTo: `${frontendUrl}/set-password`
       }
     });
 
-    if (linkError) {
-      console.warn("⚠️ Failed to generate invitation link:", linkError);
+    // Fallback to 'signup' if 'invite' fails
+    if (linkError || !linkData?.properties?.action_link) {
+        console.warn(`⚠️ '${linkType}' link failed, trying 'signup' fallback...`);
+        linkType = 'signup';
+        const signupResult = await supabaseAdmin.auth.admin.generateLink({
+            type: 'signup',
+            email,
+            options: { redirectTo: `${frontendUrl}/set-password` }
+        });
+        linkData = signupResult.data;
+        linkError = signupResult.error;
     }
+
+    if (linkError) {
+      console.error(`❌ ${linkType} Link Error:`, linkError);
+    }
+    
+    console.log(`📝 Generated ${linkType} Link Data Keys:`, linkData ? Object.keys(linkData) : "null");
+    if (linkData?.properties) console.log("📝 Properties Keys:", Object.keys(linkData.properties));
+
     const invitationLink = linkData?.properties?.action_link;
+    if (!invitationLink) {
+        console.error("❌ invitationLink is still null/undefined. linkData:", JSON.stringify(linkData));
+        throw new Error("Critical: Could not generate setup link. Please check Supabase Auth settings (SITE_URL must be configured).");
+    }
 
     // 3️⃣ Upsert into users table
     const { error: usersError } = await supabaseAdmin
@@ -275,7 +300,8 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     // 4️⃣ Send welcome email with credentials
     try {
-      const loginUrl = "https://jasirilending.software/login";
+      const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+      const loginUrl = `${frontendUrl}/login`;
       await transporter.sendMail({
         from: '"Jasiri" <noreply@jasirilending.software>',
         to: email,
