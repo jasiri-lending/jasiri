@@ -342,6 +342,9 @@ const AllLoans = () => {
   const handleViewLoan = (loanId) => navigate(`/loans/${loanId}`);
   const handleAddInteraction = (loanId) => navigate(`/loans/${loanId}/interactions`);
 
+  // Safety null guard 🔌
+  if (!profile) return null;
+
   if (loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">

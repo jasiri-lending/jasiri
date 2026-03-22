@@ -644,6 +644,8 @@ const ViewLoansPendingDisbursement = () => {
     }
   };
 
+  if (!profile) return null;
+
   if (authLoading || loading || permsLoading) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">

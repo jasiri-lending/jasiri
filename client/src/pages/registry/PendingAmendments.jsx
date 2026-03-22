@@ -239,7 +239,10 @@ const PendingAmendments = () => {
 
     // Validate we have necessary data
     if (!profile || !userRole || !config) {
-      console.error("Missing profile, role, or config:", { profile, userRole, config });
+      // Silently return if still loading or role not supported by this specific workflow
+      if (!authLoading && userRole && !config) {
+        console.warn("Role not supported for Pending Amendments:", userRole);
+      }
       setLoading(false);
       return;
     }
@@ -299,13 +302,16 @@ const PendingAmendments = () => {
 
   // Initial data fetch
   useEffect(() => {
-    if (profile && !authLoading) {
+    if (profile && !authLoading && config) {
       fetchFilterData();
       if (!hasFetchedData.current) {
         fetchAmendmentCustomers();
       }
+    } else if (profile && !authLoading && !config) {
+      // If profile is loaded but no config, we're done loading (nothing to show for this role)
+      setLoading(false);
     }
-  }, [profile, authLoading, fetchFilterData, fetchAmendmentCustomers]);
+  }, [profile, authLoading, config, fetchFilterData, fetchAmendmentCustomers]);
 
   // Search and filter effect
   useEffect(() => {
@@ -396,18 +402,26 @@ const PendingAmendments = () => {
     );
   }
 
-  // Show error if role is not configured
+  // Safety null guard 🔌
+  if (!profile) return null;
+
+  // Support check
   if (!config) {
     return (
-      <div className="h-full bg-muted p-6 min-h-screen font-sans">
-        <div className="bg-white shadow-lg rounded-xl p-8 text-center">
-          <DocumentTextIcon className="w-16 h-16 text-red-400 mb-4 mx-auto" />
-          <h3 className="text-xl font-semibold text-gray-900 mb-2 text-center">
-            Access Error
-          </h3>
-          <p className="text-gray-600 text-center">
-            Your role ({userRole || "unknown"}) does not have access to this feature.
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center font-sans">
+        <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200 max-w-md">
+          <ExclamationTriangleIcon className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+          <h2 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h2>
+          <p className="text-sm text-gray-600 mb-6">
+            The Pending Amendments workflow is currently only available for Branch Managers, 
+            Credit Analysts, and Customer Service Officers.
           </p>
+          <button 
+            onClick={() => navigate(-1)}
+            className="px-4 py-2 bg-slate-800 text-white rounded-lg text-sm hover:bg-slate-700 transition"
+          >
+            Go Back
+          </button>
         </div>
       </div>
     );

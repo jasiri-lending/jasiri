@@ -26,11 +26,14 @@ export function useAuth() {
     }
   };
 
+  const initialProfile = getInitialProfile();
+  const initialTenant = getInitialTenant();
+
   const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null); // REMOVED: Optimistic loading cause of the "jump"
-  const [tenant, setTenant] = useState(null);
+  const [profile, setProfile] = useState(initialProfile);
+  const [tenant, setTenant] = useState(initialTenant);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
-  const [initializing, setInitializing] = useState(true);
+  const [initializing, setInitializing] = useState(!initialProfile);
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
   const isLoggingOutRef = useRef(false);

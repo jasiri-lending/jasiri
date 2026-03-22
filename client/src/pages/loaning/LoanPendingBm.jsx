@@ -356,6 +356,8 @@ const LoanPendingBm = () => {
     return <ApproveLoan loan={selectedLoan} onComplete={handleComplete} />;
   }
 
+  if (!profile) return null;
+
   if (authLoading || loading) {
     return (
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">

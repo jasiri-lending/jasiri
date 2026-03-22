@@ -46,10 +46,10 @@ const ViewLoan = () => {
 
 
   useEffect(() => {
-    if (loanId) {
+    if (loanId && profile) {
       fetchLoanDetails();
     }
-  }, [loanId]);
+  }, [loanId, profile]);
 
   const fetchLoanDetails = async () => {
     try {
@@ -896,6 +896,9 @@ const ViewLoan = () => {
         return <LoanInformationSection />;
     }
   };
+
+  // Safety null guard 🔌
+  if (!profile) return null;
 
   if (loading) {
     return (

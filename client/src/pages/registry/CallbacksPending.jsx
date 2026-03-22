@@ -405,13 +405,8 @@ const CallbackPending = () => {
     }
   }, [profile, allBranches]);
 
-  if (loading) {
-    return (
-      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
-        <Spinner text="Loading pending callbacks..." />
-      </div>
-    );
-  }
+  // Safety null guard 🔌
+  if (!profile) return null;
 
   return (
     <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">

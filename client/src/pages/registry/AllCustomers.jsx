@@ -492,8 +492,10 @@ const AllCustomers = () => {
 
 
   // Check if user has necessary permissions/data
-  if ((profile.role === 'regional_manager' && !profile.region_id) ||
-    (profile.role === 'branch_manager' && !profile.branch_id)) {
+  if (!profile) return null; // 🚩 SAFETY: Wait for profile to load
+
+  if ((profile?.role === 'regional_manager' && !profile?.region_id) ||
+    (profile?.role === 'branch_manager' && !profile?.branch_id)) {
     return (
       <div className="bg-muted p-6 min-h-screen font-sans">
         <div className="bg-white shadow-lg rounded-xl p-8 text-center">
