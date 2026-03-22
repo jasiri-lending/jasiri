@@ -756,7 +756,7 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
     
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, auth_id, email, verification_code, status")
+      .select("id, auth_id, email, verification_code")
       .ilike("email", cleanEmail)
       .single();
 
@@ -771,11 +771,6 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
     if (!user.verification_code || user.verification_code !== setupCode) {
       console.error(`[SETUP-PASSWORD] ❌ Code mismatch or null. Provided: [${setupCode}], DB has: [${user.verification_code}]`);
       return res.status(401).json({ success: false, error: "This invitation link has already been used or has expired." });
-    }
-
-    if (user.status === 'active') {
-      console.error(`[SETUP-PASSWORD] ❌ User [${cleanEmail}] is already active.`);
-      return res.status(400).json({ success: false, error: "This account has already been activated. Please login or use the forgot password feature." });
     }
 
     // 2. Update password in Supabase Auth via Admin API
