@@ -140,28 +140,35 @@ Authrouter.post("/login", async (req, res) => {
   try {
     // 1️⃣ Verify user existence in our database (for tenant info)
     const cleanEmail = email.trim();
-    console.log(`[LOGIN] Attempting login for: [${cleanEmail}]`);
+    console.log(`[LOGIN] 🔍 Attempting login for: [${cleanEmail}]`);
+    
+    // 1️⃣ Verify user existence in our database (and get the CANONICAL email)
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, auth_id, role, tenant_id")
+      .select("id, auth_id, email, role, tenant_id")
       .ilike("email", cleanEmail)
       .single();
-
+    
     if (userError || !user) {
-      console.error(`[LOGIN] User not found in database for email: [${cleanEmail}]`, userError);
+      console.error(`[LOGIN] ❌ User [${cleanEmail}] NOT found in users table. Error:`, userError?.message || "No match");
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
 
-    // 2️⃣ Verify credentials with Supabase Auth
+    const canonicalEmail = user.email || cleanEmail;
+    console.log(`[LOGIN] ✅ Local user found. ID=[${user.id}], AuthID=[${user.auth_id}], CanonicalEmail=[${canonicalEmail}]`);
+
+    // 2️⃣ Verify credentials with Supabase Auth using the CANONICAL email
     const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-      email: cleanEmail,
+      email: canonicalEmail,
       password
     });
 
     if (authError || !authData?.user) {
-      console.error(`[LOGIN] Supabase Auth verification failed for: [${cleanEmail}]`, authError);
+      console.error(`[LOGIN] ❌ Supabase Auth REJECTED login for [${canonicalEmail}]. Msg:`, authError?.message);
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
+
+    console.log(`[LOGIN] ⭐ Supabase Auth SUCCESS for [${canonicalEmail}]`);
 
     // 3️⃣ Generate OTP verification code
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
@@ -745,15 +752,16 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
   try {
     // 1. Get user and verify setup code
     const cleanEmail = email.trim();
-    console.log(`[SETUP-PASSWORD] Attempting password setup for: [${cleanEmail}] with code: [${setupCode}]`);
+    console.log(`[SETUP-PASSWORD] 🔍 Setup request for: [${cleanEmail}] with code [${setupCode}]`);
+    
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, auth_id, verification_code")
+      .select("id, auth_id, email, verification_code")
       .ilike("email", cleanEmail)
       .single();
 
     if (userError || !user) {
-      console.error(`[SETUP-PASSWORD] User not found for email: [${cleanEmail}]`, userError);
+      console.error(`[SETUP-PASSWORD] ❌ User [${cleanEmail}] NOT found. Error:`, userError?.message || "No match");
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
