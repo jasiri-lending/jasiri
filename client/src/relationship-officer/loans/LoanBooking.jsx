@@ -18,6 +18,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { API_BASE_URL } from "../../../config";
 import Spinner from "../../components/Spinner.jsx";
 import { useToast } from "../../components/Toast.jsx";
+import { apiFetch } from "../../utils/api";
 
 const LoanBookingForm = ({ customerData }) => {
   const [duration, setDuration] = useState(4);
@@ -89,7 +90,7 @@ const LoanBookingForm = ({ customerData }) => {
 
   const fetchProducts = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products?tenant_id=${profile.tenant_id}`);
+      const res = await apiFetch(`/api/loan-products?tenant_id=${profile.tenant_id}`);
       const data = await res.json();
       if (data.success) {
         setProducts(data.data);
@@ -101,7 +102,7 @@ const LoanBookingForm = ({ customerData }) => {
 
   const fetchProductTypes = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/api/loan-products/types?tenant_id=${profile.tenant_id}`);
+      const res = await apiFetch(`/api/loan-products/types?tenant_id=${profile.tenant_id}`);
       const data = await res.json();
       if (data.success) {
         setDbProductTypes(data.data);

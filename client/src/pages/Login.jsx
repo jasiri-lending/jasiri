@@ -129,7 +129,7 @@ export default function Login() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const { loading, setLoading: setGlobalLoading } = useGlobalLoading();
-  const { setUser, setProfile, setTenant } = useAuth();
+  const { setUser, setProfile, setTenant, getDefaultRoute, profile: currentProfile } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
   const currentYear = new Date().getFullYear();
@@ -255,8 +255,14 @@ export default function Login() {
 
         toast.success("Login successful! Redirecting...");
 
-        // DO NOT navigate manually here.
-        // The profile and user state updates will trigger App.jsx to auto-redirect.
+        // Manually navigate immediately using the profile data we just received
+        if (data.profileData?.profile) {
+          const targetRoute = getDefaultRoute(data.profileData.profile.role);
+          navigate(targetRoute, { replace: true });
+        } else {
+          // Fallback to generic dashboard if profile data is missing for some reason
+          navigate("/dashboard", { replace: true });
+        }
       }
 
     } catch (err) {

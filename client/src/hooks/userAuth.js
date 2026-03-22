@@ -33,7 +33,7 @@ export function useAuth() {
   const [profile, setProfile] = useState(initialProfile);
   const [tenant, setTenant] = useState(initialTenant);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
-  const [initializing, setInitializing] = useState(!initialProfile);
+  const [initializing, setInitializing] = useState(true);
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
   const isLoggingOutRef = useRef(false);
@@ -312,6 +312,22 @@ export function useAuth() {
     }
   }, [user?.id, fetchProfile]);
 
+  const getDefaultRoute = useCallback((userRole) => {
+    switch (userRole) {
+      case "relationship_officer":
+      case "branch_manager":
+      case "regional_manager":
+      case "credit_analyst_officer":
+      case "customer_service_officer":
+        return "/dashboard";
+      case "admin":
+      case "superadmin":
+        return "/dashboard/admin";
+      default:
+        return "/dashboard";
+    }
+  }, []);
+
   return {
     user,
     profile,
@@ -322,6 +338,7 @@ export function useAuth() {
     setUser: (u) => { setUser(u); setInitializing(false); },
     setProfile: (p) => { setProfile(p); setInitializing(false); },
     setTenant,
-    refreshProfile
+    refreshProfile,
+    getDefaultRoute
   };
 }

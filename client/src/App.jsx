@@ -192,7 +192,7 @@ const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) 
 
 function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const { user, profile, initializing } = useAuth();
+  const { user, profile, initializing, getDefaultRoute } = useAuth();
 
   const role = profile?.role;
 
@@ -226,22 +226,6 @@ function App() {
     return null;
   };
 
-  const getDefaultRoute = () => {
-    switch (role) {
-      case "relationship_officer":
-      case "branch_manager":
-      case "regional_manager":
-      case "credit_analyst_officer":
-      case "customer_service_officer":
-        return "/dashboard";
-      case "admin":
-      case "superadmin":
-        return "/dashboard/admin";
-      default:
-        return "/dashboard";
-    }
-  };
-
   return (
     <Router>
       <MainLayout
@@ -254,7 +238,7 @@ function App() {
         setSidebarOpen={setSidebarOpen}
         renderSidebar={renderSidebar}
         renderHeader={renderHeader}
-        getDefaultRoute={getDefaultRoute}
+        getDefaultRoute={() => getDefaultRoute(role)}
       />
     </Router>
   );

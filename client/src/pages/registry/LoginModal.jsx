@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { API_BASE_URL } from "../../../config";
 import { useAuth } from "../../hooks/userAuth";
+import { apiFetch } from "../../utils/api";
 
 const LoginModal = ({ isOpen, onClose, onSuccess }) => {
   const { profile } = useAuth();
@@ -30,9 +31,8 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
     }
 
     try {
-      const res = await fetch(`${API_BASE_URL}/api/checkReportUser`, {
+      const res = await apiFetch(`/api/checkReportUser`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email.trim(),
           password,

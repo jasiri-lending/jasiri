@@ -121,6 +121,7 @@ const AddCustomer = () => {
   const [activeSection, setActiveSection] = useState("personal");
 
   const [errors, setErrors] = useState({});
+  const [isValidating, setIsValidating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const toast = useToast();
@@ -933,8 +934,10 @@ const AddCustomer = () => {
       { field: "idNumber", value: formData.idNumber, label: "ID number" },
     ];
 
-    for (const { field, value, label } of fieldsToCheck) {
-      if (value && !newErrors[field]) {
+    // Parallelize uniqueness checks (speed up)
+    const uniqueChecks = fieldsToCheck
+      .filter(({ value, field }) => value && !newErrors[field])
+      .map(async ({ field, value, label }) => {
         try {
           const isUnique = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
@@ -943,18 +946,21 @@ const AddCustomer = () => {
             formData.id
           );
           if (!isUnique) {
-            newErrors[field] = `${label} already exists in our system`;
-            toast.error(`${label} already exists in our system`);
-            hasErrors = true;
+            return { field, error: `${label} already exists in our system` };
           }
-        } catch (error) {
-          console.error("Error checking uniqueness:", error);
-          newErrors[field] = `Error validating ${label}`;
-          toast.error(`Error validating ${label}`);
-          hasErrors = true;
+        } catch (err) {
+          console.error(`Error checking uniqueness for ${label}:`, err);
+          return { field, error: `Error validating ${label}` };
         }
-      }
-    }
+        return null;
+      });
+
+    const results = await Promise.all(uniqueChecks);
+    results.filter(Boolean).forEach(({ field, error }) => {
+      newErrors[field] = error;
+      toast.error(error);
+      hasErrors = true;
+    });
 
     setErrors(newErrors);
     return !hasErrors;
@@ -1129,8 +1135,10 @@ const AddCustomer = () => {
       { field: "idNumber", value: idNumber, label: "Guarantor ID number" },
     ];
 
-    for (const { field, value, label } of fieldsToCheck) {
-      if (value && !errorsFound.guarantor[field]) {
+    // Parallelize uniqueness checks
+    const uniqueChecks = fieldsToCheck
+      .filter(({ value, field }) => value && !errorsFound.guarantor[field])
+      .map(async ({ field, value, label }) => {
         try {
           const isUnique = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
@@ -1139,18 +1147,21 @@ const AddCustomer = () => {
             formData.id
           );
           if (!isUnique) {
-            errorsFound.guarantor[field] = `${label} already exists in our system`;
-            toast.error(`${label} already exists in our system`);
-            hasErrors = true;
+            return { field, error: `${label} already exists in our system` };
           }
         } catch (err) {
-          console.error("Error checking uniqueness:", err);
-          errorsFound.guarantor[field] = `Error validating ${label}`;
-          toast.error(`Error validating ${label}`);
-          hasErrors = true;
+          console.error(`Error checking uniqueness for ${label}:`, err);
+          return { field, error: `Error validating ${label}` };
         }
-      }
-    }
+        return null;
+      });
+
+    const results = await Promise.all(uniqueChecks);
+    results.filter(Boolean).forEach(({ field, error }) => {
+      errorsFound.guarantor[field] = error;
+      toast.error(error);
+      hasErrors = true;
+    });
 
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
@@ -1243,8 +1254,10 @@ const AddCustomer = () => {
       { field: "idNumber", value: idNumber, label: "Next of kin ID number" },
     ];
 
-    for (const { field, value, label } of fieldsToCheck) {
-      if (value && !errorsFound.nextOfKin[field]) {
+    // Parallelize uniqueness checks
+    const uniqueChecks = fieldsToCheck
+      .filter(({ value, field }) => value && !errorsFound.nextOfKin[field])
+      .map(async ({ field, value, label }) => {
         try {
           const isUnique = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
@@ -1253,18 +1266,21 @@ const AddCustomer = () => {
             formData.id
           );
           if (!isUnique) {
-            errorsFound.nextOfKin[field] = `${label} already exists in our system`;
-            toast.error(errorsFound.nextOfKin[field]);
-            hasErrors = true;
+            return { field, error: `${label} already exists in our system` };
           }
         } catch (err) {
-          console.error("Error checking uniqueness:", err);
-          errorsFound.nextOfKin[field] = `Error validating ${label}`;
-          toast.error(errorsFound.nextOfKin[field]);
-          hasErrors = true;
+          console.error(`Error checking uniqueness for ${label}:`, err);
+          return { field, error: `Error validating ${label}` };
         }
-      }
-    }
+        return null;
+      });
+
+    const results = await Promise.all(uniqueChecks);
+    results.filter(Boolean).forEach(({ field, error }) => {
+      errorsFound.nextOfKin[field] = error;
+      toast.error(error);
+      hasErrors = true;
+    });
 
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
@@ -1296,48 +1312,53 @@ const AddCustomer = () => {
   };
 
   const handleNext = async () => {
+    setIsValidating(true);
     let isValid = false;
 
-    switch (activeSection) {
-      case "personal":
-        isValid = await validatePersonalDetails();
-        break;
-      case "business":
-        isValid = validateBusinessDetails();
-        break;
-      case "borrowerSecurity":
-        isValid = validateBorrowerSecurity();
-        break;
-      case "loan":
-        isValid = validateLoanDetails();
-        break;
-      case "guarantor":
-        isValid = await validateGuarantorDetails();
-        break;
-      case "guarantorSecurity":
-        isValid = validateGuarantorSecurity();
-        break;
-      case "nextOfKin":
-        isValid = await validateNextOfKinDetails();
-        break;
-      case "documents":
-        isValid = validateDocuments();
-        break;
-      default:
-        break;
-    }
+    try {
+      switch (activeSection) {
+        case "personal":
+          isValid = await validatePersonalDetails();
+          break;
+        case "business":
+          isValid = validateBusinessDetails();
+          break;
+        case "borrowerSecurity":
+          isValid = validateBorrowerSecurity();
+          break;
+        case "loan":
+          isValid = validateLoanDetails();
+          break;
+        case "guarantor":
+          isValid = await validateGuarantorDetails();
+          break;
+        case "guarantorSecurity":
+          isValid = validateGuarantorSecurity();
+          break;
+        case "nextOfKin":
+          isValid = await validateNextOfKinDetails();
+          break;
+        case "documents":
+          isValid = validateDocuments();
+          break;
+        default:
+          break;
+      }
 
-    if (!isValid) {
-      toast.error("Please fix the highlighted errors before continuing.");
-      return;
-    }
+      if (!isValid) {
+        toast.error("Please fix the highlighted errors before continuing.");
+        return;
+      }
 
-    // Mark current section as completed
-    setCompletedSections(prev => new Set([...prev, activeSection]));
+      // Mark current section as completed
+      setCompletedSections(prev => new Set([...prev, activeSection]));
 
-    const nextIndex = sections.findIndex((item) => item.id === activeSection) + 1;
-    if (nextIndex < sections.length) {
-      setActiveSection(sections[nextIndex].id);
+      const nextIndex = sections.findIndex((item) => item.id === activeSection) + 1;
+      if (nextIndex < sections.length) {
+        setActiveSection(sections[nextIndex].id);
+      }
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -1676,7 +1697,7 @@ const AddCustomer = () => {
       }
 
       toast.success("Draft saved successfully!");
-      navigate('/officer/customers');
+      navigate('/registry/customers');
 
     } catch (error) {
       console.error("Error saving draft:", error);
@@ -3431,11 +3452,20 @@ const AddCustomer = () => {
                   <button
                     type="button"
                     onClick={handleNext}
-                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors"
-                    disabled={isSubmitting || isSavingDraft}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors disabled:opacity-50"
+                    disabled={isSubmitting || isSavingDraft || isValidating}
                   >
-                    Next
-                    <ChevronRightIcon className="h-4 w-4" />
+                    {isValidating ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-primary border-t-transparent"></div>
+                        Validating...
+                      </div>
+                    ) : (
+                      <>
+                        Next
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </>
+                    )}
                   </button>
                 ) : (
                   <button

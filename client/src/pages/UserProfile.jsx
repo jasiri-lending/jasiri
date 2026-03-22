@@ -369,16 +369,8 @@ export default function UserProfile() {
         throw new Error('Profile not loaded. Please refresh the page.');
       }
 
-      const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-      const sessionToken = localStorage.getItem("sessionToken");
-
-      if (!sessionToken) {
-        throw new Error('No session token found. Please log in again.');
-      }
-
-      const response = await fetch(`${API_BASE_URL}/api/delete-avatar`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${sessionToken}` }
+      const response = await apiFetch(`/api/delete-avatar`, {
+        method: "DELETE"
       });
 
       const data = await response.json();
