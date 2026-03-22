@@ -777,7 +777,10 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
     console.log(`[SETUP-PASSWORD] Updating Supabase Auth for target ID: [${userIdToUpdate}]`);
     const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
       userIdToUpdate,
-      { password: newPassword }
+      { 
+        password: newPassword,
+        email_confirm: true // ✅ Confirm email so they can log in immediately
+      }
     );
 
     if (authUpdateError) {
