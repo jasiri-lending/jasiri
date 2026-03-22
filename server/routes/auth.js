@@ -726,6 +726,42 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       success: true,
       message: "Password changed successfully"
     });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/setup-invite-password - verify setup code and initialize password (no session required)
+Authrouter.post("/setup-invite-password", async (req, res) => {
+  const { email, setupCode, newPassword } = req.body;
+
+  if (!email || !setupCode || !newPassword) {
+    return res.status(400).json({ success: false, error: "Missing required fields" });
+  }
+
+  try {
+    // 1. Get user and verify setup code (using verification_code column)
+    const { data: user, error: userError } = await supabaseAdmin
+      .from("users")
+      .select("id, auth_id, verification_code")
+      .eq("email", email)
+      .single();
+
+    if (userError || !user) {
+      console.error("Setup password user error:", userError);
+      return res.status(400).json({ success: false, error: "User not found" });
+    }
+
+    if (!user.verification_code || user.verification_code !== setupCode) {
+      return res.status(401).json({ success: false, error: "Invalid or expired setup code" });
+    }
+
+    // 2. Update password in Supabase Auth via Admin API (no session needed)
+    const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
+      user.auth_id || user.id,
+      { password: newPassword }
+    );
+
     if (authUpdateError) {
       console.error("Auth Admin Update Error:", authUpdateError);
       return res.status(500).json({ success: false, error: "Failed to update authentication credentials" });

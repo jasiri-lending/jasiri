@@ -5,6 +5,8 @@ import { useToast } from "../components/Toast.jsx";
 import Spinner from "../components/Spinner";
 import { EyeIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
 export default function PasswordSetup() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
@@ -68,7 +70,7 @@ export default function PasswordSetup() {
             const setupCode = params.get("code");
 
             // Call our new custom session-less setup API
-            const response = await fetch(`${import.meta.env.VITE_API_BASE_URL}/api/setup-invite-password`, {
+            const response = await fetch(`${API_BASE_URL}/api/setup-invite-password`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
