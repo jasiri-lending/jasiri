@@ -727,7 +727,8 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       message: "Password changed successfully"
     });
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error("Verify password change error:", err);
+    res.status(500).json({ success: false, error: err.message || "Failed to change password" });
   }
 });
 
