@@ -139,14 +139,16 @@ Authrouter.post("/login", async (req, res) => {
 
   try {
     // 1️⃣ Verify user existence in our database (for tenant info)
+    const cleanEmail = email.trim();
+    console.log(`[LOGIN] Attempting login for: [${cleanEmail}]`);
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, role, tenant_id")
-      .eq("email", email)
+      .select("id, auth_id, role, tenant_id")
+      .ilike("email", cleanEmail)
       .single();
 
     if (userError || !user) {
-      console.error("Login attempt failed, user not found:", email);
+      console.error(`[LOGIN] User not found in database for email: [${email}]`, userError);
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
 
@@ -157,7 +159,7 @@ Authrouter.post("/login", async (req, res) => {
     });
 
     if (authError || !authData?.user) {
-      console.error("Supabase password verification failed for:", email);
+      console.error(`[LOGIN] Supabase Auth verification failed for: [${email}]`, authError);
       return res.status(401).json({ success: false, error: "Invalid credentials" });
     }
 
@@ -728,7 +730,7 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
     });
   } catch (err) {
     console.error("Verify password change error:", err);
-    res.status(500).json({ success: false, error: "Failed to change password" });
+    res.status(500).json({ success: false, error: err.message || "Failed to change password" });
   }
 });
 
@@ -742,31 +744,40 @@ Authrouter.post("/setup-invite-password", async (req, res) => {
 
   try {
     // 1. Get user and verify setup code
+    const cleanEmail = email.trim();
+    console.log(`[SETUP-PASSWORD] Attempting password setup for: [${cleanEmail}] with code: [${setupCode}]`);
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
       .select("id, auth_id, verification_code")
-      .eq("email", email)
+      .ilike("email", cleanEmail)
       .single();
 
     if (userError || !user) {
-      console.error("Setup password user error:", userError);
+      console.error(`[SETUP-PASSWORD] User not found for email: [${cleanEmail}]`, userError);
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
+    const userIdToUpdate = user.auth_id || user.id;
+    console.log(`[SETUP-PASSWORD] User found. DB ID=[${user.id}], AUTH ID=[${user.auth_id}]. Using target ID=[${userIdToUpdate}]`);
+
     if (!user.verification_code || user.verification_code !== setupCode) {
+      console.error(`[SETUP-PASSWORD] Code mismatch! Provided: [${setupCode}], DB has: [${user.verification_code}]`);
       return res.status(401).json({ success: false, error: "Invalid or expired setup code" });
     }
 
     // 2. Update password in Supabase Auth via Admin API
+    console.log(`[SETUP-PASSWORD] Updating Supabase Auth for target ID: [${userIdToUpdate}]`);
     const { error: authUpdateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.id,
+      userIdToUpdate,
       { password: newPassword }
     );
 
     if (authUpdateError) {
-      console.error("Auth Admin Update Error:", authUpdateError);
+      console.error(`[SETUP-PASSWORD] Supabase Auth update failed for target ID: [${userIdToUpdate}]`, authUpdateError);
       return res.status(500).json({ success: false, error: "Failed to update authentication credentials" });
     }
+
+    console.log(`[SETUP-PASSWORD] Supabase Auth update SUCCESS for target ID: [${userIdToUpdate}]`);
 
     // 3. Update users table flags
     const { error: dbUpdateError } = await supabaseAdmin
