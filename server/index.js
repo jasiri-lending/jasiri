@@ -240,7 +240,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
           phone: phone || null,
           company_phone: req.body.company_phone || null,
           tenant_id: logged_in_tenant_id,
-          must_change_password: true, // Force password change on first login via link
+          must_change_password: false, // Default to false as per user request
           verification_code: setupCode,
           verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
         },

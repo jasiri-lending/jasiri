@@ -277,16 +277,8 @@ function MainLayout({
   const isLoginPage = location.pathname === "/login";
   const showShell = !initializing && profile && !isLoginPage;
 
-  // Enforce password change if required
-  useEffect(() => {
-    if (!initializing && profile?.must_change_password && 
-        location.pathname !== "/change-password" && 
-        location.pathname !== "/passwordsetup" && 
-        !isLoginPage) {
-      console.log("🔒 Security: Redirecting to password setup...");
-      navigate("/change-password", { replace: true });
-    }
-  }, [initializing, profile?.must_change_password, location.pathname, navigate, isLoginPage]);
+  // 🚩 REMOVED: Mandatory password change redirect as per user request. 
+  // Password changes are now handled optionally via Profile.jsx.
 
   return (
     <PermissionProvider>
