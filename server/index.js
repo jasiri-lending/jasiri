@@ -228,7 +228,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
       type: linkType,
       email,
       options: {
-        redirectTo: `${frontendUrl}/set-password`
+        redirectTo: `${frontendUrl}/passwordsetup`
       }
     });
 
@@ -239,7 +239,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
         const signupResult = await supabaseAdmin.auth.admin.generateLink({
             type: 'signup',
             email,
-            options: { redirectTo: `${frontendUrl}/set-password` }
+            options: { redirectTo: `${frontendUrl}/passwordsetup` }
         });
         linkData = signupResult.data;
         linkError = signupResult.error;

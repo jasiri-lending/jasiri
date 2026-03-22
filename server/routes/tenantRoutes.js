@@ -168,7 +168,7 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
       type: linkType,
       email: admin_email,
       options: {
-        redirectTo: `${frontendUrl}/set-password`
+        redirectTo: `${frontendUrl}/passwordsetup`
       }
     });
 
@@ -179,7 +179,7 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
         const signupResult = await supabaseAdmin.auth.admin.generateLink({
             type: 'signup',
             email: admin_email,
-            options: { redirectTo: `${frontendUrl}/set-password` }
+            options: { redirectTo: `${frontendUrl}/passwordsetup` }
         });
         linkData = signupResult.data;
         linkError = signupResult.error;

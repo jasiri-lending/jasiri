@@ -152,7 +152,7 @@ const UserProfile = lazy(() => import("./pages/UserProfile.jsx"));
 const ReportsLayout = lazy(() => import("./context/ReportsLayout.jsx"));
 const ReviewEditRequest = lazy(() => import("./pages/registry/ReviewEditRequest.jsx"));
 const TransferReviewPage = lazy(() => import("./pages/registry/TransferReviewPage.jsx"));
-const SetPassword = lazy(() => import("./pages/SetPassword.jsx"));
+const PasswordSetup = lazy(() => import("./pages/PasswordSetup.jsx"));
 
 // ReportWrapper component for permission-based report access
 const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) => {
@@ -348,14 +348,14 @@ function MainLayout({
                   />
 
                   <Route
-                    path="/set-password"
+                    path="/passwordsetup"
                     element={
                       initializing ? (
                         <div className="min-h-screen bg-brand-surface flex items-center justify-center">
                           <Spinner text="Loading password setup..." />
                         </div>
                       ) : (
-                        <SetPassword />
+                        <PasswordSetup />
                       )
                     }
                   />

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "../components/Toast.jsx";
 import Spinner from "../components/Spinner";
 
-export default function SetPassword() {
+export default function PasswordSetup() {
     const [newPassword, setNewPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [loading, setLoading] = useState(false);
