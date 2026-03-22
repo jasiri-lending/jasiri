@@ -304,6 +304,7 @@ function MainLayout({
                           <Spinner text="Initializing application..." />
                         </div>
                       ) : user ? (
+                        // If user is logged in, don't show login page, redirect to dashboard
                         <Navigate to={getDefaultRoute()} replace />
                       ) : (
                         <Login />

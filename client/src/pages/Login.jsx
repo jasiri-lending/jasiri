@@ -254,15 +254,7 @@ export default function Login() {
         sessionStorage.removeItem("isLoggingOut");
 
         toast.success("Login successful! Redirecting...");
-
-        // Manually navigate immediately using the profile data we just received
-        if (data.profileData?.profile) {
-          const targetRoute = getDefaultRoute(data.profileData.profile.role);
-          navigate(targetRoute, { replace: true });
-        } else {
-          // Fallback to generic dashboard if profile data is missing for some reason
-          navigate("/dashboard", { replace: true });
-        }
+        // States set above (setUser, setProfile, etc.) will trigger App.jsx redirection automatically
       }
 
     } catch (err) {
