@@ -1,10 +1,13 @@
-// src/hooks/useAuth.js - UPDATED WITH CORRECT REGION LOGIC
-import { useState, useEffect, useCallback, useRef } from "react";
+// src/hooks/useAuth.js - UPDATED WITH GLOBAL AUTH CONTEXT
+import React, { useState, useEffect, useCallback, useRef, createContext, useContext } from "react";
 import { supabase } from "../supabaseClient";
 import { useGlobalLoading } from "./LoadingContext";
 import { apiFetch } from "../utils/api";
 
-export function useAuth() {
+// Create the context
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
   // Initialize from localStorage immediately
   const getInitialProfile = () => {
     try {
@@ -279,6 +282,9 @@ export function useAuth() {
           
           // Only fetch if profile isn't already loaded for this user
           if (!profile || profile.id !== session.user.id) {
+            // Set initializing=true so ProtectedRoute shows a spinner and does NOT
+            // redirect to login while the profile API fetch is in progress.
+            setInitializing(true);
             fetchProfile(session.user.id);
           }
         }
@@ -328,7 +334,7 @@ export function useAuth() {
     }
   }, []);
 
-  return {
+  const value = {
     user,
     profile,
     tenant,
@@ -341,4 +347,19 @@ export function useAuth() {
     refreshProfile,
     getDefaultRoute
   };
+
+  return React.createElement(
+    AuthContext.Provider,
+    { value },
+    children
+  );
 }
+
+// Custom hook to use the auth context
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (context === null) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
+};

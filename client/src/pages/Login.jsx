@@ -254,7 +254,7 @@ export default function Login() {
         sessionStorage.removeItem("isLoggingOut");
 
         toast.success("Login successful! Redirecting...");
-        // States set above (setUser, setProfile, etc.) will trigger App.jsx redirection automatically
+        // No explicit navigate – the App's <Navigate> inside the login route will redirect
       }
 
     } catch (err) {
