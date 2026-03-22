@@ -16,32 +16,43 @@ export default function PasswordSetup() {
     const toast = useToast();
 
     useEffect(() => {
-        // Supabase Auth automatically handles the access_token in the URL fragment
-        // We just need to check if we have a session or if the fragment is present
-        const checkSession = async () => {
-            const { data: { session }, error } = await supabase.auth.getSession();
-            if (error) {
-                console.error("Session check error:", error);
-                setError("Your invitation link may be invalid or expired.");
-            } else if (!session) {
-                // If no session, the link might be missing the token or already used
-                // But Supabase often needs a moment to parse the fragment
-                setTimeout(async () => {
-                    const { data: { session: retrySession } } = await supabase.auth.getSession();
-                    if (!retrySession) {
-                        setError("Could not establish a secure session. Please try clicking the link in your email again.");
-                        setVerifying(false);
-                    } else {
-                        setVerifying(false);
-                    }
-                }, 1000);
-                return;
-            }
+        // 1. Check if the URL has a Supabase error fragment (like otp_expired)
+        const hash = window.location.hash || window.location.search;
+        if (hash.includes("error=access_denied") || hash.includes("error_code=otp_expired")) {
+            setError("This invitation link has expired or has already been used. Please request a new invitation from your administrator.");
             setVerifying(false);
+            return;
+        }
+
+        // 2. Listen for the session as Supabase Auth processes the fragment
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+            console.log("Auth event in PasswordSetup:", event, !!session);
+            if (session) {
+                setVerifying(false);
+            }
+        });
+
+        // 3. Initial check and fallback timer
+        const checkInitialSession = async () => {
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+                setVerifying(false);
+            } else {
+                // Wait up to 3 seconds for the fragment to be processed before giving up
+                setTimeout(async () => {
+                   const { data: { session: retrySession } } = await supabase.auth.getSession();
+                   if (!retrySession && !error) {
+                        setError("Could not establish a secure session. This can happen if the link was already used or scanned by your email provider. Please try clicking the link in your email again or request a new one.");
+                        setVerifying(false);
+                   }
+                }, 3000);
+            }
         };
 
-        checkSession();
-    }, []);
+        checkInitialSession();
+
+        return () => subscription.unsubscribe();
+    }, [error]);
 
     const handleSetPassword = async (e) => {
         e.preventDefault();
