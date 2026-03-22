@@ -40,7 +40,6 @@ const SuspendedUsers = lazy(() => import("./pages/admin/SuspendedUsers.jsx"));
 const AllLoansAdmin = lazy(() => import("./pages/admin/loans/AllLoansAdmin"));
 const PendingLoans = lazy(() => import("./pages/admin/loans/PendingLoans"));
 const ApprovedLoans = lazy(() => import("./pages/admin/loans/ApprovedLoans"));
-const LoanProduct = lazy(() => import("./pages/admin/loans/LoanProduct"));
 const RestructureLoans = lazy(() => import("./pages/admin/loans/RestructureLoans"));
 const RejectedLoans = lazy(() => import("./pages/loaning/RejectedLoans"));
 const LoanWriteOff = lazy(() => import("./pages/admin/loans/LoanWriteOff"));
@@ -116,7 +115,6 @@ const Verification = lazy(() => import("./pages/registry/Verification.jsx"));
 const ViewLoan = lazy(() => import("./pages/loaning/ViewLoan.jsx"));
 const LoanInteraction = lazy(() => import("./pages/loaning/LoanInteraction.jsx"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword.jsx"));
-const LoanProducts = lazy(() => import("./pages/loaning/LoanProducts.jsx"));
 const ViewDisbursedLoan = lazy(() => import("./pages/loaning/ViewDisbursedLoan.jsx"));
 const ViewLoansPendingDisbursement = lazy(() => import("./pages/loaning/ViewLoansPendingDisbursement.jsx"));
 const NewJournalEntry = lazy(() => import("./pages/accounting/NewJournalEntry.jsx"));
@@ -134,9 +132,11 @@ const AdminCreateReportUser = lazy(() => import("./pages/admin/components/AdminC
 const AdminCreateTenant = lazy(() => import("./pages/admin/components/AdminCreateTenant.jsx"));
 const TenantMpesaForm = lazy(() => import("./pages/admin/components/TenantMpesa.jsx"));
 const TenantViewPage = lazy(() => import("./pages/admin/components/TenantViewPage.jsx"));
-const PenaltySettingsManager = lazy(() => import("./pages/admin/components/PenaltySettingsManager.jsx"));
+const ScoringPage = lazy(() => import("./pages/credit-settings/Scoring.jsx"));
+const LimitsPage = lazy(() => import("./pages/credit-settings/Limits.jsx"));
+const PenaltySettingsManager = lazy(() => import("./pages/credit-settings/Penalties.jsx"));
+const LoanProducts = lazy(() => import("./pages/credit-settings/LoanProducts.jsx"));
 const AnalyticsDashBoard = lazy(() => import("./pages/analytics/AnalyticsDashboard.jsx"));
-const PenaltySettings = lazy(() => import("./pages/registry/Penalties.jsx"));
 const Regions = lazy(() => import("./pages/admin/Regions.jsx"));
 const Branches = lazy(() => import("./pages/admin/Branches.jsx"));
 const UserGroups = lazy(() => import("./pages/admin/UserGroups.jsx"));
@@ -545,14 +545,6 @@ function MainLayout({
                         }
                       />
 
-                      <Route
-                        path="/loaning/penalty-settings"
-                        element={
-                          <ProtectedRoute>
-                            <PenaltySettings userRole={role} />
-                          </ProtectedRoute>
-                        }
-                      />
 
                       <Route
                         path="/analytics"
@@ -899,10 +891,34 @@ function MainLayout({
                         }
                       />
                       <Route
-                        path="/loaning/products"
+                        path="/credit-settings/loan-products"
                         element={
                           <ProtectedRoute>
                             <LoanProducts userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/credit-settings/scoring"
+                        element={
+                          <ProtectedRoute>
+                            <ScoringPage userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/credit-settings/limits"
+                        element={
+                          <ProtectedRoute>
+                            <LimitsPage userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/credit-settings/penalties"
+                        element={
+                          <ProtectedRoute>
+                            <PenaltySettingsManager userRole={role} />
                           </ProtectedRoute>
                         }
                       />
@@ -1188,10 +1204,6 @@ function MainLayout({
                         element={<PendingLoans />}
                       />
 
-                      <Route
-                        path="/penalty-settings/admin"
-                        element={<PenaltySettingsManager />}
-                      />
 
                       <Route
                         path="/users/report-access/admin"
@@ -1200,10 +1212,6 @@ function MainLayout({
                       <Route
                         path="/users/create-tenant/admin"
                         element={<AdminCreateTenant />}
-                      />
-                      <Route
-                        path="/loans/product/admin"
-                        element={<LoanProduct />}
                       />
                       <Route
                         path="/loans/restructure/admin"

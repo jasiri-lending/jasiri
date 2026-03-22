@@ -166,7 +166,23 @@ const SharedSidebar = () => {
             { name: "Accounting Journals", href: "/accounting/journals", icon: Book },
             { name: "Financial Transactions", href: "/accounting/transactions", icon: CreditCard },
             { name: "Bank Reconciliations", href: "/accounting/bank-reconciliations", icon: Landmark },
-            { name: "Penalty Settings", href: "/loaning/penalty-settings", icon: Settings },
+          ],
+        },
+      ]
+      : [];
+
+    const creditSettingsNavigation = (isAdmin || isSuperAdmin)
+      ? [
+        {
+          name: "Credit Settings",
+          href: "/credit-settings",
+          icon: Sliders,
+          roles: ["admin", "superadmin"],
+          children: [
+            { name: "Loan Products", href: "/credit-settings/loan-products", icon: FileText },
+            { name: "Scoring Engine", href: "/credit-settings/scoring", icon: Activity },
+            { name: "Credit Limits", href: "/credit-settings/limits", icon: Sliders },
+            { name: "Penalty Rules", href: "/credit-settings/penalties", icon: Settings },
           ],
         },
       ]
@@ -271,7 +287,6 @@ const SharedSidebar = () => {
         href: "/loaning",
         icon: FileText,
         children: [
-          { name: "Loan Products", href: "/loaning/products", icon: FileText },
           { name: "All Loans", href: "/loaning/all", icon: FileText },
           { name: "Pending Branch Manager", href: "/loaning/pending-branch-manager", icon: FileText },
           { name: "Pending Regional Manager", href: "/loaning/pending-regional-manager", icon: FileText },
@@ -279,7 +294,6 @@ const SharedSidebar = () => {
           { name: "Pending Disbursement", href: "/loaning/pending-disbursement", icon: FileText },
           { name: "Disbursed Loans", href: "/loaning/disbursement-loans", icon: FileText },
           { name: "Rejected Loans", href: "/loaning/rejected-loans", icon: FileText },
-          { name: "Limit Adjustment", href: "/loaning/limit-adjustment", icon: Sliders, roles: ["credit_analyst_officer", "admin", "superadmin"] },
         ],
       },
     ];
@@ -310,9 +324,9 @@ const SharedSidebar = () => {
     ];
 
     if (isSuperAdmin) {
-      return [...dashboardNavigation, ...tenantManagementNavigation, ...accountsFinanceNavigation, ...systemSettingsNavigation, ...auditLogsNavigation, ...administrationNavigation, ...sharedNavigation];
+      return [...dashboardNavigation, ...creditSettingsNavigation, ...tenantManagementNavigation, ...accountsFinanceNavigation, ...systemSettingsNavigation, ...auditLogsNavigation, ...administrationNavigation, ...sharedNavigation];
     } else if (isAdmin) {
-      return [...dashboardNavigation, ...accountsFinanceNavigation, ...administrationNavigation, ...sharedNavigation];
+      return [...dashboardNavigation, ...creditSettingsNavigation, ...accountsFinanceNavigation, ...administrationNavigation, ...sharedNavigation];
     } else if (isOfficer) {
       return [...dashboardNavigation, ...officerNavigation, ...sharedNavigation];
     } else if (isCreditAnalyst) {

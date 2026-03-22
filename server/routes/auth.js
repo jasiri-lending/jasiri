@@ -29,21 +29,13 @@ const isExpired = (expiryTimestamp) => {
   const now = new Date();
   const expiry = new Date(expiryTimestamp);
 
-  // Log for debugging
-  console.log('Expiry check:', {
-    nowUTC: now.toISOString(),
-    expiryUTC: expiry.toISOString(),
-    nowTime: now.getTime(),
-    expiryTime: expiry.getTime(),
-    isExpired: expiry.getTime() < now.getTime()
-  });
+ 
 
   return expiry.getTime() < now.getTime();
 };
 
 // Reusable helper to fetch full profile and tenant data
 const getFullProfileData = async (userId) => {
-  console.log(`\n🔍 [PROFILE HELPER] Starting profile fetch for userId: ${userId}`);
 
   // Fetch user details INCLUDING tenant_id and session_expires_at
   const { data: userData, error: userError } = await supabaseAdmin
@@ -53,7 +45,7 @@ const getFullProfileData = async (userId) => {
     .single();
 
   if (userError || !userData) {
-    console.error("❌ [PROFILE HELPER] User fetch error:", userError);
+    console.error(" [PROFILE HELPER] User fetch error:", userError);
     return null;
   }
 
@@ -183,7 +175,6 @@ Authrouter.post("/login", async (req, res) => {
       .eq("id", user.id);
 
     if (updateError) {
-      console.error("Failed to update user with verification code:", updateError);
       return res.status(500).json({ success: false, error: "Failed to process login" });
     }
 
@@ -201,7 +192,6 @@ Authrouter.post("/login", async (req, res) => {
       `)
     });
 
-    console.log(`✅ Verification code sent to ${email}`);
 
     res.json({
       success: true,
@@ -226,7 +216,6 @@ Authrouter.post("/resend-code", async (req, res) => {
       .single();
 
     if (error || !user) {
-      console.error("Resend code user error:", error);
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
@@ -306,7 +295,6 @@ Authrouter.post("/verify-code", async (req, res) => {
     });
 
     if (sessionError || !sessionData?.properties?.hashed_token) {
-      console.error("❌ Failed to generate session link:", sessionError);
       return res.status(500).json({ success: false, error: "Session creation failed" });
     }
 
@@ -322,7 +310,6 @@ Authrouter.post("/verify-code", async (req, res) => {
       last_login: new Date().toISOString(),
     }).eq("id", userId);
 
-    console.log(`✅ Login verified for ${user.email}`);
 
     // Return the hashed token which the client can use with supabase.auth.verifyOtp
     // Alternatively, we could perform the verification here and return the access_token
@@ -348,16 +335,7 @@ Authrouter.post("/verify-code", async (req, res) => {
       success: true,
       message: "Verification successful",
       email: user.email,
-      // We will allow the frontend to finalize the session with a specialized redirect/token
-      // or we can sign a custom JWT that the backend trusts.
-      // Given the requirement "send the Supabase JWT in the Authorization header",
-      // the frontend must have the Supabase JWT.
-
-      // Let's return the user credentials so the frontend can finalize if needed,
-      // but for "secure production grade", we should return the session.
-      // To get the session without re-entering password: 
-      // Use supabaseAdmin.auth.admin.updateUserById(userId, { user_metadata: { authorized_at: new Date() } })
-      // and provide a one-time token.
+  
 
       otpHandshake: true, // Signal to frontend that OTP is done
       session_expires_at: sessionExpiresAt, // Return expiry so client can sync timer
@@ -365,7 +343,6 @@ Authrouter.post("/verify-code", async (req, res) => {
     });
 
   } catch (err) {
-    console.error("💥 Verify code crash:", err);
     res.status(500).json({ success: false, error: "Server error during verification" });
   }
 });
@@ -385,7 +362,6 @@ Authrouter.post("/forgot-password", async (req, res) => {
       .single();
 
     if (error || !user) {
-      console.error("Forgot password user error:", error);
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
@@ -393,11 +369,7 @@ Authrouter.post("/forgot-password", async (req, res) => {
     const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
     const resetCodeExpiresAt = addMinutesToNow(15); // 15 minutes from now
 
-    console.log(`Generated reset code for ${email}:`, {
-      code: resetCode,
-      expiresAt: resetCodeExpiresAt,
-      currentTime: getCurrentUTC()
-    });
+  
 
     // Save reset code in DB
     await supabaseAdmin.from("users").update({
@@ -420,7 +392,6 @@ Authrouter.post("/forgot-password", async (req, res) => {
       `)
     });
 
-    console.log(`Reset code sent to ${email}: ${resetCode}`);
 
     res.json({
       success: true,
@@ -428,7 +399,6 @@ Authrouter.post("/forgot-password", async (req, res) => {
       expiresIn: "15 minutes"
     });
   } catch (err) {
-    console.error("Forgot password crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -446,7 +416,6 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
       .single();
 
     if (error || !user) {
-      console.error("Resend reset code user error:", error);
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
@@ -474,7 +443,6 @@ Authrouter.post("/resend-reset-code", async (req, res) => {
       `)
     });
 
-    console.log(`New reset code sent to ${email}: ${resetCode}`);
 
     res.json({
       success: true,
@@ -506,13 +474,11 @@ Authrouter.post("/reset-password", async (req, res) => {
 
     // Verify reset code
     if (user.reset_code !== resetCode) {
-      console.error(`Reset code mismatch for ${email}`);
       return res.status(400).json({ success: false, error: "Invalid reset code" });
     }
 
     // Check if reset code expired using proper UTC comparison
     if (isExpired(user.reset_code_expires_at)) {
-      console.error("Reset code expired for user:", email);
       return res.status(400).json({ success: false, error: "Reset code expired" });
     }
 
@@ -523,7 +489,6 @@ Authrouter.post("/reset-password", async (req, res) => {
     );
 
     if (updateError) {
-      console.error("Supabase admin password update error:", updateError);
 
       // Fallback: Try to update user password through auth API
       try {
@@ -539,7 +504,6 @@ Authrouter.post("/reset-password", async (req, res) => {
           message: "Password reset link sent to your email. Please check your inbox to complete the reset."
         });
       } catch (fallbackError) {
-        console.error("Fallback password reset error:", fallbackError);
         throw new Error("Failed to update password. Please contact support.");
       }
     }
@@ -551,7 +515,6 @@ Authrouter.post("/reset-password", async (req, res) => {
       must_change_password: false
     }).eq("id", user.id);
 
-    console.log(`Password reset successful for ${email}`);
 
     // Send confirmation email
     await transporter.sendMail({
@@ -572,7 +535,6 @@ Authrouter.post("/reset-password", async (req, res) => {
       message: "Password reset successful"
     });
   } catch (err) {
-    console.error("Reset password crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -600,7 +562,6 @@ Authrouter.get("/profile/:userId", verifySupabaseToken, async (req, res) => {
     });
 
   } catch (err) {
-    console.error("💥 [PROFILE] Profile fetch crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -616,10 +577,7 @@ Authrouter.post("/request-password-change-code", verifySupabaseToken, async (req
     const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
     const verificationExpiresAt = addMinutesToNow(10);
 
-    console.log(`Generated password change code for ${email}:`, {
-      code: verificationCode,
-      expiresAt: verificationExpiresAt
-    });
+ 
 
     // Save code in DB
     await supabaseAdmin.from("users").update({
@@ -640,7 +598,6 @@ Authrouter.post("/request-password-change-code", verifySupabaseToken, async (req
       `)
     });
 
-    console.log(`Password change code sent to ${email}: ${verificationCode}`);
 
     res.json({
       success: true,
@@ -648,7 +605,6 @@ Authrouter.post("/request-password-change-code", verifySupabaseToken, async (req
       expiresIn: "10 minutes"
     });
   } catch (err) {
-    console.error("Password change code request crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -681,7 +637,6 @@ Authrouter.post("/resend-password-change-code", verifySupabaseToken, async (req,
       `)
     });
 
-    console.log(`New password change code sent to ${email}: ${verificationCode}`);
 
     res.json({
       success: true,
@@ -689,7 +644,6 @@ Authrouter.post("/resend-password-change-code", verifySupabaseToken, async (req,
       expiresIn: "10 minutes"
     });
   } catch (err) {
-    console.error("Resend password change code crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -707,10 +661,8 @@ Authrouter.post("/logout", verifySupabaseToken, async (req, res) => {
       session_expires_at: null
     }).eq("id", userId);
 
-    console.log(`✅ Session cleared for user ${userId}`);
     res.json({ success: true, message: "Logged out successfully" });
   } catch (err) {
-    console.error("Logout error:", err);
     res.status(500).json({ success: true, message: "Logged out with errors" });
   }
 });
@@ -727,19 +679,16 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       .single();
 
     if (error || !user) {
-      console.error("Verify password change code user error:", error);
       return res.status(400).json({ success: false, error: "User not found" });
     }
 
     // Verify code
     if (user.password_change_code !== code) {
-      console.error(`Code mismatch for ${email}`);
       return res.status(400).json({ success: false, error: "Invalid verification code" });
     }
 
     // Check if code expired
     if (isExpired(user.password_change_expires_at)) {
-      console.error("Password change code expired for user:", email);
       return res.status(400).json({ success: false, error: "Verification code expired" });
     }
 
@@ -750,7 +699,6 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
     );
 
     if (updateError) {
-      console.error("Password update error:", updateError);
       return res.status(500).json({ success: false, error: "Failed to update password" });
     }
 
@@ -761,7 +709,6 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       must_change_password: false
     }).eq("id", user.id);
 
-    console.log(`Password changed successfully for ${email}`);
 
     // Send confirmation email
     await transporter.sendMail({
@@ -780,7 +727,6 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
       message: "Password changed successfully"
     });
   } catch (err) {
-    console.error("Verify password change code crash:", err);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect } from "react";
 import {
   DollarSign,
   Calendar,
@@ -47,7 +47,7 @@ export default function PenaltySettings() {
       setError(null);
 
       // Fetch penalty settings from Supabase
-      const { data, error: fetchError } = await supabase
+      const { data, fetchError } = await supabase
         .from('loan_penalty_settings')
         .select('*')
         .eq('tenant_id', profile.tenant_id)
@@ -123,7 +123,7 @@ export default function PenaltySettings() {
 
       // Save or update settings in Supabase
       if (settingsId) {
-        const { data: result, error: updateError } = await supabase
+        const { error: updateError } = await supabase
           .from('loan_penalty_settings')
           .update(data)
           .eq('id', settingsId)

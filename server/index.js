@@ -24,6 +24,7 @@ import LoanDueRouter from "./routes/loanDue.js";
 import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import AccountRouter from "./routes/accounts.js";
+import scoringRouter from "./routes/scoring.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -111,6 +112,9 @@ app.use("/api/loan-due", LoanDueRouter);
 app.use("/mpesa/c2b", stkpush); // Move STK push here for group
 app.use("/api/report-users/create", verifySupabaseToken, createReportUser); // Secure report user creation
 app.use("/api/checkReportUser", checkReportUserRoute);
+app.use("/api/scoring", scoringRouter);
+
+// import "./cron/loanInstallmentCron.js"; // 
 
 // Create user endpoint - SECURED
 app.post("/create-user", verifySupabaseToken, async (req, res) => {
@@ -215,6 +219,20 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     const userId = authData.user.id;
 
+    // 2.5️⃣ Generate Invitation Link for password setup
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'invite',
+      email,
+      options: {
+        redirectTo: 'https://jasirilending.software/change-password'
+      }
+    });
+
+    if (linkError) {
+      console.warn("⚠️ Failed to generate invitation link:", linkError);
+    }
+    const invitationLink = linkData?.properties?.action_link;
+
     // 3️⃣ Upsert into users table
     const { error: usersError } = await supabaseAdmin
       .from("users")
@@ -228,7 +246,7 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
           phone: phone || null,
           company_phone: req.body.company_phone || null,
           tenant_id: logged_in_tenant_id,
-          must_change_password: false // No longer forced to change password on first login
+          must_change_password: true // Force password change on first login via link
         },
         { onConflict: "id" }
       );
@@ -257,22 +275,25 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     // 4️⃣ Send welcome email with credentials
     try {
+      const loginUrl = "https://jasirilending.software/login";
       await transporter.sendMail({
-        from: '"Jasirilendingsoftware" <derickgreen18@gmail.com>',
+        from: '"Jasiri" <noreply@jasirilending.software>',
         to: email,
-        subject: "Welcome to Jasiri - Your Account Credentials",
+        subject: "Welcome to Jasiri - Complete Your Account Setup",
         html: baseEmailTemplate("Welcome to Jasiri!", `
           <p>Hello ${full_name},</p>
-          <p>Your account has been created successfully. Below are the login credentials for your new access portal.</p>
+          <p>Your account has been created successfully. To complete your setup and access the Jasiri portal, please set your password by clicking the button below.</p>
           
-          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
-             <p style="margin: 5px 0;"><strong>Access Email:</strong> ${email}</p>
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${invitationLink}" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Set Up Your Password</a>
           </div>
 
-          <p style="margin-bottom: 5px;"><strong>Temporary Password:</strong></p>
-          ${styledHighlightBox(generatedPassword)}
-          
-          <p>You can now log in to the platform with these credentials. We recommend keeping your password secure.</p>
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+             <p style="margin: 5px 0;"><strong>Access Email:</strong> ${email}</p>
+             <p style="margin: 5px 0;"><strong>Platform Link:</strong> <a href="${loginUrl}" style="color: #586ab1;">${loginUrl}</a></p>
+          </div>
+
+          <p>After setting your password, you will be redirected to the dashboard.</p>
           
           <p>If you have any questions or need assistance, please contact your internal administrator.</p>
         `)

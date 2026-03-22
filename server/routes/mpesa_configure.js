@@ -43,7 +43,8 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     initiator_name,
     initiator_password,
     security_credential,
-    admin_id // Passing admin_id to verify role
+    admin_id, // Passing admin_id to verify role
+    service_type = "c2b" // Default to c2b if not provided
   } = req.body;
 
   if (!tenant_id) return res.status(400).json({ error: "Tenant required" });
@@ -71,10 +72,12 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
       .from("tenant_mpesa_config")
       .select("id")
       .eq("tenant_id", tenant_id)
+      .eq("service_type", service_type)
       .maybeSingle();
 
     const configData = {
       tenant_id,
+      service_type,
       paybill_number: paybill_number || null,
       till_number: till_number || null,
       consumer_key: encryptedKey,
@@ -97,6 +100,7 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
         .from("tenant_mpesa_config")
         .update(configData)
         .eq("tenant_id", tenant_id)
+        .eq("service_type", service_type)
         .select();
     } else {
       // Insert new
@@ -123,15 +127,33 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
   }
 });
 
-// GET tenant MPESA config
+// GET tenant MPESA config (single by type)
 mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", verifySupabaseToken, checkTenantAccess, async (req, res) => {
+  try {
+    const { tenant_id } = req.params;
+    const { service_type = "c2b" } = req.query; // Default to c2b if not specified
+    const { data, error } = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .select("*")
+      .eq("tenant_id", tenant_id)
+      .eq("service_type", service_type)
+      .maybeSingle();
+
+    if (error) throw error;
+    res.json({ data });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET all tenant MPESA configs
+mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id/all", verifySupabaseToken, checkTenantAccess, async (req, res) => {
   try {
     const { tenant_id } = req.params;
     const { data, error } = await supabaseAdmin
       .from("tenant_mpesa_config")
       .select("*")
-      .eq("tenant_id", tenant_id)
-      .single();
+      .eq("tenant_id", tenant_id);
 
     if (error) throw error;
     res.json({ data });
