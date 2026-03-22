@@ -217,7 +217,7 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
         tenant,
         admin: {
           email: admin_email,
-          setup_link: invitationLink,
+          setup_link: setupLink,
         },
       });
     }
