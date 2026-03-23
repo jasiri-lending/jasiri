@@ -187,9 +187,12 @@ const DashboardSkeleton = () => (
 );
 
 // Main Dashboard Component
-const OperationsDashboard = () => {
+const OperationsDashboard = ({ userRole }) => {
   const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
+
+  // Define authorized financial roles who can see sensitive widgets
+  const isFinanceRole = ["admin", "superadmin", "accountant", "finance_officer", "credit_analyst_officer"].includes(userRole || userProfile?.role);
 
   // Filter State
   const [selectedRegion, setSelectedRegion] = useState("all");
@@ -940,7 +943,7 @@ const OperationsDashboard = () => {
               statusData={dashboardData.portfolio.status}
               typeData={dashboardData.portfolio.types}
             />
-            <RevenueWidget data={dashboardData.revenue} />
+            {isFinanceRole && <RevenueWidget data={dashboardData.revenue} />}
           </div>
 
           {/* Right Column */}
@@ -951,7 +954,7 @@ const OperationsDashboard = () => {
               <PerformanceWidget type="agent" data={dashboardData.agentPerformance} title="Officer Performance" />
             </div>
             <PerformanceWidget type="collector" data={dashboardData.collectorPerformance} />
-            <SystemAlertsWidget alerts={dashboardData.alerts} />
+            {isFinanceRole && <SystemAlertsWidget alerts={dashboardData.alerts} />}
           </div>
 
         </div>

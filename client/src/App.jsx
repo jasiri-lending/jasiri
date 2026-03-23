@@ -554,7 +554,11 @@ function MainLayout({
                         path="/analytics"
                         element={
                           <ProtectedRoute>
-                            <AnalyticsDashBoard userRole={role} />
+                            {["admin", "superadmin", "branch_manager", "regional_manager", "credit_analyst_officer"].includes(role) ? (
+                              <AnalyticsDashBoard userRole={role} />
+                            ) : (
+                              <Navigate to="/dashboard" replace />
+                            )}
                           </ProtectedRoute>
                         }
                       />
@@ -1046,7 +1050,11 @@ function MainLayout({
                         path="/financial/dashboard"
                         element={
                           <ProtectedRoute>
-                            <FinancialDashboard userRole={role} />
+                            {["admin", "superadmin", "accountant", "finance_officer", "credit_analyst_officer"].includes(role) ? (
+                              <FinancialDashboard userRole={role} />
+                            ) : (
+                              <Navigate to="/dashboard" replace />
+                            )}
                           </ProtectedRoute>
                         }
                       />

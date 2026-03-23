@@ -93,6 +93,9 @@ const AllLoans = () => {
         const branchIds = branchesInRegion?.map((b) => b.id) || [];
         if (branchIds.length > 0) {
           loansQuery = loansQuery.in("branch_id", branchIds);
+        } else {
+          // If no branches found in region, restrict to none to avoid unfiltered access
+          loansQuery = loansQuery.eq("branch_id", "00000000-0000-0000-0000-000000000000");
         }
       }
 

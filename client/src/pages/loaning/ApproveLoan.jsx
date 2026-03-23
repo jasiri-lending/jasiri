@@ -103,6 +103,27 @@ const handleApprovalDecision = async (approved) => {
 
       if (error) throw error;
 
+      // Role-based access control check
+      const { role, id: userId, branch_id, region_id } = profile;
+      const isGlobalRole = ['super_admin', 'admin', 'credit_analyst_officer'].includes(role);
+      
+      let hasAccess = isGlobalRole;
+      if (!hasAccess) {
+        if (role === 'relationship_officer') {
+          hasAccess = data.booked_by === userId;
+        } else if (['branch_manager', 'customer_service_officer'].includes(role)) {
+          hasAccess = data.branch_id === branch_id;
+        } else if (role === 'regional_manager') {
+          hasAccess = data.customers?.branches?.region_id === region_id;
+        }
+      }
+
+      if (!hasAccess) {
+        console.warn("Access denied: User does not have permission to review this loan.");
+        setLoanDetails(null);
+        return;
+      }
+
       // Fetch the user who booked the loan
       const { data: userData, error: userError } = await supabase
         .from("users")

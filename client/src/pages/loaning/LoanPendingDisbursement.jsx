@@ -47,6 +47,7 @@ const LoanPendingDisbursement = () => {
   const isBranchManager = profile?.role === "branch_manager";
   const isRegionalManager = profile?.role === "regional_manager";
   const isCustomerService = profile?.role === "customer_service_officer";
+  const isRelationshipOfficer = profile?.role === "relationship_officer";
 
   const isGlobalRole = isSuperAdmin || isCreditAnalyst;
 
@@ -76,8 +77,12 @@ const LoanPendingDisbursement = () => {
         .eq('tenant_id', profile?.tenant_id)
         .order('created_at', { ascending: false });
 
+      // Filter by Relationship Officer
+      if (isRelationshipOfficer && profile?.id) {
+        loansQuery = loansQuery.eq('booked_by', profile.id);
+      }
       // Filter by branch for branch managers and customer service officers
-      if ((isBranchManager || isCustomerService) && profile?.branch_id) {
+      else if ((isBranchManager || isCustomerService) && profile?.branch_id) {
         loansQuery = loansQuery.eq('branch_id', profile.branch_id);
       }
       // Filter by region for regional managers
@@ -90,6 +95,9 @@ const LoanPendingDisbursement = () => {
         const branchIds = branchesInRegion?.map(b => b.id) || [];
         if (branchIds.length > 0) {
           loansQuery = loansQuery.in("branch_id", branchIds);
+        } else {
+          // If no branches found in region, restrict to none to avoid unfiltered access
+          loansQuery = loansQuery.eq("branch_id", "00000000-0000-0000-0000-000000000000");
         }
       }
 

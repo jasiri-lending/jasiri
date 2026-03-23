@@ -14,19 +14,20 @@ export default function ProtectedRoute({ children }) {
     }
   }, [initializing, profile, navigate]);
 
-  // Keep UI stable while auth initializes
+  // If we have a cached profile, render immediately (background refresh is happening silently)
+  if (profile) {
+    return children;
+  }
+
+  // Only show a spinner if we are truly loading with no cached data
   if (initializing) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <Spinner text="Verifying session..." />
+        <Spinner text="Loading..." />
       </div>
     );
   }
 
-  // Only render children if user is authenticated
-  return profile ? children : (
-    <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-      <Spinner text="Finalizing access..." />
-    </div>
-  );
+  // No profile, not initializing — redirect will happen via useEffect
+  return null;
 }

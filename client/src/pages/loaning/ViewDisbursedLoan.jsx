@@ -67,6 +67,27 @@ const ViewDisbursedLoan = () => {
 
       if (loanError) throw loanError;
 
+      // Role-based access control check
+      const { role, id: userId, branch_id, region_id } = profile;
+      const isGlobalRole = ['super_admin', 'admin', 'credit_analyst_officer'].includes(role);
+      
+      let hasAccess = isGlobalRole;
+      if (!hasAccess) {
+        if (role === 'relationship_officer') {
+          hasAccess = loanData.booked_by === userId;
+        } else if (['branch_manager', 'customer_service_officer'].includes(role)) {
+          hasAccess = loanData.branch_id === branch_id;
+        } else if (role === 'regional_manager') {
+          hasAccess = loanData.customers?.branches?.region_id === region_id;
+        }
+      }
+
+      if (!hasAccess) {
+        console.warn("Access denied: User does not have permission to view this loan.");
+        setLoading(false);
+        return;
+      }
+
       // Fetch users involved in approval trail
       const userIds = [
         loanData.booked_by,

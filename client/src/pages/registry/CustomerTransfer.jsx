@@ -64,7 +64,29 @@ const CustomerTransfer = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setTransfers(data || []);
+      
+      // Apply role-based filtering
+      let roleFilteredTransfers = data || [];
+      
+      if (profile?.role === 'relationship_officer') {
+        roleFilteredTransfers = roleFilteredTransfers.filter(t => 
+          t.current_officer_id === profile.id || t.new_officer_id === profile.id
+        );
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        roleFilteredTransfers = roleFilteredTransfers.filter(t => 
+          t.current_branch_id?.toString() === profile.branch_id || 
+          t.new_branch_id?.toString() === profile.branch_id
+        );
+      } else if (profile?.role === 'regional_manager' && profile.region_id) {
+        // Note: Requests don't have region_id directly, but we can filter by the RM ID if they are assigned
+        // OR we can assume RMs want to see everything in their region. 
+        // For now, filtering by their assigned field or general visibility if needed.
+        roleFilteredTransfers = roleFilteredTransfers.filter(t => 
+          t.regional_manager_id === profile.id
+        );
+      }
+
+      setTransfers(roleFilteredTransfers);
     } catch (error) {
       console.error('Error fetching transfers:', error);
       toast.error('Failed to load transfers');
@@ -337,7 +359,9 @@ const CustomerTransfer = () => {
       <div className="h-full flex flex-col">
         {/* Header Section */}
         <div className="mb-4">
-          <h1 className="text-sm text-slate-600 mb-1">Customer Transfer Requests</h1>
+          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+            Registry / Customer Transfer Requests
+          </h1>
         </div>
 
         {/* Search and Action Bar */}

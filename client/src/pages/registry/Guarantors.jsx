@@ -65,6 +65,7 @@ const Guarantors = () => {
           id_number,
           branch_id,
           region_id,
+          created_by,
           branch:branches (
             id,
             name
@@ -91,8 +92,27 @@ const Guarantors = () => {
 
       if (error) throw error;
 
+      // Apply strict role-based data isolation
+      let roleFilteredData = data || [];
+      if (profile?.role === 'regional_manager' && profile.region_id) {
+        roleFilteredData = roleFilteredData.filter(g => 
+          g.customer?.region_id?.toString() === profile.region_id || 
+          g.region_id?.toString() === profile.region_id
+        );
+      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
+        roleFilteredData = roleFilteredData.filter(g => 
+          g.customer?.branch_id?.toString() === profile.branch_id ||
+          g.branch_id?.toString() === profile.branch_id
+        );
+      } else if (profile?.role === 'relationship_officer' && profile.id) {
+        roleFilteredData = roleFilteredData.filter(g => 
+          g.created_by?.toString() === profile.id || 
+          g.customer?.created_by?.toString() === profile.id
+        );
+      }
+
       const guarantorsWithStatus = await Promise.all(
-        data.map(async (guarantor) => {
+        roleFilteredData.map(async (guarantor) => {
           let canConvertToCustomer = false;
           let guaranteedCustomers = [];
           let customersWithUnpaidLoans = [];
@@ -440,10 +460,9 @@ const Guarantors = () => {
       <div className="mb-6">
         <div className="flex justify-between items-start">
           <div>
-            <h1 className="text-sm  mb-1" style={{ color: "#586ab1" }}>
-              Guarantors Management
+            <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+              Registry / Guarantors Management
             </h1>
-
           </div>
         </div>
       </div>
@@ -575,27 +594,27 @@ const Guarantors = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px]">
-            <thead style={{ backgroundColor: "#f0f2f8" }}>
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+            <thead>
+              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Guarantor Details
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   ID
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Phone
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Customer
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Loan Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider" style={{ color: "#586ab1" }}>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">
                   Action
                 </th>
               </tr>

@@ -7,6 +7,17 @@ import { apiFetch } from "../utils/api";
 // Create the context
 const AuthContext = createContext(null);
 
+// Helper function to check if session has expired
+const isSessionExpired = () => {
+  if (typeof window === "undefined") return true;
+  const sessionExpiresAt = localStorage.getItem("sessionExpiresAt");
+  if (!sessionExpiresAt) return true;
+
+  const now = new Date();
+  const expiryTime = new Date(sessionExpiresAt);
+  return expiryTime < now;
+};
+
 export function AuthProvider({ children }) {
   // Initialize from localStorage immediately
   const getInitialProfile = () => {
@@ -31,31 +42,18 @@ export function AuthProvider({ children }) {
 
   const initialProfile = getInitialProfile();
   const initialTenant = getInitialTenant();
+  const initialUserIsAuthenticated = initialProfile && !isSessionExpired();
 
   const [user, setUser] = useState(null);
   const [profile, setProfile] = useState(initialProfile);
   const [tenant, setTenant] = useState(initialTenant);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
-  const [initializing, setInitializing] = useState(true);
+  // Optimistically set initializing to false if we already have a profile and valid session time
+  const [initializing, setInitializing] = useState(!initialUserIsAuthenticated);
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
   const isLoggingOutRef = useRef(false);
   const isFetchingRef = useRef(false);
-
-
-
-  // Helper function to check if session has expired
-  const isSessionExpired = () => {
-    const sessionExpiresAt = localStorage.getItem("sessionExpiresAt");
-    if (!sessionExpiresAt) return true;
-
-    const now = new Date();
-    const expiryTime = new Date(sessionExpiresAt);
-
-
-
-    return expiryTime < now;
-  };
 
   // Auto logout when session expires
   const setupAutoLogout = () => {
@@ -163,12 +161,12 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Fetch profile with correct region logic
-  const fetchProfile = useCallback(async (userId) => {
+  const fetchProfile = useCallback(async (userId, silent = false) => {
     if (!userId || isLoggingOutRef.current || isFetchingRef.current) return;
 
     try {
       isFetchingRef.current = true;
-      setGlobalLoading(true);
+      if (!silent) setGlobalLoading(true);
 
       // Fetch profile data from our secure Node API layer
       const response = await apiFetch(`/api/profile/${userId}`, {
@@ -206,14 +204,13 @@ export function AuthProvider({ children }) {
       sessionStorage.removeItem("isLoggingOut");
       isLoggingOutRef.current = false;
 
-
-
     } catch (err) {
       console.error("💥 [AUTH HOOK] Auth loading error:", err);
-      setProfile(null);
-      localStorage.removeItem("profile");
+      // Only clear profile if it wasn't already there or if the fetch actually failed with auth error
+      // If it's just a network error, maybe keep cached profile for now?
+      // For now, let's be conservative.
     } finally {
-      setGlobalLoading(false);
+      if (!silent) setGlobalLoading(false);
       isFetchingRef.current = false;
       setInitializing(false);
     }
@@ -240,8 +237,12 @@ export function AuthProvider({ children }) {
     // If we already have a token in localStorage, use it directly.
     if (customSessionToken && customUserId) {
       if (!profile || profile.id !== customUserId) {
+        // If profile mismatch or missing, show loader
+        setInitializing(true);
         fetchProfile(customUserId);
       } else {
+        // Optimistic refresh: update profile in background but keep initializing=false
+        fetchProfile(customUserId, true);
         setInitializing(false);
       }
       setupAutoLogout();
@@ -252,7 +253,7 @@ export function AuthProvider({ children }) {
           setUser(session.user);
           localStorage.setItem("sessionToken", session.access_token);
           localStorage.setItem("userId", session.user.id);
-          fetchProfile(session.user.id);
+          fetchProfile(session.user.id, true); // Background fetch if possible
         } else {
           setInitializing(false);
         }
