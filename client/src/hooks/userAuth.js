@@ -49,6 +49,7 @@ export function AuthProvider({ children }) {
   const [tenant, setTenant] = useState(initialTenant);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
   // Optimistically set initializing to false if we already have a profile and valid session time
+  // This prevents the "Initializing application..." flicker on every route change or refresh
   const [initializing, setInitializing] = useState(!initialUserIsAuthenticated);
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
@@ -164,9 +165,13 @@ export function AuthProvider({ children }) {
   const fetchProfile = useCallback(async (userId, silent = false) => {
     if (!userId || isLoggingOutRef.current || isFetchingRef.current) return;
 
+    // Automatically force silent mode if we already have a profile in state
+    // this prevents the global loading overlay from appearing during navigation refreshes
+    const shouldBeSilent = silent || !!profile;
+
     try {
       isFetchingRef.current = true;
-      if (!silent) setGlobalLoading(true);
+      if (!shouldBeSilent) setGlobalLoading(true);
 
       // Fetch profile data from our secure Node API layer
       const response = await apiFetch(`/api/profile/${userId}`, {
@@ -210,7 +215,7 @@ export function AuthProvider({ children }) {
       // If it's just a network error, maybe keep cached profile for now?
       // For now, let's be conservative.
     } finally {
-      if (!silent) setGlobalLoading(false);
+      if (!shouldBeSilent) setGlobalLoading(false);
       isFetchingRef.current = false;
       setInitializing(false);
     }
@@ -283,10 +288,10 @@ export function AuthProvider({ children }) {
           
           // Only fetch if profile isn't already loaded for this user
           if (!profile || profile.id !== session.user.id) {
-            // Set initializing=true so ProtectedRoute shows a spinner and does NOT
-            // redirect to login while the profile API fetch is in progress.
-            setInitializing(true);
-            fetchProfile(session.user.id);
+            // Only set initializing to true if we don't even have a cached ID match 
+            // otherwise, just refresh the profile in the background
+            if (!profile) setInitializing(true);
+            fetchProfile(session.user.id, !!profile);
           }
         }
  else if (event === "TOKEN_REFRESHED" && session?.access_token) {

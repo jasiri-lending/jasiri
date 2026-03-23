@@ -259,7 +259,9 @@ function MainLayout({
   const location = useLocation();
   const navigate = useNavigate();
   const isLoginPage = location.pathname === "/login";
-  const showShell = !initializing && profile && !isLoginPage;
+  // Optimistic Shell: If we have a profile, show the sidebar/header immediately 
+  // even if a background session verification (initializing) is still happening.
+  const showShell = profile && !isLoginPage;
 
   // 🚩 REMOVED: Mandatory password change redirect as per user request. 
   // Password changes are now handled optionally via Profile.jsx.
@@ -284,11 +286,11 @@ function MainLayout({
                   <Route
                     path="/"
                     element={
-                      initializing ? (
+                      initializing && !profile ? (
                         <div className="min-h-screen bg-brand-surface flex items-center justify-center">
                           <Spinner text="Initializing application..." />
                         </div>
-                      ) : user ? (
+                      ) : (profile || user) ? (
                         <Navigate to={getDefaultRoute()} replace />
                       ) : (
                         <Navigate to="/login" replace />
