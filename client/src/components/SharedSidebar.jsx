@@ -1,5 +1,6 @@
 // src/components/SharedSidebar.jsx
 import { useState, useEffect, useMemo } from "react";
+
 import { NavLink, useLocation } from "react-router-dom";
 import {
   ChevronLeft,
@@ -80,11 +81,10 @@ const SharedSidebar = () => {
   }, []);
 
   /* -----------------------------------------------------
-   Exclusive Accordion Logic
+   Accordion toggle — same as every other module
   ----------------------------------------------------- */
   const toggleItem = (itemName) => {
     setExpandedItems((prev) => ({
-      // Clear all other expansions to ensure only one is open
       [itemName]: !prev[itemName],
     }));
   };
@@ -127,12 +127,12 @@ const SharedSidebar = () => {
       dashboardChildren.push(
         { name: "Admin Dashboard", href: "/dashboard/admin", icon: Home },
         { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
-        { name: "General Analysis", href: "/dashboard", icon: PieChart },
+        { name: "Main Dashboard", href: "/dashboard/main", icon: PieChart },
         { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
       );
     } else {
       dashboardChildren.push(
-        { name: "Main Dashboard", href: "/dashboard", icon: Home },
+        { name: "Main Dashboard", href: "/dashboard/main", icon: Home },
         { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow }
       );
       if (isFinance) {
@@ -148,7 +148,8 @@ const SharedSidebar = () => {
         name: "Dashboard",
         href: "/dashboard",
         icon: Gauge,
-        children: dashboardChildren.filter(hasAccess),
+        children: dashboardChildren,
+
       },
     ];
 
@@ -350,17 +351,6 @@ const SharedSidebar = () => {
       );
   }, [profile?.role]);
 
-  useEffect(() => {
-    navigation.forEach((item) => {
-      if (!item.children) return;
-      const active = item.children.some(
-        (child) => location.pathname === child.href || location.pathname.startsWith(child.href + "/")
-      );
-      if (active) {
-        setExpandedItems((prev) => ({ ...prev, [item.name]: true }));
-      }
-    });
-  }, [location.pathname, navigation]);
 
   const sidebarStyles = {
     bg: "bg-muted", // Light bluish-gray from tailwind config
@@ -390,8 +380,15 @@ const SharedSidebar = () => {
         )}
 
         <div className={`fixed inset-y-0 left-0 w-64 ${sidebarStyles.bg} shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
-          <div className="flex items-center justify-between p-4 border-b border-black/5 flex-shrink-0 h-20">
-            <img src="/jasiri.png" alt="Jasiri Logo" className="w-28 h-auto object-contain opacity-90" />
+          <div className="flex items-center justify-between px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
+            <div className="flex items-center justify-center w-full h-full relative">
+              <img 
+                src="/jasirif.png" 
+                alt="Jasiri Logo" 
+                style={{ height: '96px', width: 'auto', imageRendering: 'crisp-edges', display: 'block', position: 'absolute' }}
+              />
+            </div>
+
             <button onClick={() => setIsMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-black/5 transition-colors">
               <X className="h-5 w-5 text-slate-500" />
             </button>
@@ -489,10 +486,14 @@ const SharedSidebar = () => {
   // Desktop Sidebar
   return (
     <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-sans ${isCollapsed ? "w-16" : "w-60"} flex-shrink-0 relative flex flex-col overflow-hidden`}>
-      <div className="flex items-center p-4 border-b border-black/5 flex-shrink-0 h-20 relative">
+      <div className="flex items-center px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
         {!isCollapsed && (
-          <div className="flex items-center justify-start w-full">
-            <img src="/jasirif.png" alt="Jasiri Logo" className="w-28 h-auto object-contain opacity-90" />
+          <div className="flex items-center justify-center w-full h-full relative">
+            <img 
+              src="/jasirif.png" 
+              alt="Jasiri Logo" 
+              style={{ height: '176px', width: 'auto', imageRendering: 'crisp-edges', display: 'block', position: 'absolute' }}
+            />
           </div>
         )}
 

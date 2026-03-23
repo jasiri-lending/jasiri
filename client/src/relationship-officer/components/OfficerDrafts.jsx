@@ -105,7 +105,7 @@ const OfficerDrafts = () => {
 
   if (authLoading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-sans">
         <div className="flex items-center justify-center h-64">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: '#586ab1' }}></div>
           <span className="ml-3 text-gray-500 text-sm">Loading user information...</span>
@@ -115,7 +115,7 @@ const OfficerDrafts = () => {
   }
 
   return (
-    <div className="h-full bg-brand-surface text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -216,28 +216,28 @@ const OfficerDrafts = () => {
             <table className="w-full">
               <thead>
                 <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     Prefix
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     First Name
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     Surname
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     Mobile
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     ID Number
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     Business
                   </th>
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600" >
                     Location
                   </th>
-                  <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-center text-xs  whitespace-nowrap text-slate-600" >
                     Actions
                   </th>
                 </tr>
@@ -249,25 +249,25 @@ const OfficerDrafts = () => {
                     key={draft.id} 
                     className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
                   >
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.prefix || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.Firstname || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.Surname || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.mobile || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.id_number || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.business_name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
                       {draft.business_location || "N/A"}
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">

@@ -237,7 +237,7 @@ const Reports = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-surface text-gray-800 border-r border-gray-200 p-6">
+    <div className="min-h-screen bg-muted text-gray-800 border-r border-gray-200 p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-2">

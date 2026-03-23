@@ -298,7 +298,7 @@ const PTPReports = () => {
   const totalPages = Math.ceil(sortedPtps.length / itemsPerPage);
 
   return (
-    <div className="space-y-6 bg-brand-surface p-6 min-h-screen">
+    <div className="space-y-6 bg-muted p-6 min-h-screen">
       {/* Header Section */}
       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -502,7 +502,7 @@ const PTPReports = () => {
           {/* PTP Details Table */}
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-gray-50/50">
-              <h3 className="text-lg font-bold text-gray-900">Promise to Pay Details</h3>
+              <h3 className="text-lg  text-gray-600">Promise to Pay Details</h3>
               <span className="text-xs font-bold text-gray-400 uppercase tracking-wider bg-white px-3 py-1.5 rounded-lg border border-gray-100">{sortedPtps.length} Records Found</span>
             </div>
 

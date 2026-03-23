@@ -352,6 +352,15 @@ function MainLayout({
                           </ProtectedRoute>
                         }
                       />
+                      {/* /dashboard/main is an alias used by the sidebar to avoid path-matching conflicts */}
+                      <Route
+                        path="/dashboard/main"
+                        element={
+                          <ProtectedRoute>
+                            <Dashboard userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
 
                       {/* Accounting */}
                       <Route
