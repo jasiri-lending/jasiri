@@ -47,6 +47,7 @@ import { supabase } from "../../../supabaseClient";
 import { useParams, useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
 import { exportToCSV, exportToExcel, exportToPDF, exportToWord } from '../../../utils/exportUtils';
+import { apiFetch } from '../../../utils/api';
 
 // Export Dropdown Component
 const ExportMenu = ({ data, filename, title }) => {
@@ -209,7 +210,7 @@ const TenantViewPage = () => {
   const navigate = useNavigate();
 
   const [tenant, setTenant] = useState(null);
-  const [mpesaConfig, setMpesaConfig] = useState(null);
+  const [mpesaConfigs, setMpesaConfigs] = useState([]);
   const [smsConfig, setSmsConfig] = useState(null);
   const [stats, setStats] = useState({});
   const [users, setUsers] = useState([]);
@@ -245,23 +246,27 @@ const TenantViewPage = () => {
       try {
         setLoading(true);
 
-        // Fetch tenant and config info
-        const [tenantResponse, mpesaResponse, smsResponse] = await Promise.all([
-          supabase.from('tenants').select('*').eq('id', tenantId).single(),
-          supabase.from('tenant_mpesa_config').select('*').eq('tenant_id', tenantId).maybeSingle(),
-          supabase.from('tenant_sms_settings').select('*').eq('tenant_id', tenantId).maybeSingle()
+        // Fetch tenant info
+        const { data: tenantData, error: tenantError } = await supabase.from('tenants').select('*').eq('id', tenantId).single();
+        if (tenantError) throw tenantError;
+        setTenant(tenantData);
+
+        // Fetch configs via apiFetch to get decrypted values
+        const [mpesaRes, mpesaAllRes, smsRes] = await Promise.all([
+          apiFetch(`/api/tenant-mpesa-config/${tenantId}`), // Keep for legacy if needed or remove
+          apiFetch(`/api/tenant-mpesa-config/${tenantId}/all`), // This is the one we need
+          apiFetch(`/api/tenant/sms-config/${tenantId}`)
         ]);
 
-        if (tenantResponse.error) {
-          console.error('Tenant fetch error:', tenantResponse.error);
-          throw tenantResponse.error;
+        if (mpesaAllRes.ok) {
+          const mpesaData = await mpesaAllRes.json();
+          setMpesaConfigs(Array.isArray(mpesaData.data) ? mpesaData.data : []);
         }
 
-
-        setTenant(tenantResponse.data);
-        setMpesaConfig(mpesaResponse.data);
-        // If smsConfig state exists, set it (added for completeness)
-        if (typeof setSmsConfig === 'function') setSmsConfig(smsResponse.data);
+        if (smsRes.ok) {
+          const smsData = await smsRes.json();
+          setSmsConfig(smsData.data);
+        }
 
         // Fetch stats in background
         calculateStats();
@@ -633,7 +638,7 @@ const TenantViewPage = () => {
               { label: 'Total Branches', value: stats.totalBranches || 0, icon: BuildingOfficeIcon },
               { label: 'Total Regions', value: stats.totalRegions || 0, icon: MapPinIcon },
               { label: 'Total Repayments', value: stats.totalRepayments || 0, icon: BanknotesIcon },
-              { label: 'MPESA Config', value: mpesaConfig ? 'Configured' : 'Not Set', icon: CheckBadgeIcon },
+              { label: 'MPESA Config', value: mpesaConfigs.length > 0 ? `${mpesaConfigs.length} Active` : 'Not Set', icon: CheckBadgeIcon },
               { label: 'SMS Config', value: smsConfig ? 'Configured' : 'Not Set', icon: DevicePhoneMobileIcon },
             ].map((stat, index) => {
               const color = statsColors[index % statsColors.length];
@@ -656,116 +661,149 @@ const TenantViewPage = () => {
         </div>
       </div>
 
-      {/* MPESA Configuration */}
-      {mpesaConfig && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
+      {/* MPESA Configuration - Split by Service Type */}
+      {Array.isArray(mpesaConfigs) && mpesaConfigs.map((config, idx) => (
+        <div key={config.id || idx} className="bg-white rounded-lg shadow overflow-hidden border border-slate-200">
+          <div className="p-6 border-b border-gray-200 bg-slate-900 text-white">
             <div className="flex items-center justify-between">
-              <h2 className="text-sm text-slate-600 font-semibold uppercase tracking-wider">MPESA Configuration</h2>
-              <button className="px-4 py-2 bg-brand-btn text-white text-sm rounded-lg hover:bg-brand-primary transition-colors flex items-center gap-2">
+              <div className="flex items-center gap-3">
+                <CurrencyDollarIcon className="h-5 w-5 text-brand-primary" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider">
+                  M-Pesa {config.service_type?.toUpperCase()} Configuration
+                </h2>
+              </div>
+              <button 
+                onClick={() => navigate(`/users/edit-tenant/${tenantId}/admin`)}
+                className="px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-btn transition-colors flex items-center gap-2"
+              >
                 <PencilIcon className="h-4 w-4" />
-                Edit Config
+                Edit Settings
               </button>
             </div>
           </div>
 
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {[
-                { label: 'Paybill Number', value: mpesaConfig.paybill_number || 'Not set' },
-                { label: 'Till Number', value: mpesaConfig.till_number || 'Not set' },
-                { label: 'Shortcode', value: mpesaConfig.shortcode || 'Not set' },
-                { label: 'Consumer Key', value: maskSensitive(mpesaConfig.consumer_key), sensitive: true },
-                { label: 'Consumer Secret', value: maskSensitive(mpesaConfig.consumer_secret), sensitive: true },
-                { label: 'Passkey', value: maskSensitive(mpesaConfig.passkey), sensitive: true },
-                { label: 'Confirmation URL', value: mpesaConfig.confirmation_url || 'Not set', fullWidth: true },
-                { label: 'Validation URL', value: mpesaConfig.validation_url || 'Not set', fullWidth: true },
-                { label: 'Callback URL', value: mpesaConfig.callback_url || 'Not set', fullWidth: true },
-              ].map((field, index) => (
-                <div key={index} className={field.fullWidth ? 'md:col-span-2 lg:col-span-3' : ''}>
-                  <p className="text-sm font-medium text-gray-700 mb-1">{field.label}</p>
-                  <div className={`p-3 bg-gray-50 rounded-lg border border-gray-200 ${field.sensitive ? 'font-mono' : ''}`}>
-                    <p className={`text-sm ${field.sensitive ? 'text-gray-800 font-semibold' : 'text-gray-600'}`}>
-                      {field.value}
-                    </p>
+              {config.service_type === 'c2b' ? (
+                <>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Paybill Number</p>
+                    <p className="text-sm font-bold text-slate-700">{config.paybill_number || '—'}</p>
                   </div>
-                </div>
-              ))}
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Till Number</p>
+                    <p className="text-sm font-bold text-slate-700">{config.till_number || '—'}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Passkey</p>
+                    <p className="text-sm font-bold text-slate-700 font-mono">{maskSensitive(config.passkey)}</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Shortcode</p>
+                    <p className="text-sm font-bold text-slate-700">{config.shortcode || '—'}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Initiator Name</p>
+                    <p className="text-sm font-bold text-slate-700">{config.initiator_name || '—'}</p>
+                  </div>
+                  <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Environment</p>
+                    <p className="text-sm font-bold text-slate-700 uppercase">{config.environment || 'sandbox'}</p>
+                  </div>
+                </>
+              )}
+              
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumer Key</p>
+                <p className="text-sm font-bold text-slate-700 font-mono">{maskSensitive(config.consumer_key)}</p>
+              </div>
+              <div className="p-3 bg-slate-50 rounded-lg border border-slate-200 md:col-span-2">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Consumer Secret</p>
+                <p className="text-sm font-bold text-slate-700 font-mono">{maskSensitive(config.consumer_secret)}</p>
+              </div>
             </div>
 
-            <div className="mt-6 pt-6 border-t border-gray-200">
-              <p className="text-sm text-gray-500">
-                Configured on: {mpesaConfig.created_at ? format(new Date(mpesaConfig.created_at), 'MMMM d, yyyy h:mm a') : 'N/A'}
-              </p>
+            <div className="mt-6 space-y-3">
+              <div className="p-3 bg-brand-surface/30 rounded-lg border border-brand-primary/10">
+                <p className="text-[10px] font-black text-brand-primary uppercase tracking-widest mb-1">Callback URL</p>
+                <p className="text-xs font-mono text-slate-600 break-all">{config.callback_url || config.confirmation_url || '—'}</p>
+              </div>
             </div>
           </div>
         </div>
-      )}
+      ))}
     </div>
   );
 
   const renderSms = () => {
-    const maskKey = (val) => val ? val.substring(0, 4) + '••••••••••••' : '—';
+    const maskKey = (val) => val ? val.substring(0, 4) + '••••••••' : '—';
     return (
-      <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="p-6 border-b border-gray-200">
+      <div className="bg-white rounded-lg shadow overflow-hidden border border-slate-200">
+        <div className="p-6 border-b border-gray-200 bg-slate-900 text-white">
           <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-sm text-slate-600">SMS Gateway Configuration</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                {smsConfig ? 'Credentials for the SMS provider assigned to this tenant' : 'No SMS configuration has been set'}
-              </p>
+            <div className="flex items-center gap-3">
+              <DevicePhoneMobileIcon className="h-5 w-5 text-brand-primary" />
+              <h2 className="text-sm font-semibold uppercase tracking-wider text-white">SMS Gateway Configuration</h2>
             </div>
-            <DevicePhoneMobileIcon className="h-8 w-8 text-gray-300" />
+            <button 
+              onClick={() => navigate(`/users/edit-tenant/${tenantId}/admin`)}
+              className="px-4 py-2 bg-brand-primary text-white text-xs font-bold rounded-lg hover:bg-brand-btn transition-colors flex items-center gap-2"
+            >
+              <PencilIcon className="h-4 w-4" />
+              Edit SMS
+            </button>
           </div>
         </div>
 
-        <div className="p-6">
+        <div className="p-8 bg-slate-50/30">
           {smsConfig ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                <div className="md:col-span-2 lg:col-span-3">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Base URL</p>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-800 break-all">{smsConfig.base_url || '—'}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Partner ID</p>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-800">{smsConfig.partner_id || '—'}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Shortcode</p>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-800">{smsConfig.shortcode || '—'}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">API Key</p>
-                  <div className="p-3 bg-gray-50 rounded-lg border border-gray-200">
-                    <p className="text-sm text-gray-800 font-mono">{maskKey(smsConfig.api_key)}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-6 pt-6 border-t border-gray-200 flex items-center gap-2">
-                <CheckBadgeIcon className="h-4 w-4 text-green-500" />
-                <p className="text-sm text-gray-500">
-                  Configured on: {smsConfig.created_at ? format(new Date(smsConfig.created_at), 'MMMM d, yyyy h:mm a') : 'N/A'}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="md:col-span-2 lg:col-span-3 p-4 bg-white border border-slate-200 rounded-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
+                  API Base URL
                 </p>
+                <p className="text-sm font-bold text-slate-700 break-all">{smsConfig.base_url || '—'}</p>
               </div>
-            </>
+
+              <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
+                  Partner ID
+                </p>
+                <p className="text-sm font-bold text-slate-700">{smsConfig.partner_id || '—'}</p>
+              </div>
+
+              <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
+                  Sender / Shortcode
+                </p>
+                <p className="text-sm font-bold text-slate-700">{smsConfig.shortcode || '—'}</p>
+              </div>
+
+              <div className="p-4 bg-white border border-slate-200 rounded-xl">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                  <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
+                  API Key
+                </p>
+                <p className="text-sm font-bold text-slate-700 font-mono">{maskKey(smsConfig.api_key)}</p>
+              </div>
+            </div>
           ) : (
-            <div className="text-center py-12">
-              <DevicePhoneMobileIcon className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-4 text-sm font-medium text-gray-900">SMS Not Configured</h3>
-              <p className="mt-1 text-sm text-gray-500">No SMS gateway credentials have been saved for this tenant.</p>
-              <p className="mt-3 text-xs text-gray-400">Use the Edit Tenant form to add SMS configuration.</p>
+            <div className="text-center py-16 bg-white border border-dashed border-slate-300 rounded-2xl">
+              <DevicePhoneMobileIcon className="mx-auto h-12 w-12 text-slate-300 mb-4" />
+              <h3 className="text-sm font-bold text-slate-900 uppercase tracking-widest">SMS Not Configured</h3>
+              <p className="mt-2 text-sm text-slate-500 max-w-xs mx-auto">No SMS gateway credentials have been saved for this tenant.</p>
+              <button 
+                onClick={() => navigate(`/users/edit-tenant/${tenantId}/admin`)}
+                className="mt-6 px-6 py-2 bg-brand-primary text-white text-xs font-bold rounded-full hover:bg-brand-btn transition-transform hover:scale-105"
+              >
+                Configure Now
+              </button>
             </div>
           )}
         </div>
@@ -1435,14 +1473,83 @@ const TenantViewPage = () => {
             {activeTab === 'sms' && renderSms()}
             {activeTab === 'settings' && (
               <div className="bg-white rounded-lg shadow overflow-hidden">
-                <div className="p-6 border-b border-gray-200">
-                  <h2 className="text-lg font-semibold text-gray-900">Tenant Settings</h2>
-                  <p className="text-sm text-gray-600 mt-1">Manage tenant settings and actions</p>
+                <div className="p-6 border-b border-gray-200 bg-slate-50">
+                  <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest flex items-center gap-2">
+                    <CogIcon className="h-5 w-5 text-brand-primary" />
+                    Tenant Settings & Profile
+                  </h2>
+                  <p className="text-sm text-gray-500 mt-1 caps">Comprehensive overview of tenant core identity</p>
                 </div>
 
-                <div className="p-6">
+                <div className="p-8">
+                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-10">
+                    <div className="lg:col-span-2 space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                            <BuildingOfficeIcon className="h-3 w-3" /> Company Name
+                          </p>
+                          <p className="text-sm font-bold text-slate-800">{tenant.company_name || '—'}</p>
+                        </div>
+                        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                            <GlobeAltIcon className="h-3 w-3" /> Tenant Slug
+                          </p>
+                          <p className="text-sm font-bold text-brand-primary font-mono">{tenant.tenant_slug || '—'}</p>
+                        </div>
+                        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                            <EnvelopeIcon className="h-3 w-3" /> Email Domain
+                          </p>
+                          <p className="text-sm font-bold text-slate-800">@{tenant.email_domain || '—'}</p>
+                        </div>
+                        <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                            <MapPinIcon className="h-3 w-3" /> Physical Address
+                          </p>
+                          <p className="text-sm font-bold text-slate-800">{tenant.address || '—'}</p>
+                        </div>
+                      </div>
+                      <div className="p-4 bg-white border border-slate-200 rounded-xl shadow-sm">
+                        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-2">
+                          <DocumentTextIcon className="h-3 w-3" /> Description
+                        </p>
+                        <p className="text-sm text-slate-600 leading-relaxed italic">
+                          {tenant.description || 'No description provided for this tenant.'}
+                        </p>
+                      </div>
+                    </div>
+                    
+                    <div className="flex flex-col gap-4">
+                      <div className="p-6 bg-brand-surface rounded-2xl border border-brand-primary/10 flex flex-col items-center text-center">
+                        <div className="w-20 h-20 bg-white rounded-full flex items-center justify-center shadow-lg mb-4 overflow-hidden border-2 border-brand-primary/20">
+                          {tenant.logo_url ? (
+                            <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-contain" />
+                          ) : (
+                            <BuildingOfficeIcon className="h-10 w-10 text-brand-primary/40" />
+                          )}
+                        </div>
+                        <h3 className="text-base font-black text-brand-primary uppercase tracking-tight">{tenant.company_name}</h3>
+                        <p className="text-xs text-slate-500 mt-1">Tenant ID: {tenant.id.slice(0,8)}...</p>
+                        <button 
+                          onClick={() => navigate(`/users/edit-tenant/${tenantId}/admin`)}
+                          className="mt-6 w-full py-3 bg-slate-900 text-white text-xs font-black uppercase tracking-widest rounded-xl hover:bg-brand-btn transition-all shadow-md active:scale-95"
+                        >
+                          Edit Comprehensive Profile
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 flex items-center gap-4">
+                    Quick Actions 
+                    <div className="h-[1px] flex-1 bg-slate-100"></div>
+                  </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <button className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group">
+                    <button 
+                      onClick={() => navigate(`/users/edit-tenant/${tenantId}/admin`)}
+                      className="p-4 border border-gray-200 rounded-lg hover:bg-brand-surface hover:border-brand-primary text-left transition-colors group"
+                    >
                       <div className="flex items-center">
                         <PencilIcon className="h-5 w-5 text-brand-primary mr-3 group-hover:scale-110 transition-transform" />
                         <div>

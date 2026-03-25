@@ -1,4 +1,38 @@
 import { supabaseAdmin } from "../supabaseClient.js";
+import crypto from "crypto";
+
+/**
+ * Extracted helper to verify Supabase JWTs locally using HS256.
+ * This guarantees the token was issued by our Supabase project, bypassing DNS/network issues.
+ */
+const verifySupabaseJwtLocal = (token) => {
+    try {
+        const parts = token.split('.');
+        if (parts.length !== 3) return null;
+        
+        const header = parts[0];
+        const payload = parts[1];
+        const signature = parts[2];
+        
+        const secret = process.env.SUPABASE_JWT_SECRET;
+        if (!secret) return null; // Fallback to network if no secret configured
+
+        const hmac = crypto.createHmac('sha256', secret);
+        hmac.update(`${header}.${payload}`);
+        const expectedSignature = hmac.digest('base64')
+            .replace(/=/g, '')
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_');
+            
+        if (signature === expectedSignature) {
+            return JSON.parse(Buffer.from(payload, 'base64').toString('utf-8'));
+        }
+    } catch (err) {
+        console.error("❌ Local JWT Verification Error:", err);
+    }
+    return null;
+};
+
 
 /**
  * Middleware to verify Supabase JWT token and attach user to request.
@@ -24,55 +58,82 @@ export const verifySupabaseToken = async (req, res, next) => {
             });
         }
 
-        // Verify the token with Supabase
-        const { data: { user: authUser }, error } = await supabaseAdmin.auth.getUser(token);
+        // 1. Try local offline verification first to bypass network dependency entirely!
+        let authUserId = null;
+        let isExpiredByToken = false;
+        const localPayload = verifySupabaseJwtLocal(token);
 
-        if (error || !authUser) {
-            console.error("❌ JWT Verification failed:", error?.message || "Invalid token");
+        if (localPayload) {
+            authUserId = localPayload.sub;
+            isExpiredByToken = localPayload.exp && (Date.now() >= localPayload.exp * 1000);
+            
+            if (isExpiredByToken) {
+                 console.warn(`⚠️ [AUTH] Local validation: Token mathematically expired. Deferring to 7-day database session for user ${authUserId}...`);
+            }
+        } else {
+            // 2. Fallback to Supabase API if local verification fails (e.g. no SUPABASE_JWT_SECRET)
+            const { data: { user: authUser }, error } = await supabaseAdmin.auth.getUser(token);
+
+            if (error || !authUser) {
+                const isNetworkFailure = error?.message?.includes("fetch failed") || error?.message?.includes("ENOTFOUND");
+                const isExpired = error?.message?.includes("expired");
+
+                if (isNetworkFailure) {
+                    console.error(`🚨 [AUTH] CRITICAL: Network failure reaching Supabase API (${error?.message}). To fix this permanently and enable offline verification, add SUPABASE_JWT_SECRET to your server/.env file.`);
+                }
+                
+                console.error(`❌ [AUTH] ${isExpired ? "JWT Expired" : "JWT Invalid"}:`, error?.message || "Invalid token");
+                return res.status(401).json({
+                    success: false,
+                    error: isExpired && !isNetworkFailure ? "Your session has expired. Please log in again." : "Invalid or expired session",
+                    code: isExpired ? "JWT_EXPIRED" : "AUTH_ERROR"
+                });
+            }
+            authUserId = authUser.id;
+        }
+
+        if (!authUserId) {
             return res.status(401).json({
                 success: false,
-                error: "Invalid or expired session",
+                error: "Invalid authorization token format",
             });
         }
 
         // 🛡️ SECURITY ENFORCEMENT: Check session in our database
         // This ensures the session hasn't been revoked/expired in our DB even if the JWT is still valid.
-        // We check BOTH id and auth_id to handle cases where they might differ for older users.
         const { data: userData, error: dbError } = await supabaseAdmin
             .from("users")
-            .select("id, role, tenant_id, session_expires_at")
-            .or(`id.eq.${authUser.id},auth_id.eq.${authUser.id}`)
+            .select("id, email, role, tenant_id, session_expires_at")
+            .or(`id.eq.${authUserId},auth_id.eq.${authUserId}`)
             .single();
 
         if (dbError || !userData) {
-            console.error(`❌ User data lookup failed for Auth ID: ${authUser.id}. This usually means a profile mismatch. Error:`, dbError?.message);
+            console.error(`❌ [AUTH] User database lookup failed for Auth ID: ${authUserId}. Error:`, dbError?.message);
             return res.status(401).json({
                 success: false,
                 error: "User account verification failed",
+                code: "USER_NOT_FOUND"
             });
         }
         
-        console.log(`✅ [Identity Verified] Auth ID: ${authUser.id} maps to DB ID: ${userData.id}`);
-
         // Check if session has expired in our DB
         const now = new Date();
         const expiry = userData.session_expires_at ? new Date(userData.session_expires_at) : null;
-        
-        // Add a 5 minute grace period for clock skew
         const graceExpiry = expiry ? new Date(expiry.getTime() + 5 * 60 * 1000) : null;
 
         if (!expiry || graceExpiry < now) {
-            console.warn(`⚠️ [Session Expired] User ${authUser.id}. Expiry: ${userData.session_expires_at}, Grace: ${graceExpiry?.toISOString()}, Now: ${now.toISOString()}`);
+            console.warn(`⚠️ [AUTH] DB Session Expired: ${authUserId}. ExpiredAt: ${userData.session_expires_at}, Grace: ${graceExpiry?.toISOString()}, Now: ${now.toISOString()}`);
             return res.status(401).json({
                 success: false,
-                error: "Session expired",
+                error: "Your Jasiri session has expired. Please log in again.",
+                code: "SESSION_EXPIRED"
             });
         }
 
         // Attach user information to request (using DB values as the single source of truth)
         req.user = {
             id: userData.id,
-            email: authUser.email,
+            email: userData.email || localPayload?.email,
             role: userData.role,
             tenant_id: userData.tenant_id,
         };

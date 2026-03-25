@@ -21,7 +21,7 @@ stkpush.post("/stkpush", verifySupabaseToken, checkTenantAccess, async (req, res
   }
 
   try {
-    const tenantConfig = await getTenantConfig(tenant_id);
+    const tenantConfig = await getTenantConfig(tenant_id, "c2b");
     const shortcode = tenantConfig.paybill_number || tenantConfig.till_number;
     const timestamp = getMpesaTimestamp();
     const password = buildStkPassword(shortcode, tenantConfig.passkey, timestamp);

@@ -15,9 +15,10 @@ import {
   ExclamationTriangleIcon,
   BanknotesIcon
 } from "@heroicons/react/24/outline";
-import { toast } from "react-toastify";
+import { useToast } from "../../../components/Toast";
 
 const DisbursedLoansAdmin = () => {
+  const { error: toastError } = useToast();
   const { profile } = useAuth();
   const [loans, setLoans] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
@@ -58,7 +59,7 @@ const DisbursedLoansAdmin = () => {
       setLoans(data || []);
     } catch (error) {
       console.error("Error fetching disbursed loans:", error);
-      toast.error("Failed to load disbursed loans");
+      toastError("Failed to load disbursed loans");
     } finally {
       setLoading(false);
     }
@@ -182,7 +183,7 @@ const DisbursedLoansAdmin = () => {
 
     } catch (error) {
       console.error("Error fetching loan details:", error);
-      toast.error("Failed to load loan details");
+      toastError("Failed to load loan details");
     }
   };
 

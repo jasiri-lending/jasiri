@@ -7,6 +7,7 @@ import { mpesaRequest } from "../services/mpesa.js";
 import { enqueueJob } from "../queue/paymentQueue.js";
 import { JOB_TYPES } from "../config/env.js";
 import { createLogger } from "../utils/logger.js";
+import { decrypt } from "../utils/encryption.js";
 
 const b2c = express.Router();
 const log = createLogger({ service: "b2c" });
@@ -34,7 +35,7 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
   let record; // Declare outside try so it's accessible in catch
 
   try {
-    const tenantConfig = await getTenantConfig(tenant_id);
+    const tenantConfig = await getTenantConfig(tenant_id, "b2c");
 
     // Fetch customer name for logging (optional)
     const { data: customer, error: custErr } = await supabaseAdmin
@@ -70,7 +71,7 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
     // Prepare B2C request payload using per‑tenant initiator credentials
     const payload = {
       InitiatorName: tenantConfig.initiator_name,               // from tenant config
-      SecurityCredential: tenantConfig.security_credential,     // from tenant config
+      SecurityCredential: decrypt(tenantConfig.security_credential),     // from tenant config
       CommandID: "BusinessPayment",
       Amount: Math.round(amount),
       PartyA: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,
@@ -94,6 +95,25 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
         status: "processing"
       })
       .eq("id", record.id);
+
+    // Update loan status in loans table to fire installment generation trigger
+    // We do this here using supabaseAdmin to bypass RLS issues on loan_installments table
+    const { error: loanUpdateError } = await supabaseAdmin
+      .from("loans")
+      .update({
+        status: 'disbursed',
+        disbursed_at: new Date().toISOString(),
+        mpesa_transaction_id: convId,
+        disbursement_notes: notes || `Loan Disbursement #${loan_id}`,
+        disbursed_by: processed_by || null
+      })
+      .eq("id", loan_id);
+
+    if (loanUpdateError) {
+      log.error({ err: loanUpdateError.message, loan_id }, "Failed to update loan status in backend");
+      // We don't throw here to avoid failing the whole request if the M-Pesa part succeeded, 
+      // but it's a serious issue that should be investigated.
+    }
 
     log.info({ tenant_id, loan_id, convId }, "Disbursement initiated");
     res.json({
@@ -135,7 +155,7 @@ b2c.post("/result", async (req, res) => {
 
   setImmediate(async () => {
     try {
-      // Find the original transaction using either conversation_id or originator_conversation_id
+      // Find the original transaction to get tenant_id
       const { data: tx, error } = await supabaseAdmin
         .from("loan_disbursement_transactions")
         .select("tenant_id")
@@ -147,11 +167,30 @@ b2c.post("/result", async (req, res) => {
         return;
       }
 
+      // Enqueue the job for the Edge Function
       await enqueueJob({
         tenantId: tx.tenant_id,
         jobType: JOB_TYPES.B2C_DISBURSEMENT,
         payload: body,
         priority: 1,
+      });
+
+      log.info({ convId, tenantId: tx.tenant_id }, "B2C result enqueued, triggering Edge Function");
+
+      // Immediately trigger the Edge Function to process the queue
+      const edgeUrl = `${process.env.SUPABASE_URL}/functions/v1/process-b2c-disbursements`;
+      fetch(edgeUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+        },
+        body: JSON.stringify({ action: "process-queue", tenant_id: tx.tenant_id }),
+      }).then(async (r) => {
+        const json = await r.json().catch(() => ({}));
+        log.info({ status: r.status, processed: json.processed }, "Edge Function triggered after B2C callback");
+      }).catch((err) => {
+        log.error({ err: err.message }, "Failed to trigger Edge Function after B2C callback");
       });
     } catch (err) {
       log.error({ err: err.message }, "Failed to queue B2C result");

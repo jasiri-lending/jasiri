@@ -624,7 +624,7 @@ function BankReconciliations() {
   };
 
   return (
-    <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-4 sm:mb-6">
           <h1 className="text-sm sm:text-sm lg:text-sm font-semibold text-slate-600 text-start">

@@ -19,14 +19,14 @@ import {
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../hooks/userAuth";
 import { supabase } from "../supabaseClient";
-import { toast } from "react-toastify";
-import "react-toastify/dist/ReactToastify.css";
+import { useToast } from "../components/Toast";
 import { useNavigate } from 'react-router-dom';
 import Spinner from "../components/Spinner.jsx";
 
 const Leads = () => {
   const [leads, setLeads] = useState([]);
   const { profile } = useAuth();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [showLeadForm, setShowLeadForm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -72,7 +72,7 @@ const Leads = () => {
         .eq("created_by", profile.id);
 
       if (leadsError) {
-        toast.error("Failed to fetch leads");
+        showToast("Failed to fetch leads", "error");
         console.error("Error fetching leads:", leadsError);
       } else {
         // Fetch customers to determine if leads have been converted
@@ -96,7 +96,7 @@ const Leads = () => {
       }
     } catch (err) {
       console.error("Error fetching leads:", err);
-      toast.error("Failed to fetch leads");
+      showToast("Failed to fetch leads", "error");
     } finally {
       setIsLoading(false);
     }
@@ -147,14 +147,14 @@ const Leads = () => {
             hint: error.hint,
             code: error.code
           });
-          toast.error(`Failed checking uniqueness in ${table}`);
+          showToast(`Failed checking uniqueness in ${table}`, "error");
           return false;
         }
 
         if (data && data.length > 0) {
           // phone already exists in this table
           console.warn(` [LEADS] Duplicate found in table: ${table}, ID:`, data[0].id);
-          toast.error(`This phone number already exists in ${table}`);
+          showToast(`This phone number already exists in ${table}`, "error");
           return false;
         }
       }
@@ -164,7 +164,7 @@ const Leads = () => {
       return true;
     } catch (err) {
       console.error("💥 [LEADS] Fatal error in uniqueness check:", err);
-      toast.error("Error checking mobile uniqueness");
+      showToast("Error checking mobile uniqueness", "error");
       return false;
     }
   };
@@ -181,7 +181,7 @@ const Leads = () => {
       // Validation
       const cleanMobile = newLead.mobile.replace(/\D/g, "");
       if (!/^[0-9]{10,15}$/.test(cleanMobile)) {
-        toast.error("Please enter a valid mobile number (10–15 digits).");
+        showToast("Please enter a valid mobile number (10–15 digits).", "error");
         setIsSaving(false);
         return;
       }
@@ -214,7 +214,7 @@ const Leads = () => {
           hint: error.hint,
           code: error.code
         });
-        toast.error(`Error saving lead: ${error.message}`);
+        showToast(`Error saving lead: ${error.message}`, "error");
         setIsSaving(false);
         return;
       }
@@ -232,10 +232,10 @@ const Leads = () => {
         status: "Cold",
       });
       setShowLeadForm(false);
-      toast.success("Lead saved successfully");
+      showToast("Lead saved successfully", "success");
     } catch (err) {
       console.error("Error saving lead:", err);
-      toast.error("Error saving lead");
+      showToast("Error saving lead", "error");
     } finally {
       setIsSaving(false);
     }
@@ -323,20 +323,28 @@ const Leads = () => {
 
   if (isLoading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen">
+      <div className="flex items-center justify-center h-screen bg-muted">
         <Spinner text="Loading leads..." />
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-muted p-8 min-h-screen font-body">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
-        Leads Management
-      </h1>
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+      {/* Page Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+            Relationship Officer / Leads
+          </h1>
+        </div>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm bg-brand-primary">
+          <span className="font-medium text-white">{leads.length}</span> total leads
+        </div>
+      </div>
 
-      {/* Search and Actions Bar */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 mb-4">
+      {/* Main Container */}
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
         <div className="p-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             {/* Search and Filter */}
@@ -370,10 +378,10 @@ const Leads = () => {
             </div>
 
             {/* Action Buttons */}
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               <button
                 onClick={fetchLeads}
-                className="px-4 py-2 bg-white border border-gray-300 text-text rounded-xl hover:bg-brand-surface transition-all font-medium shadow-sm flex items-center gap-2"
+                className="px-3 py-1.5 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-all text-sm font-medium shadow-sm flex items-center gap-2"
               >
                 <ArrowPathIcon className="h-4 w-4" />
                 Refresh
@@ -381,33 +389,30 @@ const Leads = () => {
 
               <button
                 onClick={() => setShowLeadForm(true)}
-                className="px-4 py-2 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-lg hover:shadow-brand-primary/20 flex items-center gap-2"
+                className="px-3 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-all text-sm font-medium shadow-sm flex items-center gap-2"
               >
-                <PlusIcon className="h-5 w-5" />
+                <PlusIcon className="h-4 w-4" />
                 Add Lead
               </button>
             </div>
           </div>
         </div>
 
-        {/* Results Info */}
-        <div className="mt-3 pt-3 border-t border-gray-200 flex items-center justify-between text-xs text-gray-600">
-          <span>
-            Showing {sortedLeads.length} of {leads.length} leads
-          </span>
-          {(searchTerm || statusFilter !== "all") && (
+        {/* Results Info - Simplified */}
+        {(searchTerm || statusFilter !== "all") && (
+          <div className="px-4 pb-4 flex items-center justify-end text-xs text-gray-600">
             <button
               onClick={() => {
                 setSearchTerm("");
                 setStatusFilter("all");
               }}
-              className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+              className="text-brand-primary hover:text-brand-primary/80 flex items-center gap-1 font-medium"
             >
               <XMarkIcon className="h-3 w-3" />
               Clear filters
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -434,29 +439,29 @@ const Leads = () => {
           <div className="overflow-x-auto">
             <table className="w-full whitespace-nowrap">
               <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <tr className="bg-[#E7F0FA] border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="Firstname" label="First Name" />
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="Surname" label="Surname" />
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="mobile" label="Phone" />
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="business_name" label="Business" />
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="business_type" label="Type" />
                   </th>
-                  <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="business_location" label="Location" />
                   </th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
                     <SortButton column="status" label="Status" />
                   </th>
-                  <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">
                     Actions
                   </th>
                 </tr>
@@ -468,34 +473,34 @@ const Leads = () => {
                     key={lead.id}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Firstname}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Firstname}>
                       {lead.Firstname}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Surname}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.Surname}>
                       {lead.Surname}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap" title={lead.mobile}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap" title={lead.mobile}>
                       {lead.mobile}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_name}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_name}>
                       {lead.business_name}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_type}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_type}>
                       {lead.business_type}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_location}>
+                    <td className="px-5 py-4 text-xs text-slate-600 whitespace-nowrap overflow-hidden text-ellipsis" title={lead.business_location}>
                       {lead.business_location}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap">
                       <span
-                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium text-white"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider text-white shadow-sm"
                         style={{ backgroundColor: getStatusColor(lead.status) }}
                       >
                         {getStatusIcon(lead.status)}
                         {lead.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-5 py-4 text-center whitespace-nowrap">
                       <button
                         onClick={() => handleConvertToCustomer(lead)}
                         disabled={lead.is_converted}
@@ -525,30 +530,21 @@ const Leads = () => {
             </table>
           </div>
         )}
-
-        {/* Pagination info */}
-        {sortedLeads.length > 0 && (
-          <div className="px-4 py-3 border-t border-gray-200">
-            <div className="text-xs text-gray-600">
-              Total leads: <span className="font-medium">{leads.length}</span>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Add Lead Modal */}
       {
         showLeadForm && (
           <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
-            <div className="bg-white w-full max-w-2xl rounded-2xl shadow-2xl p-8 border border-brand-surface max-h-[90vh] overflow-y-auto">
+            <div className="bg-muted w-full max-w-2xl rounded-2xl shadow-2xl p-8 border border-brand-surface max-h-[90vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-8 border-b border-brand-surface pb-4">
-                <h2 className="text-xl font-bold text-text flex items-center gap-2">
+                <h2 className="text-xl  text-slate-600 flex items-center gap-2">
                   <UserPlusIcon className="h-6 w-6 text-brand-primary" />
                   Add New Lead
                 </h2>
                 <button
                   onClick={() => setShowLeadForm(false)}
-                  className="p-2 hover:bg-brand-surface rounded-full transition-colors text-muted hover:text-text"
+                  className="p-2 hover:bg-brand-surface rounded-full transition-colors text-black hover:text-text"
                 >
                   <XMarkIcon className="h-6 w-6" />
                 </button>

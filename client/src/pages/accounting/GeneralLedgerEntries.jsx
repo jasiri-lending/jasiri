@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Trash2, Plus, ArrowLeft, Upload, FileSpreadsheet, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
@@ -194,7 +194,7 @@ function GeneralLedgerEntries() {
     }
 
     return (
-        <div className="p-6 bg-brand-surface min-h-screen">
+        <div className="p-6 bg-muted min-h-screen">
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => navigate("/accounting/journals")}

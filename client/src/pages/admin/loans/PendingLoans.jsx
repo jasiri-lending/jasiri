@@ -19,9 +19,10 @@ import {
   EyeIcon,
   ChevronUpDownIcon
 } from "@heroicons/react/24/outline";
-import { toast } from "react-toastify";
+import { useToast } from "../../../components/Toast";
 
 const PendingLoans = () => {
+  const { success, error: toastError } = useToast();
   const [loans, setLoans] = useState([]);
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -68,7 +69,7 @@ const PendingLoans = () => {
       setLoans(data || []);
     } catch (error) {
       console.error("Error fetching pending disbursement loans:", error);
-      toast.error("Failed to load loans");
+      toastError("Failed to load loans");
     } finally {
       setLoading(false);
     }
@@ -201,7 +202,7 @@ const PendingLoans = () => {
 
     } catch (error) {
       console.error("Error fetching loan details:", error);
-      toast.error("Failed to load loan details");
+      toastError("Failed to load loan details");
     }
   };
 
@@ -251,19 +252,19 @@ const PendingLoans = () => {
       setDisbursing(true);
 
       if (!loan.customers || !loan.customers.mobile) {
-        toast.error("Customer mobile number is missing. Cannot process disbursement.");
+        toastError("Customer mobile number is missing. Cannot process disbursement.");
         return;
       }
 
       const principal = loan.scored_amount;
       if (!principal || principal <= 0) {
-        toast.error("Invalid loan amount. Cannot process disbursement.");
+        toastError("Invalid loan amount. Cannot process disbursement.");
         return;
       }
 
       // Check if fees are paid
       if (!areFeesFullyPaid()) {
-        toast.error("Required fees are not fully paid. Cannot process disbursement.");
+        toastError("Required fees are not fully paid. Cannot process disbursement.");
         return;
       }
 
@@ -272,7 +273,7 @@ const PendingLoans = () => {
       if (mobileNumber.startsWith("0")) mobileNumber = "254" + mobileNumber.substring(1);
       else if (mobileNumber.startsWith("7")) mobileNumber = "254" + mobileNumber;
       if (!mobileNumber.startsWith("254") || mobileNumber.length !== 12) {
-        toast.error("Invalid mobile number format.");
+        toastError("Invalid mobile number format.");
         return;
       }
 
@@ -287,6 +288,7 @@ const PendingLoans = () => {
       console.log(` Mobile Number: ${mobileNumber}`);
       console.log("-".repeat(60));
 
+      const sessionToken = localStorage.getItem("sessionToken");
       const { data: b2cResponse } = await axios.post(
         `${API_BASE_URL}/mpesa/b2c/disburse`,
         {
@@ -294,6 +296,11 @@ const PendingLoans = () => {
           phone: mobileNumber,
           loanId: loan.id,
           customerId: customerId
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${sessionToken}`
+          }
         }
       );
 
@@ -314,7 +321,7 @@ const PendingLoans = () => {
       if (updateError) throw updateError;
 
       console.log("Loan status updated to 'disbursed'");
-      toast.success("Loan disbursed successfully!");
+      success("Loan disbursed successfully!");
       fetchPendingDisbursementLoans();
       setSelectedLoan(null);
 
@@ -322,7 +329,7 @@ const PendingLoans = () => {
     } catch (err) {
       console.error(" Disbursement error:", err);
       console.error("Error details:", err.response?.data || err.message);
-      toast.error(`Failed to disburse loan: ${err.response?.data?.message || err.message}`);
+      toastError(`Failed to disburse loan: ${err.response?.data?.message || err.message}`);
     } finally {
       setDisbursing(false);
     }

@@ -31,7 +31,6 @@ const LoanPendingRm = () => {
   const [relationshipOfficers, setRelationshipOfficers] = useState([]);
   const [allBranches, setAllBranches] = useState([]);
   const [allRelationshipOfficers, setAllRelationshipOfficers] = useState([]);
-  const [branchManagers, setBranchManagers] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedLoan, setSelectedLoan] = useState(null);
 
@@ -75,9 +74,11 @@ const LoanPendingRm = () => {
               name,
               region_id
             )
-          )
+          ),
+          bm:users!loans_bm_id_fkey (full_name),
+          booked_by_user:users!loans_created_by_fkey (full_name)
         `)
-        .eq('status', 'rm_review')
+        .eq('status', 'rn_review')
         .eq('tenant_id', profile?.tenant_id)
         .order('approved_by_bm_at', { ascending: false });
 
@@ -112,25 +113,7 @@ const LoanPendingRm = () => {
         return;
       }
 
-      // Fetch branch managers who approved the loans
-      const approvedByBmIds = loansData
-        ?.map(loan => loan.approved_by_bm)
-        .filter(Boolean) || [];
-
-      if (approvedByBmIds.length > 0) {
-        const { data: bmData, error: bmError } = await supabase
-          .from("users")
-          .select("id, full_name")
-          .in("id", approvedByBmIds);
-
-        if (!bmError) {
-          const bmMap = {};
-          bmData.forEach(bm => {
-            bmMap[bm.id] = bm.full_name;
-          });
-          setBranchManagers(bmMap);
-        }
-      }
+      // BM data is now fetched via join, no separate fetch needed.
 
       // Fetch additional data for filters based on role
       if (isGlobalRole) {
@@ -351,15 +334,14 @@ const LoanPendingRm = () => {
     fetchData();
   };
 
-  // Get RO name by ID
-  const getROName = (bookedBy) => {
-    const ro = allRelationshipOfficers.find(r => r.id === bookedBy);
-    return ro?.full_name || "N/A";
+  // Get RO name - now using the joined data
+  const getROName = (loan) => {
+    return loan.booked_by_user?.full_name || "N/A";
   };
 
-  // Get BM name by ID
-  const getBMName = (bmId) => {
-    return branchManagers[bmId] || "N/A";
+  // Get BM name - now using the joined data
+  const getBMName = (loan) => {
+    return loan.bm?.full_name || "N/A";
   };
 
   // Format date
@@ -624,7 +606,8 @@ const LoanPendingRm = () => {
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Product</th>
                 <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600" >Amount</th>
                 <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Weeks</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >BM Approved</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Approved By</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Approved At</th>
                 <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Applied Date</th>
                 <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Actions</th>
               </tr>
@@ -655,7 +638,7 @@ const LoanPendingRm = () => {
                     )}
                     {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
                       <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
-                        {getROName(loan.booked_by)}
+                        {getROName(loan)}
                       </td>
                     )}
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600" >
@@ -668,16 +651,16 @@ const LoanPendingRm = () => {
                       {loan.duration_weeks || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
-                      <div className="flex flex-col items-center justify-center">
-                        <div className="flex items-center gap-1 mb-1">
-                          <CheckCircleIcon className="h-3 w-3 text-green-500" />
-                          <span className="text-xs text-slate-600">
-                            {getBMName(loan.approved_by_bm)}
-                          </span>
-                        </div>
-                        <div className="text-xs text-gray-500">
-                          {loan.bm_reviewed_at ? formatDate(loan.bm_reviewed_at) : "N/A"}
-                        </div>
+                      <div className="flex items-center justify-center gap-1">
+                        {loan.bm_id && <CheckCircleIcon className="h-4 w-4 text-green-500" />}
+                        <span className="text-xs text-slate-600 font-medium whitespace-nowrap">
+                          {getBMName(loan)}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
+                      <div className="text-xs text-gray-600">
+                        {loan.bm_reviewed_at ? formatDate(loan.bm_reviewed_at) : "N/A"}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600" >

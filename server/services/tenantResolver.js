@@ -29,7 +29,7 @@ export async function resolveTenantByShortcode(shortcode) {
 }
 
 // ── Resolve tenant by customer phone number (fallback) ────────────
-export async function resolveTenantByPhone(phone) {
+export async function resolveTenantByPhone(phone, serviceType = "c2b") {
   if (!phone) return null;
   const formats = normalizePhone(phone);
 
@@ -45,6 +45,7 @@ export async function resolveTenantByPhone(phone) {
     .from("tenant_mpesa_config")
     .select("*")
     .eq("tenant_id", customer.tenant_id)
+    .eq("service_type", serviceType)
     .eq("is_active", true)
     .maybeSingle();
 
@@ -64,15 +65,16 @@ export async function resolveTransaction(shortcode, phone) {
 }
 
 // ── Get a tenant's full M-Pesa config (throws if missing) ─────────
-export async function getTenantConfig(tenantId) {
+export async function getTenantConfig(tenantId, serviceType = "c2b") {
   const { data, error } = await supabaseAdmin
     .from("tenant_mpesa_config")
     .select("*")
     .eq("tenant_id", tenantId)
+    .eq("service_type", serviceType)
     .eq("is_active", true)
     .maybeSingle();
 
-  if (error || !data) throw new Error(`No active M-Pesa config for tenant ${tenantId}`);
+  if (error || !data) throw new Error(`No active ${serviceType} M-Pesa config for tenant ${tenantId}`);
   return data;
 }
 

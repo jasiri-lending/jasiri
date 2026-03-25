@@ -117,27 +117,38 @@ async function handleB2cResult(db: SupabaseClient, payload: any) {
   const occasion = Array.isArray(items) ? items.find((i) => i.Key === "Occasion")?.Value : items?.Value;
   const loanId = occasion?.replace("loan-", "");
 
-  const status = isSuccess ? "completed" : "failed";
+  const status = isSuccess ? "success" : "failed";
 
-  await db
-    .from("mpesa_b2c_transactions")
+  // 1. Find the transaction by conversation IDs via RPC to bypass schema cache
+  const { data: found, error: findError } = await db
+    .rpc("find_disbursement_by_conversation", {
+      p_conv_id: ConversationID,
+      p_orig_id: OriginatorConversationID,
+    });
+
+  if (findError || !found || found.length === 0) {
+    throw new Error(`No transaction found for ConversationID: ${ConversationID}. findError: ${findError?.message}`);
+  }
+
+  const tx = found[0];
+
+  // 2. Update by primary key (no schema cache issue)
+  const { error: updateError } = await db
+    .from("loan_disbursement_transactions")
     .update({
       status,
-      result_code: String(ResultCode),
+      result_code: Number(ResultCode),
       result_desc: ResultDesc,
       transaction_id: TransactionID || null,
       raw_result: Result,
       completed_at: new Date().toISOString(),
+      processed_at: new Date().toISOString()
     })
-    .or(`conversation_id.eq.${ConversationID},originator_conversation_id.eq.${OriginatorConversationID}`);
+    .eq("id", tx.id);
+
+  if (updateError) throw new Error(`DB update failed: ${updateError.message}`);
 
   if (isSuccess && loanId) {
-    await db
-      .from("loan_disbursement_transactions")
-      .update({ status: "success", transaction_id: TransactionID, processed_at: new Date().toISOString() })
-      .eq("loan_id", loanId)
-      .eq("status", "processing");
-
     await db
       .from("loans")
       .update({
@@ -150,24 +161,13 @@ async function handleB2cResult(db: SupabaseClient, payload: any) {
 
     console.log(`Loan ${loanId} marked disbursed with TX ${TransactionID}`);
 
-    // Enqueue disbursement SMS
-    const { data: b2cTx } = await db
-      .from("mpesa_b2c_transactions")
-      .select("customer_id, amount, tenant_id")
-      .or(`conversation_id.eq.${ConversationID},originator_conversation_id.eq.${OriginatorConversationID}`)
-      .maybeSingle();
-
-    if (b2cTx) {
-      await enqueueJobDirect(db, b2cTx.tenant_id, "disbursement_sms", {
-        loan_id: loanId,
-        customer_id: b2cTx.customer_id,
-        amount: b2cTx.amount,
-        tenant_id: b2cTx.tenant_id,
-        transaction_id: TransactionID,
-      });
-    } else {
-      console.error(`Could not find B2C transaction for conversation ${ConversationID} to enqueue SMS`);
-    }
+    await enqueueJobDirect(db, tx.tenant_id, "disbursement_sms", {
+      loan_id: loanId,
+      customer_id: tx.customer_id,
+      amount: tx.amount,
+      tenant_id: tx.tenant_id,
+      transaction_id: TransactionID,
+    });
   } else if (!isSuccess && loanId) {
     await db
       .from("loans")
@@ -201,6 +201,7 @@ async function handleDisbursementSmsJob(db: SupabaseClient, job: any) {
     .from("tenant_mpesa_config")
     .select("paybill_number, till_number, shortcode")
     .eq("tenant_id", tenantId)
+    .eq("service_type", "c2b") // Target C2B to get Paybill for customer response
     .eq("is_active", true)
     .maybeSingle();
   if (cfgErr || !tenantConfig) throw new Error(`Tenant config missing for tenant ${tenantId}`);

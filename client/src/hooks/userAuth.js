@@ -48,9 +48,27 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(initialProfile);
   const [tenant, setTenant] = useState(initialTenant);
   const { setLoading: setGlobalLoading } = useGlobalLoading();
+  
+  // REFS for stale closure protection and synchronization
+  const profileRef = useRef(initialProfile);
+  const userIdRef = useRef(initialProfile?.id || localStorage.getItem("userId"));
+  const initializingRef = useRef(!initialUserIsAuthenticated);
+  
   // Optimistically set initializing to false if we already have a profile and valid session time
-  // This prevents the "Initializing application..." flicker on every route change or refresh
-  const [initializing, setInitializing] = useState(!initialUserIsAuthenticated);
+  const [initializing, _setInitializing] = useState(!initialUserIsAuthenticated);
+
+  // Wrapper for initializing state to keep ref in sync
+  const setInitializing = useCallback((val) => {
+    initializingRef.current = val;
+    _setInitializing(val);
+  }, []);
+
+  // Update profile ref whenever state changes
+  useEffect(() => {
+    profileRef.current = profile;
+    if (profile?.id) userIdRef.current = profile.id;
+  }, [profile]);
+
   const logoutTimerRef = useRef(null);
   const logoutCalledRef = useRef(false);
   const isLoggingOutRef = useRef(false);
@@ -231,12 +249,15 @@ export function AuthProvider({ children }) {
 
     const customSessionToken = localStorage.getItem("sessionToken");
     const customUserId = localStorage.getItem("userId");
+    // THE DEADLOCK FIX: Don't return early if locked. 
+    // The lock should only prevent *restoring* a session automatically from localStorage, 
+    // but it MUST allow onAuthStateChange to register so we can handle new logins.
     const isLocked = sessionStorage.getItem("isLoggingOut") === "true";
+    const isLoginPath = window.location.pathname === "/login" || window.location.pathname === "/password-setup";
 
-    if (isLocked) {
-      console.log("🔒 [AUTH HOOK] UseAuth blocked by sessionStorage logout lock.");
-      setInitializing(false);
-      return;
+    if (isLocked && isLoginPath) {
+      console.log("🔓 [AUTH HOOK] Clearing logout lock on login/setup page.");
+      sessionStorage.removeItem("isLoggingOut");
     }
 
     // If we already have a token in localStorage, use it directly.
@@ -273,8 +294,14 @@ export function AuthProvider({ children }) {
       async (event, session) => {
         // 🚩 CRITICAL: If we are in the middle of a logout, ignore all SIGNED_IN events
         const isLocked = sessionStorage.getItem("isLoggingOut") === "true";
-        if (isLoggingOutRef.current || isLocked) {
-          console.log(`🔇 [AUTH HOOK] Ignoring ${event} event because logout is in progress or lock is active.`);
+        if (event === "SIGNED_IN" && isLocked) {
+          console.log("🔓 [AUTH HOOK] Logout lock cleared via SIGNED_IN event.");
+          sessionStorage.removeItem("isLoggingOut");
+          isLoggingOutRef.current = false;
+        }
+
+        if (isLoggingOutRef.current) {
+          console.log(`🔇 [AUTH HOOK] Ignoring ${event} event because logout is actively in progress.`);
           return;
         }
 
@@ -286,12 +313,22 @@ export function AuthProvider({ children }) {
           localStorage.setItem("sessionToken", session.access_token);
           localStorage.setItem("userId", session.user.id);
           
+          // CRITICAL: Use profileRef.current to avoid stale closure issues
+          const currentProfile = profileRef.current;
+          const currentUserId = userIdRef.current;
+
           // Only fetch if profile isn't already loaded for this user
-          if (!profile || profile.id !== session.user.id) {
-            // Only set initializing to true if we don't even have a cached ID match 
-            // otherwise, just refresh the profile in the background
-            if (!profile) setInitializing(true);
-            fetchProfile(session.user.id, !!profile);
+          // This stops the "tab switch refresh" effect where focus triggers SIGNED_IN
+          if (!currentProfile || currentProfile.id !== session.user.id) {
+            console.log("🧬 [AUTH HOOK] No matching profile in state. Fetching...");
+            if (!currentProfile) setInitializing(true);
+            fetchProfile(session.user.id, !!currentProfile);
+          } else {
+            // Already have a profile for this user. 
+            // We can do a SILENT background refresh if it's been a while, 
+            // but for now let's prioritize stability/caching.
+            console.log("🧬 [AUTH HOOK] Profile already matches current session user. Skipping redundant fetch.");
+            setInitializing(false);
           }
         }
  else if (event === "TOKEN_REFRESHED" && session?.access_token) {

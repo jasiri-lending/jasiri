@@ -1,6 +1,7 @@
 import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
+import { encrypt, decrypt } from "../utils/encryption.js";
 import crypto from "crypto";
 import { nanoid } from "nanoid";
 import { baseEmailTemplate, styledHighlightBox, infoBox } from "../utils/emailTemplates.js";
@@ -138,6 +139,19 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     if (featuresErr) {
       console.error("❌ Tenant Features Insertion Error:", featuresErr);
       // Not critical enough to fail the whole process, but logged
+    }
+
+    // 1.6️⃣ Initialize Tenant M-Pesa Configurations (C2B and B2C)
+    const { error: mpesaInitErr } = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .insert([
+        { tenant_id: tenant.id, service_type: 'c2b', is_active: false, environment: 'sandbox' },
+        { tenant_id: tenant.id, service_type: 'b2c', is_active: false, environment: 'sandbox' }
+      ]);
+
+    if (mpesaInitErr) {
+      console.error("❌ Tenant M-Pesa Initialization Error:", mpesaInitErr);
+      // Non-critical, but logged
     }
 
     // 2️⃣ Random password for admin
@@ -325,10 +339,12 @@ tenantRouter.post("/sms-config", verifySupabaseToken, checkTenantAccess, async (
       return res.status(400).json({ error: "Missing required SMS config fields" });
     }
 
-    const { data, error } = await supabase
+    const encryptedApiKey = encrypt(api_key);
+
+    const { data, error } = await supabaseAdmin
       .from("tenant_sms_settings")
       .upsert(
-        { tenant_id, base_url, api_key, partner_id, shortcode, updated_at: new Date().toISOString() },
+        { tenant_id, base_url, api_key: encryptedApiKey, partner_id, shortcode, updated_at: new Date().toISOString() },
         { onConflict: "tenant_id" }
       )
       .select()
@@ -348,13 +364,17 @@ tenantRouter.get("/sms-config/:tenantId", verifySupabaseToken, checkTenantAccess
   try {
     const { tenantId } = req.params;
 
-    const { data, error } = await supabase
+    const { data, error } = await supabaseAdmin
       .from("tenant_sms_settings")
       .select("*")
       .eq("tenant_id", tenantId)
       .maybeSingle();
 
     if (error) throw error;
+
+    if (data) {
+      data.api_key = decrypt(data.api_key);
+    }
 
     res.status(200).json({ data });
   } catch (err) {

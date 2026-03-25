@@ -533,6 +533,8 @@ const Dashboard = () => {
   const [quickSearchResults, setQuickSearchResults] = useState([]);
   const [allCustomersForSearch, setAllCustomersForSearch] = useState([]);
   const searchContainerRef = useRef(null);
+  const hasFetchedRef = useRef(false);
+  const lastContextRef = useRef("");
 
   // Data states
   const [allLoans, setAllLoans] = useState([]);
@@ -1155,11 +1157,9 @@ const Dashboard = () => {
           c => c.status === "bm_review"
         ).length,
 
-        // Customers with scheduled future callbacks
+        // Customers awaiting CSO review (Official Pending Callbacks logic)
         customerCallbacks: filteredCustomers.filter(
-          c =>
-            c.callback_date &&
-            new Date(c.callback_date) > now
+          c => c.status === "cso_review" && c.form_status === "submitted"
         ).length,
 
         // Customers awaiting HQ review
@@ -1206,8 +1206,16 @@ const Dashboard = () => {
     calculatePendingActions
   ]);
 
-  const fetchAllData = async () => {
+  const fetchAllData = async (force = false) => {
     if (!userProfile) return;
+    
+    // Guard against redundant fetches if not forced
+    const currentContext = `${userProfile.id}-${userProfile.tenant_id}-${userProfile.role}`;
+    if (!force && hasFetchedRef.current && lastContextRef.current === currentContext) {
+      console.log("[Dashboard] Data already fetched for this context. Skipping.");
+      return;
+    }
+
     try {
       setLoading(true);
       const profile = userProfile;
@@ -1261,6 +1269,8 @@ const Dashboard = () => {
 
       recalculateDashboardMetrics();
       setLastUpdated(new Date());
+      hasFetchedRef.current = true;
+      lastContextRef.current = currentContext;
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {
@@ -1336,10 +1346,10 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
-    if (!authInitializing && userProfile) {
+    if (!authInitializing && userProfile?.id) {
       fetchAllData();
     }
-  }, [authInitializing, userProfile]);
+  }, [authInitializing, userProfile?.id, userProfile?.tenant_id]);
 
   useEffect(() => {
     if (userProfile) {

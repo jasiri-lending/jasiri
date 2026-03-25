@@ -21,6 +21,8 @@ const OfficerDashboard = () => {
     isLoading: true,
     error: null,
   });
+  
+  const lastContextRef = useRef("");
 
   const { profile } = useAuth();
 
@@ -53,8 +55,12 @@ const OfficerDashboard = () => {
   const fetchDashboardData = useCallback(async (forceRefresh = false) => {
     if (!profile?.id || profile.role !== "relationship_officer") return;
 
+    const currentContext = `${profile.id}-${profile.role}`;
+    
     // Try reading cached data if no forced refresh
     if (!forceRefresh) {
+      if (lastContextRef.current === currentContext) return; // Already loaded in this mount
+      
       const cached = sessionStorage.getItem("dashboardData");
       if (cached) {
         const parsed = JSON.parse(cached);
@@ -63,12 +69,14 @@ const OfficerDashboard = () => {
           isLoading: false,
           error: null,
         });
+        lastContextRef.current = currentContext;
         return; // ✅ Stop here — use cached data
       }
     }
 
     try {
       setDashboardData((prev) => ({ ...prev, isLoading: true, error: null }));
+      lastContextRef.current = currentContext;
 
       const [leadsResponse, customersResponse, loansResponse, fullName] =
         await Promise.all([
@@ -190,13 +198,8 @@ const OfficerDashboard = () => {
 
   // 🔹 On mount, load cached or fetch new data
   useEffect(() => {
-    if (profile) fetchDashboardData();
-  }, [profile, fetchDashboardData]);
-
-
-  useEffect(() => {
-    if (profile) fetchDashboardData();
-  }, [profile, fetchDashboardData]);
+    if (profile?.id) fetchDashboardData();
+  }, [profile?.id, fetchDashboardData]);
 
   const { stats, recentActivity, fullName, isLoading, error } = dashboardData;
 

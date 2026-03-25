@@ -131,6 +131,7 @@ const LoanInstallmentReport = lazy(() => import("./pages/reports/LoanInstallment
 const Guarantors = lazy(() => import("./pages/registry/Guarantors.jsx"));
 const AdminCreateReportUser = lazy(() => import("./pages/admin/components/AdminCreateReportUser.jsx"));
 const AdminCreateTenant = lazy(() => import("./pages/admin/components/AdminCreateTenant.jsx"));
+const AdminEditTenant = lazy(() => import("./pages/admin/components/AdminEditTenant.jsx"));
 const TenantMpesaForm = lazy(() => import("./pages/admin/components/TenantMpesa.jsx"));
 const TenantViewPage = lazy(() => import("./pages/admin/components/TenantViewPage.jsx"));
 const ScoringPage = lazy(() => import("./pages/credit-settings/Scoring.jsx"));
@@ -1235,6 +1236,10 @@ function MainLayout({
                       <Route
                         path="/users/create-tenant/admin"
                         element={<AdminCreateTenant />}
+                      />
+                      <Route
+                        path="/users/edit-tenant/:id/admin"
+                        element={<AdminEditTenant />}
                       />
                       <Route
                         path="/loans/restructure/admin"

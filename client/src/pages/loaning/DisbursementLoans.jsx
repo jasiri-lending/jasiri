@@ -422,19 +422,14 @@ const DisbursedLoans = () => {
   return (
     <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-lg font-bold text-slate-600 tracking-tight">
+          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
             Disbursed Loans
           </h1>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="bg-brand-primary/10 px-4 py-2 rounded-xl border border-brand-primary/20 shadow-sm flex items-center gap-2">
-            <BanknotesIcon className="h-5 w-5 text-brand-primary" />
-            <span className="text-sm font-semibold text-brand-primary">
-              {disbursedLoans.length} Total Loans
-            </span>
-          </div>
+        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
+          <span className="font-medium text-white">{disbursedLoans.length}</span> disbursed loan{disbursedLoans.length !== 1 ? 's' : ''}
         </div>
       </div>
 
@@ -646,24 +641,24 @@ const DisbursedLoans = () => {
           <table className="w-full">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Loan ID</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Customer</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>ID Number</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Mobile</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Loan ID</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Customer</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">ID Number</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Mobile</th>
                 {showRegionColumn && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Region</th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Region</th>
                 )}
                 {showBranchColumn && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Branch</th>
+                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Branch</th>
                 )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Booked By</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Disbursed By</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Product</th>
-                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Amount</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Weeks</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Status</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Disbursed Date</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Actions</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Booked By</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Disbursed By</th>
+                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Product</th>
+                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600">Amount</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Weeks</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Status</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Disbursed Date</th>
+                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Actions</th>
               </tr>
             </thead>
 
@@ -674,49 +669,49 @@ const DisbursedLoans = () => {
 
                 return (
                   <tr key={loan.id} className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono text-slate-600">
                       #{loan.id}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {customerName || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {loan.customers?.id_number || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {loan.customers?.mobile || "N/A"}
                     </td>
                     {showRegionColumn && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {regionName}
                       </td>
                     )}
                     {showBranchColumn && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                         {loan.customers?.branches?.name || "N/A"}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {loan.booked_by_user?.full_name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {loan.disbursed_by_user?.full_name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
                       {loan.product_name || "Standard"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
                       KSh {Number(loan.scored_amount || 0).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600">
                       {loan.duration_weeks || 0}
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap bg-emerald-500 text-white">
+                      <span className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap bg-emerald-50 text-emerald-600">
                         Disbursed
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap" style={{ color: '#0D2440' }}>
+                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600">
                       {loan.disbursed_at ? formatDate(loan.disbursed_at) : "N/A"}
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">

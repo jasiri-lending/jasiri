@@ -145,7 +145,7 @@ const CallbackPending = () => {
         .eq("form_status", "submitted")
         .order("created_at", { ascending: false });
 
-      console.log("🔧 Base query filters:", {
+      console.log("Base query filters:", {
         status: "cso_review",
         form_status: "submitted"
       });

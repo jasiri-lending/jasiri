@@ -1,6 +1,6 @@
-// server/services/mpesa.js
 import axios from "axios";
 import { createLogger } from "../utils/logger.js";
+import { decrypt } from "../utils/encryption.js";
 
 const log = createLogger({ service: "mpesa" });
 
@@ -8,8 +8,16 @@ const log = createLogger({ service: "mpesa" });
  * Generate tenant-specific MPESA token
  */
 export async function getTenantMpesaToken(tenantConfig) {
+  const { environment, tenant_id } = tenantConfig;
+  const consumer_key = decrypt(tenantConfig.consumer_key);
+  const consumer_secret = decrypt(tenantConfig.consumer_secret);
+
+  if (!consumer_key || !consumer_secret) {
+    log.error({ tenant_id }, "Missing MPESA consumer_key or consumer_secret");
+    throw new Error("M-Pesa configuration error: Missing credentials");
+  }
+
   try {
-    const { consumer_key, consumer_secret, environment } = tenantConfig;
     const baseUrl = environment === "production"
       ? "https://api.safaricom.co.ke"
       : "https://sandbox.safaricom.co.ke";
@@ -27,8 +35,17 @@ export async function getTenantMpesaToken(tenantConfig) {
 
     return response.data.access_token;
   } catch (err) {
-    log.error({ err: err.message }, "Failed to get MPESA token");
-    throw new Error("Failed to get MPESA token");
+    if (err.response) {
+      log.error({
+        status: err.response.status,
+        data: err.response.data,
+        tenant_id,
+        environment
+      }, "Safaricom OAuth failure");
+    } else {
+      log.error({ err: err.message, tenant_id }, "Failed to get MPESA token (Network/Timeout)");
+    }
+    throw new Error(`Failed to get MPESA token: ${err.message}`);
   }
 }
 

@@ -1,5 +1,5 @@
 // OperationsDashboard.jsx
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback,useRef } from 'react';
 import { supabase } from "../../supabaseClient";
 import {
   Users, DollarSign, FileText, AlertTriangle, TrendingUp, BarChart2,
@@ -188,8 +188,9 @@ const DashboardSkeleton = () => (
 
 // Main Dashboard Component
 const OperationsDashboard = ({ userRole }) => {
-  const [loading, setLoading] = useState(true);
   const [userProfile, setUserProfile] = useState(null);
+  const hasFetchedRef = useRef(false);
+  const lastContextRef = useRef("");
 
   // Define authorized financial roles who can see sensitive widgets
   const isFinanceRole = ["admin", "superadmin", "accountant", "finance_officer", "credit_analyst_officer"].includes(userRole || userProfile?.role);
@@ -201,6 +202,7 @@ const OperationsDashboard = ({ userRole }) => {
   const [dateFilter, setDateFilter] = useState("this_month");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
+  const [loading, setLoading] = useState(true);
 
   // Options State
   const [availableRegions, setAvailableRegions] = useState([]);
@@ -399,7 +401,16 @@ const OperationsDashboard = ({ userRole }) => {
   }, [dateFilter, customStartDate, customEndDate]);
 
   // Fetch Real Data
-  const fetchRealData = useCallback(async () => {
+  const fetchRealData = useCallback(async (force = false) => {
+    // Guard against redundant fetches
+    const storedUserId = localStorage.getItem("userId");
+    const currentContext = `${storedUserId}-${userRole}`;
+    
+    if (!force && hasFetchedRef.current && lastContextRef.current === currentContext) {
+      console.log("[OperationsDashboard] Data already fetched for this context. Skipping.");
+      return;
+    }
+
     setLoading(true);
     try {
       const today = getLocalYYYYMMDD();
@@ -549,13 +560,15 @@ const OperationsDashboard = ({ userRole }) => {
         }
       }
 
+      hasFetchedRef.current = true;
+      lastContextRef.current = currentContext;
       setLoading(false);
 
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
       setLoading(false);
     }
-  }, [userProfile]);
+  }, [userProfile?.id, userRole]); // Optimized dependency
 
   // Calculate Metrics
   const calculateMetrics = useCallback(() => {
@@ -804,7 +817,7 @@ const OperationsDashboard = ({ userRole }) => {
 
   useEffect(() => {
     fetchRealData();
-  }, [fetchRealData]);
+  }, [fetchRealData, userRole]);
 
   useEffect(() => {
     calculateMetrics();
@@ -815,7 +828,7 @@ const OperationsDashboard = ({ userRole }) => {
   }
 
   return (
-    <div className="bg-brand-surface min-h-screen pb-6 font-sans">
+    <div className="bg-muted min-h-screen pb-6 font-sans">
       <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-5">
 
         {/* Header & Filters */}

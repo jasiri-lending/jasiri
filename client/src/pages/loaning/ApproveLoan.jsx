@@ -17,13 +17,14 @@ import {
   LockClosedIcon,
   ExclamationTriangleIcon
 } from "@heroicons/react/24/outline";
-import { toast } from "react-toastify";
+import { useToast } from "../../components/Toast";
 import { useAuth } from "../../hooks/userAuth"; 
 import Spinner from '../../components/Spinner';
 
 
 const ApproveLoan = ({ loan, onComplete }) => {
   const { profile } = useAuth();
+  const { success, error: toastError, info, warning } = useToast();
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
   const [comment, setComment] = useState('');
@@ -40,18 +41,18 @@ const [loadingReject, setLoadingReject] = useState(false);
 
 const handleApprovalDecision = async (approved) => {
   if (!comment.trim()) {
-    toast.error("Please provide a comment for your decision");
+    toastError("Please provide a comment for your decision");
     return;
   }
 
   if (!profile?.id) {
-    toast.error("User profile ID not found. Please log in again.");
+    toastError("User profile ID not found. Please log in again.");
     return;
   }
 
   // Only check fees for approval
   if (approved && !areFeesFullyPaid()) {
-    toast.error(getFeePaymentMessage());
+    toastError(getFeePaymentMessage());
     return;
   }
 
@@ -69,11 +70,11 @@ const handleApprovalDecision = async (approved) => {
       ? `Loan approved & forwarded to ${getNextStage(approved)}`
       : "Loan rejected successfully!";
 
-    toast.success(successMessage);
+    success(successMessage);
     onComplete?.();
-  } catch (error) {
-    console.error("Error updating loan:", error);
-    toast.error("Error processing loan decision. Please try again.");
+  } catch (err) {
+    console.error("Error updating loan:", err);
+    toastError("Error processing loan decision. Please try again.");
   } finally {
     // Reset the correct loading state
     approved ? setLoadingApprove(false) : setLoadingReject(false);
@@ -114,7 +115,7 @@ const handleApprovalDecision = async (approved) => {
         } else if (['branch_manager', 'customer_service_officer'].includes(role)) {
           hasAccess = data.branch_id === branch_id;
         } else if (role === 'regional_manager') {
-          hasAccess = data.customers?.branches?.region_id === region_id;
+          hasAccess = data.region_id === region_id;
         }
       }
 
@@ -314,10 +315,8 @@ const fetchWalletAndFeeStatus = async (loanData) => {
 
   if (!loanDetails || !customer) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-blue-50 flex items-center justify-center">
       <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
         <Spinner text="Loading loans..." />
-      </div>
       </div>
     );
   }
@@ -326,7 +325,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
   const feeMessage = getFeePaymentMessage();
 
   return (
-    <div className="min-h-screen bg-brand-surface text-gray-800 p-6">
+    <div className="min-h-screen bg-muted text-gray-800 p-6">
       <div className="max-w-6xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mb-8 border border-gray-200">

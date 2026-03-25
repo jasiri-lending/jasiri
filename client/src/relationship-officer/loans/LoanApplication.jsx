@@ -133,7 +133,7 @@ function LoanApplication() {
 
   if (loading) {
     return (
-      <div className="h-full bg-brand-surface p-8 min-h-screen">
+      <div className="flex items-center justify-center h-screen bg-muted">
         <Spinner text="Loading loan applications..." />
       </div>
     );
@@ -141,11 +141,11 @@ function LoanApplication() {
 
   if (!customers.length) {
     return (
-      <div className="h-full bg-brand-surface p-6 min-h-screen">
+      <div className="h-full bg-muted p-6 min-h-screen">
         <h1 className="text-xs text-slate-500 mb-4 font-medium">
           Loan Applications
         </h1>
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-8">
+        <div className="bg-muted rounded-lg shadow-sm border border-gray-200 p-8">
           <div className="text-center text-xs text-gray-500">
             No approved customers available for loan booking.
           </div>
@@ -155,7 +155,7 @@ function LoanApplication() {
   }
 
   return (
-    <div className="h-full bg-brand-surface p-6 min-h-screen">
+    <div className="h-full bg-muted p-6 min-h-screen">
       <h1 className="text-xs text-slate-500 mb-4 font-medium">
         Loan Applications
       </h1>

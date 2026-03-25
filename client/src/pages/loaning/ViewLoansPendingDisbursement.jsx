@@ -21,6 +21,7 @@ import {
 } from "@heroicons/react/24/outline";
 import { useToast } from "../../components/Toast";
 import Spinner from "../../components/Spinner";
+import { apiFetch } from '../../utils/api';
 
 // ================= Configuration =================
 // Use environment variable or fallback to your ngrok URL
@@ -75,7 +76,7 @@ const MpesaService = {
         include_sms: true
       };
 
-      const response = await fetch(`${BACKEND_URL}/mpesa/b2c/disburse`, {
+      const response = await apiFetch(`/mpesa/b2c/disburse`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -83,12 +84,12 @@ const MpesaService = {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Backend API Error Response:', errorText);
+        console.error(' Backend API Error Response:', errorText);
         throw new Error(`Disbursement request failed: ${response.status} – ${errorText}`);
       }
 
       const result = await response.json();
-      console.log('✅ Backend response:', result);
+      console.log(' Backend response:', result);
 
       if (!result.success) {
         throw new Error(result.error || 'Unknown error');
@@ -101,7 +102,7 @@ const MpesaService = {
         rawResponse: result
       };
     } catch (error) {
-      console.error('❌ M-Pesa loan disbursement error:', error);
+      console.error(' M-Pesa loan disbursement error:', error);
       throw new Error(`Disbursement failed: ${error.message}`);
     }
   },
@@ -133,6 +134,7 @@ const MpesaService = {
 
 // ================= Modals (unchanged) =================
 const DisbursementNotesModal = ({ isOpen, onClose, onConfirm, loanDetails, customer, isLoading }) => {
+  const { error: toastError } = useToast();
   const [notes, setNotes] = useState('');
   const [includeSMS, setIncludeSMS] = useState(true);
 
@@ -556,10 +558,10 @@ const ViewLoansPendingDisbursement = () => {
     setRepaymentSchedule(schedule);
   };
   const handleDisbursementWithNotes = async (notes, includeSMS) => {
-    console.log('🚀 handleDisbursementWithNotes called:', { notes, includeSMS });
+    console.log(' handleDisbursementWithNotes called:', { notes, includeSMS });
 
     if (!areFeesFullyPaid()) {
-      console.warn('❌ Disbursement blocked: Required fees not fully paid.', walletInfo);
+      console.warn(' Disbursement blocked: Required fees not fully paid.', walletInfo);
       toastError("Cannot disburse loan. Required fees have not been fully paid.");
       return;
     }
@@ -571,7 +573,7 @@ const ViewLoansPendingDisbursement = () => {
       navigate('/login');
       return;
     }
-    console.log('✅ Disbursing user ID:', userId);
+    console.log('Disbursing user ID:', userId);
 
     setProcessingDisbursement(true);
     setMpesaStatus(null);
@@ -581,7 +583,7 @@ const ViewLoansPendingDisbursement = () => {
       setMpesaStatus('processing');
       // Removed intermediate info toast
 
-      console.log("📤 Calling MpesaService.processLoanDisbursement with:", {
+      console.log(" Calling MpesaService.processLoanDisbursement with:", {
         phoneNumber: customer.mobile,
         amount: loanDetails.scored_amount,
         loanId: loanDetails.id,
@@ -603,48 +605,33 @@ const ViewLoansPendingDisbursement = () => {
         includeSMS
       });
 
-      console.log("✅ Backend response received:", mpesaResult);
+      console.log(" Backend response received:", mpesaResult);
 
       if (mpesaResult.success) {
         setMpesaStatus('success');
-        // Removed intermediate success toast
+        // The backend now handles updating the loan status in the database
+        // to avoid RLS issues with the installment generation trigger.
+        console.log("Loan disbursement initiated and status updated via backend");
 
-        // Update loan status in database
-        console.log("📝 Updating loan status in Supabase...");
-        const { error } = await supabase
-          .from("loans")
-          .update({
-            status: 'disbursed',
-            disbursed_at: new Date().toISOString(),
-            mpesa_transaction_id: mpesaResult.transactionId,
-            disbursement_notes: notes,
-            disbursed_by: userId
-          })
-          .eq("id", id);
 
-        if (error) {
-          console.error("❌ Error updating loan status:", error);
-          throw new Error("Failed to update loan status in database");
-        }
-        console.log("✅ Loan status updated successfully");
 
-        success("✅ Loan disbursed successfully! Money has been sent to customer.");
+        success("Loan disbursed successfully! Money has been sent to customer.");
         setShowNotesModal(false); // Close modal only on success
 
         // Navigate back after a short delay
         setTimeout(() => {
-          console.log('⏰ Navigating back to previous page');
+          console.log(' Navigating back to previous page');
           navigate(-1);
         }, 2000);
       } else {
-        console.error('❌ mpesaResult.success is false:', mpesaResult);
+        console.error('mpesaResult.success is false:', mpesaResult);
         setMpesaStatus('failed');
         throw new Error(mpesaResult.message || 'M-Pesa disbursement failed');
       }
     } catch (error) {
-      console.error("❌ Error during loan disbursement:", error);
+      console.error(" Error during loan disbursement:", error);
       setMpesaStatus('failed');
-      toastError(`❌ Disbursement failed: ${error.message}`);
+      toastError(` Disbursement failed: ${error.message}`);
     } finally {
       setProcessingDisbursement(false);
     }
@@ -669,7 +656,7 @@ const ViewLoansPendingDisbursement = () => {
 
   if (authLoading || loading || permsLoading) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading loan details and permissions..." />
       </div>
     );
@@ -677,7 +664,7 @@ const ViewLoansPendingDisbursement = () => {
 
   if (!loanDetails) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <ExclamationTriangleIcon className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-gray-900 mb-2">Loan Not Found</h3>
@@ -696,32 +683,32 @@ const ViewLoansPendingDisbursement = () => {
   const feesPaid = areFeesFullyPaid();
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-muted py-8 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         <div className="space-y-6">
           {/* Loan Summary */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-6">
               <DocumentTextIcon className="h-6 w-6 text-indigo-600 mr-3" />
               Loan Summary Information
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Loan ID:</span>
-                  <span className="text-indigo-600 font-mono font-bold">#{loanDetails.id}</span>
+                  <span className="text-sm text-gray-600 ">Loan ID:</span>
+                  <span className="text-indigo-600 ">#{loanDetails.id}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Customer:</span>
-                  <span className="text-gray-900 font-semibold">{customer?.Firstname} {customer?.Surname}</span>
+                  <span className="text-sm text-gray-600 ">Customer:</span>
+                  <span className="text-gray-600 font-semibold">{customer?.Firstname} {customer?.Surname}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">ID Number:</span>
-                  <span className="text-gray-900 font-semibold">{customer?.id_number}</span>
+                  <span className="text-sm text-gray-600 ">ID Number:</span>
+                  <span className="text-gray-600 font-semibold">{customer?.id_number}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Mobile:</span>
-                  <span className="text-gray-900 font-semibold flex items-center">
+                  <span className="text-sm text-gray-600 ">Mobile:</span>
+                  <span className="text-gray-600 font-semibold flex items-center">
                     <PhoneIcon className="h-4 w-4 mr-1 text-green-600" />
                     {customer?.mobile}
                   </span>
@@ -730,22 +717,22 @@ const ViewLoansPendingDisbursement = () => {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Product:</span>
+                  <span className="text-sm text-gray-600 ">Product:</span>
                   <span className="text-purple-600 font-semibold">{loanDetails.product_name}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Branch:</span>
-                  <span className="text-gray-900 font-semibold">{customer?.branches?.name || 'N/A'}</span>
+                  <span className="text-sm text-gray-600 ">Branch:</span>
+                  <span className="text-gray-600 font-semibold">{customer?.branches?.name || 'N/A'}</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Loan Type:</span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
+                  <span className="text-sm text-gray-600 ">Loan Type:</span>
+                  <span className={`px-2 py-1 rounded-full text-xs  ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
                     {loanDetails.is_new_loan ? 'New Loan' : 'Repeat Loan'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Applied On:</span>
-                  <span className="text-gray-900 font-semibold">
+                  <span className="text-sm text-gray-600 ">Applied On:</span>
+                  <span className="text-gray-600 font-semibold">
                     {new Date(loanDetails.created_at).toLocaleDateString('en-GB')}
                   </span>
                 </div>
@@ -753,24 +740,24 @@ const ViewLoansPendingDisbursement = () => {
 
               <div className="space-y-3">
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Approved Amount:</span>
-                  <span className="text-emerald-600 font-bold text-lg">
+                  <span className="text-sm text-gray-600 ">Approved Amount:</span>
+                  <span className="text-emerald-600  text-lg">
                     KES {loanDetails.scored_amount?.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Duration:</span>
-                  <span className="text-gray-900 font-semibold">{loanDetails.duration_weeks} weeks</span>
+                  <span className="text-sm text-gray-600 ">Duration:</span>
+                  <span className="text-gray-600">{loanDetails.duration_weeks} weeks</span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">
-                  <span className="text-sm text-gray-600 font-medium">Weekly Payment:</span>
-                  <span className="text-blue-600 font-semibold">
+                  <span className="text-sm text-gray-600 ">Weekly Payment:</span>
+                  <span className="text-blue-600 ">
                     KES {loanDetails.weekly_payment?.toLocaleString()}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b border-indigo-200 bg-indigo-50 px-2 rounded">
-                  <span className="text-sm text-gray-700 font-bold">Total Payable:</span>
-                  <span className="text-indigo-600 font-bold text-lg">
+                  <span className="text-sm text-gray-700 ">Total Payable:</span>
+                  <span className="text-indigo-600 font-medium text-lg">
                     KES {loanDetails.total_payable?.toLocaleString()}
                   </span>
                 </div>
@@ -781,7 +768,7 @@ const ViewLoansPendingDisbursement = () => {
           {/* M-Pesa Status */}
           {mpesaStatus && (
             <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
+              <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-6">
                 <EnvelopeIcon className="h-6 w-6 text-blue-600 mr-3" />
                 Disbursement Status
               </h3>
@@ -811,14 +798,14 @@ const ViewLoansPendingDisbursement = () => {
             ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200'
             : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
             }`}>
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-6">
               <BanknotesIcon className="h-6 w-6 text-emerald-600 mr-3" />
               Wallet & Fee Payment Status
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="text-sm text-gray-600 mb-2">Wallet Balance</div>
-                <div className="text-2xl font-bold text-indigo-600">
+                <div className="text-2xl  text-indigo-900">
                   KES {walletInfo.balance.toLocaleString()}
                 </div>
               </div>
@@ -826,7 +813,7 @@ const ViewLoansPendingDisbursement = () => {
               <div className="bg-white rounded-xl p-5 shadow-sm">
                 <div className="text-sm text-gray-600 mb-3">Processing Fee</div>
                 <div className="flex items-center justify-between">
-                  <span className="text-sm font-semibold text-gray-900">
+                  <span className="text-lg font-semibold  text-gray-900">
                     KES {loanDetails.processing_fee?.toLocaleString()}
                   </span>
                   {walletInfo.processing_fee_paid ? (
@@ -847,7 +834,7 @@ const ViewLoansPendingDisbursement = () => {
                 <div className="bg-white rounded-xl p-5 shadow-sm">
                   <div className="text-sm text-gray-600 mb-3">Registration Fee</div>
                   <div className="flex items-center justify-between">
-                    <span className="text-sm font-semibold text-gray-900">
+                    <span className="text-lg font-semibold text-gray-900">
                       KES {loanDetails.registration_fee?.toLocaleString()}
                     </span>
                     {walletInfo.registration_fee_paid ? (
@@ -878,7 +865,7 @@ const ViewLoansPendingDisbursement = () => {
 
           {/* Approval Trail */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-6">
               <IdentificationIcon className="h-6 w-6 text-blue-600 mr-3" />
               Approval Audit Trail
             </h3>
@@ -891,7 +878,7 @@ const ViewLoansPendingDisbursement = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <span className="font-semibold text-gray-900 text-sm">{step.role}</span>
+                        <span className="font-semibold text-gray-600 text-sm">{step.role}</span>
                         <p className="text-gray-700 font-medium mt-1">{step.name}</p>
                         {step.branch && <p className="text-sm text-gray-600">Branch: {step.branch}</p>}
                       </div>
@@ -925,7 +912,7 @@ const ViewLoansPendingDisbursement = () => {
 
           {/* Repayment Schedule */}
           <div className="bg-white rounded-2xl shadow-lg p-6 border border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-6">
+            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-6">
               <CalendarIcon className="h-6 w-6 text-green-600 mr-3" />
               Repayment Schedule Preview
             </h3>
@@ -933,19 +920,19 @@ const ViewLoansPendingDisbursement = () => {
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
                   <tr>
-                    <th className="px-6 py-3 text-left text-sm font-bold text-gray-900">Week</th>
-                    <th className="px-6 py-3 text-left text-sm font-bold text-gray-900">Due Date</th>
-                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-900">Principal</th>
-                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-900">Interest</th>
-                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-900">Fees</th>
-                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-900">Weekly Total</th>
+                    <th className="px-6 py-3 text-left text-sm font-bold text-gray-600">Week</th>
+                    <th className="px-6 py-3 text-left text-sm font-bold text-gray-600">Due Date</th>
+                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-600">Principal</th>
+                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-600">Interest</th>
+                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-600">Fees</th>
+                    <th className="px-6 py-3 text-right text-sm font-bold text-gray-600">Weekly Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {repaymentSchedule.map((payment, index) => (
                     <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-4 text-sm font-semibold text-gray-900">Week {payment.week}</td>
-                      <td className="px-6 py-4 text-sm text-gray-900">
+                      <td className="px-6 py-4 text-sm font-semibold text-gray-600">Week {payment.week}</td>
+                      <td className="px-6 py-4 text-sm text-gray-600">
                         {new Date(payment.due_date).toLocaleDateString('en-GB', {
                           weekday: 'short',
                           year: 'numeric',
@@ -953,7 +940,7 @@ const ViewLoansPendingDisbursement = () => {
                           day: 'numeric'
                         })}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
+                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-600">
                         KES {payment.principal.toLocaleString()}
                       </td>
                       <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">
@@ -970,7 +957,7 @@ const ViewLoansPendingDisbursement = () => {
                 </tbody>
                 <tfoot className="bg-gradient-to-r from-indigo-50 to-blue-50">
                   <tr>
-                    <td colSpan="5" className="px-6 py-4 text-right text-sm font-bold text-gray-900">
+                    <td colSpan="5" className="px-6 py-4 text-right text-sm font-bold text-gray-600">
                       Total Repayment:
                     </td>
                     <td className="px-6 py-4 text-right text-lg font-bold text-indigo-600">
@@ -989,7 +976,7 @@ const ViewLoansPendingDisbursement = () => {
               ? 'bg-gradient-to-r from-amber-50 to-orange-50 border-amber-300'
               : 'bg-gradient-to-r from-gray-50 to-blue-50 border-gray-300'
             }`}>
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center mb-4">
+            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
               {canDisburse && feesPaid ? (
                 <>
                   <CheckCircleIcon className="h-7 w-7 text-green-600 mr-3" />

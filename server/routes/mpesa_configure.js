@@ -2,30 +2,9 @@
 import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
-import crypto from "crypto";
+import { encrypt, decrypt } from "../utils/encryption.js";
 
 const mpesaConfigRouter = express.Router();
-
-// Apply authentication directly to routes to avoid global leak
-// mpesaConfigRouter.use(verifySupabaseToken);
-
-// Basic encryption logic
-const ENCRYPTION_KEY = process.env.ENCRYPTION_KEY || "jasiri_default_encryption_key_32ch";
-const IV_LENGTH = 16;
-
-function encrypt(text) {
-  if (!text) return null;
-  try {
-    const iv = crypto.randomBytes(IV_LENGTH);
-    const cipher = crypto.createCipheriv("aes-256-cbc", Buffer.from(ENCRYPTION_KEY.padEnd(32).substring(0, 32)), iv);
-    let encrypted = cipher.update(text);
-    encrypted = Buffer.concat([encrypted, cipher.final()]);
-    return iv.toString("hex") + ":" + encrypted.toString("hex");
-  } catch (err) {
-    console.error("Encryption error:", err);
-    return text; // Fallback to plain text if encryption fails (not ideal, but safer than crashing)
-  }
-}
 
 // CREATE OR UPDATE TENANT MPESA CONFIG
 mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantAccess, async (req, res) => {
@@ -51,12 +30,23 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
 
   // RBAC and Tenant Isolation handled by middlewares
 
-  // 2️⃣ XOR Logic Validation: Paybill OR Till (not both, at least one)
-  const hasPaybill = !!paybill_number;
-  const hasTill = !!till_number;
-
-  if ((hasPaybill && hasTill) || (!hasPaybill && !hasTill)) {
-    return res.status(400).json({ error: "Each tenant must have either a Paybill OR a Till (not both)" });
+  // 2️⃣ Validation based on service_type
+  if (service_type === "c2b") {
+    const hasPaybill = !!paybill_number;
+    const hasTill = !!till_number;
+    if ((hasPaybill && hasTill) || (!hasPaybill && !hasTill)) {
+      return res.status(400).json({ error: "For C2B, either Paybill OR Till must be present (not both)" });
+    }
+    if (!passkey) {
+      return res.status(400).json({ error: "Passkey is required for C2B (STK Push)" });
+    }
+  } else if (service_type === "b2c") {
+    if (!shortcode) {
+      return res.status(400).json({ error: "Shortcode is required for B2C" });
+    }
+    if (!initiator_name || !initiator_password || !security_credential) {
+      return res.status(400).json({ error: "Initiator Name, Password and Security Credential are required for B2C" });
+    }
   }
 
   try {
@@ -140,6 +130,16 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", verifySupabaseToken, ch
       .maybeSingle();
 
     if (error) throw error;
+    
+    // Decrypt sensitive fields
+    if (data) {
+      data.consumer_key = decrypt(data.consumer_key);
+      data.consumer_secret = decrypt(data.consumer_secret);
+      data.passkey = decrypt(data.passkey);
+      data.initiator_password = decrypt(data.initiator_password);
+      data.security_credential = decrypt(data.security_credential);
+    }
+
     res.json({ data });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -156,7 +156,18 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id/all", verifySupabaseToken
       .eq("tenant_id", tenant_id);
 
     if (error) throw error;
-    res.json({ data });
+
+    // Decrypt sensitive fields for all configs
+    const decryptedConfigs = data.map(config => ({
+      ...config,
+      consumer_key: decrypt(config.consumer_key),
+      consumer_secret: decrypt(config.consumer_secret),
+      passkey: decrypt(config.passkey),
+      initiator_password: decrypt(config.initiator_password),
+      security_credential: decrypt(config.security_credential),
+    }));
+
+    res.json({ data: decryptedConfigs });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

@@ -48,6 +48,7 @@ const LoanPendingBm = () => {
   const isRegionalManager = profile?.role === "regional_manager";
   const isCreditAnalyst = profile?.role === "credit_analyst_officer";
   const isCustomerService = profile?.role === "customer_service_officer";
+  const isRelationshipOfficer = profile?.role === "relationship_officer";
 
   const isGlobalRole = isSuperAdmin || isCreditAnalyst;
 
@@ -71,7 +72,8 @@ const LoanPendingBm = () => {
               name,
               region_id
             )
-          )
+          ),
+          booked_by_user:users!loans_created_by_fkey (full_name)
         `)
         .eq('status', 'bm_review')
         .eq('tenant_id', profile?.tenant_id)
@@ -348,10 +350,9 @@ const LoanPendingBm = () => {
     fetchData();
   };
 
-  // Get RO name by ID
-  const getROName = (bookedBy) => {
-    const ro = allRelationshipOfficers.find(r => r.id === bookedBy);
-    return ro?.full_name || "N/A";
+  // Get RO name - now using the joined data
+  const getROName = (loan) => {
+    return loan.booked_by_user?.full_name || "N/A";
   };
 
   // Handle view loan details
@@ -379,7 +380,7 @@ const LoanPendingBm = () => {
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
-            Loans Pending BM Approval
+            Loans Pending BM Approval 
           </h1>
         </div>
         <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
@@ -639,7 +640,7 @@ const LoanPendingBm = () => {
                     )}
                     {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
                       <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {getROName(loan.booked_by)}
+                        {getROName(loan)}
                       </td>
                     )}
                     <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">

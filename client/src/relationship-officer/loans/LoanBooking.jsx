@@ -418,7 +418,7 @@ const LoanBookingForm = ({ customerData }) => {
 
   if (!customer || isInitialLoading) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading product settings..." />
       </div>
     );
@@ -427,7 +427,7 @@ const LoanBookingForm = ({ customerData }) => {
   const availableProductTypes = getAvailableProductTypes();
 
   return (
-    <div className="min-h-screen bg-brand-surface">
+    <div className="min-h-screen bg-muted">
 
 
       <div className="max-w-7xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
@@ -444,7 +444,7 @@ const LoanBookingForm = ({ customerData }) => {
 
           {/* Title & Subtitle */}
           <div className=" text-center">
-            <h1 className="text-2xl font-bold text-text">
+            <h1 className="text-2xl  text-text">
               Loan Booking Confirmation
             </h1>
             <p className="text-gray-600 text-sm mt-1">

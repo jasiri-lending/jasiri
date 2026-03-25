@@ -1,7 +1,5 @@
 import { useState, memo, useEffect, useCallback } from "react";
-import "react-toastify/dist/ReactToastify.css";
 import { supabase } from "../../supabaseClient";
-import { toast } from "react-toastify";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   UserCircleIcon,
@@ -14,14 +12,16 @@ import {
   ArrowUpTrayIcon,
   CameraIcon,
   XMarkIcon,
-  CheckCircleIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  CheckCircleIcon,
   PlusIcon,
   TrashIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
+import { useToast } from "../../components/Toast";
+import { checkUniqueValue } from "../../utils/Unique";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
 
@@ -52,18 +52,24 @@ const FormField = memo(
     disabled = false,
     errors = {},
     handleNestedChange,
+    index,
   }) => {
     let errorMessage = '';
 
-    if (section) {
-      errorMessage = errors?.[section]?.[name];
+    // Handle different error key formats
+    if (index !== undefined && index !== null) {
+      errorMessage = errors[`security_${name}_${index}`] || errors[`guarantor_security_${name}_${index}`];
+    } else if (section) {
+      // For nested fields like spouse, guarantor, nextOfKin
+      errorMessage = errors[`${section}${name.charAt(0).toUpperCase() + name.slice(1)}`] ||
+        errors[section]?.[name];
     } else {
       errorMessage = errors?.[name];
     }
 
     return (
       <div className={className}>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-text mb-2">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
 
@@ -72,7 +78,7 @@ const FormField = memo(
             name={name}
             value={value || ""}
             onChange={section ? (e) => handleNestedChange(e, section) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-brand-primary focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300 hover:border-brand-secondary"
+            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
             disabled={disabled}
@@ -86,20 +92,19 @@ const FormField = memo(
           </select>
         ) : (
           <input
-            type={type}
             name={name}
+            type={type}
             value={value || ""}
             onChange={section ? (e) => handleNestedChange(e, section) : onChange}
-            placeholder={placeholder}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
+            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
+            placeholder={placeholder}
             disabled={disabled}
           />
         )}
-
         {errorMessage && (
-          <span className="text-red-500 text-xs mt-1">{errorMessage}</span>
+          <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
         )}
       </div>
     );
@@ -113,13 +118,16 @@ const CustomerDraft = () => {
   const navigate = useNavigate();
   const customerId = draftId;
   const [activeSection, setActiveSection] = useState("personal");
+  const [completedSections, setCompletedSections] = useState(new Set());
   const { profile } = useAuth();
   const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
 
   const [errors, setErrors] = useState({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const toast = useToast();
 
   const [formData, setFormData] = useState({
     id: '',
@@ -224,7 +232,19 @@ const CustomerDraft = () => {
   const [officerClientImage1, setOfficerClientImage1] = useState(null);
   const [officerClientImage2, setOfficerClientImage2] = useState(null);
   const [bothOfficersImage, setBothOfficersImage] = useState(null);
-  const [previews, setPreviews] = useState({});
+  const [previews, setPreviews] = useState({
+    passport: null,
+    idFront: null,
+    idBack: null,
+    houseImage: null,
+    guarantorPassport: null,
+    guarantorIdFront: null,
+    guarantorIdBack: null,
+    officerClient1: null,
+    officerClient2: null,
+    bothOfficers: null,
+    business: [],
+  });
   const [uploadedFiles, setUploadedFiles] = useState(new Set());
 
   useEffect(() => {
@@ -284,6 +304,10 @@ const CustomerDraft = () => {
         hasLocalAuthorityLicense: customer?.has_local_authority_license ? "Yes" : "No",
         prequalifiedAmount: customer?.prequalifiedAmount?.toString() || "",
         status: customer?.status || "pending",
+        passport_url: customer?.passport_url || null,
+        id_front_url: customer?.id_front_url || null,
+        id_back_url: customer?.id_back_url || null,
+        house_image_url: customer?.house_image_url || null,
         businessCoordinates: customer?.business_lat && customer?.business_lng
           ? { lat: customer.business_lat, lng: customer.business_lng }
           : null,
@@ -354,6 +378,9 @@ const CustomerDraft = () => {
             dateOfBirth: guarantor.date_of_birth?.split("T")[0] || "",
             county: guarantor.county || "",
             cityTown: guarantor.city_town || "",
+            passport_url: guarantor.passport_url || null,
+            id_front_url: guarantor.id_front_url || null,
+            id_back_url: guarantor.id_back_url || null,
           }
           : {
             prefix: '',
@@ -379,13 +406,25 @@ const CustomerDraft = () => {
       setFormData(updatedFormData);
       console.log("Form data set with spouse and nextOfKin:", updatedFormData);
 
-      const processedSecurityItems = securityItemsData?.map((item) => ({
+      let processedSecurityItems = securityItemsData?.map((item) => ({
         id: item.id,
         item: item.item || "",
         description: item.description || "",
         identification: item.identification || "",
         value: item.value?.toString() || "",
       })) || [];
+
+      // Ensure at least one empty object if no records found
+      if (processedSecurityItems.length === 0) {
+        processedSecurityItems = [{
+          type: '',
+          description: '',
+          identification: '',
+          value: '',
+          otherType: ''
+        }];
+      }
+
       setSecurityItems(processedSecurityItems);
 
       const securityImages = securityItemsData?.map((item) =>
@@ -404,13 +443,25 @@ const CustomerDraft = () => {
         guarantorSecurityData = data || [];
       }
 
-      const processedGuarantorSecurity = guarantorSecurityData?.map((item) => ({
+      let processedGuarantorSecurity = guarantorSecurityData?.map((item) => ({
         id: item.id,
         item: item.item || "",
         description: item.description || "",
         identification: item.identification || "",
         value: item.estimated_market_value?.toString() || "",
       })) || [];
+
+      // Ensure at least one empty object if no records found (matches initial state)
+      if (processedGuarantorSecurity.length === 0) {
+        processedGuarantorSecurity = [{
+          type: '',
+          description: '',
+          identification: '',
+          value: '',
+          otherType: ''
+        }];
+      }
+
       setGuarantorSecurityItems(processedGuarantorSecurity);
 
       const guarantorSecurityImages = guarantorSecurityData?.map((item) =>
@@ -436,7 +487,7 @@ const CustomerDraft = () => {
           fileName: 'id_back.jpg',
           isExisting: true
         } : null,
-        house: customer?.house_image_url ? {
+        houseImage: customer?.house_image_url ? {
           url: customer.house_image_url,
           fileName: 'house.jpg',
           isExisting: true
@@ -516,9 +567,7 @@ const CustomerDraft = () => {
 
     } catch (error) {
       console.error("Error loading customer data:", error);
-      toast.error("Failed to load customer data. Please try again.", {
-        position: "top-right",
-      });
+      toast("Failed to load customer data. Please try again.", "error");
     } finally {
       setIsLoading(false);
     }
@@ -584,41 +633,286 @@ const CustomerDraft = () => {
     formData.road,
   ]);
 
-  const handleChange = useCallback((e) => {
-    const { name, value } = e.target;
 
-    if (name === "yearEstablished") {
-      const formattedDate = value && value.length === 4
-        ? `${value}-01-01`
-        : value;
-      setFormData((prev) => ({ ...prev, [name]: formattedDate }));
-    } else {
+  const handleChange = useCallback(
+    async (e) => {
+      const { name, value } = e.target;
+
       setFormData((prev) => ({ ...prev, [name]: value }));
-    }
 
-    if (errors[name]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[name];
-        return newErrors;
-      });
-    }
-  }, [errors]);
+      // Clear old error
+      if (errors[name]) {
+        setErrors((prev) => ({ ...prev, [name]: null }));
+      }
 
-  const handleNestedChange = useCallback((e, section) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [section]: { ...prev[section], [name]: value },
-    }));
-    if (errors[`${section}.${name}`]) {
-      setErrors((prev) => {
-        const newErrors = { ...prev };
-        delete newErrors[`${section}.${name}`];
-        return newErrors;
-      });
-    }
-  }, [errors]);
+      // 1️⃣ AGE VALIDATION — must be 18+
+      if (name === "dateOfBirth" && value) {
+        if (!isAtLeast18YearsOld(value)) {
+          setErrors((prev) => ({
+            ...prev,
+            dateOfBirth: "Customer must be at least 18 years old",
+          }));
+        }
+      }
+
+      // 2️⃣ MOBILE VALIDATION
+      if (name === "mobile" && value) {
+        const cleaned = value.replace(/\D/g, "");
+        if (!/^[0-9]{10,15}$/.test(cleaned)) {
+          setErrors((prev) => ({
+            ...prev,
+            mobile: "Invalid mobile format (10-15 digits)",
+          }));
+        } else {
+          const exists = await checkUniqueValue(
+            ["customers", "guarantors", "next_of_kin"],
+            "mobile",
+            cleaned
+          );
+          if (!exists) {
+            setErrors((prev) => ({
+              ...prev,
+              mobile: "Mobile number already exists",
+            }));
+          }
+        }
+      }
+
+      // 3️⃣ ALTERNATIVE MOBILE VALIDATION
+      if (name === "alternativeMobile" && value) {
+        const cleaned = value.replace(/\D/g, "");
+        if (!/^[0-9]{10,15}$/.test(cleaned)) {
+          setErrors((prev) => ({
+            ...prev,
+            alternativeMobile: "Invalid alternative mobile format (10-15 digits)",
+          }));
+        } else {
+          const exists = await checkUniqueValue(
+            ["customers", "guarantors", "next_of_kin"],
+            "mobile",
+            cleaned
+          );
+          if (!exists) {
+            setErrors((prev) => ({
+              ...prev,
+              alternativeMobile: "Alternative mobile already exists",
+            }));
+          }
+        }
+      }
+
+      // 4️⃣ YEAR ESTABLISHED VALIDATION
+      if (name === "yearEstablished" && value) {
+        const establishedDate = new Date(value);
+        const sixMonthsAgo = new Date();
+        sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+
+        if (establishedDate > sixMonthsAgo) {
+          setErrors((prev) => ({
+            ...prev,
+            yearEstablished: "Business must be at least 6 months old",
+          }));
+        } else if (errors.yearEstablished) {
+          setErrors((prev) => ({ ...prev, yearEstablished: null }));
+        }
+      }
+
+      // 5️⃣ PREQUALIFIED AMOUNT VALIDATION
+      if (name === "prequalifiedAmount") {
+        const totalSecurity = securityItems.reduce(
+          (acc, item) => acc + Number(item.value || 0),
+          0
+        );
+        const maxPrequalified = totalSecurity / 3;
+
+        if (Number(value) > maxPrequalified) {
+          setFormData((prev) => ({ ...prev, prequalifiedAmount: "" })); // Clear input
+          setErrors((prev) => ({
+            ...prev,
+            prequalifiedAmount: `Cannot exceed one-third of total security (${maxPrequalified})`,
+          }));
+        } else {
+          setErrors((prev) => ({ ...prev, prequalifiedAmount: null }));
+          setFormData((prev) => ({ ...prev, prequalifiedAmount: value }));
+        }
+      }
+
+      // 6️⃣ ID NUMBER VALIDATION
+      if (name === "idNumber" && value) {
+        if (!/^[0-9]{6,12}$/.test(value)) {
+          setErrors((prev) => ({
+            ...prev,
+            idNumber: "ID must be 6–12 digits",
+          }));
+        } else {
+          const exists = await checkUniqueValue(
+            ["customers", "guarantors", "next_of_kin"],
+            "id_number",
+            value
+          );
+          if (!exists) {
+            setErrors((prev) => ({
+              ...prev,
+              idNumber: "ID number already exists",
+            }));
+          }
+        }
+      }
+    },
+    [errors, securityItems]
+  );
+
+  const handleNestedChange = useCallback(
+    async (e, section) => {
+      if (!e || !e.target) return;
+      const { name, value } = e.target;
+
+      setFormData((prev) => ({
+        ...prev,
+        [section]: { ...prev[section], [name]: value },
+      }));
+
+      const errorKey = `${section}${name.charAt(0).toUpperCase() + name.slice(1)}`;
+      if (errors[errorKey]) {
+        setErrors((prev) => {
+          const newErrors = { ...prev };
+          delete newErrors[errorKey];
+          return newErrors;
+        });
+      }
+
+      // Live validation for spouse fields
+      if (section === "spouse") {
+        // Spouse ID validation
+        if (name === "idNumber" && value) {
+          if (!/^[0-9]{6,12}$/.test(value)) {
+            setErrors((prev) => ({
+              ...prev,
+              spouseIdNumber: "Spouse ID must be 6–12 digits",
+            }));
+          }
+        }
+
+        // Spouse mobile validation
+        if (name === "mobile" && value) {
+          const cleaned = value.replace(/\D/g, "");
+          if (!/^[0-9]{10,15}$/.test(cleaned)) {
+            setErrors((prev) => ({
+              ...prev,
+              spouseMobile: "Invalid spouse mobile format (10-15 digits)",
+            }));
+          }
+        }
+      }
+
+      // Live validation for guarantor fields
+      if (section === "guarantor") {
+        // Guarantor mobile validation
+        if (name === "mobile" && value) {
+          const cleaned = value.replace(/\D/g, "");
+          if (!/^[0-9]{10,15}$/.test(cleaned)) {
+            setErrors((prev) => ({
+              ...prev,
+              guarantorMobile: "Invalid guarantor mobile format (10-15 digits)",
+            }));
+          } else {
+            const exists = await checkUniqueValue(
+              ["customers", "guarantors", "next_of_kin"],
+              "mobile",
+              cleaned
+            );
+            if (!exists) {
+              setErrors((prev) => ({
+                ...prev,
+                guarantorMobile: "Guarantor mobile number already exists",
+              }));
+            }
+          }
+        }
+
+        // Guarantor ID validation
+        if (name === "idNumber" && value) {
+          if (!/^[0-9]{6,12}$/.test(value)) {
+            setErrors((prev) => ({
+              ...prev,
+              guarantorIdNumber: "Guarantor ID must be 6–12 digits",
+            }));
+          } else {
+            const exists = await checkUniqueValue(
+              ["customers", "guarantors", "next_of_kin"],
+              "id_number",
+              value
+            );
+            if (!exists) {
+              setErrors((prev) => ({
+                ...prev,
+                guarantorIdNumber: "Guarantor ID number already exists",
+              }));
+            }
+          }
+        }
+
+        // Guarantor age validation
+        if (name === "dateOfBirth" && value) {
+          if (!isAtLeast18YearsOld(value)) {
+            setErrors((prev) => ({
+              ...prev,
+              guarantorDateOfBirth: "Guarantor must be at least 18 years old",
+            }));
+          }
+        }
+      }
+
+      // Live validation for next of kin fields
+      if (section === "nextOfKin") {
+        // Next of kin mobile validation
+        if (name === "mobile" && value) {
+          const cleaned = value.replace(/\D/g, "");
+          if (!/^[0-9]{10,15}$/.test(cleaned)) {
+            setErrors((prev) => ({
+              ...prev,
+              nextOfKinMobile: "Invalid next of kin mobile format (10-15 digits)",
+            }));
+          } else {
+            const exists = await checkUniqueValue(
+              ["customers", "guarantors", "next_of_kin"],
+              "mobile",
+              cleaned
+            );
+            if (!exists) {
+              setErrors((prev) => ({
+                ...prev,
+                nextOfKinMobile: "Next of kin mobile number already exists",
+              }));
+            }
+          }
+        }
+
+        // Next of kin ID validation
+        if (name === "idNumber" && value) {
+          if (!/^[0-9]{6,12}$/.test(value)) {
+            setErrors((prev) => ({
+              ...prev,
+              nextOfKinIdNumber: "Next of kin ID must be 6–12 digits",
+            }));
+          } else {
+            const exists = await checkUniqueValue(
+              ["customers", "guarantors", "next_of_kin"],
+              "id_number",
+              value
+            );
+            if (!exists) {
+              setErrors((prev) => ({
+                ...prev,
+                nextOfKinIdNumber: "Next of kin ID number already exists",
+              }));
+            }
+          }
+        }
+      }
+    },
+    [errors]
+  );
 
   const handleLocationChange = useCallback((coords) => {
     setFormData((prev) => ({ ...prev, businessCoordinates: coords }));
@@ -871,121 +1165,44 @@ const CustomerDraft = () => {
     setBusinessImages(prev => prev.filter((_, i) => i !== index));
   };
 
+  
+
+
   const validatePersonalDetails = async () => {
     const newErrors = {};
     let hasErrors = false;
 
     if (!formData.Firstname?.trim()) {
       newErrors.Firstname = "First name is required";
-      toast.error("First name is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
     if (!formData.Surname?.trim()) {
       newErrors.Surname = "Surname is required";
-      toast.error("Surname is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
     if (!formData.mobile?.trim()) {
       newErrors.mobile = "Mobile number is required";
-      toast.error("Mobile number is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-    if (!formData.alternativeMobile?.trim()) {
-      newErrors.alternativeMobile = "Alternative mobile number is required";
-      toast.error("Alternative mobile number is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
     if (!formData.idNumber?.trim()) {
       newErrors.idNumber = "ID number is required";
-      toast.error("ID number is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
     if (formData.mobile && !/^[0-9]{10,15}$/.test(formData.mobile.replace(/\D/g, ""))) {
       newErrors.mobile = "Please enter a valid mobile number (10-15 digits)";
-      toast.error("Invalid mobile number format", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-    if (formData.alternativeMobile && !/^[0-9]{10,15}$/.test(formData.alternativeMobile.replace(/\D/g, ""))) {
-      newErrors.alternativeMobile = "Please enter a valid alternative mobile number (10-15 digits)";
-      toast.error("Invalid alternative mobile number format", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
     if (formData.idNumber && !/^[0-9]{6,12}$/.test(formData.idNumber)) {
       newErrors.idNumber = "Please enter a valid ID number (6-12 digits)";
-      toast.error("Invalid ID number format", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
     if (formData.dateOfBirth && !isAtLeast18YearsOld(formData.dateOfBirth)) {
       newErrors.dateOfBirth = "Customer must be at least 18 years old";
-      toast.error("Customer must be at least 18 years old", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
-
-    if (formData.maritalStatus === "Married") {
-      if (!formData.spouse.name?.trim()) {
-        newErrors.spouseName = "Spouse name is required for married customers";
-        toast.error("Spouse name is required", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-      if (!formData.spouse.idNumber?.trim()) {
-        newErrors.spouseIdNumber = "Spouse ID number is required for married customers";
-        toast.error("Spouse ID number is required", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-      if (!formData.spouse.mobile?.trim()) {
-        newErrors.spouseMobile = "Spouse mobile number is required for married customers";
-        toast.error("Spouse mobile number is required", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-      if (!formData.spouse.economicActivity?.trim()) {
-        newErrors.spouseEconomicActivity = "Spouse economic activity is required for married customers";
-        toast.error("Spouse economic activity is required", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-
-      if (formData.spouse.idNumber && !/^[0-9]{6,12}$/.test(formData.spouse.idNumber)) {
-        newErrors.spouseIdNumber = "Please enter a valid spouse ID number (6-12 digits)";
-        toast.error("Invalid spouse ID number format", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-
-      if (formData.spouse.mobile && !/^[0-9]{10,15}$/.test(formData.spouse.mobile.replace(/\D/g, ""))) {
-        newErrors.spouseMobile = "Please enter a valid spouse mobile number (10-15 digits)";
-        toast.error("Invalid spouse mobile number format", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-    }
-
-    // const fieldsToCheck = [
-    //   { field: "mobile", value: formData.mobile, label: "Mobile number" },
-    //   { field: "alternativeMobile", value: formData.alternativeMobile, label: "Alternative mobile" },
-    //   { field: "idNumber", value: formData.idNumber, label: "ID number" },
-    // ];
-
-    // for (const { field, value, label } of fieldsToCheck) {
-    //   if (value && !newErrors[field]) {
-    //     try {
-    //       const isUnique = await checkUniqueValue(
-    //         ["customers", "guarantors", "next_of_kin"],
-    //         field === "idNumber" ? "id_number" : "mobile",
-    //         value
-    //       );
-    //       if (!isUnique) {
-    //         newErrors[field] = `${label} already exists in our system`;
-    //         toast.error(`${label} already exists in our system`, { position: "top-right", autoClose: 3000 });
-    //         hasErrors = true;
-    //       }
-    //     } catch (error) {
-    //       console.error("Error checking uniqueness:", error);
-    //       newErrors[field] = `Error validating ${label}`;
-    //       toast.error(`Error validating ${label}`, { position: "top-right", autoClose: 3000 });
-    //       hasErrors = true;
-    //     }
-    //   }
-    // }
 
     setErrors(newErrors);
     return !hasErrors;
@@ -997,63 +1214,18 @@ const CustomerDraft = () => {
 
     if (!formData.businessName?.trim()) {
       errorsFound.businessName = "Business name is required";
-      toast.error("Business name is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
-
     if (!formData.businessType?.trim()) {
       errorsFound.businessType = "Business type is required";
-      toast.error("Business type is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
-
-    if (!formData.yearEstablished) {
-      errorsFound.yearEstablished = "Year established is required";
-      toast.error("Year established is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    } else {
-      const establishedDate = new Date(formData.yearEstablished);
-      const sixMonthsAgo = new Date();
-      sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
-
-      if (establishedDate > sixMonthsAgo) {
-        errorsFound.yearEstablished = "Business must be at least 6 months old";
-        toast.error("Business must be at least 6 months old", { position: "top-right", autoClose: 3000 });
-        hasErrors = true;
-      }
-    }
-
-    if (!formData.businessLocation?.trim()) {
-      errorsFound.businessLocation = "Business location is required";
-      toast.error("Business location is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-
-    if (!formData.road?.trim()) {
-      errorsFound.road = "Road is required";
-      toast.error("Road is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-
-    if (!formData.landmark?.trim()) {
-      errorsFound.landmark = "Landmark is required";
-      toast.error("Landmark is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-
     if (!formData.daily_Sales) {
       errorsFound.daily_Sales = "Daily sales estimate is required";
-      toast.error("Daily sales estimate is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    } else if (parseFloat(formData.daily_Sales) <= 0) {
-      errorsFound.daily_Sales = "Daily sales must be greater than 0";
-      toast.error("Daily sales must be greater than 0", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
-
     if (!formData.businessCoordinates?.lat || !formData.businessCoordinates?.lng) {
       errorsFound.businessCoordinates = "Business GPS coordinates are required";
-      toast.error("Please set business GPS location", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
@@ -1067,20 +1239,16 @@ const CustomerDraft = () => {
 
     if (securityItems.length === 0) {
       errorsFound.securityItems = "At least one security item is required";
-      toast.error("At least one security item is required", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
     securityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
         errorsFound[`security_description_${index}`] = "Description is required";
-        toast.error(`Security Item ${index + 1}: Description is required`, { position: "top-right", autoClose: 3000 });
         hasErrors = true;
       }
-
       if (!item.value || parseFloat(item.value) <= 0) {
         errorsFound[`security_value_${index}`] = "Estimated value must be greater than 0";
-        toast.error(`Security Item ${index + 1}: Value must be greater than 0`, { position: "top-right", autoClose: 3000 });
         hasErrors = true;
       }
     });
@@ -1095,11 +1263,6 @@ const CustomerDraft = () => {
 
     if (!formData.prequalifiedAmount) {
       errorsFound.prequalifiedAmount = "Pre-qualified amount is required";
-      toast.error("Pre-qualified amount is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    } else if (parseFloat(formData.prequalifiedAmount) <= 0) {
-      errorsFound.prequalifiedAmount = "Loan amount must be greater than 0";
-      toast.error("Loan amount must be greater than 0", { position: "top-right", autoClose: 3000 });
       hasErrors = true;
     }
 
@@ -1110,51 +1273,24 @@ const CustomerDraft = () => {
   const validateGuarantorDetails = async () => {
     const errorsFound = { guarantor: {} };
     let hasErrors = false;
-    const { Firstname, Surname, mobile, idNumber, dateOfBirth, gender } = formData.guarantor;
+    const { Firstname, Surname, mobile, idNumber } = formData.guarantor;
 
     if (!Firstname?.trim()) {
       errorsFound.guarantor.Firstname = "Guarantor first name is required";
-      toast.error("Guarantor first name is required");
       hasErrors = true;
     }
     if (!Surname?.trim()) {
       errorsFound.guarantor.Surname = "Guarantor surname is required";
-      toast.error("Guarantor surname is required");
-      hasErrors = true;
-    }
-    if (!gender?.trim()) {
-      errorsFound.guarantor.gender = "Guarantor gender is required";
-      toast.error("Guarantor gender is required");
       hasErrors = true;
     }
     if (!mobile?.trim()) {
       errorsFound.guarantor.mobile = "Guarantor mobile number is required";
-      toast.error("Guarantor mobile number is required");
       hasErrors = true;
     }
     if (!idNumber?.trim()) {
       errorsFound.guarantor.idNumber = "Guarantor ID number is required";
-      toast.error("Guarantor ID number is required");
       hasErrors = true;
     }
-
-    if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
-      errorsFound.guarantor.mobile = "Please enter a valid mobile number (10-15 digits)";
-      toast.error("Invalid guarantor mobile number format");
-      hasErrors = true;
-    }
-    if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
-      errorsFound.guarantor.idNumber = "Please enter a valid ID number (6-12 digits)";
-      toast.error("Invalid guarantor ID number format");
-      hasErrors = true;
-    }
-
-    if (dateOfBirth && !isAtLeast18YearsOld(dateOfBirth)) {
-      errorsFound.guarantor.dateOfBirth = "Guarantor must be at least 18 years old";
-      toast.error("Guarantor must be at least 18 years old");
-      hasErrors = true;
-    }
-
 
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
@@ -1164,22 +1300,13 @@ const CustomerDraft = () => {
     const errorsFound = {};
     let hasErrors = false;
 
-    if (guarantorSecurityItems.length === 0) {
-      errorsFound.guarantorSecurityItems = "At least one guarantor security item is required";
-      toast.error("At least one guarantor security item is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-
     guarantorSecurityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
         errorsFound[`guarantor_security_description_${index}`] = "Description is required";
-        toast.error(`Guarantor Security ${index + 1}: Description is required`, { position: "top-right", autoClose: 3000 });
         hasErrors = true;
       }
-
       if (!item.value || parseFloat(item.value) <= 0) {
         errorsFound[`guarantor_security_value_${index}`] = "Estimated value must be greater than 0";
-        toast.error(`Guarantor Security ${index + 1}: Value must be greater than 0`, { position: "top-right", autoClose: 3000 });
         hasErrors = true;
       }
     });
@@ -1191,56 +1318,28 @@ const CustomerDraft = () => {
   const validateNextOfKinDetails = async () => {
     const errorsFound = { nextOfKin: {} };
     let hasErrors = false;
-    const { Firstname, Surname, mobile, alternativeNumber, idNumber, relationship, employmentStatus } = formData.nextOfKin;
+    const { Firstname, Surname, mobile, idNumber, relationship } = formData.nextOfKin;
 
     if (!Firstname?.trim()) {
       errorsFound.nextOfKin.Firstname = "Next of kin first name is required";
-      toast.error(errorsFound.nextOfKin.Firstname);
       hasErrors = true;
     }
     if (!Surname?.trim()) {
       errorsFound.nextOfKin.Surname = "Next of kin surname is required";
-      toast.error(errorsFound.nextOfKin.Surname);
       hasErrors = true;
     }
     if (!mobile?.trim()) {
       errorsFound.nextOfKin.mobile = "Next of kin mobile number is required";
-      toast.error(errorsFound.nextOfKin.mobile);
       hasErrors = true;
     }
     if (!idNumber?.trim()) {
       errorsFound.nextOfKin.idNumber = "Next of kin ID number is required";
-      toast.error(errorsFound.nextOfKin.idNumber);
       hasErrors = true;
     }
-
-    if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
-      errorsFound.nextOfKin.mobile = "Please enter a valid mobile number (10-15 digits)";
-      toast.error(errorsFound.nextOfKin.mobile);
-      hasErrors = true;
-    }
-    if (alternativeNumber && !/^[0-9]{10,15}$/.test(alternativeNumber.replace(/\D/g, ""))) {
-      errorsFound.nextOfKin.alternativeNumber = "Please enter a valid alternative mobile number (10-15 digits)";
-      toast.error(errorsFound.nextOfKin.alternativeNumber);
-      hasErrors = true;
-    }
-    if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
-      errorsFound.nextOfKin.idNumber = "Please enter a valid ID number (6-12 digits)";
-      toast.error(errorsFound.nextOfKin.idNumber);
-      hasErrors = true;
-    }
-
     if (!relationship?.trim()) {
       errorsFound.nextOfKin.relationship = "Relationship is required";
-      toast.error(errorsFound.nextOfKin.relationship);
       hasErrors = true;
     }
-    if (!employmentStatus?.trim()) {
-      errorsFound.nextOfKin.employmentStatus = "Employment status is required";
-      toast.error(errorsFound.nextOfKin.employmentStatus);
-      hasErrors = true;
-    }
-
 
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
@@ -1250,20 +1349,19 @@ const CustomerDraft = () => {
     let errorsFound = {};
     let hasErrors = false;
 
-    if (!officerClientImage1) {
-      errorsFound.officerClientImage1 = "First Officer and Client Image is required";
-      toast.error("First Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-    if (!officerClientImage2) {
-      errorsFound.officerClientImage2 = "Second Officer and Client Image is required";
-      toast.error("Second Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
-    }
-    if (!bothOfficersImage) {
-      errorsFound.bothOfficersImage = "Both Officers Image is required";
-      toast.error("Both Officers Image is required", { position: "top-right", autoClose: 3000 });
-      hasErrors = true;
+    if (documentUploadEnabled) {
+      if (!officerClientImage1) {
+        errorsFound.officerClientImage1 = "First Officer and Client Image is required";
+        hasErrors = true;
+      }
+      if (!officerClientImage2) {
+        errorsFound.officerClientImage2 = "Second Officer and Client Image is required";
+        hasErrors = true;
+      }
+      if (!bothOfficersImage) {
+        errorsFound.bothOfficersImage = "Both Officers Image is required";
+        hasErrors = true;
+      }
     }
 
     setErrors(errorsFound);
@@ -1271,49 +1369,58 @@ const CustomerDraft = () => {
   };
 
   const handleNext = async () => {
+    if (isValidating) return;
+    setIsValidating(true);
     let isValid = false;
 
-    switch (activeSection) {
-      case "personal":
-        isValid = await validatePersonalDetails();
-        break;
-      case "business":
-        isValid = validateBusinessDetails();
-        break;
-      case "borrowerSecurity":
-        isValid = validateBorrowerSecurity();
-        break;
-      case "loan":
-        isValid = validateLoanDetails();
-        break;
-      case "guarantor":
-        isValid = await validateGuarantorDetails();
-        break;
-      case "guarantorSecurity":
-        isValid = validateGuarantorSecurity();
-        break;
-      case "nextOfKin":
-        isValid = await validateNextOfKinDetails();
-        break;
-      case "documents":
-        isValid = validateDocuments();
-        break;
-      default:
-        break;
-    }
+    try {
+      switch (activeSection) {
+        case "personal":
+          isValid = await validatePersonalDetails();
+          break;
+        case "business":
+          isValid = validateBusinessDetails();
+          break;
+        case "borrowerSecurity":
+          isValid = validateBorrowerSecurity();
+          break;
+        case "loan":
+          isValid = validateLoanDetails();
+          break;
+        case "guarantor":
+          isValid = await validateGuarantorDetails();
+          break;
+        case "guarantorSecurity":
+          isValid = validateGuarantorSecurity();
+          break;
+        case "nextOfKin":
+          isValid = await validateNextOfKinDetails();
+          break;
+        case "documents":
+          isValid = validateDocuments();
+          break;
+        default:
+          break;
+      }
 
-    if (!isValid) {
-      toast.error("Please fix the highlighted errors before continuing.", {
-        position: "top-right",
-        autoClose: 3000,
-        theme: "colored",
+      if (!isValid) {
+        toast.error("Please fix the highlighted errors before continuing.");
+        return;
+      }
+
+      // Mark current section as completed
+      setCompletedSections((prev) => {
+        const newSet = new Set(prev);
+        newSet.add(activeSection);
+        return newSet;
       });
-      return;
-    }
 
-    const nextIndex = sections.findIndex((item) => item.id === activeSection) + 1;
-    if (nextIndex < sections.length) {
-      setActiveSection(sections[nextIndex].id);
+      const nextIndex = sections.findIndex((item) => item.id === activeSection) + 1;
+      if (nextIndex < sections.length) {
+        setActiveSection(sections[nextIndex].id);
+      }
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -1327,7 +1434,7 @@ const CustomerDraft = () => {
     const nextOfKinValid = await validateNextOfKinDetails();
     const documentsValid = validateDocuments();
 
-    const isValid =
+    return (
       personalValid &&
       businessValid &&
       borrowerSecurityValid &&
@@ -1335,71 +1442,16 @@ const CustomerDraft = () => {
       guarantorValid &&
       guarantorSecurityValid &&
       nextOfKinValid &&
-      documentsValid;
-
-    if (!isValid) {
-      console.warn("Validation failed: ", {
-        personalValid,
-        businessValid,
-        borrowerSecurityValid,
-        loanValid,
-        guarantorValid,
-        guarantorSecurityValid,
-        nextOfKinValid,
-        documentsValid,
-      });
-    }
-
-    return isValid;
-  };
-
-  const uploadFilesBatch = async (files, pathPrefix, bucket = "customers") => {
-    if (!files || files.length === 0) return [];
-
-    const uploadPromises = files.map(async (file) => {
-      try {
-        const path = `${pathPrefix}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
-        const { data, error } = await supabase.storage
-          .from(bucket)
-          .upload(path, file, {
-            upsert: true,
-            cacheControl: '3600'
-          });
-
-        if (error) throw error;
-
-        const { data: urlData } = supabase.storage
-          .from(bucket)
-          .getPublicUrl(data.path);
-
-        return urlData.publicUrl;
-      } catch (error) {
-        console.error(`Failed to upload ${file.name}:`, error);
-        return null;
-      }
-    });
-
-    const urls = await Promise.all(uploadPromises);
-    return urls.filter(Boolean);
+      documentsValid
+    );
   };
 
   const uploadFile = async (file, path, bucket = "customers") => {
     if (!file) return null;
-
     try {
-      const { data, error } = await supabase.storage
-        .from(bucket)
-        .upload(path, file, {
-          upsert: true,
-          cacheControl: '3600'
-        });
-
+      const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
       if (error) throw error;
-
-      const { data: urlData } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(data.path);
-
+      const { data: urlData } = supabase.storage.from(bucket).getPublicUrl(data.path);
       return urlData.publicUrl;
     } catch (error) {
       console.error("Upload error:", error);
@@ -1407,10 +1459,72 @@ const CustomerDraft = () => {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setIsSubmitting(true);
+  const uploadFilesBatch = async (files, pathPrefix, bucket = "customers") => {
+    if (!files || files.length === 0) return [];
+    const uploadPromises = files.map(async (file) => {
+      const path = `${pathPrefix}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
+      return uploadFile(file, path, bucket);
+    });
+    const urls = await Promise.all(uploadPromises);
+    return urls.filter(Boolean);
+  };
 
+  const insertSecurityItemsOptimized = async (items, images, ownerId, isGuarantor) => {
+    if (!items?.length) return;
+    const table = isGuarantor ? "guarantor_security" : "security_items";
+    const ownerKey = isGuarantor ? "guarantor_id" : "customer_id";
+    const valueKey = isGuarantor ? "estimated_market_value" : "value";
+
+    const itemsToInsert = items.map((s) => ({
+      [ownerKey]: ownerId,
+      item: s.type || s.item || null,
+      description: s.description || null,
+      identification: s.identification || null,
+      [valueKey]: s.value ? parseFloat(s.value) : null,
+      created_by: profile?.id,
+      tenant_id: profile?.tenant_id,
+      branch_id: profile?.branch_id,
+      region_id: profile?.region_id,
+      created_at: new Date().toISOString(),
+    }));
+
+    const { data: insertedItems, error: secError } = await supabase.from(table).insert(itemsToInsert).select("id");
+    if (secError || !insertedItems?.length) return;
+
+    const allImageUploads = insertedItems.flatMap((item, index) => {
+      const itemImages = images[index] || [];
+      return itemImages.map(async (file) => {
+        const filePath = `${isGuarantor ? "guarantor_security" : "borrower_security"}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
+        const url = await uploadFile(file, filePath);
+        return url ? {
+          [isGuarantor ? "guarantor_security_id" : "security_item_id"]: item.id,
+          image_url: url,
+          created_by: profile?.id,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          created_at: new Date().toISOString(),
+        } : null;
+      });
+    });
+
+    const imageRecords = (await Promise.all(allImageUploads)).filter(Boolean);
+    if (imageRecords.length) {
+      const imageTable = isGuarantor ? "guarantor_security_images" : "security_item_images";
+      await supabase.from(imageTable).insert(imageRecords);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    
+    // Guard: Prevent submission if not on the final section (helps with double-clicks/misfires)
+    const lastSectionId = sections[sections.length - 1].id;
+    if (activeSection !== lastSectionId) {
+      console.warn("Submit triggered while not on the final section. Ignoring.");
+      return;
+    }
+
+    setIsSubmitting(true);
     try {
       const isValid = await validateForm();
       if (!isValid) {
@@ -1420,7 +1534,6 @@ const CustomerDraft = () => {
       }
 
       const timestamp = Date.now();
-
       const [
         passportUrl,
         idFrontUrl,
@@ -1434,13 +1547,13 @@ const CustomerDraft = () => {
         officerClientUrl2,
         bothOfficersUrl
       ] = await Promise.all([
-        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : null,
-        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : null,
-        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : null,
-        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : null,
-        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : null,
-        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : null,
-        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : null,
+        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : formData.passport_url,
+        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : formData.id_front_url,
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : formData.id_back_url,
+        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : formData.house_image_url,
+        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData.guarantor.passport_url,
+        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : formData.guarantor.id_front_url,
+        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : formData.guarantor.id_back_url,
         businessImages.length > 0 ? uploadFilesBatch(businessImages, "business") : [],
         officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : null,
         officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : null,
@@ -1459,14 +1572,14 @@ const CustomerDraft = () => {
         occupation: formData.occupation || null,
         date_of_birth: formData.dateOfBirth || null,
         gender: formData.gender || null,
-        id_number: formData.idNumber || null,
+        id_number: formData.idNumber ? parseInt(formData.idNumber) : null,
         postal_address: formData.postalAddress || null,
-        code: formData.code || null,
+        code: formData.code ? parseInt(formData.code) : null,
         town: formData.town || null,
         county: formData.county || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
-        daily_Sales: Number(formData.daily_Sales) || null,
+        daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
         business_location: formData.businessLocation || null,
         business_lat: formData.businessCoordinates?.lat || null,
@@ -1474,162 +1587,92 @@ const CustomerDraft = () => {
         road: formData.road || null,
         landmark: formData.landmark || null,
         has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
-        prequalifiedAmount: Number(formData.prequalifiedAmount) || null,
+        prequalifiedAmount: formData.prequalifiedAmount ? parseFloat(formData.prequalifiedAmount) : null,
         passport_url: passportUrl,
         id_front_url: idFrontUrl,
         id_back_url: idBackUrl,
         house_image_url: houseImageUrl,
         status: "bm_review",
         form_status: "submitted",
-        created_by: profile?.id,
-        branch_id: profile?.branch_id,
-        region_id: profile?.region_id,
-        tenant_id: profile?.tenant_id,
-        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
 
-      const { data: customerData, error: customerError } = await supabase
+      const { error: customerError } = await supabase
         .from("customers")
-        .insert([customerPayload])
-        .select("id")
-        .single();
+        .update(customerPayload)
+        .eq("id", customerId);
 
       if (customerError) throw customerError;
-      const customerId = customerData.id;
 
-      const insertPromises = [];
-
-      if (businessUrls.length > 0) {
-        const businessRecords = businessUrls.map((url) => ({
-          customer_id: customerId,
-          image_url: url,
-          created_by: profile?.id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_at: new Date().toISOString(),
-        }));
-        insertPromises.push(supabase.from("business_images").insert(businessRecords));
-      }
-
-      if (formData.maritalStatus === "Married" && formData.spouse) {
-        insertPromises.push(
-          supabase.from("spouse").insert([{
-            customer_id: customerId,
-            name: formData.spouse.name || null,
-            id_number: formData.spouse.idNumber || null,
-            mobile: formData.spouse.mobile || null,
-            economic_activity: formData.spouse.economicActivity || null,
-            created_by: profile?.id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_at: new Date().toISOString(),
-          }])
-        );
-      }
-
-      const nextOfKin = formData.nextOfKin || {};
-      if (Object.values(nextOfKin).some(Boolean)) {
-        insertPromises.push(
-          supabase.from("next_of_kin").insert([{
-            customer_id: customerId,
-            Firstname: nextOfKin.Firstname || null,
-            Surname: nextOfKin.Surname || null,
-            Middlename: nextOfKin.Middlename || null,
-            id_number: nextOfKin.idNumber || null,
-            relationship: nextOfKin.relationship || null,
-            mobile: nextOfKin.mobile || null,
-            alternative_number: nextOfKin.alternativeNumber || null,
-            employment_status: nextOfKin.employmentStatus || null,
-            county: nextOfKin.county || null,
-            city_town: nextOfKin.cityTown || null,
-            company_name: nextOfKin.companyName || null,
-            salary: nextOfKin.salary ? parseFloat(nextOfKin.salary) : null,
-            business_name: nextOfKin.businessName || null,
-            business_income: nextOfKin.businessIncome ? parseFloat(nextOfKin.businessIncome) : null,
-            relationship_other: nextOfKin.relationshipOther || null,
-            created_by: profile?.id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_at: new Date().toISOString(),
-          }])
-        );
-      }
-
-      const guarantor = formData.guarantor || {};
-      const guarantorFilled = Object.values(guarantor).some(
-        (val) => val != null && String(val).trim() !== ""
-      );
-
-      if (guarantorFilled) {
-        insertPromises.push(
-          supabase.from("guarantors").insert([{
-            customer_id: customerId,
-            Firstname: guarantor.Firstname || null,
-            Surname: guarantor.Surname || null,
-            Middlename: guarantor.Middlename || null,
-            id_number: guarantor.idNumber || null,
-            marital_status: guarantor.maritalStatus || null,
-            gender: guarantor.gender || null,
-            mobile: guarantor.mobile || null,
-            alternative_number: guarantor.alternativeMobile || null,
-            residence_status: guarantor.residenceStatus || null,
-            postal_address: guarantor.postalAddress || null,
-            code: guarantor.code ? parseInt(guarantor.code) : null,
-            occupation: guarantor.occupation || null,
-            relationship: guarantor.relationship || null,
-            date_of_birth: guarantor.dateOfBirth || null,
-            county: guarantor.county || null,
-            city_town: guarantor.cityTown || null,
-            passport_url: guarantorPassportUrl,
-            id_front_url: guarantorIdFrontUrl,
-            id_back_url: guarantorIdBackUrl,
-            created_by: profile?.id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            tenant_id: profile?.tenant_id,
-            created_at: new Date().toISOString(),
-          }]).select("id").single()
-        );
-      }
-
-      const documentRecords = [
-        { file: officerClientUrl1, type: "First Officer and Client Image" },
-        { file: officerClientUrl2, type: "Second Officer and Client Image" },
-        { file: bothOfficersUrl, type: "Both Officers Image" },
-      ]
-        .filter(doc => doc.file)
-        .map(doc => ({
-          customer_id: customerId,
-          document_type: doc.type,
-          document_url: doc.file,
-          created_by: profile?.id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_at: new Date().toISOString(),
-        }));
-
-      if (documentRecords.length) {
-        insertPromises.push(supabase.from("documents").insert(documentRecords));
-      }
-
-      const results = await Promise.all(insertPromises);
-
-      let guarantorId = null;
-      const guarantorResult = results.find(r => r.data?.id);
-      if (guarantorResult) guarantorId = guarantorResult.data.id;
-
-      await Promise.all([
+      const childOps = [
         insertSecurityItemsOptimized(securityItems, securityItemImages, customerId, false),
-        guarantorId ? insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, guarantorId, true) : Promise.resolve(null),
-      ]);
+        insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, customerId, true),
+        // Update Guarantor Details including URLs
+        supabase.from("guarantors").update({
+          Firstname: formData.guarantor?.Firstname || null,
+          Surname: formData.guarantor?.Surname || null,
+          Middlename: formData.guarantor?.Middlename || null,
+          id_number: formData.guarantor?.idNumber || null,
+          marital_status: formData.guarantor?.maritalStatus || null,
+          gender: formData.guarantor?.gender || null,
+          mobile: formData.guarantor?.mobile || null,
+          alternative_number: formData.guarantor?.alternativeMobile || null,
+          residence_status: formData.guarantor?.residenceStatus || null,
+          postal_address: formData.guarantor?.postalAddress || null,
+          code: formData.guarantor?.code ? parseInt(formData.guarantor?.code) : null,
+          occupation: formData.guarantor?.occupation || null,
+          relationship: formData.guarantor?.relationship || null,
+          date_of_birth: formData.guarantor?.dateOfBirth || null,
+          county: formData.guarantor?.county || null,
+          city_town: formData.guarantor?.cityTown || null,
+          passport_url: guarantorPassportUrl,
+          id_front_url: guarantorIdFrontUrl,
+          id_back_url: guarantorIdBackUrl,
+          updated_at: new Date().toISOString()
+        }).eq("customer_id", customerId)
+      ];
 
-      toast.success("Customer application submitted successfully!");
-      navigate("/officer/customers");
+      if (businessUrls?.length > 0) {
+        childOps.push(
+          supabase.from("business_images").insert(
+            businessUrls.map(url => ({
+              customer_id: customerId,
+              image_url: url,
+              created_by: profile?.id,
+              branch_id: profile?.branch_id,
+              region_id: profile?.region_id,
+              created_at: new Date().toISOString()
+            }))
+          )
+        );
+      }
 
+      const docs = [];
+      if (officerClientUrl1) docs.push({ customer_id: customerId, document_type: "First Officer and Client Image", document_url: officerClientUrl1 });
+      if (officerClientUrl2) docs.push({ customer_id: customerId, document_type: "Second Officer and Client Image", document_url: officerClientUrl2 });
+      if (bothOfficersUrl) docs.push({ customer_id: customerId, document_type: "Both Officers Image", document_url: bothOfficersUrl });
+
+      if (docs.length > 0) {
+        childOps.push(
+          supabase.from("documents").insert(
+            docs.map(d => ({
+              ...d,
+              created_by: profile?.id,
+              branch_id: profile?.branch_id,
+              region_id: profile?.region_id,
+              created_at: new Date().toISOString()
+            }))
+          )
+        );
+      }
+
+      await Promise.all(childOps);
+
+      toast.success("Application submitted successfully!");
+      navigate("/registry/customers");
     } catch (error) {
-      console.error("Form submission error:", error);
-      toast.error(error.message || "An unexpected error occurred.");
+      console.error("Submission error:", error);
+      toast.error("An unexpected error occurred during submission.");
     } finally {
       setIsSubmitting(false);
     }
@@ -1640,7 +1683,7 @@ const CustomerDraft = () => {
 
     try {
       const timestamp = Date.now();
-      const existingCustomerId = formData?.id || null;
+      const existingCustomerId = customerId || formData?.id || null;
 
       const [
         passportUrl,
@@ -1655,50 +1698,17 @@ const CustomerDraft = () => {
         officerClientUrl2,
         bothOfficersUrl
       ] = await Promise.all([
-
-        passportFile
-          ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`)
-          : formData.passport_url || null,
-
-        idFrontFile
-          ? uploadFile(idFrontFile, `personal/${timestamp}_idfront_${idFrontFile.name}`)
-          : formData.id_front_url || null,
-
-        idBackFile
-          ? uploadFile(idBackFile, `personal/${timestamp}_idback_${idBackFile.name}`)
-          : formData.id_back_url || null,
-
-        houseImageFile
-          ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`)
-          : formData.house_image_url || null,
-
-        guarantorPassportFile
-          ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`)
-          : formData?.guarantor?.passport_url || null,
-
-        guarantorIdFrontFile
-          ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_idfront_${guarantorIdFrontFile.name}`)
-          : formData?.guarantor?.id_front_url || null,
-
-        guarantorIdBackFile
-          ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_idback_${guarantorIdBackFile.name}`)
-          : formData?.guarantor?.id_back_url || null,
-
-        businessImages?.length > 0
-          ? uploadFilesBatch(businessImages, "business")
-          : [],
-
-        officerClientImage1
-          ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`)
-          : null,
-
-        officerClientImage2
-          ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`)
-          : null,
-
-        bothOfficersImage
-          ? uploadFile(bothOfficersImage, `documents/${timestamp}_both_${bothOfficersImage.name}`)
-          : null,
+        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : formData.passport_url,
+        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_idfront_${idFrontFile.name}`) : formData.id_front_url,
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_idback_${idBackFile.name}`) : formData.id_back_url,
+        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : formData.house_image_url,
+        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData?.guarantor?.passport_url,
+        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_idfront_${guarantorIdFrontFile.name}`) : formData?.guarantor?.id_front_url,
+        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_idback_${guarantorIdBackFile.name}`) : formData?.guarantor?.id_back_url,
+        businessImages?.length > 0 ? uploadFilesBatch(businessImages, "business") : [],
+        officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : null,
+        officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : null,
+        bothOfficersImage ? uploadFile(bothOfficersImage, `documents/${timestamp}_both_${bothOfficersImage.name}`) : null,
       ]);
 
       const customerPayload = {
@@ -1713,14 +1723,14 @@ const CustomerDraft = () => {
         occupation: formData.occupation || null,
         date_of_birth: formData.dateOfBirth || null,
         gender: formData.gender || null,
-        id_number: formData.idNumber || null,
+        id_number: formData.idNumber ? parseInt(formData.idNumber) : null,
         postal_address: formData.postalAddress || null,
-        code: formData.code || null,
+        code: formData.code ? parseInt(formData.code) : null,
         town: formData.town || null,
         county: formData.county || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
-        daily_Sales: formData.daily_Sales || null,
+        daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
         business_location: formData.businessLocation || null,
         business_lat: formData.businessCoordinates?.lat || null,
@@ -1728,7 +1738,7 @@ const CustomerDraft = () => {
         road: formData.road || null,
         landmark: formData.landmark || null,
         has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
-        prequalifiedAmount: formData.prequalifiedAmount || null,
+        prequalifiedAmount: formData.prequalifiedAmount ? parseFloat(formData.prequalifiedAmount) : null,
         passport_url: passportUrl,
         id_front_url: idFrontUrl,
         id_back_url: idBackUrl,
@@ -1739,31 +1749,25 @@ const CustomerDraft = () => {
         created_by: profile?.id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
-        ...(existingCustomerId ? {} : { created_at: new Date().toISOString() })
+        ...(existingCustomerId ? { id: existingCustomerId } : { created_at: new Date().toISOString() })
       };
 
       const { data: customerData, error: customerError } = await supabase
         .from("customers")
-        .upsert(
-          existingCustomerId
-            ? { id: existingCustomerId, ...customerPayload }
-            : customerPayload,
-          { onConflict: "id" }
-        )
+        .upsert(customerPayload, { onConflict: "id" })
         .select("id")
         .single();
 
       if (customerError) throw customerError;
 
-      const customerId = customerData.id;
-
+      const currentCustomerId = customerData.id;
       const childOps = [];
 
       if (formData.spouse && Object.values(formData.spouse).some(Boolean)) {
         childOps.push(
           supabase.from("spouse").upsert(
             {
-              customer_id: customerId,
+              customer_id: currentCustomerId,
               name: formData.spouse.name || null,
               id_number: formData.spouse.idNumber || null,
               mobile: formData.spouse.mobile || null,
@@ -1781,7 +1785,7 @@ const CustomerDraft = () => {
         childOps.push(
           supabase.from("next_of_kin").upsert(
             {
-              customer_id: customerId,
+              customer_id: currentCustomerId,
               Firstname: formData.nextOfKin.Firstname || null,
               Surname: formData.nextOfKin.Surname || null,
               Middlename: formData.nextOfKin.Middlename || null,
@@ -1810,7 +1814,7 @@ const CustomerDraft = () => {
         childOps.push(
           supabase.from("guarantors").upsert(
             {
-              customer_id: customerId,
+              customer_id: currentCustomerId,
               Firstname: formData.guarantor.Firstname || null,
               Surname: formData.guarantor.Surname || null,
               Middlename: formData.guarantor.Middlename || null,
@@ -1821,7 +1825,7 @@ const CustomerDraft = () => {
               alternative_number: formData.guarantor.alternativeMobile || null,
               residence_status: formData.guarantor.residenceStatus || null,
               postal_address: formData.guarantor.postalAddress || null,
-              code: formData.guarantor.code || null,
+              code: formData.guarantor.code ? parseInt(formData.guarantor.code) : null,
               occupation: formData.guarantor.occupation || null,
               relationship: formData.guarantor.relationship || null,
               date_of_birth: formData.guarantor.dateOfBirth || null,
@@ -1840,12 +1844,9 @@ const CustomerDraft = () => {
       }
 
       const docs = [];
-      if (officerClientUrl1)
-        docs.push({ customer_id: customerId, document_type: "First Officer and Client Image", document_url: officerClientUrl1 });
-      if (officerClientUrl2)
-        docs.push({ customer_id: customerId, document_type: "Second Officer and Client Image", document_url: officerClientUrl2 });
-      if (bothOfficersUrl)
-        docs.push({ customer_id: customerId, document_type: "Both Officers Image", document_url: bothOfficersUrl });
+      if (officerClientUrl1) docs.push({ customer_id: currentCustomerId, document_type: "First Officer and Client Image", document_url: officerClientUrl1 });
+      if (officerClientUrl2) docs.push({ customer_id: currentCustomerId, document_type: "Second Officer and Client Image", document_url: officerClientUrl2 });
+      if (bothOfficersUrl) docs.push({ customer_id: currentCustomerId, document_type: "Both Officers Image", document_url: bothOfficersUrl });
 
       if (docs.length > 0) {
         childOps.push(
@@ -1865,7 +1866,7 @@ const CustomerDraft = () => {
         childOps.push(
           supabase.from("business_images").insert(
             businessUrls.map(url => ({
-              customer_id: customerId,
+              customer_id: currentCustomerId,
               image_url: url,
               created_by: profile?.id,
               branch_id: profile?.branch_id,
@@ -1876,15 +1877,14 @@ const CustomerDraft = () => {
         );
       }
 
-      await Promise.all(childOps);
+      await Promise.all([
+        insertSecurityItemsOptimized(securityItems, securityItemImages, currentCustomerId, false),
+        insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, currentCustomerId, true),
+        ...childOps
+      ]);
 
       toast.success("Draft saved successfully!");
       navigate(-1)
-
-      if (!existingCustomerId) {
-        navigate(`/officer/customers/draft/${customerId}`);
-      }
-
     } catch (err) {
       console.error("DRAFT ERROR:", err);
       toast.error("Failed to save draft. Please try again.");
@@ -1893,65 +1893,6 @@ const CustomerDraft = () => {
     }
   };
 
-  const insertSecurityItemsOptimized = async (items, images, ownerId, isGuarantor) => {
-    if (!items?.length) return;
-
-    const table = isGuarantor ? "guarantor_security" : "security_items";
-    const ownerKey = isGuarantor ? "guarantor_id" : "customer_id";
-    const valueKey = isGuarantor ? "estimated_market_value" : "value";
-
-    const itemsToInsert = items.map((s) => ({
-      [ownerKey]: ownerId,
-      item: s.type || s.item || null,
-      description: s.description || null,
-      identification: s.identification || null,
-      [valueKey]: s.value ? parseFloat(s.value) : null,
-      created_by: profile?.id,
-      branch_id: profile?.branch_id,
-      region_id: profile?.region_id,
-      created_at: new Date().toISOString(),
-    }));
-
-    const { data: insertedItems, error: secError } = await supabase
-      .from(table)
-      .insert(itemsToInsert)
-      .select("id");
-
-    if (secError) {
-      console.error(`Error inserting ${isGuarantor ? 'guarantor' : 'borrower'} security:`, secError);
-      return;
-    }
-
-    if (!insertedItems?.length) return;
-
-    const allImageUploads = insertedItems.flatMap((item, index) => {
-      const itemImages = images[index] || [];
-      return itemImages.map(async (file) => {
-        const filePath = `${isGuarantor ? 'guarantor_security' : 'borrower_security'}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
-        const url = await uploadFile(file, filePath, "customers");
-
-        return url ? {
-          [isGuarantor ? "guarantor_security_id" : "security_item_id"]: item.id,
-          image_url: url,
-          created_by: profile?.id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_at: new Date().toISOString(),
-        } : null;
-      });
-    });
-
-    const imageRecords = (await Promise.all(allImageUploads)).filter(Boolean);
-
-    if (imageRecords.length) {
-      const imageTable = isGuarantor ? "guarantor_security_images" : "security_item_images";
-      const { error: imgError } = await supabase.from(imageTable).insert(imageRecords);
-
-      if (imgError) {
-        console.error(`Error inserting ${isGuarantor ? 'guarantor' : 'borrower'} security images:`, imgError);
-      }
-    }
-  };
 
   const renderPersonalSection = () => (
     <div className="space-y-8">
@@ -1995,44 +1936,33 @@ const CustomerDraft = () => {
       </div>
 
       {imageUploadEnabled && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-slate-600 mb-6">Personal Documents</h3>
+        <div className="mt-10 pt-8 border-t border-gray-100">
+          <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+            <IdentificationIcon className="w-5 h-5" />
+            Personal Documents
+          </h3>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {[
               { key: "passport", label: "Passport Photo", handler: setPassportFile },
               { key: "idFront", label: "ID Front", handler: setIdFrontFile },
               { key: "idBack", label: "ID Back", handler: setIdBackFile },
-              { key: "house", label: "House Image", handler: setHouseImageFile },
+              { key: "houseImage", label: "Residence Image", handler: setHouseImageFile },
             ].map((file) => (
-              <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
-                <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
-                <div className="flex flex-col sm:flex-row gap-3 w-full">
-                  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
-                    <ArrowUpTrayIcon className="w-5 h-5" />
-                    <span className="text-sm font-medium">Upload</span>
+              <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
+                    <ArrowUpTrayIcon className="w-4 h-4" />
+                    Upload
                     <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                  </label>
-                  <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
-                    <CameraIcon className="w-5 h-5" />
-                    <span className="text-sm font-medium">Camera</span>
-                    <input type="file" accept="image/*" capture={file.key === "passport" ? "user" : "environment"} onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                   </label>
                 </div>
                 {previews[file.key] && (
-                  <div className="mt-4 w-full">
-                    <div className="relative">
-                      <img src={previews[file.key]?.url || undefined} alt={`${file.label} preview`} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
-                      <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                      <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
-                        {previews[file.key].isExisting ? '📁 ' : '📄 '}
-                        {previews[file.key].fileName}
-                        {previews[file.key].isExisting && ' (Existing)'}
-                      </p>
-                    </div>
+                  <div className="mt-3 relative">
+                    <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white shadow-sm" />
+                    <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
+                      <XMarkIcon className="w-3 h-3" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -2070,51 +2000,44 @@ const CustomerDraft = () => {
       </div>
 
       {imageUploadEnabled && (
-        <div className="mt-8">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-lg font-semibold text-slate-600">Business Images</h3>
+        <div className="mt-10 pt-8 border-t border-gray-100">
+          <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+            <BuildingOffice2Icon className="w-5 h-5" />
+            Business Images
+          </h3>
+          <div className="flex gap-4 mb-6">
+            <label className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-xl cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
+              <ArrowUpTrayIcon className="w-5 h-5" />
+              Add Business Images
+              <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
+            </label>
           </div>
-          <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface shadow-sm">
-            <label className="block text-sm font-medium mb-2 text-brand-primary">Business Images</label>
-            <div className="flex gap-3 mb-4">
-              <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                <ArrowUpTrayIcon className="w-5 h-5" /> Upload
-                <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
-              </label>
-              <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
-                <CameraIcon className="w-5 h-5" /> Camera
-                <input type="file" accept="image/*" capture="environment" multiple onChange={handleBusinessImages} className="hidden" />
-              </label>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-              {previews.business && previews.business.length > 0 && previews.business.map((preview, index) => (
-                <div key={`preview-${index}`} className="relative group">
-                  <img src={preview.url || undefined} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" onError={(e) => { console.error('Business image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+
+          {(previews.business.length > 0 || businessImages.length > 0) && (
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {/* Existing Images */}
+              {previews.business.map((preview, index) => (
+                <div key={`existing-${index}`} className="relative group rounded-xl overflow-hidden border border-gray-200">
+                  <img src={preview.url} alt="Business" className="w-full h-32 object-cover" />
+                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                    <p className="text-xs truncate" title={preview.fileName}>
-                      {preview.isExisting ? '📁 ' : '📄 '}
-                      {preview.fileName}
-                      {preview.isExisting && ' (Existing)'}
-                    </p>
+                  <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-[10px] truncate">
+                    Existing Image
                   </div>
                 </div>
               ))}
-              {businessImages.map((img, index) => (
-                <div key={`current-${index}`} className="relative group">
-                  <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Business Image ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-blue-200 shadow-sm" />
-                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
+              {/* New Images */}
+              {businessImages.map((file, idx) => (
+                <div key={`new-${idx}`} className="relative group rounded-xl overflow-hidden border border-gray-200">
+                  <img src={URL.createObjectURL(file)} alt="Business" className="w-full h-32 object-cover" />
+                  <button type="button" onClick={() => handleRemoveBusinessImage(previews.business.length + idx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                    <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
-                  </div>
                 </div>
               ))}
             </div>
-          </div>
+          )}
         </div>
       )}
     </div>
@@ -2181,53 +2104,51 @@ const CustomerDraft = () => {
             </div>
 
             {imageUploadEnabled && (
-              <div className="mt-6">
-                <label className="block text-sm font-medium mb-2 text-slate-600">Security Images</label>
-                <div className="flex gap-3 mb-3">
-                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
-                    <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+              <div className="mt-10 pt-8 border-t border-gray-100">
+                <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                  <CameraIcon className="w-5 h-5" />
+                  Security Images
+                </h3>
+                <div className="flex gap-4 mb-6">
+                  <label className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-xl cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface shadow-sm">
+                    <ArrowUpTrayIcon className="w-5 h-5" />
+                    Add Images
                     <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                   </label>
-                  <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
-                    <CameraIcon className="w-5 h-5" /> Camera
-                    <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
-                  </label>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                  {previews.security && previews.security[index] && previews.security[index].map((preview, imgIdx) => (
-                    <div key={`preview-${imgIdx}`} className="relative group">
-                      <img src={preview.url || undefined} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" onError={(e) => { console.error('Security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                      <button type="button" onClick={() => handleRemoveSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                        <p className="text-xs truncate" title={preview.fileName}>
-                          {preview.isExisting ? '📁 ' : '📄 '}
-                          {preview.fileName}
-                          {preview.isExisting && ' (Existing)'}
-                        </p>
+
+                {((securityItemImages[index] && securityItemImages[index].length > 0) || (item.security_item_images && item.security_item_images.length > 0)) && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* Existing Images */}
+                    {previews.security?.[index]?.map((img, imgIdx) => (
+                      <div key={`existing-${imgIdx}`} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                        <img src={img.url} alt="Security" className="w-full h-32 object-cover" />
+                        <button type="button" onClick={() => handleRemoveSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-[10px] truncate">
+                          Existing Image
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {securityItemImages[index] && securityItemImages[index].map((img, imgIdx) => (
-                    <div key={`current-${imgIdx}`} className="relative group">
-                      <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-gray-200 shadow-sm" />
-                      <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                        <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                    ))}
+                    {/* New Images */}
+                    {securityItemImages[index]?.map((file, fileIdx) => (
+                      <div key={`new-${fileIdx}`} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                        <img src={URL.createObjectURL(file)} alt="Security" className="w-full h-32 object-cover" />
+                        <button type="button" onClick={() => handleRemoveMultipleFile(index, fileIdx, setSecurityItemImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition duration-200">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         ))}
 
-        <button type="button" onClick={addSecurityItem} className="flex items-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg hover:bg-brand-primary shadow-md transition-all">
-          <PlusIcon className="h-5 w-5" /> Add Security
+        <button type="button" onClick={addSecurityItem} className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white text-sm rounded-lg hover:bg-brand-primary shadow-sm hover:shadow-md transition-all w-fit">
+          <PlusIcon className="h-4 w-4" /> Add Security
         </button>
       </div>
     </div>
@@ -2281,44 +2202,32 @@ const CustomerDraft = () => {
       </div>
 
       {imageUploadEnabled && (
-        <div className="mt-8">
-          <h3 className="text-lg font-semibold text-slate-600 mb-6">Guarantor Documents</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="mt-10 pt-8 border-t border-gray-100">
+          <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+            <IdentificationIcon className="w-5 h-5" />
+            Guarantor Documents
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              { key: "guarantorPassport", label: "Guarantor Passport", handler: setGuarantorPassportFile, icon: UserCircleIcon },
-              { key: "guarantorIdFront", label: "Guarantor ID Front", handler: setGuarantorIdFrontFile, icon: IdentificationIcon },
-              { key: "guarantorIdBack", label: "Guarantor ID Back", handler: setGuarantorIdBackFile, icon: IdentificationIcon },
+              { key: "guarantorPassport", label: "Passport Photo", handler: setGuarantorPassportFile },
+              { key: "guarantorIdFront", label: "ID Front", handler: setGuarantorIdFrontFile },
+              { key: "guarantorIdBack", label: "ID Back", handler: setGuarantorIdBackFile },
             ].map((file) => (
-              <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
-                <div className="flex items-center gap-2 mb-4">
-                  <file.icon className="h-6 w-6 text-brand-primary" />
-                  <h4 className="text-md font-medium text-brand-primary">{file.label}</h4>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-3 w-full">
-                  <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                    <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
+              <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                <div className="flex gap-2">
+                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
+                    <ArrowUpTrayIcon className="w-4 h-4" />
+                    Upload
                     <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                  </label>
-                  <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
-                    <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
-                    <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                   </label>
                 </div>
                 {previews[file.key] && (
-                  <div className="mt-4 w-full">
-                    <div className="relative">
-                      <img src={previews[file.key]?.url || undefined} alt={file.label} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Guarantor image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
-                      <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                      <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
-                        {previews[file.key].isExisting ? '📁 ' : '📄 '}
-                        {previews[file.key].fileName}
-                        {previews[file.key].isExisting && ' (Existing)'}
-                      </p>
-                    </div>
+                  <div className="mt-3 relative">
+                    <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white shadow-sm" />
+                    <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
+                      <XMarkIcon className="w-3 h-3" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -2385,53 +2294,51 @@ const CustomerDraft = () => {
             </div>
 
             {imageUploadEnabled && (
-              <div className="mt-6">
-                <label className="block text-sm font-medium mb-2 text-slate-600">Item Images</label>
-                <div className="flex gap-3 mb-3">
-                  <label className="flex items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium shadow-sm">
-                    <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+              <div className="mt-10 pt-8 border-t border-gray-100">
+                <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                  <CameraIcon className="w-5 h-5" />
+                  Security Images
+                </h3>
+                <div className="flex gap-4 mb-6">
+                  <label className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-xl cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface shadow-sm text-sm">
+                    <ArrowUpTrayIcon className="w-4 h-4" />
+                    Add Images
                     <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                   </label>
-                  <label className="flex md:hidden items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium shadow-sm">
-                    <CameraIcon className="w-5 h-5" /> Camera
-                    <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
-                  </label>
                 </div>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                  {previews.guarantorSecurity && previews.guarantorSecurity[index] && previews.guarantorSecurity[index].map((preview, imgIdx) => (
-                    <div key={`preview-${imgIdx}`} className="relative group">
-                      <img src={preview.url || undefined} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" onError={(e) => { console.error('Guarantor security image failed to load:', preview.url); e.target.style.display = 'none'; }} />
-                      <button type="button" onClick={() => handleRemoveGuarantorSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                        <p className="text-xs truncate" title={preview.fileName}>
-                          {preview.isExisting ? '📁 ' : '📄 '}
-                          {preview.fileName}
-                          {preview.isExisting && ' (Existing)'}
-                        </p>
+
+                {((guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0) || (previews.guarantorSecurity?.[index] && previews.guarantorSecurity[index].length > 0)) && (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {/* Existing Images */}
+                    {previews.guarantorSecurity?.[index]?.map((img, imgIdx) => (
+                      <div key={`existing-${imgIdx}`} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                        <img src={img.url} alt="Security" className="w-full h-32 object-cover" />
+                        <button type="button" onClick={() => handleRemoveGuarantorSecurityPreview(index, imgIdx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                        <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-[10px] truncate">
+                          Existing Image
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                  {guarantorSecurityImages[index] && guarantorSecurityImages[index].map((img, imgIdx) => (
-                    <div key={`current-${imgIdx}`} className="relative group">
-                      <img src={img instanceof Blob ? URL.createObjectURL(img) : (typeof img === 'string' ? img : undefined)} alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`} className="w-full h-32 object-cover rounded-lg border border-purple-200 shadow-sm" />
-                      <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity">
-                        <XMarkIcon className="w-4 h-4" />
-                      </button>
-                      <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                        <p className="text-xs truncate" title={img.name}>📄 {img.name}</p>
+                    ))}
+                    {/* New Images */}
+                    {guarantorSecurityImages[index]?.map((file, fileIdx) => (
+                      <div key={`new-${fileIdx}`} className="relative group rounded-xl overflow-hidden border border-gray-200 shadow-sm">
+                        <img src={URL.createObjectURL(file)} alt="Guarantor Security" className="w-full h-32 object-cover" />
+                        <button type="button" onClick={() => handleRemoveMultipleFile(index, fileIdx, setGuarantorSecurityImages)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition duration-200">
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
                       </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
           </div>
         ))}
 
-        <button type="button" onClick={addGuarantorSecurityItem} className="flex items-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-all shadow-md hover:shadow-lg">
-          <PlusIcon className="h-5 w-5" /> Add Guarantor Security Item
+        <button type="button" onClick={addGuarantorSecurityItem} className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white text-sm rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md w-fit">
+          <PlusIcon className="h-4 w-4" /> Add Guarantor Security Item
         </button>
       </div>
     </div>
@@ -2519,31 +2426,27 @@ const CustomerDraft = () => {
           { key: "officerClient2", label: "Second Officer & Client", handler: setOfficerClientImage2 },
           { key: "bothOfficers", label: "Both Officers & Client", handler: setBothOfficersImage },
         ].map((file) => (
-          <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
-            <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
+          <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm">
+            <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
             <div className="flex flex-col sm:flex-row gap-3 w-full">
-              <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                <ArrowUpTrayIcon className="w-5 h-5" /> <span className="text-sm font-medium">Upload</span>
+              <label className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition">
+                <ArrowUpTrayIcon className="w-5 h-5" />
+                <span className="text-sm font-medium">Upload</span>
                 <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-              </label>
-              <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition font-medium">
-                <CameraIcon className="w-5 h-5" /> <span className="text-sm font-medium">Camera</span>
-                <input type="file" accept="image/*" capture="environment" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
               </label>
             </div>
             {previews[file.key] && (
               <div className="mt-4 w-full">
                 <div className="relative">
-                  <img src={previews[file.key]?.url || undefined} alt={file.label} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" onError={(e) => { console.error('Document image failed to load:', previews[file.key]?.url); e.target.style.display = 'none'; }} />
+                  <img src={previews[file.key].url} alt={file.label} className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm" />
                   <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
-                <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                  <p className="text-xs text-gray-600 truncate" title={previews[file.key].fileName}>
+                <div className="mt-2 p-2 bg-white rounded border border-gray-200 text-sm">
+                  <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
                     {previews[file.key].isExisting ? '📁 ' : '📄 '}
                     {previews[file.key].fileName}
-                    {previews[file.key].isExisting && ' (Existing)'}
                   </p>
                 </div>
               </div>
@@ -2555,31 +2458,47 @@ const CustomerDraft = () => {
   ) : null;
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 font-body">
+    <div className="min-h-screen bg-muted py-8 font-body">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Navigation Tabs */}
-        <div className="bg-white/80 backdrop-blur-md rounded-2xl shadow-sm p-6 mb-8 border border-white/50">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+        {/* Header and Navigation Tabs */}
+        <div className="bg-gray-50 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
             {sections.map(({ id, label, icon: Icon }) => {
+              const isCompleted = completedSections.has(id);
               const isActive = activeSection === id;
+
               return (
                 <button
                   key={id}
-                  onClick={() => setActiveSection(id)}
-                  className="flex flex-col items-center gap-2 transition-all duration-300 group"
+                  onClick={() => {
+                    // Mark current as completed when jumping away
+                    if (id !== activeSection) {
+                      setCompletedSections(prev => new Set([...prev, activeSection]));
+                    }
+                    setActiveSection(id);
+                  }}
+                  className="flex flex-col items-center gap-1.5 transition-all duration-300 group"
                 >
                   <div
-                    className={`w-16 h-16 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
-                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-110"
-                      : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
+                    className={`w-11 h-11 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive
+                      ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105"
+                      : isCompleted
+                        ? "bg-accent text-white shadow-lg shadow-accent/30 border-2 border-accent"
+                        : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"
                       }`}
                   >
-                    <Icon className={`h-7 w-7 ${isActive ? "text-white" : "text-slate-700"}`} />
+                    {isCompleted && !isActive ? (
+                      <CheckCircleIcon className="h-5 w-5 text-white" />
+                    ) : (
+                      <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-700"}`} />
+                    )}
                   </div>
                   <span
-                    className={`text-xs font-medium text-center transition-all duration-300 ${isActive
+                    className={`text-[10px] sm:text-xs font-medium text-center transition-all duration-300 ${isActive
                       ? "text-brand-primary font-bold"
-                      : "text-slate-700 group-hover:text-slate-900"
+                      : isCompleted
+                        ? "text-accent font-semibold"
+                        : "text-slate-700 group-hover:text-slate-900"
                       }`}
                   >
                     {label}
@@ -2591,7 +2510,7 @@ const CustomerDraft = () => {
         </div>
 
         {/* Content */}
-        <div className="bg-white rounded-2xl shadow-lg border border-brand-secondary/20 overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
           <form onSubmit={handleSubmit} className="p-8">
             {activeSection === "personal" && renderPersonalSection()}
             {activeSection === "business" && renderBusinessSection()}
@@ -2602,21 +2521,39 @@ const CustomerDraft = () => {
             {activeSection === "nextOfKin" && renderNextOfKinSection()}
             {activeSection === "documents" && renderDocumentsSection()}
 
+            {/* Action Buttons */}
             <div className="flex justify-between items-center pt-8 mt-8 border-t border-gray-200">
               <div className="flex items-center gap-4">
                 {activeSection !== sections[0].id && (
-                  <button type="button" onClick={() => { const currentIndex = sections.findIndex((s) => s.id === activeSection); setActiveSection(sections[currentIndex - 1].id); }} className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors" disabled={isSubmitting || isSavingDraft}>
-                    <ChevronLeftIcon className="h-4 w-4" /> Previous
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentIndex = sections.findIndex((s) => s.id === activeSection);
+                      setActiveSection(sections[currentIndex - 1].id);
+                    }}
+                    disabled={isSubmitting || isSavingDraft || isLoading}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <ChevronLeftIcon className="h-4 w-4" />
+                    Previous
                   </button>
                 )}
-                <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft || isSubmitting} className="flex items-center gap-2 px-6 py-3 bg-brand-secondary text-white rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+
+                <button
+                  type="button"
+                  onClick={handleSaveDraft}
+                  disabled={isSavingDraft || isSubmitting || isLoading}
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed"
+                >
                   {isSavingDraft ? (
                     <div className="flex items-center gap-2">
-                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div> Saving Draft...
+                      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                      Saving Draft...
                     </div>
                   ) : (
                     <div className="flex items-center gap-2">
-                      <DocumentTextIcon className="h-4 w-4" /> Save as Draft
+                      <DocumentTextIcon className="h-4 w-4" />
+                      Save as Draft
                     </div>
                   )}
                 </button>
@@ -2624,18 +2561,41 @@ const CustomerDraft = () => {
 
               <div>
                 {activeSection !== sections[sections.length - 1].id ? (
-                  <button type="button" onClick={handleNext} className="flex items-center gap-2 px-6 py-3 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors" disabled={isSubmitting || isSavingDraft}>
-                    Next <ChevronRightIcon className="h-4 w-4" />
+                  <button
+                    key="next-button"
+                    type="button"
+                    onClick={handleNext}
+                    className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    disabled={isSubmitting || isSavingDraft || isValidating || isLoading}
+                  >
+                    {isValidating ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-primary border-t-transparent"></div>
+                        Validating...
+                      </div>
+                    ) : (
+                      <>
+                        Next
+                        <ChevronRightIcon className="h-4 w-4" />
+                      </>
+                    )}
                   </button>
                 ) : (
-                  <button type="submit" disabled={isSubmitting || isSavingDraft} className="px-8 py-3 bg-accent text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed text-lg">
+                  <button
+                    key="submit-button"
+                    type="submit"
+                    disabled={isSubmitting || isSavingDraft || isLoading}
+                    className="px-6 py-3 bg-accent text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
                     {isSubmitting ? (
                       <div className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div> Submitting Application...
+                        <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                        Submitting Application...
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        <CheckCircleIcon className="h-5 w-5" /> Submit Application
+                        <CheckCircleIcon className="h-5 w-5" />
+                        Submit Application
                       </div>
                     )}
                   </button>

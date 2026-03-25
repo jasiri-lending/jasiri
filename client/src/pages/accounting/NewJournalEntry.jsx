@@ -256,7 +256,7 @@ function NewJournalEntry() {
   };
 
   return (
-    <div className="p-6 bg-brand-surface min-h-screen">
+    <div className="p-6 bg-muted min-h-screen">
       <div className="mb-4 text-sm text-gray-600">
         Journals / Create Journal Voucher
       </div>
