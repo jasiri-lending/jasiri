@@ -4,7 +4,6 @@ import { supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { getTenantConfig } from "../services/tenantResolver.js";
 import { mpesaRequest } from "../services/mpesa.js";
-import { JOB_TYPES } from "../config/env.js";
 import { createLogger } from "../utils/logger.js";
 import { decrypt } from "../utils/encryption.js";
 
