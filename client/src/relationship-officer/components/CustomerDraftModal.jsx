@@ -1191,34 +1191,43 @@ const CustomerDraft = () => {
     const newErrors = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Personal Details...", formData);
+
     if (!formData.Firstname?.trim()) {
+      console.log("[VALIDATION ERROR] Firstname is missing");
       newErrors.Firstname = "First name is required";
       hasErrors = true;
     }
     if (!formData.Surname?.trim()) {
+      console.log("[VALIDATION ERROR] Surname is missing");
       newErrors.Surname = "Surname is required";
       hasErrors = true;
     }
     if (!formData.mobile?.trim()) {
+      console.log("[VALIDATION ERROR] Mobile is missing");
       newErrors.mobile = "Mobile number is required";
       hasErrors = true;
     }
     if (!formData.idNumber?.trim()) {
+      console.log("[VALIDATION ERROR] ID Number is missing");
       newErrors.idNumber = "ID number is required";
       hasErrors = true;
     }
 
     if (formData.mobile && !/^[0-9]{10,15}$/.test(formData.mobile.replace(/\D/g, ""))) {
+      console.log("[VALIDATION ERROR] Invalid Mobile format:", formData.mobile);
       newErrors.mobile = "Please enter a valid mobile number (10-15 digits)";
       hasErrors = true;
     }
 
     if (formData.idNumber && !/^[0-9]{6,12}$/.test(formData.idNumber)) {
+      console.log("[VALIDATION ERROR] Invalid ID Number format:", formData.idNumber);
       newErrors.idNumber = "Please enter a valid ID number (6-12 digits)";
       hasErrors = true;
     }
 
     if (formData.dateOfBirth && !isAtLeast18YearsOld(formData.dateOfBirth)) {
+      console.log("[VALIDATION ERROR] Customer age < 18:", formData.dateOfBirth);
       newErrors.dateOfBirth = "Customer must be at least 18 years old";
       hasErrors = true;
     }
@@ -1231,19 +1240,30 @@ const CustomerDraft = () => {
     let errorsFound = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Business Details...", {
+      businessName: formData.businessName,
+      businessType: formData.businessType,
+      daily_Sales: formData.daily_Sales,
+      businessCoordinates: formData.businessCoordinates
+    });
+
     if (!formData.businessName?.trim()) {
+      console.log("[VALIDATION ERROR] Business Name is missing");
       errorsFound.businessName = "Business name is required";
       hasErrors = true;
     }
     if (!formData.businessType?.trim()) {
+      console.log("[VALIDATION ERROR] Business Type is missing");
       errorsFound.businessType = "Business type is required";
       hasErrors = true;
     }
     if (!formData.daily_Sales) {
+      console.log("[VALIDATION ERROR] Daily Sales is missing");
       errorsFound.daily_Sales = "Daily sales estimate is required";
       hasErrors = true;
     }
     if (!formData.businessCoordinates?.lat || !formData.businessCoordinates?.lng) {
+      console.log("[VALIDATION ERROR] GPS Coordinates are missing");
       errorsFound.businessCoordinates = "Business GPS coordinates are required";
       hasErrors = true;
     }
@@ -1256,17 +1276,22 @@ const CustomerDraft = () => {
     const errorsFound = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Borrower Security...", securityItems);
+
     if (securityItems.length === 0) {
+      console.log("[VALIDATION ERROR] No security items provided");
       errorsFound.securityItems = "At least one security item is required";
       hasErrors = true;
     }
 
     securityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
+        console.log(`[VALIDATION ERROR] Security Item ${index} description missing`);
         errorsFound[`security_description_${index}`] = "Description is required";
         hasErrors = true;
       }
       if (!item.value || parseFloat(item.value) <= 0) {
+        console.log(`[VALIDATION ERROR] Security Item ${index} value invalid:`, item.value);
         errorsFound[`security_value_${index}`] = "Estimated value must be greater than 0";
         hasErrors = true;
       }
@@ -1280,7 +1305,10 @@ const CustomerDraft = () => {
     const errorsFound = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Loan Details...", { prequalifiedAmount: formData.prequalifiedAmount });
+
     if (!formData.prequalifiedAmount) {
+      console.log("[VALIDATION ERROR] Prequalified Amount is missing");
       errorsFound.prequalifiedAmount = "Pre-qualified amount is required";
       hasErrors = true;
     }
@@ -1294,19 +1322,25 @@ const CustomerDraft = () => {
     let hasErrors = false;
     const { Firstname, Surname, mobile, idNumber } = formData.guarantor;
 
+    console.log("[VALIDATION] Checking Guarantor Details...", formData.guarantor);
+
     if (!Firstname?.trim()) {
+      console.log("[VALIDATION ERROR] Guarantor Firstname is missing");
       errorsFound.guarantor.Firstname = "Guarantor first name is required";
       hasErrors = true;
     }
     if (!Surname?.trim()) {
+      console.log("[VALIDATION ERROR] Guarantor Surname is missing");
       errorsFound.guarantor.Surname = "Guarantor surname is required";
       hasErrors = true;
     }
     if (!mobile?.trim()) {
+      console.log("[VALIDATION ERROR] Guarantor Mobile is missing");
       errorsFound.guarantor.mobile = "Guarantor mobile number is required";
       hasErrors = true;
     }
     if (!idNumber?.trim()) {
+      console.log("[VALIDATION ERROR] Guarantor ID Number is missing");
       errorsFound.guarantor.idNumber = "Guarantor ID number is required";
       hasErrors = true;
     }
@@ -1319,12 +1353,16 @@ const CustomerDraft = () => {
     const errorsFound = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Guarantor Security...", guarantorSecurityItems);
+
     guarantorSecurityItems.forEach((item, index) => {
       if (!item.description?.trim()) {
+        console.log(`[VALIDATION ERROR] Guarantor Security Item ${index} description missing`);
         errorsFound[`guarantor_security_description_${index}`] = "Description is required";
         hasErrors = true;
       }
       if (!item.value || parseFloat(item.value) <= 0) {
+        console.log(`[VALIDATION ERROR] Guarantor Security Item ${index} value invalid:`, item.value);
         errorsFound[`guarantor_security_value_${index}`] = "Estimated value must be greater than 0";
         hasErrors = true;
       }
@@ -1339,23 +1377,30 @@ const CustomerDraft = () => {
     let hasErrors = false;
     const { Firstname, Surname, mobile, idNumber, relationship } = formData.nextOfKin;
 
+    console.log("[VALIDATION] Checking Next of Kin Details...", formData.nextOfKin);
+
     if (!Firstname?.trim()) {
+      console.log("[VALIDATION ERROR] NOK Firstname missing");
       errorsFound.nextOfKin.Firstname = "Next of kin first name is required";
       hasErrors = true;
     }
     if (!Surname?.trim()) {
+      console.log("[VALIDATION ERROR] NOK Surname missing");
       errorsFound.nextOfKin.Surname = "Next of kin surname is required";
       hasErrors = true;
     }
     if (!mobile?.trim()) {
+      console.log("[VALIDATION ERROR] NOK Mobile missing");
       errorsFound.nextOfKin.mobile = "Next of kin mobile number is required";
       hasErrors = true;
     }
     if (!idNumber?.trim()) {
+      console.log("[VALIDATION ERROR] NOK ID Number missing");
       errorsFound.nextOfKin.idNumber = "Next of kin ID number is required";
       hasErrors = true;
     }
     if (!relationship?.trim()) {
+      console.log("[VALIDATION ERROR] NOK Relationship missing");
       errorsFound.nextOfKin.relationship = "Relationship is required";
       hasErrors = true;
     }
@@ -1368,16 +1413,26 @@ const CustomerDraft = () => {
     let errorsFound = {};
     let hasErrors = false;
 
+    console.log("[VALIDATION] Checking Documents...", {
+      documentUploadEnabled,
+      officerClientImage1,
+      officerClientImage2,
+      bothOfficersImage
+    });
+
     if (documentUploadEnabled) {
-      if (!officerClientImage1) {
+      if (!officerClientImage1 && !previews.officerClient1) {
+        console.log("[VALIDATION ERROR] officerClientImage1 missing (both state and preview)");
         errorsFound.officerClientImage1 = "First Officer and Client Image is required";
         hasErrors = true;
       }
-      if (!officerClientImage2) {
+      if (!officerClientImage2 && !previews.officerClient2) {
+        console.log("[VALIDATION ERROR] officerClientImage2 missing (both state and preview)");
         errorsFound.officerClientImage2 = "Second Officer and Client Image is required";
         hasErrors = true;
       }
-      if (!bothOfficersImage) {
+      if (!bothOfficersImage && !previews.bothOfficers) {
+        console.log("[VALIDATION ERROR] bothOfficersImage missing (both state and preview)");
         errorsFound.bothOfficersImage = "Both Officers Image is required";
         hasErrors = true;
       }
@@ -1444,16 +1499,32 @@ const CustomerDraft = () => {
   };
 
   const validateForm = async () => {
+    console.log("[VALIDATION] Starting Full Form Validation...");
     const personalValid = await validatePersonalDetails();
+    console.log("[VALIDATION RESULT] Personal Details:", personalValid);
+    
     const businessValid = validateBusinessDetails();
+    console.log("[VALIDATION RESULT] Business Details:", businessValid);
+    
     const borrowerSecurityValid = validateBorrowerSecurity();
+    console.log("[VALIDATION RESULT] Borrower Security:", borrowerSecurityValid);
+    
     const loanValid = validateLoanDetails();
+    console.log("[VALIDATION RESULT] Loan Details:", loanValid);
+    
     const guarantorValid = await validateGuarantorDetails();
+    console.log("[VALIDATION RESULT] Guarantor Details:", guarantorValid);
+    
     const guarantorSecurityValid = validateGuarantorSecurity();
+    console.log("[VALIDATION RESULT] Guarantor Security:", guarantorSecurityValid);
+    
     const nextOfKinValid = await validateNextOfKinDetails();
+    console.log("[VALIDATION RESULT] Next of Kin:", nextOfKinValid);
+    
     const documentsValid = validateDocuments();
+    console.log("[VALIDATION RESULT] Documents:", documentsValid);
 
-    return (
+    const isAllValid = (
       personalValid &&
       businessValid &&
       borrowerSecurityValid &&
@@ -1463,6 +1534,9 @@ const CustomerDraft = () => {
       nextOfKinValid &&
       documentsValid
     );
+
+    console.log("[VALIDATION FINAL RESULT]", isAllValid);
+    return isAllValid;
   };
 
   const uploadFile = async (file, path, bucket = "customers") => {
