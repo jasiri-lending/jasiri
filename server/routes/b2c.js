@@ -155,10 +155,19 @@ b2c.post("/result", async (req, res) => {
 
   setImmediate(async () => {
     try {
-      // Find the original transaction to get tenant_id
+      const isSuccess = Result.ResultCode === 0;
+      const status = isSuccess ? "success" : "failed";
+
+      const items = Result.ReferenceData?.ReferenceItem;
+      const occasion = Array.isArray(items) 
+         ? items.find((i) => i.Key === "Occasion")?.Value 
+         : items?.Value;
+      const loanId = occasion?.replace("loan-", "");
+
+      // Find the original transaction
       const { data: tx, error } = await supabaseAdmin
         .from("loan_disbursement_transactions")
-        .select("tenant_id")
+        .select("*")
         .or(`conversation_id.eq.${convId},originator_conversation_id.eq.${originatorId}`)
         .maybeSingle();
 
@@ -167,33 +176,74 @@ b2c.post("/result", async (req, res) => {
         return;
       }
 
-      // Enqueue the job for the Edge Function
-      await enqueueJob({
-        tenantId: tx.tenant_id,
-        jobType: JOB_TYPES.B2C_DISBURSEMENT,
-        payload: body,
-        priority: 1,
-      });
+      // Update the transaction record directly
+      const { error: updateError } = await supabaseAdmin
+        .from("loan_disbursement_transactions")
+        .update({
+          status,
+          result_code: Number(Result.ResultCode),
+          result_desc: Result.ResultDesc,
+          transaction_id: Result.TransactionID || null,
+          raw_result: Result,
+          completed_at: new Date().toISOString(),
+          processed_at: new Date().toISOString()
+        })
+        .eq("id", tx.id);
 
-      log.info({ convId, tenantId: tx.tenant_id }, "B2C result enqueued, triggering Edge Function");
+      if (updateError) {
+        log.error({ updateError, txId: tx.id }, "Failed to update disbursement transaction");
+        return; // Abort further processing
+      }
 
-      // Immediately trigger the Edge Function to process the queue
-      const edgeUrl = `${process.env.SUPABASE_URL}/functions/v1/process-b2c-disbursements`;
-      fetch(edgeUrl, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-        },
-        body: JSON.stringify({ action: "process-queue", tenant_id: tx.tenant_id }),
-      }).then(async (r) => {
-        const json = await r.json().catch(() => ({}));
-        log.info({ status: r.status, processed: json.processed }, "Edge Function triggered after B2C callback");
-      }).catch((err) => {
-        log.error({ err: err.message }, "Failed to trigger Edge Function after B2C callback");
-      });
+      // Update loan status based on success/failure
+      if (isSuccess && loanId) {
+        await supabaseAdmin
+          .from("loans")
+          .update({
+            status: "disbursed",
+            disbursed_at: new Date().toISOString(),
+            mpesa_transaction_id: Result.TransactionID,
+          })
+          .eq("id", loanId)
+          .eq("status", "ready_for_disbursement");
+          
+        log.info({ loanId, transactionId: Result.TransactionID }, "Loan marked as disbursed");
+
+        // Enqueue only the SMS job to the Edge Function/Queue system
+        await enqueueJob({
+          tenantId: tx.tenant_id,
+          jobType: "disbursement_sms",
+          payload: {
+            loan_id: loanId,
+            customer_id: tx.customer_id,
+            amount: tx.amount,
+            tenant_id: tx.tenant_id,
+            transaction_id: Result.TransactionID
+          },
+          priority: 5,
+        });
+
+        const edgeUrl = `${process.env.SUPABASE_URL}/functions/v1/process-b2c-disbursements`;
+        fetch(edgeUrl, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+          },
+          body: JSON.stringify({ action: "process-queue", tenant_id: tx.tenant_id }),
+        }).catch(err => log.error({ err: err.message }, "Failed to trigger Edge Function for SMS queue"));
+      } else if (!isSuccess && loanId) {
+        // Revert loan status on failure so they can try again
+        await supabaseAdmin
+          .from("loans")
+          .update({ status: "ready_for_disbursement" })
+          .eq("id", loanId)
+          .in("status", ["disbursed", "processing"]);
+          
+        log.warn({ loanId, resultDesc: Result.ResultDesc }, "Disbursement failed, reverted loan status");
+      }
     } catch (err) {
-      log.error({ err: err.message }, "Failed to queue B2C result");
+      log.error({ err: err.message }, "Failed to process B2C result directly");
     }
   });
 });
@@ -212,7 +262,7 @@ b2c.post("/timeout", async (req, res) => {
     try {
       const { data: tx, error } = await supabaseAdmin
         .from("loan_disbursement_transactions")
-        .select("tenant_id")
+        .select("*")
         .or(`conversation_id.eq.${convId},originator_conversation_id.eq.${originatorId}`)
         .maybeSingle();
 
@@ -221,14 +271,32 @@ b2c.post("/timeout", async (req, res) => {
         return;
       }
 
-      await enqueueJob({
-        tenantId: tx.tenant_id,
-        jobType: JOB_TYPES.B2C_DISBURSEMENT,
-        payload: { ...body, timeout: true },
-        priority: 1,
-      });
+      // Mark as failed in DB directly due to timeout
+      await supabaseAdmin
+        .from("loan_disbursement_transactions")
+        .update({
+          status: "failed",
+          result_code: 408,
+          result_desc: "Transaction Timed Out",
+          raw_result: Result,
+          completed_at: new Date().toISOString(),
+          processed_at: new Date().toISOString()
+        })
+        .eq("id", tx.id);
+        
+      // Revert the loan status
+      const items = Result.ReferenceData?.ReferenceItem;
+      const occasion = Array.isArray(items) ? items.find((i) => i.Key === "Occasion")?.Value : items?.Value;
+      const loanId = occasion?.replace("loan-", "");
+      if (loanId) {
+        await supabaseAdmin
+          .from("loans")
+          .update({ status: "ready_for_disbursement" })
+          .eq("id", loanId)
+          .in("status", ["disbursed", "processing"]);
+      }
     } catch (err) {
-      log.error({ err: err.message }, "Failed to queue B2C timeout");
+      log.error({ err: err.message }, "Failed to process B2C timeout directly");
     }
   });
 });
