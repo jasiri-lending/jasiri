@@ -857,11 +857,7 @@ const AddCustomer = () => {
       toast.error("Mobile number is required");
       hasErrors = true;
     }
-    if (!formData.alternativeMobile?.trim()) {
-      newErrors.alternativeMobile = "Alternative mobile number is required";
-      toast.error("Alternative mobile number is required");
-      hasErrors = true;
-    }
+
     if (!formData.idNumber?.trim()) {
       newErrors.idNumber = "ID number is required";
       toast.error("ID number is required");
@@ -2450,6 +2446,16 @@ const AddCustomer = () => {
                     handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
+                    <FormField
+                      label="County"
+                      name="businessCounty"
+                      value={formData.businessCounty}
+                      onChange={handleChange}
+                      options={KENYA_COUNTIES}
+                      required
+                      handleNestedChange={handleNestedChange}
+                      errors={errors}
+                    />
                   <FormField
                     label="Business Location"
                     name="businessLocation"
@@ -2478,16 +2484,6 @@ const AddCustomer = () => {
                     handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
-                    <FormField
-                      label="County"
-                      name="businessCounty"
-                      value={formData.businessCounty}
-                      onChange={handleChange}
-                      options={KENYA_COUNTIES}
-                      required
-                      handleNestedChange={handleNestedChange}
-                      errors={errors}
-                    />
                   <FormField
                     label="Local Authority License"
                     name="hasLocalAuthorityLicense"

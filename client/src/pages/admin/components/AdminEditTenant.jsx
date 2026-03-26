@@ -50,7 +50,6 @@ export default function AdminEditTenant() {
     b2c_consumer_key: "",
     b2c_consumer_secret: "",
     initiator_name: "",
-    initiator_password: "",
     security_credential: "",
     b2c_callback_url: "",
     b2c_environment: "sandbox",
@@ -138,7 +137,6 @@ export default function AdminEditTenant() {
             updates.b2c_consumer_key = config.consumer_key || "";
             updates.b2c_consumer_secret = config.consumer_secret || "";
             updates.initiator_name = config.initiator_name || "";
-            updates.initiator_password = config.initiator_password || "";
             updates.security_credential = config.security_credential || "";
             updates.b2c_callback_url = config.callback_url || "";
             updates.b2c_environment = config.environment || "sandbox"; // Corrected from mpesa_environment
@@ -240,7 +238,6 @@ export default function AdminEditTenant() {
             consumer_key: formData.b2c_consumer_key,
             consumer_secret: formData.b2c_consumer_secret,
             initiator_name: formData.initiator_name,
-            initiator_password: formData.initiator_password,
             security_credential: formData.security_credential,
             callback_url: formData.b2c_callback_url,
             environment: formData.b2c_environment,
@@ -567,12 +564,8 @@ export default function AdminEditTenant() {
                     <input type="text" value={formData.initiator_name} onChange={e => setFormData({...formData, initiator_name: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Initiator Password</label>
-                    <input type="password" value={formData.initiator_password} onChange={e => setFormData({...formData, initiator_password: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
-                  </div>
-                  <div className="space-y-2">
                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Security Credential</label>
-                    <textarea rows="3" value={formData.security_credential} onChange={e => setFormData({...formData, security_credential: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-[11px] font-mono leading-relaxed" />
+                    <textarea rows="3" value={formData.security_credential} onChange={e => setFormData({...formData, security_credential: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-[11px] font-mono leading-relaxed" placeholder="Encrypted credential from Daraja portal" />
                   </div>
                 </div>
 

@@ -28,7 +28,6 @@ export default function TenantMpesaForm() {
     consumer_key: "",
     consumer_secret: "",
     initiator_name: "",
-    initiator_password: "",
     security_credential: "",
     callback_url: "",
     environment: "sandbox",
@@ -102,7 +101,6 @@ export default function TenantMpesaForm() {
           consumer_key: config.consumer_key || "",
           consumer_secret: config.consumer_secret || "",
           initiator_name: config.initiator_name || "",
-          initiator_password: config.initiator_password || "",
           security_credential: config.security_credential || "",
           callback_url: config.callback_url || "",
           environment: config.environment || "sandbox",
@@ -114,7 +112,6 @@ export default function TenantMpesaForm() {
           consumer_key: "",
           consumer_secret: "",
           initiator_name: "",
-          initiator_password: "",
           security_credential: "",
           callback_url: "",
           environment: "sandbox",
@@ -325,16 +322,10 @@ export default function TenantMpesaForm() {
                     </select>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-500 mb-1">Initiator Password</label>
-                    <input type="password" name="initiator_password" value={b2cData.initiator_password} onChange={handleB2CChange} className="w-full px-3 py-2 border rounded-lg text-sm" />
-                  </div>
-                  <div>
+                <div>
                     <label className="block text-xs font-medium text-gray-500 mb-1">Security Credential</label>
-                    <input type="password" name="security_credential" value={b2cData.security_credential} onChange={handleB2CChange} className="w-full px-3 py-2 border rounded-lg text-sm" />
+                    <input type="password" name="security_credential" value={b2cData.security_credential} onChange={handleB2CChange} className="w-full px-3 py-2 border rounded-lg text-sm" placeholder="Encrypted credential from Daraja portal" />
                   </div>
-                </div>
                 <div className="flex items-center gap-4">
                   <div className="flex-grow">
                     <label className="block text-xs font-medium text-gray-500 mb-1">Callback URL (Results)</label>
@@ -365,7 +356,7 @@ export default function TenantMpesaForm() {
           <div className="p-4 bg-teal-50 rounded-xl border border-teal-100">
             <h3 className="text-xs font-bold text-teal-800 uppercase mb-2">B2C Credentials (Disbursements)</h3>
             <p className="text-[11px] text-teal-700 leading-relaxed">
-              Disbursements require <b>Initiator</b> credentials. Ensure the <b>Security Credential</b> is correctly generated from your Daraja portal M-Pesa password.
+              Disbursements use the <b>Initiator Name</b> and <b>Security Credential</b>. The Security Credential is an encrypted version of your Daraja portal password, generated using the M-Pesa certificate tool — <b>not</b> your plain initiator password.
             </p>
           </div>
         </div>

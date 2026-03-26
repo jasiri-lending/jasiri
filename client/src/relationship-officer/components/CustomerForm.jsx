@@ -883,11 +883,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       error("Mobile number is required");
       hasErrors = true;
     }
-    if (!formData.alternativeMobile?.trim()) {
-      newErrors.alternativeMobile = "Alternative mobile number is required";
-      error("Alternative mobile number is required");
-      hasErrors = true;
-    }
+
     if (!formData.idNumber?.trim()) {
       newErrors.idNumber = "ID number is required";
       error("ID number is required");
@@ -1748,27 +1744,26 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       // Execute all upserts in parallel
       await Promise.all(upsertPromises);
 
-      // 5. Handle security items if any exist (similar to handleSubmit)
+      // 5. Handle security items if any exist
       if (securityItems?.length > 0) {
         // Delete existing security items for customer
         await supabase.from("security_items").delete().eq("customer_id", customerId).eq("is_guarantor", false);
 
-        // Insert new security items with images (if function exists)
-        if (typeof insertSecurityItemsOptimized === 'function') {
-          await insertSecurityItemsOptimized(securityItems, securityItemImages, customerId, false);
-        } else {
-          // Fallback if function doesn't exist
-          const itemsToInsert = securityItems.map((s) => ({
+        const itemsToInsert = securityItems
+          .filter(s => s.type || s.description)
+          .map((s) => ({
             customer_id: customerId,
-            item: s.item || null,
+            item: s.type || s.item || null,
             description: s.description || null,
             identification: s.identification || null,
             value: s.value ? parseFloat(s.value) : null,
+            is_guarantor: false,
             created_by: profile?.id,
             tenant_id: profile?.tenant_id,
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
           }));
+        if (itemsToInsert.length > 0) {
           await supabase.from("security_items").insert(itemsToInsert);
         }
       }
@@ -1784,8 +1779,22 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         if (guarantorData?.id) {
           await supabase.from("security_items").delete().eq("customer_id", guarantorData.id).eq("is_guarantor", true);
 
-          if (typeof insertSecurityItemsOptimized === 'function') {
-            await insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, guarantorData.id, true);
+          const guarantorItemsToInsert = guarantorSecurityItems
+            .filter(s => s.type || s.description)
+            .map((s) => ({
+              customer_id: guarantorData.id,
+              item: s.type || s.item || null,
+              description: s.description || null,
+              identification: s.identification || null,
+              value: s.value ? parseFloat(s.value) : null,
+              is_guarantor: true,
+              created_by: profile?.id,
+              tenant_id: profile?.tenant_id,
+              branch_id: profile?.branch_id,
+              region_id: profile?.region_id,
+            }));
+          if (guarantorItemsToInsert.length > 0) {
+            await supabase.from("security_items").insert(guarantorItemsToInsert);
           }
         }
       }
@@ -1794,7 +1803,6 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         position: "top-right",
         autoClose: 3000,
       });
-      navigate('/registry/customers');
 
     } catch (error) {
       console.error("Error saving draft:", error);
@@ -1804,6 +1812,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       });
     } finally {
       setIsSavingDraft(false);
+      navigate('/registry/customers');
     }
   };
 
@@ -2608,6 +2617,16 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                     errors={errors}
                   />
                   <FormField
+                    label="County"
+                    name="businessCounty"
+                    value={formData.businessCounty}
+                    onChange={handleChange}
+                    options={KENYA_COUNTIES}
+                    required
+                    handleNestedChange={handleNestedChange}
+                    errors={errors}
+                  />
+                  <FormField
                     label="Business Location"
                     name="businessLocation"
                     value={formData.businessLocation}
@@ -2631,16 +2650,6 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                     value={formData.landmark}
                     onChange={handleChange}
                     placeholder="e.g. Near KCB Bank"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="County"
-                    name="businessCounty"
-                    value={formData.businessCounty}
-                    onChange={handleChange}
-                    options={KENYA_COUNTIES}
                     required
                     handleNestedChange={handleNestedChange}
                     errors={errors}

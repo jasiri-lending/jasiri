@@ -10,6 +10,7 @@ import { baseEmailTemplate, styledHighlightBox, infoBox } from "./utils/emailTem
 import transporter from "./utils/mailer.js";
 import c2b from "./routes/c2b.js";
 import b2c from "./routes/b2c.js";
+import transactionStatus from "./routes/transactionStatus.js";
 import stkpush from "./routes/stkpush.js";
 import { verifySupabaseToken } from "./middleware/authMiddleware.js";
 import tenantRouter from "./routes/tenantRoutes.js";
@@ -101,6 +102,7 @@ app.get("/health", (req, res) => {
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
+app.use("/mpesa/transaction-status", transactionStatus);
 app.use("/api/tenant", tenantRouter);
 app.use("/api", mpesaConfigRouter);
 app.use("/api", AvatarRouter);

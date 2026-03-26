@@ -1979,7 +1979,7 @@ const CustomerDraft = () => {
       ]);
 
       toast.success("Draft saved successfully!");
-      navigate(-1)
+      navigate("/registry/customers")
     } catch (err) {
       console.error("DRAFT ERROR:", err);
       toast.error("Failed to save draft. Please try again.");
@@ -2083,10 +2083,10 @@ const CustomerDraft = () => {
         <FormField label="Business Type" name="businessType" value={formData.businessType} onChange={handleChange} placeholder="e.g. Retail, Wholesale" required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Year Established" name="yearEstablished" type="date" value={formData.yearEstablished} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Daily Sales (KES)" name="daily_Sales" type="number" value={formData.daily_Sales} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
+        <FormField label="County" name="businessCounty" value={formData.businessCounty} onChange={handleChange} options={KENYA_COUNTIES} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Business Location" name="businessLocation" value={formData.businessLocation} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Road" name="road" value={formData.road} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Landmark" name="landmark" value={formData.landmark} onChange={handleChange} placeholder="e.g. Near KCB Bank" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="County" name="businessCounty" value={formData.businessCounty} onChange={handleChange} options={KENYA_COUNTIES} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Local Authority License" name="hasLocalAuthorityLicense" value={formData.hasLocalAuthorityLicense} onChange={handleChange} options={["Yes", "No"]} handleNestedChange={handleNestedChange} errors={errors} />
       </div>
 

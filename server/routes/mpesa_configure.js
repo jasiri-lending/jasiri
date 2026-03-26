@@ -20,8 +20,8 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     validation_url,
     callback_url,
     initiator_name,
-    initiator_password,
     security_credential,
+    environment,
     admin_id, // Passing admin_id to verify role
     service_type = "c2b" // Default to c2b if not provided
   } = req.body;
@@ -44,8 +44,8 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     if (!shortcode) {
       return res.status(400).json({ error: "Shortcode is required for B2C" });
     }
-    if (!initiator_name || !initiator_password || !security_credential) {
-      return res.status(400).json({ error: "Initiator Name, Password and Security Credential are required for B2C" });
+    if (!initiator_name || !security_credential) {
+      return res.status(400).json({ error: "Initiator Name and Security Credential are required for B2C" });
     }
   }
 
@@ -54,7 +54,6 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     const encryptedKey = encrypt(consumer_key);
     const encryptedSecret = encrypt(consumer_secret);
     const encryptedPasskey = encrypt(passkey);
-    const encryptedInitiatorPassword = encrypt(initiator_password);
     const encryptedSecurityCredential = encrypt(security_credential);
 
     // 4️⃣ Manual Upsert: check if config exists for this tenant
@@ -78,8 +77,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
       validation_url,
       callback_url,
       initiator_name,
-      initiator_password: encryptedInitiatorPassword,
+      initiator_password: null, // Clear unused field from DB
       security_credential: encryptedSecurityCredential,
+      environment: environment || 'sandbox',
       is_active: true
     };
 
@@ -133,11 +133,12 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", verifySupabaseToken, ch
     
     // Decrypt sensitive fields
     if (data) {
-      data.consumer_key = decrypt(data.consumer_key);
-      data.consumer_secret = decrypt(data.consumer_secret);
-      data.passkey = decrypt(data.passkey);
-      data.initiator_password = decrypt(data.initiator_password);
-      data.security_credential = decrypt(data.security_credential);
+      data.consumer_key = data.consumer_key ? decrypt(data.consumer_key) : null;
+      data.consumer_secret = data.consumer_secret ? decrypt(data.consumer_secret) : null;
+      data.passkey = data.passkey ? decrypt(data.passkey) : null;
+      data.security_credential = data.security_credential ? decrypt(data.security_credential) : null;
+      // Completely remove initiator_password from response
+      delete data.initiator_password;
     }
 
     res.json({ data });
@@ -158,14 +159,16 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id/all", verifySupabaseToken
     if (error) throw error;
 
     // Decrypt sensitive fields for all configs
-    const decryptedConfigs = data.map(config => ({
-      ...config,
-      consumer_key: decrypt(config.consumer_key),
-      consumer_secret: decrypt(config.consumer_secret),
-      passkey: decrypt(config.passkey),
-      initiator_password: decrypt(config.initiator_password),
-      security_credential: decrypt(config.security_credential),
-    }));
+    const decryptedConfigs = data.map(config => {
+      const { initiator_password, ...rest } = config; // Remove initiator_password from output
+      return {
+        ...rest,
+        consumer_key: config.consumer_key ? decrypt(config.consumer_key) : null,
+        consumer_secret: config.consumer_secret ? decrypt(config.consumer_secret) : null,
+        passkey: config.passkey ? decrypt(config.passkey) : null,
+        security_credential: config.security_credential ? decrypt(config.security_credential) : null,
+      };
+    });
 
     res.json({ data: decryptedConfigs });
   } catch (err) {
