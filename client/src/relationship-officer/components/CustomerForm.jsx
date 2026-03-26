@@ -149,6 +149,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
     code: '',
     town: '',
     county: '',
+    businessCounty: '',
 
     // Business Info
     businessName: '',
@@ -290,16 +291,17 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
   // Auto-geocode business address when fields change
   useEffect(() => {
-    const { county, businessLocation, landmark, road } = formData;
-
-    // Only run when enough details are provided
-    if (!county || !businessLocation) return;
-
-    const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
+    const { businessCounty, businessLocation, landmark, road } = formData;
+    if (!businessCounty || (!businessLocation?.trim() && !landmark?.trim() && !road?.trim())) return;
+    
+    // Construct address from available parts (filtered to avoid extra commas)
+    const addressParts = [landmark, road, businessLocation, businessCounty, "Kenya"]
+      .filter(part => part && part.trim() !== "");
+    const fullAddress = addressParts.join(", ");
 
     const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&countrycodes=ke&email=admin@jasiri.co.ke`;
 
         const response = await fetch(url, {
           headers: {
@@ -329,11 +331,11 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    }, 1500); // 1.5s debounce to prevent 429 Too Many Requests
+    }, 1000); // 1s debounce to prevent 429 Too Many Requests while being responsive
 
     return () => clearTimeout(timer);
   }, [
-    formData.county,
+    formData.businessCounty,
     formData.businessLocation,
     formData.landmark,
     formData.road,
@@ -1537,6 +1539,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         code: formData.code ? parseInt(formData.code) : null,
         town: formData.town || null,
         county: formData.county || null,
+        business_county: formData.businessCounty || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
@@ -1791,7 +1794,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         position: "top-right",
         autoClose: 3000,
       });
-      navigate('/officer/customers');
+      navigate('/registry/customers');
 
     } catch (error) {
       console.error("Error saving draft:", error);
@@ -2634,8 +2637,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                   />
                   <FormField
                     label="County"
-                    name="county"
-                    value={formData.county}
+                    name="businessCounty"
+                    value={formData.businessCounty}
                     onChange={handleChange}
                     options={KENYA_COUNTIES}
                     required
@@ -2656,9 +2659,9 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                 {/* GPS Location Picker */}
                 <div className="mt-8">
                   <LocationPicker
-                    onLocationChange={handleLocationChange}
-                    county={formData.county}
                     value={formData.businessCoordinates}
+                    onChange={handleLocationChange}
+                    county={formData.businessCounty}
                   />
                 </div>
 

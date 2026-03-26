@@ -147,6 +147,7 @@ const CustomerDraft = () => {
     code: '',
     town: '',
     county: '',
+    businessCounty: '',
     businessName: '',
     businessType: '',
     daily_Sales: '',
@@ -294,6 +295,7 @@ const CustomerDraft = () => {
         code: customer?.code?.toString() || "",
         town: customer?.town || "",
         county: customer?.county || "",
+        businessCounty: customer?.business_county || "",
         businessName: customer?.business_name || "",
         businessType: customer?.business_type || "",
         yearEstablished: customer?.year_established || "",
@@ -406,13 +408,24 @@ const CustomerDraft = () => {
       setFormData(updatedFormData);
       console.log("Form data set with spouse and nextOfKin:", updatedFormData);
 
-      let processedSecurityItems = securityItemsData?.map((item) => ({
-        id: item.id,
-        item: item.item || "",
-        description: item.description || "",
-        identification: item.identification || "",
-        value: item.value?.toString() || "",
-      })) || [];
+      const SECURITY_TYPE_OPTIONS = [
+        "Household Items", "Business Equipment", "Livestock", "Motor Vehicle",
+        "Motorbike", "Land / Property", "Title deed", "Logbook",
+        "Salary Check-off", "Stock / Inventory", "Fixed deposit / Savings security",
+        "Electronics"
+      ];
+
+      let processedSecurityItems = securityItemsData?.map((item) => {
+        const isStandardType = SECURITY_TYPE_OPTIONS.includes(item.item);
+        return {
+          id: item.id,
+          type: isStandardType ? item.item : (item.item ? "Other" : ""),
+          otherType: isStandardType ? "" : (item.item || ""),
+          description: item.description || "",
+          identification: item.identification || "",
+          value: item.value?.toString() || "",
+        };
+      }) || [];
 
       // Ensure at least one empty object if no records found
       if (processedSecurityItems.length === 0) {
@@ -427,12 +440,8 @@ const CustomerDraft = () => {
 
       setSecurityItems(processedSecurityItems);
 
-      const securityImages = securityItemsData?.map((item) =>
-        item.security_item_images
-          ? item.security_item_images.map((img) => img.image_url)
-          : []
-      );
-      setSecurityItemImages(securityImages || []);
+      // Initialize empty arrays for new files; existing images handled by previews
+      setSecurityItemImages(processedSecurityItems.map(() => []));
 
       let guarantorSecurityData = [];
       if (guarantor?.id) {
@@ -443,13 +452,17 @@ const CustomerDraft = () => {
         guarantorSecurityData = data || [];
       }
 
-      let processedGuarantorSecurity = guarantorSecurityData?.map((item) => ({
-        id: item.id,
-        item: item.item || "",
-        description: item.description || "",
-        identification: item.identification || "",
-        value: item.estimated_market_value?.toString() || "",
-      })) || [];
+      let processedGuarantorSecurity = guarantorSecurityData?.map((item) => {
+        const isStandardType = SECURITY_TYPE_OPTIONS.includes(item.item);
+        return {
+          id: item.id,
+          type: isStandardType ? item.item : (item.item ? "Other" : ""),
+          otherType: isStandardType ? "" : (item.item || ""),
+          description: item.description || "",
+          identification: item.identification || "",
+          value: item.estimated_market_value?.toString() || "",
+        };
+      }) || [];
 
       // Ensure at least one empty object if no records found (matches initial state)
       if (processedGuarantorSecurity.length === 0) {
@@ -464,12 +477,8 @@ const CustomerDraft = () => {
 
       setGuarantorSecurityItems(processedGuarantorSecurity);
 
-      const guarantorSecurityImages = guarantorSecurityData?.map((item) =>
-        item.guarantor_security_images
-          ? item.guarantor_security_images.map((img) => img.image_url)
-          : []
-      );
-      setGuarantorSecurityImages(guarantorSecurityImages || []);
+      // Initialize empty arrays for new files; existing images handled by previews
+      setGuarantorSecurityImages(processedGuarantorSecurity.map(() => []));
 
       const imageData = {
         passport: customer?.passport_url ? {
@@ -586,15 +595,17 @@ const CustomerDraft = () => {
 
 
   useEffect(() => {
-    const { county, businessLocation, landmark, road } = formData;
-
-    if (!county || !businessLocation) return;
-
-    const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
+    const { businessCounty, businessLocation, landmark, road } = formData;
+    if (!businessCounty || (!businessLocation?.trim() && !landmark?.trim() && !road?.trim())) return;
+    
+    // Construct address from available parts (filtered to avoid extra commas)
+    const addressParts = [landmark, road, businessLocation, businessCounty, "Kenya"]
+      .filter(part => part && part.trim() !== "");
+    const fullAddress = addressParts.join(", ");
 
     const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&countrycodes=ke&email=admin@jasiri.co.ke`;
 
         const response = await fetch(url, {
           headers: {
@@ -623,11 +634,10 @@ const CustomerDraft = () => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    }, 1500);
-
+    }, 1000); // 1s debounce to prevent 429 Too Many Requests while being responsive
     return () => clearTimeout(timer);
   }, [
-    formData.county,
+    formData.businessCounty,
     formData.businessLocation,
     formData.landmark,
     formData.road,
@@ -1153,8 +1163,17 @@ const CustomerDraft = () => {
     e.target.value = null;
   };
 
-  const handleRemoveBusinessImage = (index) => {
+  const handleRemoveBusinessPreview = (index) => {
+    setPreviews(prev => {
+      const updatedBusiness = [...(prev.business || [])];
+      updatedBusiness.splice(index, 1);
+      return { ...prev, business: updatedBusiness };
+    });
+  };
+
+  const handleRemoveBusinessFile = (index) => {
     const file = businessImages[index];
+    if (!file) return;
 
     setUploadedFiles(prev => {
       const newSet = new Set(prev);
@@ -1477,7 +1496,7 @@ const CustomerDraft = () => {
 
     const itemsToInsert = items.map((s) => ({
       [ownerKey]: ownerId,
-      item: s.type || s.item || null,
+      item: s.type === "Other" ? s.otherType : (s.type || s.item || null),
       description: s.description || null,
       identification: s.identification || null,
       [valueKey]: s.value ? parseFloat(s.value) : null,
@@ -1728,11 +1747,13 @@ const CustomerDraft = () => {
         code: formData.code ? parseInt(formData.code) : null,
         town: formData.town || null,
         county: formData.county || null,
+        business_county: formData.businessCounty || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
         business_location: formData.businessLocation || null,
+        business_county: formData.businessCounty || null,
         business_lat: formData.businessCoordinates?.lat || null,
         business_lng: formData.businessCoordinates?.lng || null,
         road: formData.road || null,
@@ -1991,12 +2012,12 @@ const CustomerDraft = () => {
         <FormField label="Business Location" name="businessLocation" value={formData.businessLocation} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Road" name="road" value={formData.road} onChange={handleChange} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Landmark" name="landmark" value={formData.landmark} onChange={handleChange} placeholder="e.g. Near KCB Bank" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="County" name="county" value={formData.county} onChange={handleChange} options={KENYA_COUNTIES} required handleNestedChange={handleNestedChange} errors={errors} />
+        <FormField label="County" name="businessCounty" value={formData.businessCounty} onChange={handleChange} options={KENYA_COUNTIES} required handleNestedChange={handleNestedChange} errors={errors} />
         <FormField label="Local Authority License" name="hasLocalAuthorityLicense" value={formData.hasLocalAuthorityLicense} onChange={handleChange} options={["Yes", "No"]} handleNestedChange={handleNestedChange} errors={errors} />
       </div>
 
       <div className="mt-8">
-        <LocationPicker onLocationChange={handleLocationChange} county={formData.county} value={formData.businessCoordinates} />
+        <LocationPicker onChange={handleLocationChange} value={formData.businessCoordinates} county={formData.businessCounty} />
       </div>
 
       {imageUploadEnabled && (
@@ -2019,7 +2040,7 @@ const CustomerDraft = () => {
               {previews.business.map((preview, index) => (
                 <div key={`existing-${index}`} className="relative group rounded-xl overflow-hidden border border-gray-200">
                   <img src={preview.url} alt="Business" className="w-full h-32 object-cover" />
-                  <button type="button" onClick={() => handleRemoveBusinessImage(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
+                  <button type="button" onClick={() => handleRemoveBusinessPreview(index)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                   <div className="absolute bottom-0 left-0 right-0 bg-black/60 text-white px-2 py-1 text-[10px] truncate">
@@ -2031,7 +2052,7 @@ const CustomerDraft = () => {
               {businessImages.map((file, idx) => (
                 <div key={`new-${idx}`} className="relative group rounded-xl overflow-hidden border border-gray-200">
                   <img src={URL.createObjectURL(file)} alt="Business" className="w-full h-32 object-cover" />
-                  <button type="button" onClick={() => handleRemoveBusinessImage(previews.business.length + idx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
+                  <button type="button" onClick={() => handleRemoveBusinessFile(idx)} className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 shadow-md opacity-0 group-hover:opacity-100 transition">
                     <XMarkIcon className="w-4 h-4" />
                   </button>
                 </div>
@@ -2099,6 +2120,7 @@ const CustomerDraft = () => {
                 <FormField label="Specify Other Security" name="otherType" value={item.otherType || ""} onChange={(e) => handleSecurityChange(e, index)} required />
               )}
 
+              <FormField label="Identification (e.g. Serial No/Reg No)" name="identification" value={item.identification} onChange={(e) => handleSecurityChange(e, index)} required />
               <FormField label="Description" name="description" value={item.description} onChange={(e) => handleSecurityChange(e, index)} required />
               <FormField label="Est. Market Value (KES)" name="value" type="number" value={item.value} onChange={(e) => handleSecurityChange(e, index)} required />
             </div>
@@ -2117,7 +2139,7 @@ const CustomerDraft = () => {
                   </label>
                 </div>
 
-                {((securityItemImages[index] && securityItemImages[index].length > 0) || (item.security_item_images && item.security_item_images.length > 0)) && (
+                {((securityItemImages[index] && securityItemImages[index].length > 0) || (previews.security?.[index] && previews.security[index].length > 0)) && (
                   <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
                     {/* Existing Images */}
                     {previews.security?.[index]?.map((img, imgIdx) => (
@@ -2289,6 +2311,7 @@ const CustomerDraft = () => {
                   <option>Other (specify)</option>
                 </select>
               </div>
+              <FormField label="Identification (e.g. Serial No/Reg No)" name="identification" value={item.identification} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
               <FormField label="Description" name="description" value={item.description} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
               <FormField label="Est. Market Value (KES)" name="value" type="number" value={item.value} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
             </div>

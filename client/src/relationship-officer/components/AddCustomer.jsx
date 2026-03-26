@@ -144,6 +144,7 @@ const AddCustomer = () => {
     code: '',
     town: '',
     county: '',
+    businessCounty: '',
 
     // Business Info
     businessName: '',
@@ -269,16 +270,17 @@ const AddCustomer = () => {
 
   // Auto-geocode business address when fields change
   useEffect(() => {
-    const { county, businessLocation, landmark, road } = formData;
-
-    // Only run when enough details are provided
-    if (!county || !businessLocation) return;
-
-    const fullAddress = `${landmark || ""} ${road || ""} ${businessLocation}, ${county}, Kenya`;
+    const { businessCounty, businessLocation, landmark, road } = formData;
+    if (!businessCounty || (!businessLocation?.trim() && !landmark?.trim() && !road?.trim())) return;
+    
+    // Construct address from available parts (filtered to avoid extra commas)
+    const addressParts = [landmark, road, businessLocation, businessCounty, "Kenya"]
+      .filter(part => part && part.trim() !== "");
+    const fullAddress = addressParts.join(", ");
 
     const timer = setTimeout(async () => {
       try {
-        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&email=admin@jasiri.co.ke`;
+        const url = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&addressdetails=1&limit=1&countrycodes=ke&email=admin@jasiri.co.ke`;
 
         const response = await fetch(url, {
           headers: {
@@ -308,11 +310,10 @@ const AddCustomer = () => {
       } catch (err) {
         console.error("Failed to geocode location", err);
       }
-    }, 1500);
-
+    }, 1000); // 1s debounce to prevent 429 Too Many Requests while being responsive
     return () => clearTimeout(timer);
   }, [
-    formData.county,
+    formData.businessCounty,
     formData.businessLocation,
     formData.landmark,
     formData.road,
@@ -1459,6 +1460,7 @@ const AddCustomer = () => {
         code: formData.code ? parseInt(formData.code) : null,
         town: formData.town || null,
         county: formData.county || null,
+        business_county: formData.businessCounty || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
@@ -1849,6 +1851,7 @@ const AddCustomer = () => {
         code: formData.code ? parseInt(formData.code, 10) || null : null,
         town: formData.town || null,
         county: formData.county || null,
+        business_county: formData.businessCounty || null,
         business_name: formData.businessName || null,
         business_type: formData.businessType || null,
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
@@ -2475,16 +2478,16 @@ const AddCustomer = () => {
                     handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
-                  <FormField
-                    label="County"
-                    name="county"
-                    value={formData.county}
-                    onChange={handleChange}
-                    options={KENYA_COUNTIES}
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
+                    <FormField
+                      label="County"
+                      name="businessCounty"
+                      value={formData.businessCounty}
+                      onChange={handleChange}
+                      options={KENYA_COUNTIES}
+                      required
+                      handleNestedChange={handleNestedChange}
+                      errors={errors}
+                    />
                   <FormField
                     label="Local Authority License"
                     name="hasLocalAuthorityLicense"
@@ -2501,7 +2504,7 @@ const AddCustomer = () => {
                   <LocationPicker
                     value={formData.businessCoordinates}
                     onChange={handleLocationChange}
-                    county={formData.county}
+                    county={formData.businessCounty}
                   />
                 </div>
 
