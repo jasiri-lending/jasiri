@@ -4,7 +4,6 @@ import { supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { getTenantConfig } from "../services/tenantResolver.js";
 import { mpesaRequest } from "../services/mpesa.js";
-import { enqueueJob } from "../queue/paymentQueue.js";
 import { JOB_TYPES } from "../config/env.js";
 import { createLogger } from "../utils/logger.js";
 import { decrypt } from "../utils/encryption.js";
@@ -209,29 +208,76 @@ b2c.post("/result", async (req, res) => {
           
         log.info({ loanId, transactionId: Result.TransactionID }, "Loan marked as disbursed");
 
-        // Enqueue only the SMS job to the Edge Function/Queue system
-        await enqueueJob({
-          tenantId: tx.tenant_id,
-          jobType: "disbursement_sms",
-          payload: {
-            loan_id: loanId,
-            customer_id: tx.customer_id,
-            amount: tx.amount,
-            tenant_id: tx.tenant_id,
-            transaction_id: Result.TransactionID
-          },
-          priority: 5,
-        });
+        // Handle SMS instantly instead of queueing
+        try {
+          const tenantId = tx.tenant_id;
+          const { data: cust, error: custErr } = await supabaseAdmin
+            .from("customers")
+            .select("Firstname, mobile")
+            .eq("id", tx.customer_id)
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
 
-        const edgeUrl = `${process.env.SUPABASE_URL}/functions/v1/process-b2c-disbursements`;
-        fetch(edgeUrl, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
-          },
-          body: JSON.stringify({ action: "process-queue", tenant_id: tx.tenant_id }),
-        }).catch(err => log.error({ err: err.message }, "Failed to trigger Edge Function for SMS queue"));
+          if (custErr || !cust) throw new Error(`Customer not found: ${tx.customer_id}`);
+          const firstName = cust.Firstname || "Customer";
+          const customerMobile = cust.mobile;
+          if (!customerMobile) throw new Error("Customer mobile missing");
+
+          const { data: tenantConfig, error: cfgErr } = await supabaseAdmin
+            .from("tenant_mpesa_config")
+            .select("paybill_number, till_number, shortcode")
+            .eq("tenant_id", tenantId)
+            .eq("service_type", "c2b")
+            .eq("is_active", true)
+            .maybeSingle();
+
+          if (cfgErr || !tenantConfig) throw new Error(`Tenant config missing for tenant ${tenantId}`);
+          const paybill = tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode || "N/A";
+
+          const { data: loan, error: loanErr } = await supabaseAdmin
+            .from("loans")
+            .select("weekly_payment")
+            .eq("id", loanId)
+            .maybeSingle();
+
+          if (loanErr || !loan) throw new Error(`Loan not found: ${loanId}`);
+          const weeklyPayment = Number(loan.weekly_payment).toLocaleString();
+          const amountFormatted = Number(tx.amount).toLocaleString();
+
+          const message = `Dear ${firstName}, we have disbursed KES ${amountFormatted} via M-PESA. Your weekly installment is KES ${weeklyPayment} due to paybill ${paybill}.`;
+
+          const { data: smsConfig, error: smsErr } = await supabaseAdmin
+            .from("tenant_sms_settings")
+            .select("*")
+            .eq("tenant_id", tenantId)
+            .maybeSingle();
+
+          if (smsErr || !smsConfig) {
+            throw new Error(`SMS config missing for tenant ${tenantId}`);
+          }
+
+          const encodedMsg = encodeURIComponent(message.trim());
+          const url = `${smsConfig.base_url}?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            throw new Error(`SMS send failed (${response.status})`);
+          }
+
+          await supabaseAdmin.from("sms_logs").insert({
+            customer_id: tx.customer_id,
+            recipient_phone: customerMobile,
+            message,
+            status: "sent",
+            message_id: `sms-${Date.now()}`,
+            tenant_id: tenantId,
+            created_at: new Date().toISOString(),
+          });
+
+          log.info({ loan_id: loanId }, "Successfully sent SMS for loan");
+        } catch (smsErr) {
+          log.error({ err: smsErr.message, loan_id: loanId }, "Failed to send disbursement SMS instantly");
+        }
       } else if (!isSuccess && loanId) {
         // Revert loan status on failure so they can try again
         await supabaseAdmin
