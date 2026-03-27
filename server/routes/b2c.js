@@ -259,18 +259,24 @@ b2c.post("/result", async (req, res) => {
             .maybeSingle();
 
           if (smsErr || !smsConfig) {
-            throw new Error(`SMS config missing for tenant ${tenantId}`);
+            throw new Error(`SMS configuration missing in database for tenant: ${tenantId}`);
           }
 
-          const encodedMsg = encodeURIComponent(message.trim());
-          // IMPORTANT: Celcom Africa requires a trailing slash before the query parameters
-          const url = `${smsConfig.base_url}/?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
-          
-          log.info({ loanId, phone: customerMobile }, "Sending SMS via Celcom gateway...");
-          const response = await axios.get(url, { timeout: 15_000 });
+          const apiKey = smsConfig.api_key.trim();
+          const partnerId = smsConfig.partner_id.trim();
+          const shortcode = smsConfig.shortcode.trim();
+          const baseUrl = smsConfig.base_url.trim().replace(/\/+$/, "");
 
-          if (response.status !== 200) {
-            throw new Error(`SMS send failed (${response.status}): ${JSON.stringify(response.data).substring(0, 100)}`);
+          const encodedMsg = encodeURIComponent(message.trim());
+          // Exact URL format from working Edge Function (GET with trailing slash before query)
+          const url = `${baseUrl}/?apikey=${apiKey}&partnerID=${partnerId}&message=${encodedMsg}&shortcode=${shortcode}&mobile=${customerMobile}`;
+          
+          log.info({ loanId, phone: customerMobile, tenantId }, "Sending B2C SMS via Celcom...");
+          const response = await fetch(url);
+
+          if (!response.ok) {
+            const errBody = await response.text();
+            throw new Error(`SMS send failed (${response.status}): ${errBody.substring(0, 100)}`);
           }
 
           await supabaseAdmin.from("sms_logs").insert({
