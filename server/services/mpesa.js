@@ -22,12 +22,12 @@ export async function getTenantMpesaToken(tenantConfig) {
       ? "https://api.safaricom.co.ke"
       : "https://sandbox.safaricom.co.ke";
 
+    const auth = Buffer.from(`${consumer_key}:${consumer_secret}`).toString("base64");
     const response = await axios.get(
       `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
       {
-        auth: {
-          username: consumer_key,
-          password: consumer_secret
+        headers: {
+          Authorization: `Basic ${auth}`
         },
         timeout: 10_000
       }
