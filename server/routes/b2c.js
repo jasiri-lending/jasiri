@@ -279,19 +279,38 @@ b2c.post("/result", async (req, res) => {
             throw new Error(`SMS send failed (${response.status}): ${errBody.substring(0, 100)}`);
           }
 
+          // Log success in sms_logs
           await supabaseAdmin.from("sms_logs").insert({
             customer_id: tx.customer_id,
             recipient_phone: customerMobile,
             message,
             status: "sent",
-            message_id: `sms-${Date.now()}`,
+            message_id: `sms-b2c-${Date.now()}`,
             tenant_id: tenantId,
+            sender_id: shortcode, // Match schema column
+            sent_by: tx.processed_by || null, // Match schema column
             created_at: new Date().toISOString(),
           });
 
-          log.info({ loan_id: loanId }, "Successfully sent SMS for loan");
+          log.info({ loan_id: loanId, phone: customerMobile }, "Successfully sent B2C SMS");
         } catch (smsErr) {
           log.error({ err: smsErr.message, loan_id: loanId }, "Failed to send disbursement SMS instantly");
+          
+          // Log failure in sms_logs
+          try {
+            await supabaseAdmin.from("sms_logs").insert({
+              customer_id: tx.customer_id,
+              recipient_phone: customerMobile || "N/A",
+              message: message || "B2C Notification",
+              status: "failed",
+              error_message: smsErr.message,
+              tenant_id: tx.tenant_id,
+              sent_by: tx.processed_by || null,
+              created_at: new Date().toISOString(),
+            });
+          } catch (logErr) {
+            log.error({ err: logErr.message }, "Critical: Failed to log SMS failure to DB");
+          }
         }
       } else if (!isSuccess && loanId) {
         // Revert loan status on failure so they can try again
