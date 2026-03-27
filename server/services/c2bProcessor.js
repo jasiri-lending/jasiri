@@ -12,7 +12,12 @@ export async function processC2BTransaction(transactionId, overrideTenantId) {
         p_worker_id: "server-c2b",
       });
 
-    if (claimErr || !tx) {
+    if (claimErr) {
+      log.error({ transactionId, claimErr }, "RPC claim_c2b_transaction failed");
+      return { status: "skipped", reason: "rpc_error", error: claimErr };
+    }
+
+    if (!tx) {
       log.info({ transactionId }, "Already claimed or not found — skipping");
       return { status: "skipped", reason: "already_claimed_or_not_found" };
     }

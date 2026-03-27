@@ -65,7 +65,7 @@ c2b.post("/confirmation", async (req, res) => {
 
       if (!tenantConfig) {
         log.warn({ TransID, BusinessShortCode, MSISDN }, "Tenant not resolved — suspense");
-        await supabaseAdmin.from("suspense_transactions").upsert({
+        const { error: suspenseErr } = await supabaseAdmin.from("suspense_transactions").upsert({
           payer_name: FirstName || "Unknown",
           phone_number: MSISDN,
           amount: TransAmount,
@@ -75,6 +75,10 @@ c2b.post("/confirmation", async (req, res) => {
           status: "suspense",
           reason: "Tenant not resolved from shortcode or phone",
         }, { onConflict: "transaction_id" });
+        
+        if (suspenseErr) {
+          log.error({ suspenseErr, TransID }, "CRITICAL: Failed to save suspense transaction");
+        }
         return;
       }
 
@@ -88,7 +92,7 @@ c2b.post("/confirmation", async (req, res) => {
       else if (ref.startsWith("processing")) { jobType = JOB_TYPES.PROCESSING_FEE; priority = 3; }
 
       // Insert transaction record (idempotent)
-      await supabaseAdmin.from("mpesa_c2b_transactions").upsert({
+      const { error: upsertErr } = await supabaseAdmin.from("mpesa_c2b_transactions").upsert({
         transaction_id: TransID,
         phone_number: MSISDN,
         amount: TransAmount,
@@ -102,12 +106,18 @@ c2b.post("/confirmation", async (req, res) => {
         tenant_id: tenantId,
       }, { onConflict: "transaction_id", ignoreDuplicates: true });
 
+      if (upsertErr) {
+        log.error({ upsertErr, TransID, tenantId }, "CRITICAL: Failed to insert C2B transaction into database");
+        return;
+      }
+
       // Process instantly natively on the server
       log.info({ TransID, tenantId, jobType }, "Starting instant C2B processing");
-      await processC2BTransaction(TransID, tenantId);
+      const processResult = await processC2BTransaction(TransID, tenantId);
+      log.info({ TransID, processResult }, "Finished instant C2B processing");
 
     } catch (err) {
-      log.error({ err: err.message, TransID }, "Failed to queue C2B transaction");
+      log.error({ err: err.message, stack: err.stack, TransID }, "Failed to queue C2B transaction");
     }
   });
 });

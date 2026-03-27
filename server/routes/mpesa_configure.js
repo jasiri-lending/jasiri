@@ -3,6 +3,7 @@ import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { encrypt, decrypt } from "../utils/encryption.js";
+import { mpesaRequest } from "../services/mpesa.js";
 
 const mpesaConfigRouter = express.Router();
 
@@ -56,6 +57,24 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     const encryptedPasskey = encrypt(passkey);
     const encryptedSecurityCredential = encrypt(security_credential);
 
+    // Helper for URL formatting
+    const formatAppEndpoint = (baseUrl, endpoint) => {
+      if (!baseUrl) return "";
+      let cleaned = baseUrl.trim().replace(/\/$/, "");
+      if (cleaned.endsWith(endpoint)) return cleaned;
+      return `${cleaned}${endpoint}`;
+    };
+
+    let finalConfirmationUrl = confirmation_url;
+    let finalValidationUrl = validation_url;
+
+    if (service_type === "c2b") {
+      finalConfirmationUrl = formatAppEndpoint(confirmation_url, "/mpesa/c2b/confirmation") || formatAppEndpoint(callback_url, "/mpesa/c2b/confirmation") || "";
+      finalValidationUrl = formatAppEndpoint(validation_url, "/mpesa/c2b/validation") || formatAppEndpoint(callback_url, "/mpesa/c2b/validation") || "";
+    }
+
+    const finalCallbackUrl = (callback_url || "").trim().replace(/\/$/, "");
+
     // 4️⃣ Manual Upsert: check if config exists for this tenant
     const { data: existingConfig } = await supabaseAdmin
       .from("tenant_mpesa_config")
@@ -73,9 +92,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
       consumer_secret: encryptedSecret,
       passkey: encryptedPasskey,
       shortcode,
-      confirmation_url,
-      validation_url,
-      callback_url,
+      confirmation_url: finalConfirmationUrl,
+      validation_url: finalValidationUrl,
+      callback_url: finalCallbackUrl,
       initiator_name,
       initiator_password: null, // Clear unused field from DB
       security_credential: encryptedSecurityCredential,
@@ -110,6 +129,38 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
       .eq("id", tenant_id);
 
     if (tenantInitError) console.error("Error updating onboarding status:", tenantInitError);
+
+    // 6️⃣ Register C2B URLs with Safaricom
+    if (service_type === "c2b") {
+      try {
+        const c2bShortcode = paybill_number || till_number || shortcode;
+        if (!c2bShortcode) {
+          console.warn(`[mpesa_configure] No shortcode/paybill/till provided for tenant ${tenant_id}, skipping URL registration.`);
+        } else {
+          const registerPayload = {
+            ShortCode: c2bShortcode,
+            ResponseType: "Completed",
+            ConfirmationURL: finalConfirmationUrl,
+            ValidationURL: finalValidationUrl
+          };
+
+          console.log(`[mpesa_configure] Registering C2B URLs for tenant ${tenant_id}...`, registerPayload);
+          
+          await mpesaRequest(
+            configData, // mpesaRequest expects encrypted config
+            "POST",
+            "/mpesa/c2b/v1/registerurl",
+            registerPayload
+          );
+          
+          console.log(`[mpesa_configure] C2B URLs registered successfully for tenant ${tenant_id}.`);
+        }
+      } catch (mpesaErr) {
+        console.error(`[mpesa_configure] Failed to register C2B URLs with Safaricom:`, mpesaErr.message);
+        // We catch the error so we don't fail the entire config save
+        // but the user will need to try again or fix credentials
+      }
+    }
 
     res.json({ success: true, message: "Tenant MPESA config saved and onboarding completed", data });
   } catch (err) {
