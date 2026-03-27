@@ -98,11 +98,18 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ✅ Global M-Pesa Request Logger (for debugging connectivity)
+// ✅ Global M-Pesa Request Logger (High-visibility for debugging connectivity)
+import { logger } from "./utils/logger.js";
 app.use((req, res, next) => {
   const path = req.path.toLowerCase();
   if (path.includes("mpesa") || path.includes("validation") || path.includes("confirmation") || path.includes("result")) {
-    console.log(`[MPESA-HIT] ${req.method} ${req.originalUrl} from ${req.ip}`);
+    logger.info({ 
+      hit: "MPESA-REQUEST", 
+      method: req.method, 
+      url: req.originalUrl, 
+      ip: req.ip,
+      userAgent: req.get("User-Agent")
+    }, `[MPESA-HIT] ${req.method} ${req.originalUrl}`);
   }
   next();
 });

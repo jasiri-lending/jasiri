@@ -144,7 +144,8 @@ export default function TenantMpesaForm() {
         body: JSON.stringify(payload)
       });
       if (res.ok) {
-        alert("C2B configuration saved!");
+        const d = await res.json();
+        alert(`C2B saved! Registered URLs:\nConfirmation: ${d.urls?.confirmation}\nValidation: ${d.urls?.validation}`);
       } else {
         const d = await res.json();
         alert(d.error || "Error saving C2B config");
