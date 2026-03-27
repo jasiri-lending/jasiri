@@ -189,11 +189,23 @@ b2c.post("/result", async (req, res) => {
             disbursed_by: tx.processed_by || null
           })
           .eq("id", loanId)
-          .eq("status", "ready_for_disbursement");
-          
-        log.info({ loanId, transactionId: Result.TransactionID }, "Loan marked as disbursed");
+          .neq("status", "disbursed") // Allow transition from ANY non-disbursed state (ca_review, etc.)
+          .select("id"); // Select to confirm update occurred
 
-        // Handle SMS instantly instead of queueing
+        if (loanUpdate.error) {
+          log.error({ err: loanUpdate.error.message, loanId }, "Failed to update loan status to disbursed");
+          return;
+        }
+
+        if (loanUpdate.data?.length === 0) {
+          log.warn({ loanId }, "Loan remains in original state (possibly already disbursed or status mismatch)");
+          // We proceed to SMS anyway as money reached the customer
+        } else {
+          log.info({ loanId, transactionId: Result.TransactionID }, "Loan correctly marked as DISBURSED");
+        }
+
+        // Handle SMS instantly
+        log.info({ loanId, customer_id: tx.customer_id }, "Attempting to send disbursement SMS...");
         try {
           const tenantId = tx.tenant_id;
           const { data: cust, error: custErr } = await supabaseAdmin
