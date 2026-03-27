@@ -6,6 +6,7 @@ import { getTenantConfig } from "../services/tenantResolver.js";
 import { mpesaRequest } from "../services/mpesa.js";
 import { createLogger } from "../utils/logger.js";
 import { decrypt } from "../utils/encryption.js";
+import axios from "axios";
 
 const b2c = express.Router();
 const log = createLogger({ service: "b2c" });
@@ -96,22 +97,10 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
 
     // Update loan status in loans table to fire installment generation trigger
     // We do this here using supabaseAdmin to bypass RLS issues on loan_installments table
-    const { error: loanUpdateError } = await supabaseAdmin
-      .from("loans")
-      .update({
-        status: 'processing',
-        disbursed_at: new Date().toISOString(),
-        mpesa_transaction_id: convId,
-        disbursement_notes: notes || `Loan Disbursement #${loan_id}`,
-        disbursed_by: processed_by || null
-      })
-      .eq("id", loan_id);
-
-    if (loanUpdateError) {
-      log.error({ err: loanUpdateError.message, loan_id }, "Failed to update loan status in backend");
-      // We don't throw here to avoid failing the whole request if the M-Pesa part succeeded, 
-      // but it's a serious issue that should be investigated.
-    }
+    // We NO LONGER update the loan status here to 'processing' because it violates a check constraint.
+    // Instead, the loan will stay in 'ready_for_disbursement' until the B2C result callback arrives.
+    // This also avoids the heavy installment generation trigger while the user waits.
+    log.info({ tenant_id, loan_id, convId }, "Disbursement initiated - waiting for callback");
 
     log.info({ tenant_id, loan_id, convId }, "Disbursement initiated");
     res.json({
@@ -201,9 +190,10 @@ b2c.post("/result", async (req, res) => {
             status: "disbursed",
             disbursed_at: new Date().toISOString(),
             mpesa_transaction_id: Result.TransactionID,
+            disbursed_by: tx.processed_by || null
           })
           .eq("id", loanId)
-          .in("status", ["processing", "ready_for_disbursement"]);
+          .eq("status", "ready_for_disbursement");
           
         log.info({ loanId, transactionId: Result.TransactionID }, "Loan marked as disbursed");
 
@@ -266,11 +256,10 @@ b2c.post("/result", async (req, res) => {
 
           const encodedMsg = encodeURIComponent(message.trim());
           const url = `${smsConfig.base_url}?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
-          const response = await fetch(url);
+          const response = await axios.get(url, { timeout: 10_000 });
 
-          if (!response.ok) {
-            const errBody = await response.text();
-            throw new Error(`SMS send failed (${response.status}): ${errBody.substring(0, 100)}`);
+          if (response.status !== 200) {
+            throw new Error(`SMS send failed (${response.status}): ${JSON.stringify(response.data).substring(0, 100)}`);
           }
 
           await supabaseAdmin.from("sms_logs").insert({
@@ -292,8 +281,7 @@ b2c.post("/result", async (req, res) => {
         await supabaseAdmin
           .from("loans")
           .update({ status: "ready_for_disbursement" })
-          .eq("id", loanId)
-          .in("status", ["disbursed", "processing"]);
+          .eq("id", loanId);
           
         log.warn({ loanId, resultDesc: Result.ResultDesc }, "Disbursement failed, reverted loan status");
       }
@@ -347,8 +335,7 @@ b2c.post("/timeout", async (req, res) => {
         await supabaseAdmin
           .from("loans")
           .update({ status: "ready_for_disbursement" })
-          .eq("id", loanId)
-          .in("status", ["disbursed", "processing"]);
+          .eq("id", loanId);
       }
     } catch (err) {
       log.error({ err: err.message }, "Failed to process B2C timeout directly");
