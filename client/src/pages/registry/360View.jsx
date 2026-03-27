@@ -89,14 +89,13 @@ const SMSService = {
     }
 
     const config = {
-      baseUrl: data.base_url,
-      apiKey: data.api_key,
-      partnerID: data.partner_id,
-      defaultShortcode: data.shortcode,
+      baseUrl: data.base_url.trim().replace(/\/+$/, ""),
+      apiKey: data.api_key.trim(),
+      partnerID: data.partner_id.trim(),
+      defaultShortcode: data.shortcode.trim(),
     };
 
     _smsConfigCache.set(tenantId, config);
-    console.log(`[SMSService] Config cached for tenant: ${tenantId}`);
     return config;
   },
 
@@ -109,22 +108,12 @@ const SMSService = {
   },
 
   formatPhoneNumberForSMS(phone) {
-    if (!phone) return '';
-    let cleaned = String(phone).replace(/\D/g, '');
-
-    if (cleaned.startsWith('254')) {
-      if (cleaned.length === 12) return cleaned;
-      if (cleaned.length === 13 && cleaned.startsWith('2540')) return '254' + cleaned.substring(4);
-    } else if (cleaned.startsWith('0')) {
-      if (cleaned.length === 10) return '254' + cleaned.substring(1);
-      if (cleaned.length === 11 && cleaned.startsWith('07')) return '254' + cleaned.substring(2);
-    } else if (cleaned.startsWith('7') || cleaned.startsWith('1')) {
-      if (cleaned.length === 9) return '254' + cleaned;
-      if (cleaned.length === 10 && /^(70|71|72|11)/.test(cleaned)) return '254' + cleaned.substring(1);
-    }
-
-    console.error(`[SMSService] Invalid phone number: ${phone}`);
-    return '';
+    if (!phone) return "";
+    const cleaned = String(phone).replace(/\D/g, "");
+    if (cleaned.startsWith("254") && cleaned.length === 12) return cleaned;
+    if (cleaned.startsWith("0") && cleaned.length === 10) return "254" + cleaned.substring(1);
+    if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("1"))) return "254" + cleaned;
+    return cleaned;
   },
 
   async sendSMS(phoneNumber, message, tenantId, shortcode = null) {
@@ -140,6 +129,7 @@ const SMSService = {
       if (!message?.trim()) throw new Error('Message cannot be empty');
 
       const encodedMessage = encodeURIComponent(message.trim());
+      // IMPORTANT: Celcom Africa requires the trailing slash before query parameters
       const endpoint = `${config.baseUrl}/?apikey=${config.apiKey}&partnerID=${config.partnerID}&message=${encodedMessage}&shortcode=${effectiveShortcode}&mobile=${formattedPhone}`;
 
       await fetch(endpoint, { method: 'GET', mode: 'no-cors' });

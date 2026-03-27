@@ -425,10 +425,6 @@ async function handlePaymentSms(transaction_id, tenantId) {
 
   if (txErr || !tx) throw new Error(`Transaction not found: ${transaction_id}`);
   if (tx.payment_sms_sent) return;
-  if (!tx.loan_id) {
-    await supabaseAdmin.from("mpesa_c2b_transactions").update({ payment_sms_sent: true }).eq("id", tx.id);
-    return;
-  }
 
   let customerMobile = null;
   let firstName = "Customer";
@@ -442,19 +438,24 @@ async function handlePaymentSms(transaction_id, tenantId) {
       firstName = cust.Firstname || "Customer";
     }
   }
+
+  // Helper to format phone to 254...
+  const formatPhone = (phone) => {
+    if (!phone) return "";
+    const cleaned = String(phone).replace(/\D/g, "");
+    if (cleaned.startsWith("254") && cleaned.length === 12) return cleaned;
+    if (cleaned.startsWith("0") && cleaned.length === 10) return "254" + cleaned.substring(1);
+    if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("1"))) return "254" + cleaned;
+    return cleaned;
+  };
+
   if (!customerMobile && tx.phone_number) {
-    const phoneFormats = normalizePhone(tx.phone_number);
-    if (phoneFormats.length) {
-      const { data: custByPhone } = await supabaseAdmin
-        .from("customers").select("id, Firstname, mobile").in("mobile", phoneFormats).eq("tenant_id", tenantId).maybeSingle();
-      if (custByPhone) {
-        customerMobile = custByPhone.mobile;
-        customerId = custByPhone.id;
-        firstName = custByPhone.Firstname || "Customer";
-      }
-    }
+    customerMobile = tx.phone_number;
   }
+
+  customerMobile = formatPhone(customerMobile);
   if (!customerMobile) {
+    log.warn({ transaction_id }, "SMS skipped: No valid mobile number");
     await supabaseAdmin.from("mpesa_c2b_transactions").update({ payment_sms_sent: true }).eq("id", tx.id);
     return;
   }
@@ -469,28 +470,68 @@ async function handlePaymentSms(transaction_id, tenantId) {
 
   const amount = Number(tx.amount).toLocaleString();
   const balance = outstandingBalance.toLocaleString();
-  const message = `Dear ${firstName},\nWe have received your payment of KES ${amount}.\nYour outstanding loan balance is KES ${balance}.\nThank you for being our valued client.`;
+  const message = `Dear ${firstName}, we have received your payment of KES ${amount}. Your outstanding loan balance is KES ${balance}. Thank you for playing your part.`;
 
   const { data: smsConfig, error: cfgErr } = await supabaseAdmin
     .from("tenant_sms_settings").select("*").eq("tenant_id", tenantId).maybeSingle();
-  if (cfgErr || !smsConfig) throw new Error(`SMS config missing for tenant ${tenantId}`);
+  
+  if (cfgErr || !smsConfig) {
+    log.error({ tenantId }, "SMS config missing for C2B notification");
+    return;
+  }
+
+  const apiKey = smsConfig.api_key.trim();
+  const partnerId = smsConfig.partner_id.trim();
+  const shortcode = smsConfig.shortcode.trim();
+  const baseUrl = smsConfig.base_url.trim().replace(/\/+$/, "");
 
   const encodedMsg = encodeURIComponent(message.trim());
-  const url = `${smsConfig.base_url}?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`SMS send failed (${response.status})`);
+  // Exact URL format from working Edge Function (GET with trailing slash before query)
+  const url = `${baseUrl}/?apikey=${apiKey}&partnerID=${partnerId}&message=${encodedMsg}&shortcode=${shortcode}&mobile=${customerMobile}`;
 
-  await supabaseAdmin.from("sms_logs").insert({
-    customer_id: customerId,
-    recipient_phone: customerMobile,
-    message,
-    status: "sent",
-    message_id: `sms-${Date.now()}`,
-    tenant_id: tenantId,
-    created_at: new Date().toISOString(),
-  });
+  try {
+    log.info({ transaction_id, phone: customerMobile }, "Sending C2B payment SMS...");
+    const response = await fetch(url);
+    
+    if (!response.ok) {
+      const errBody = await response.text();
+      throw new Error(`SMS gateway error (${response.status}): ${errBody.substring(0, 100)}`);
+    }
 
-  await supabaseAdmin.from("mpesa_c2b_transactions").update({ payment_sms_sent: true }).eq("id", tx.id);
+    // Log success in sms_logs
+    await supabaseAdmin.from("sms_logs").insert({
+      customer_id: customerId || null,
+      recipient_phone: customerMobile,
+      message,
+      status: "sent",
+      message_id: `sms-c2b-${Date.now()}`,
+      tenant_id: tenantId,
+      sender_id: shortcode,
+      created_at: new Date().toISOString(),
+    });
+
+    await supabaseAdmin.from("mpesa_c2b_transactions").update({ payment_sms_sent: true }).eq("id", tx.id);
+    log.info({ transaction_id }, "C2B SMS sent and logged successfully");
+
+  } catch (smsErr) {
+    log.error({ err: smsErr.message, transaction_id }, "Failed to send C2B payment SMS");
+    
+    // Log failure in sms_logs
+    try {
+      await supabaseAdmin.from("sms_logs").insert({
+        customer_id: customerId || null,
+        recipient_phone: customerMobile,
+        message,
+        status: "failed",
+        error_message: smsErr.message,
+        tenant_id: tenantId,
+        sender_id: shortcode || null,
+        created_at: new Date().toISOString(),
+      });
+    } catch (logErr) {
+      log.error({ err: logErr.message }, "Critical: Failed to log C2B SMS failure to DB");
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
