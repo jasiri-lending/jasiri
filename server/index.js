@@ -102,6 +102,9 @@ app.get("/health", (req, res) => {
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
+// Mount M-Pesa callbacks on root to directly support tenant config URLs (e.g. domain.com/validation)
+app.use("/", c2b);
+app.use("/", b2c);
 app.use("/mpesa/transaction-status", transactionStatus);
 app.use("/api/tenant", tenantRouter);
 app.use("/api", mpesaConfigRouter);

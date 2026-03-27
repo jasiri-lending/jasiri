@@ -10,18 +10,19 @@ const log = createLogger({ service: "tenantResolver" });
 
 // ── Resolve tenant by M-Pesa shortcode (most reliable) ────────────
 // Safaricom's BusinessShortCode field is globally unique → best lookup key.
-export async function resolveTenantByShortcode(shortcode) {
+export async function resolveTenantByShortcode(shortcode, serviceType = "c2b") {
   if (!shortcode) return null;
 
   const { data, error } = await supabaseAdmin
     .from("tenant_mpesa_config")
     .select("tenant_id, paybill_number, till_number, environment, consumer_key, consumer_secret, passkey, callback_url, shortcode")
     .eq("is_active", true)
+    .eq("service_type", serviceType)
     .or(`paybill_number.eq.${shortcode},till_number.eq.${shortcode},shortcode.eq.${shortcode}`)
     .maybeSingle();
 
   if (error) {
-    log.error({ error, shortcode }, "Shortcode tenant lookup error");
+    log.error({ error, shortcode, serviceType }, "Shortcode tenant lookup error");
     return null;
   }
 
@@ -54,13 +55,13 @@ export async function resolveTenantByPhone(phone, serviceType = "c2b") {
 }
 
 // ── Full resolution: shortcode → phone → null ─────────────────────
-export async function resolveTransaction(shortcode, phone) {
-  let cfg = await resolveTenantByShortcode(shortcode);
+export async function resolveTransaction(shortcode, phone, serviceType = "c2b") {
+  let cfg = await resolveTenantByShortcode(shortcode, serviceType);
   if (!cfg) {
-    log.warn({ shortcode, phone }, "Shortcode not matched — trying phone fallback");
-    cfg = await resolveTenantByPhone(phone);
+    log.warn({ shortcode, phone, serviceType }, "Shortcode not matched — trying phone fallback");
+    cfg = await resolveTenantByPhone(phone, serviceType);
   }
-  if (!cfg) log.warn({ shortcode, phone }, "Could not resolve tenant");
+  if (!cfg) log.warn({ shortcode, phone, serviceType }, "Could not resolve tenant");
   return cfg;
 }
 
