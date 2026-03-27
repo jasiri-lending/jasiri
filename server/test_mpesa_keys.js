@@ -41,6 +41,7 @@ async function testKeys() {
   const secret = decrypt(config.consumer_secret);
   
   console.log(`Environment: ${config.environment}`);
+  console.log(`Paybill: ${config.paybill_number}`);
   console.log(`Key Start: ${key.substring(0, 4)}... (Length: ${key.length})`);
   console.log(`Secret Start: ${secret.substring(0, 4)}... (Length: ${secret.length})`);
   
@@ -53,7 +54,19 @@ async function testKeys() {
     const res = await axios.get(`${baseUrl}/oauth/v1/generate?grant_type=client_credentials`, {
       headers: { Authorization: `Basic ${auth}` }
     });
+    const token = res.data.access_token;
     console.log("SUCCESS! Token received.");
+    
+    console.log(`Starting Registration for ${config.paybill_number}...`);
+    const regRes = await axios.post(`${baseUrl}/mpesa/c2b/v1/registerurl`, {
+       ShortCode: config.paybill_number,
+       ResponseType: 'Completed',
+       ConfirmationURL: config.confirmation_url,
+       ValidationURL: config.validation_url
+    }, {
+       headers: { Authorization: `Bearer ${token}` }
+    });
+    console.log("REGISTRATION SUCCESS!", regRes.data);
   } catch (err) {
     console.log(`FAILURE: Status ${err.response?.status} - ${JSON.stringify(err.response?.data || err.message)}`);
   }
