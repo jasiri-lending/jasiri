@@ -263,8 +263,11 @@ b2c.post("/result", async (req, res) => {
           }
 
           const encodedMsg = encodeURIComponent(message.trim());
-          const url = `${smsConfig.base_url}?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
-          const response = await axios.get(url, { timeout: 10_000 });
+          // IMPORTANT: Celcom Africa requires a trailing slash before the query parameters
+          const url = `${smsConfig.base_url}/?apikey=${smsConfig.api_key}&partnerID=${smsConfig.partner_id}&message=${encodedMsg}&shortcode=${smsConfig.shortcode}&mobile=${customerMobile}`;
+          
+          log.info({ loanId, phone: customerMobile }, "Sending SMS via Celcom gateway...");
+          const response = await axios.get(url, { timeout: 15_000 });
 
           if (response.status !== 200) {
             throw new Error(`SMS send failed (${response.status}): ${JSON.stringify(response.data).substring(0, 100)}`);
