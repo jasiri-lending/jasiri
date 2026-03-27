@@ -10,6 +10,13 @@ const c2b = express.Router();
 const log = createLogger({ service: "c2b" });
 
 /**
+ * Connectivity test endpoint
+ */
+c2b.get("/test", (req, res) => {
+  res.json({ success: true, message: "C2B callback route is reachable", timestamp: new Date().toISOString() });
+});
+
+/**
  * Convert Safaricom timestamp (YYYYMMDDHHmmss) to ISO 8601 string
  * @param {string} timestamp - e.g., "20250101120000"
  * @returns {string} ISO date string (UTC)
@@ -29,7 +36,7 @@ function parseMpesaTimestamp(timestamp) {
 // C2B Validaton and Confirmation are public callbacks from Safaricom
 // Do NOT apply verifySupabaseToken here
 
-c2b .post("/validation", (req, res) => {
+c2b.post("/validation", (req, res) => {
   log.info("C2B validation received");
   res.json({ ResultCode: 0, ResultDesc: "Accepted" });
 });

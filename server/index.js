@@ -98,6 +98,15 @@ app.get("/health", (req, res) => {
   });
 });
 
+// ✅ Global M-Pesa Request Logger (for debugging connectivity)
+app.use((req, res, next) => {
+  const path = req.path.toLowerCase();
+  if (path.includes("mpesa") || path.includes("validation") || path.includes("confirmation") || path.includes("result")) {
+    console.log(`[MPESA-HIT] ${req.method} ${req.originalUrl} from ${req.ip}`);
+  }
+  next();
+});
+
 // ✅ Register routes - ORDER MATTERS (Public routes first)
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
 app.use("/mpesa/c2b", c2b);

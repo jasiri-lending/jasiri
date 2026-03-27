@@ -329,9 +329,26 @@ export default function AdminEditTenant() {
         )}
 
         {success && (
-          <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex items-center gap-3 text-emerald-700 animate-slide-down shadow-sm">
-            <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
-            <p className="text-sm font-bold">All changes saved successfully!</p>
+          <div className="mb-6 bg-emerald-50 border border-emerald-200 rounded-xl p-6 animate-slide-down shadow-sm space-y-3">
+            <div className="flex items-center gap-3 text-emerald-700">
+              <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
+              <p className="text-sm font-bold">All configuration saved successfully!</p>
+            </div>
+            {formData.c2b_is_active && (
+              <div className="pl-8 space-y-2">
+                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Safaricom Registered Endpoints:</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-white/50 p-2 rounded border border-emerald-100">
+                    <p className="text-[9px] text-slate-400 font-black uppercase">Confirmation</p>
+                    <code className="text-[10px] text-slate-600 block truncate">{formData.confirmation_url || `${window.location.origin}/mpesa/c2b/confirmation`}</code>
+                  </div>
+                  <div className="bg-white/50 p-2 rounded border border-emerald-100">
+                    <p className="text-[9px] text-slate-400 font-black uppercase">Validation</p>
+                    <code className="text-[10px] text-slate-600 block truncate">{formData.validation_url || `${window.location.origin}/mpesa/c2b/validation`}</code>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 

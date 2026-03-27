@@ -4,8 +4,10 @@ import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { encrypt, decrypt } from "../utils/encryption.js";
 import { mpesaRequest } from "../services/mpesa.js";
+import { createLogger } from "../utils/logger.js";
 
 const mpesaConfigRouter = express.Router();
+const log = createLogger({ service: "mpesa_configure" });
 
 // CREATE OR UPDATE TENANT MPESA CONFIG
 mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantAccess, async (req, res) => {
@@ -130,12 +132,14 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
 
     if (tenantInitError) console.error("Error updating onboarding status:", tenantInitError);
 
-    // 6️⃣ Register C2B URLs with Safaricom
     if (service_type === "c2b") {
+      log.info({ tenant_id }, "Starting automated Safaricom C2B URL registration...");
       try {
-        const c2bShortcode = paybill_number || till_number || shortcode;
+        const c2bShortcode = paybill_number || shortcode; 
         if (!c2bShortcode) {
-          console.warn(`[mpesa_configure] No shortcode/paybill/till provided for tenant ${tenant_id}, skipping URL registration.`);
+          log.warn({ tenant_id }, "No paybill/shortcode found for C2B registration — skipping");
+        } else if (!finalConfirmationUrl || !finalValidationUrl) {
+          log.warn({ tenant_id }, "Candidate URLs missing for registration — skipping");
         } else {
           const registerPayload = {
             ShortCode: c2bShortcode,
@@ -144,25 +148,35 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
             ValidationURL: finalValidationUrl
           };
 
-          console.log(`[mpesa_configure] Registering C2B URLs for tenant ${tenant_id}...`, registerPayload);
+          log.info({ tenant_id, registerPayload }, "Registering C2B URLs with Safaricom...");
           
-          await mpesaRequest(
+          const registerResult = await mpesaRequest(
             configData, // mpesaRequest expects encrypted config
             "POST",
             "/mpesa/c2b/v1/registerurl",
             registerPayload
           );
           
-          console.log(`[mpesa_configure] C2B URLs registered successfully for tenant ${tenant_id}.`);
+          log.info({ tenant_id, registerResult }, "C2B URLs registered successfully with Safaricom");
         }
       } catch (mpesaErr) {
-        console.error(`[mpesa_configure] Failed to register C2B URLs with Safaricom:`, mpesaErr.message);
-        // We catch the error so we don't fail the entire config save
-        // but the user will need to try again or fix credentials
+        log.error({ 
+          err: mpesaErr.message, 
+          tenant_id, 
+          response: mpesaErr.response?.data 
+        }, "CRITICAL: Safaricom URL Registration Failed");
       }
     }
 
-    res.json({ success: true, message: "Tenant MPESA config saved and onboarding completed", data });
+    res.json({ 
+      success: true, 
+      message: "Tenant MPESA config saved and onboarding completed", 
+      data,
+      urls: {
+        confirmation: finalConfirmationUrl,
+        validation: finalValidationUrl
+      }
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
