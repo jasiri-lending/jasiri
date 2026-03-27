@@ -93,8 +93,8 @@ app.get("/health", (req, res) => {
 
 // ✅ FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
 app.get("/diagnostic-mpesa-sync", async (req, res) => {
+  const tenantId = "96687e31-cde9-4822-94ed-e0207cf74283";
   try {
-    const tenantId = "96687e31-cde9-4822-94ed-e0207cf74283";
     const { data: config, error: fetchErr } = await supabaseAdmin
       .from("tenant_mpesa_config")
       .select("*")
@@ -117,11 +117,47 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
     };
 
     console.log(`[DIAGNOSTIC] Registering for ${tenantId} at ${config.confirmation_url}`);
-    const registerResult = await mpesaRequest({ ...config, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, "POST", "/mpesa/c2b/v1/registerurl", payload);
     
-    res.json({ success: true, payload, safaricom_response: registerResult });
+    // Attempt registration
+    try {
+      const registerResult = await mpesaRequest(
+        { ...config, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, 
+        "POST", 
+        "/mpesa/c2b/v1/registerurl", 
+        payload
+      );
+      return res.json({ success: true, message: "Sync successful!", safaricom_response: registerResult });
+    } catch (mpesaErr) {
+       // If it fails with 401, maybe the environment is wrong?
+       const envFlip = config.environment === 'production' ? 'sandbox' : 'production';
+       console.warn(`[DIAGNOSTIC] First attempt failed (${config.environment}). Trying ${envFlip}...`);
+       
+       try {
+         const retryResult = await mpesaRequest(
+           { ...config, environment: envFlip, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, 
+           "POST", 
+           "/mpesa/c2b/v1/registerurl", 
+           payload
+         );
+         return res.json({ 
+            success: true, 
+            message: `Sync successful after switching environment to ${envFlip}!`, 
+            safaricom_response: retryResult 
+         });
+       } catch (retryErr) {
+         return res.status(500).json({ 
+            success: false, 
+            error: "Safaricom Rejected Credentials in both environments.",
+            primary_error: mpesaErr.message,
+            primary_env: config.environment,
+            secondary_error: retryErr.message,
+            secondary_env: envFlip,
+            details: retryErr.response?.data || "No details available"
+         });
+       }
+    }
   } catch (err) {
-    console.error("[DIAGNOSTIC] Error:", err);
+    console.error("[DIAGNOSTIC] System Error:", err);
     res.status(500).json({ error: err.message });
   }
 });
