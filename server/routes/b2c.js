@@ -145,13 +145,7 @@ b2c.post("/result", async (req, res) => {
       const isSuccess = Result.ResultCode === 0;
       const status = isSuccess ? "success" : "failed";
 
-      const items = Result.ReferenceData?.ReferenceItem;
-      const occasion = Array.isArray(items) 
-         ? items.find((i) => i.Key === "Occasion")?.Value 
-         : items?.Value;
-      const loanId = occasion?.replace("loan-", "");
-
-      // Find the original transaction
+      // Find the original transaction using conversation IDs
       const { data: tx, error } = await supabaseAdmin
         .from("loan_disbursement_transactions")
         .select("*")
@@ -162,6 +156,8 @@ b2c.post("/result", async (req, res) => {
         log.error({ error, convId, originatorId }, "Could not find disbursement transaction for callback");
         return;
       }
+
+      const loanId = tx.loan_id;
 
       // Update the transaction record directly
       const { error: updateError } = await supabaseAdmin
@@ -327,10 +323,7 @@ b2c.post("/timeout", async (req, res) => {
         })
         .eq("id", tx.id);
         
-      // Revert the loan status
-      const items = Result.ReferenceData?.ReferenceItem;
-      const occasion = Array.isArray(items) ? items.find((i) => i.Key === "Occasion")?.Value : items?.Value;
-      const loanId = occasion?.replace("loan-", "");
+      const loanId = tx.loan_id;
       if (loanId) {
         await supabaseAdmin
           .from("loans")
