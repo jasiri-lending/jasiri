@@ -180,7 +180,7 @@ b2c.post("/result", async (req, res) => {
 
       // Update loan status based on success/failure
       if (isSuccess && loanId) {
-        await supabaseAdmin
+        const loanUpdate = await supabaseAdmin
           .from("loans")
           .update({
             status: "disbursed",
