@@ -80,15 +80,6 @@ function generateSecurePassword(length = 12) {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// ✅ JSON Parser (with limit for large payloads protection)
-app.use(express.json({ limit: '10kb' }));
-
-// ✅ Audit Logging Middleware
-app.use(auditMiddleware);
-
-
-
-// ✅ Health check endpoint
 app.get("/health", (req, res) => {
   res.json({
     status: "ok",
@@ -121,6 +112,9 @@ app.use((req, res, next) => {
   }
   next();
 });
+
+// ✅ JSON Parser (with limit increased for M-Pesa protection)
+app.use(express.json({ limit: '100kb' }));
 
 // ✅ Register routes - ORDER MATTERS (Public routes first)
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
