@@ -101,6 +101,14 @@ app.get("/health", (req, res) => {
 // ✅ Global M-Pesa Request Logger (High-visibility for debugging connectivity)
 import { logger } from "./utils/logger.js";
 app.use((req, res, next) => {
+  if (req.method === "POST") {
+    logger.info({ 
+      source: "GLOBAL-POST", 
+      url: req.originalUrl, 
+      ip: req.ip,
+      body: req.body 
+    }, `[POST-HIT] ${req.originalUrl}`);
+  }
   const path = req.path.toLowerCase();
   if (path.includes("mpesa") || path.includes("validation") || path.includes("confirmation") || path.includes("result")) {
     logger.info({ 
