@@ -157,7 +157,13 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
             registerPayload
           );
           
-          log.info({ tenant_id, registerResult }, "C2B URLs registered successfully with Safaricom");
+          log.info({ tenant_id, registerResult }, "Safaricom RegisterURL Response Received");
+
+          if (registerResult.ResponseCode === "0" || registerResult.ResponseCode === 0) {
+            log.info({ tenant_id }, "Safaricom C2B URLs registered successfully");
+          } else {
+            log.error({ tenant_id, registerResult }, "CRITICAL: Safaricom URL Registration Rejected");
+          }
         }
       } catch (mpesaErr) {
         log.error({ 
