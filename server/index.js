@@ -89,6 +89,43 @@ app.get("/health", (req, res) => {
   });
 });
 
+// ✅ FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
+import { decrypt } from "./utils/encryption.js";
+import { mpesaRequest } from "./services/mpesa.js";
+app.get("/diagnostic-mpesa-sync", async (req, res) => {
+  try {
+    const tenantId = "96687e31-cde9-4822-94ed-e0207cf74283";
+    const { data: config, error: fetchErr } = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .select("*")
+      .eq("tenant_id", tenantId)
+      .eq("service_type", "c2b")
+      .single();
+
+    if (fetchErr || !config) return res.status(404).json({ error: "Config not found in DB" });
+
+    // Decrypt credentials
+    const consumerKey = decrypt(config.consumer_key);
+    const consumerSecret = decrypt(config.consumer_secret);
+    const passkey = decrypt(config.passkey);
+
+    const payload = {
+      ShortCode: config.paybill_number || config.shortcode,
+      ResponseType: "Completed",
+      ConfirmationURL: config.confirmation_url,
+      ValidationURL: config.validation_url
+    };
+
+    console.log(`[DIAGNOSTIC] Registering for ${tenantId} at ${config.confirmation_url}`);
+    const registerResult = await mpesaRequest({ ...config, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, "POST", "/mpesa/c2b/v1/registerurl", payload);
+    
+    res.json({ success: true, payload, safaricom_response: registerResult });
+  } catch (err) {
+    console.error("[DIAGNOSTIC] Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ✅ Global M-Pesa Request Logger (High-visibility for debugging connectivity)
 import { logger } from "./utils/logger.js";
 app.use((req, res, next) => {
@@ -118,9 +155,9 @@ app.use(express.json({ limit: '100kb' }));
 
 // ✅ Register routes - ORDER MATTERS (Public routes first)
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
+// ✅ Register M-Pesa Callback Routes (Directly on root for Safaricom)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
-// Mount M-Pesa callbacks on root to directly support tenant config URLs (e.g. domain.com/validation)
 app.use("/", c2b);
 app.use("/", b2c);
 app.use("/mpesa/transaction-status", transactionStatus);

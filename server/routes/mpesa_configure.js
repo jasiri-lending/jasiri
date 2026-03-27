@@ -247,4 +247,49 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id/all", verifySupabaseToken
   }
 });
 
+// DIAGNOSTIC ONLY: Force register URLs for a tenant
+mpesaConfigRouter.get("/diagnostic/register-urls/:tenant_id", async (req, res) => {
+  try {
+    const { tenant_id } = req.params;
+    const { service_type = "c2b" } = req.query;
+    
+    const { data: config, error: fetchErr } = await supabaseAdmin
+      .from("tenant_mpesa_config")
+      .select("*")
+      .eq("tenant_id", tenant_id)
+      .eq("service_type", service_type)
+      .single();
+
+    if (fetchErr || !config) return res.status(404).json({ error: "Config not found in DB" });
+
+    // Decrypt credentials
+    config.consumer_key = decrypt(config.consumer_key);
+    config.consumer_secret = decrypt(config.consumer_secret);
+
+    const payload = {
+      ShortCode: config.paybill_number || config.shortcode,
+      ResponseType: "Completed",
+      ConfirmationURL: config.confirmation_url,
+      ValidationURL: config.validation_url
+    };
+
+    log.info({ tenant_id, payload }, "DIAGNOSTIC: Triggering Safaricom registration");
+
+    const registerResult = await mpesaRequest(
+      config, 
+      "POST", 
+      "/mpesa/c2b/v1/registerurl", 
+      payload
+    );
+
+    res.json({ 
+      success: true, 
+      sent_payload: payload,
+      safaricom_response: registerResult 
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 export default mpesaConfigRouter;
