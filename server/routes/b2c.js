@@ -99,7 +99,7 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
     const { error: loanUpdateError } = await supabaseAdmin
       .from("loans")
       .update({
-        status: 'disbursed',
+        status: 'processing',
         disbursed_at: new Date().toISOString(),
         mpesa_transaction_id: convId,
         disbursement_notes: notes || `Loan Disbursement #${loan_id}`,
@@ -203,7 +203,7 @@ b2c.post("/result", async (req, res) => {
             mpesa_transaction_id: Result.TransactionID,
           })
           .eq("id", loanId)
-          .eq("status", "ready_for_disbursement");
+          .in("status", ["processing", "ready_for_disbursement"]);
           
         log.info({ loanId, transactionId: Result.TransactionID }, "Loan marked as disbursed");
 
@@ -219,8 +219,17 @@ b2c.post("/result", async (req, res) => {
 
           if (custErr || !cust) throw new Error(`Customer not found: ${tx.customer_id}`);
           const firstName = cust.Firstname || "Customer";
-          const customerMobile = cust.mobile;
-          if (!customerMobile) throw new Error("Customer mobile missing");
+          const formatPhone = (phone) => {
+            if (!phone) return "";
+            const cleaned = String(phone).replace(/\D/g, "");
+            if (cleaned.startsWith("254") && cleaned.length === 12) return cleaned;
+            if (cleaned.startsWith("0") && cleaned.length === 10) return "254" + cleaned.substring(1);
+            if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("1"))) return "254" + cleaned;
+            return cleaned;
+          };
+
+          const customerMobile = formatPhone(cust.mobile);
+          if (!customerMobile) throw new Error("Customer mobile missing or invalid");
 
           const { data: tenantConfig, error: cfgErr } = await supabaseAdmin
             .from("tenant_mpesa_config")
@@ -260,7 +269,8 @@ b2c.post("/result", async (req, res) => {
           const response = await fetch(url);
 
           if (!response.ok) {
-            throw new Error(`SMS send failed (${response.status})`);
+            const errBody = await response.text();
+            throw new Error(`SMS send failed (${response.status}): ${errBody.substring(0, 100)}`);
           }
 
           await supabaseAdmin.from("sms_logs").insert({
