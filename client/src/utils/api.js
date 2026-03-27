@@ -1,5 +1,4 @@
-// src/utils/api.js
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "https://jasiri-backend.onrender.com";
 
 /**
  * Standard API fetch wrapper that includes the Supabase JWT in the Authorization header.
