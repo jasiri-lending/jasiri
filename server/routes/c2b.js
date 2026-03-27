@@ -2,7 +2,7 @@ import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
 import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
 import { resolveTransaction } from "../services/tenantResolver.js";
-import { enqueueJob } from "../queue/paymentQueue.js";
+import { processC2BTransaction } from "../services/c2bProcessor.js";
 import { JOB_TYPES } from "../config/env.js";
 import { createLogger } from "../utils/logger.js";
 
@@ -102,9 +102,9 @@ c2b.post("/confirmation", async (req, res) => {
         tenant_id: tenantId,
       }, { onConflict: "transaction_id", ignoreDuplicates: true });
 
-      // Enqueue for processing
-      await enqueueJob({ tenantId, jobType, payload: { transaction_id: TransID }, priority });
-      log.info({ TransID, tenantId, jobType }, "Transaction queued");
+      // Process instantly natively on the server
+      log.info({ TransID, tenantId, jobType }, "Starting instant C2B processing");
+      await processC2BTransaction(TransID, tenantId);
 
     } catch (err) {
       log.error({ err: err.message, TransID }, "Failed to queue C2B transaction");
