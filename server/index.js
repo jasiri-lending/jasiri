@@ -26,6 +26,8 @@ import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import AccountRouter from "./routes/accounts.js";
 import scoringRouter from "./routes/scoring.js";
+import { decrypt } from "./utils/encryption.js";
+import { mpesaRequest } from "./services/mpesa.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
 
@@ -90,8 +92,6 @@ app.get("/health", (req, res) => {
 });
 
 // ✅ FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
-import { decrypt } from "./utils/encryption.js";
-import { mpesaRequest } from "./services/mpesa.js";
 app.get("/diagnostic-mpesa-sync", async (req, res) => {
   try {
     const tenantId = "96687e31-cde9-4822-94ed-e0207cf74283";
@@ -407,8 +407,8 @@ app.use((err, req, res, next) => {
 
 // Start server
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`✅ Server running on http://localhost:${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/health`);
+app.listen(PORT, "0.0.0.0", () => {
+  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
+  console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
   console.log(`📍 Report users: http://localhost:${PORT}/api/report-users/create`);
 });
