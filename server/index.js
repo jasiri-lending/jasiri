@@ -104,10 +104,10 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
 
     if (fetchErr || !config) return res.status(404).json({ error: "Config not found in DB" });
 
-    // Decrypt credentials
-    const consumerKey = decrypt(config.consumer_key);
-    const consumerSecret = decrypt(config.consumer_secret);
-    const passkey = decrypt(config.passkey);
+    // Use credentials directly (plain text)
+    const consumerKey = config.consumer_key;
+    const consumerSecret = config.consumer_secret;
+    const passkey = config.passkey;
 
     const payload = {
       ShortCode: config.paybill_number || config.shortcode,
@@ -118,7 +118,7 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
 
     console.log(`[DIAGNOSTIC] Registering for ${tenantId} at ${config.confirmation_url}`);
     
-    // Attempt registration
+    // Attempt registration ONLY for the saved environment
     try {
       const registerResult = await mpesaRequest(
         { ...config, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, 
@@ -126,35 +126,15 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
         "/mpesa/c2b/v1/registerurl", 
         payload
       );
-      return res.json({ success: true, message: "Sync successful!", safaricom_response: registerResult });
+      return res.json({ success: true, message: `Sync successful for ${config.environment}!`, safaricom_response: registerResult });
     } catch (mpesaErr) {
-       // If it fails with 401, maybe the environment is wrong?
-       const envFlip = config.environment === 'production' ? 'sandbox' : 'production';
-       console.warn(`[DIAGNOSTIC] First attempt failed (${config.environment}). Trying ${envFlip}...`);
-       
-       try {
-         const retryResult = await mpesaRequest(
-           { ...config, environment: envFlip, consumer_key: consumerKey, consumer_secret: consumerSecret, passkey }, 
-           "POST", 
-           "/mpesa/c2b/v1/registerurl", 
-           payload
-         );
-         return res.json({ 
-            success: true, 
-            message: `Sync successful after switching environment to ${envFlip}!`, 
-            safaricom_response: retryResult 
-         });
-       } catch (retryErr) {
-         return res.status(500).json({ 
-            success: false, 
-            error: "Safaricom Rejected Credentials in both environments.",
-            primary_error: mpesaErr.message,
-            primary_env: config.environment,
-            secondary_error: retryErr.message,
-            secondary_env: envFlip,
-            details: retryErr.response?.data || "No details available"
-         });
-       }
+       log.error({ err: mpesaErr.message, tenantId, env: config.environment }, "Diagnostic sync failed");
+       return res.status(500).json({ 
+          success: false, 
+          error: `Safaricom Rejected Credentials in ${config.environment}.`,
+          message: mpesaErr.message,
+          details: mpesaErr.response?.data || "No details available"
+       });
     }
   } catch (err) {
     console.error("[DIAGNOSTIC] System Error:", err);
