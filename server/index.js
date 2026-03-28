@@ -92,6 +92,8 @@ app.get("/health", (req, res) => {
 
 // ✅ FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
 app.get("/diagnostic-mpesa-sync", async (req, res) => {
+  console.log("-----------------------------------------");
+  console.log("[DIAGNOSTIC] STARTING SYNC...");
   const tenantId = "96687e31-cde9-4822-94ed-e0207cf74283";
   try {
     const { data: config, error: fetchErr } = await supabaseAdmin
