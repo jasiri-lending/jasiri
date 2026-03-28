@@ -54,10 +54,10 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
 
   try {
     // 3️⃣ Encrypt sensitive credentials
-    const encryptedKey = consumer_key;
-    const encryptedSecret = consumer_secret;
-    const encryptedPasskey = passkey;
-    const encryptedSecurityCredential = security_credential;
+    const encryptedKey = (consumer_key || "").trim();
+    const encryptedSecret = (consumer_secret || "").trim();
+    const encryptedPasskey = (passkey || "").trim();
+    const encryptedSecurityCredential = (security_credential || "").trim();
 
     // Helper for URL formatting
     const formatAppEndpoint = (baseUrl, endpoint) => {
