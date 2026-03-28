@@ -38,8 +38,8 @@ router.post("/query", async (req, res) => {
       TransactionID: transaction_id,
       PartyA: tenantConfig.shortcode || tenantConfig.paybill_number || tenantConfig.till_number,
       IdentifierType: "4", // 4 for Organization shortcode
-      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/c" : "/mpesa"}/transaction-status/result`,
-      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/c" : "/mpesa"}/transaction-status/timeout`,
+      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/transaction-status/result`,
+      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/transaction-status/timeout`,
       Remarks: remarks,
       Occasion: `status-${transaction_id}`,
     };

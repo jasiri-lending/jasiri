@@ -56,7 +56,7 @@ stkpush.post("/stkpush", verifySupabaseToken, checkTenantAccess, async (req, res
       PartyA: phone,
       PartyB: shortcode,
       PhoneNumber: phone,
-      CallBackURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/c" : "/mpesa"}/c2b/stkpush/callback`,
+      CallBackURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/c2b/stkpush/callback`,
       AccountReference: billRef,
       TransactionDesc: description,
     };
