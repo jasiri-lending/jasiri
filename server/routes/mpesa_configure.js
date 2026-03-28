@@ -58,6 +58,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     const encryptedSecret = (consumer_secret || "").trim();
     const encryptedPasskey = (passkey || "").trim();
     const encryptedSecurityCredential = (security_credential || "").trim();
+    const cleanedShortcode = (shortcode || "").trim();
+    const cleanedPaybill = (paybill_number || "").trim();
+    const cleanedTill = (till_number || "").trim();
 
     // Improved helper for URL formatting to prevent path duplication
     const formatAppEndpoint = (baseUrl, endpoint) => {
@@ -98,16 +101,16 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     const configData = {
       tenant_id,
       service_type,
-      paybill_number: paybill_number || null,
-      till_number: till_number || null,
+      paybill_number: cleanedPaybill || null,
+      till_number: cleanedTill || null,
       consumer_key: encryptedKey,
       consumer_secret: encryptedSecret,
       passkey: encryptedPasskey,
-      shortcode,
+      shortcode: cleanedShortcode || null,
       confirmation_url: finalConfirmationUrl,
       validation_url: finalValidationUrl,
       callback_url: finalCallbackUrl,
-      initiator_name,
+      initiator_name: (initiator_name || "").trim(),
       initiator_password: null, // Clear unused field from DB
       security_credential: encryptedSecurityCredential,
       environment: environment || 'sandbox',

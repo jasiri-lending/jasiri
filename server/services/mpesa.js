@@ -13,9 +13,12 @@ export async function getTenantMpesaToken(tenantConfig) {
   const consumer_secret = (tenantConfig.consumer_secret || "").trim();
 
   if (!consumer_key || !consumer_secret) {
-    log.error({ tenant_id }, "Missing MPESA consumer_key or consumer_secret");
     throw new Error("M-Pesa configuration error: Missing credentials");
   }
+
+  console.log("ENV:", environment);
+  console.log("KEY:", consumer_key);
+  console.log("SECRET:", consumer_secret);
 
   try {
     const baseUrl = environment === "production"
@@ -24,11 +27,6 @@ export async function getTenantMpesaToken(tenantConfig) {
 
     const auth_str = `${consumer_key}:${consumer_secret}`;
     const auth = Buffer.from(auth_str).toString("base64");
-    
-    // Masked logs for user verification
-    const masked_key = consumer_key.substring(0, 5) + "..." + consumer_key.substring(consumer_key.length - 5);
-    const masked_secret = consumer_secret.substring(0, 5) + "..." + consumer_secret.substring(consumer_secret.length - 5);
-    console.log(`[getTenantMpesaToken] Concatenation (Masked): ${masked_key}:${masked_secret}`);
     
     const response = await axios.get(
       `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
@@ -41,7 +39,7 @@ export async function getTenantMpesaToken(tenantConfig) {
     );
 
     const token = response.data.access_token;
-    console.log(`[getTenantMpesaToken] Token Generated for ${environment}: ${token.substring(0, 20)}...`);
+    console.log("TOKEN:", token);
 
     return token;
   } catch (err) {
@@ -113,6 +111,6 @@ export function getMpesaTimestamp() {
  * Build STK push password
  */
 export function buildStkPassword(shortcode, passkey, timestamp) {
-  const str = shortcode + passkey + timestamp;
+  const str = (shortcode || "").toString().trim() + (passkey || "").toString().trim() + (timestamp || "").toString().trim();
   return Buffer.from(str).toString('base64');
 }
