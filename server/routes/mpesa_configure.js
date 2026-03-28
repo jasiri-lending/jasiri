@@ -59,12 +59,21 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     const encryptedPasskey = (passkey || "").trim();
     const encryptedSecurityCredential = (security_credential || "").trim();
 
-    // Helper for URL formatting
+    // Improved helper for URL formatting to prevent path duplication
     const formatAppEndpoint = (baseUrl, endpoint) => {
       if (!baseUrl) return "";
-      let cleaned = baseUrl.trim().replace(/\/$/, "");
-      if (cleaned.endsWith(endpoint)) return cleaned;
-      return `${cleaned}${endpoint}`;
+      try {
+        // Try to get just the origin (domain) to avoid duplicating paths like /mpesa/c2b/...
+        const url = new URL(baseUrl.trim());
+        return `${url.origin}${endpoint}`;
+      } catch (e) {
+        // Fallback if the provided baseUrl isn't a full URL
+        let cleaned = baseUrl.trim().replace(/\/$/, "");
+        // Remove existing suffixes if they exist
+        cleaned = cleaned.replace(/\/mpesa\/c2b\/(confirmation|validation)$/i, "");
+        cleaned = cleaned.replace(/\/api\/c2b\/(confirmation|validation)$/i, "");
+        return `${cleaned}${endpoint}`;
+      }
     };
 
     let finalConfirmationUrl = confirmation_url;

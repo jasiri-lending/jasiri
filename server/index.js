@@ -26,7 +26,6 @@ import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import AccountRouter from "./routes/accounts.js";
 import scoringRouter from "./routes/scoring.js";
-import { decrypt } from "./utils/encryption.js";
 import { mpesaRequest } from "./services/mpesa.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
