@@ -41,7 +41,7 @@ export async function getTenantMpesaToken(tenantConfig) {
     );
 
     const token = response.data.access_token;
-    console.log(`[getTenantMpesaToken] Token Generated for ${environment} successfully.`);
+    console.log(`[getTenantMpesaToken] Token Generated for ${environment}: ${token.substring(0, 20)}...`);
 
     return token;
   } catch (err) {
