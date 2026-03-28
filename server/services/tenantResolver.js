@@ -10,19 +10,19 @@ const log = createLogger({ service: "tenantResolver" });
 
 // ── Resolve tenant by M-Pesa shortcode (most reliable) ────────────
 // Safaricom's BusinessShortCode field is globally unique → best lookup key.
-export async function resolveTenantByShortcode(shortcode, serviceType = "c2b") {
+export async function resolveTenantByShortcode(shortcode) {
   if (!shortcode) return null;
 
+  // Try to find the shortcode across ANY service type (c2b or b2c)
   const { data, error } = await supabaseAdmin
     .from("tenant_mpesa_config")
-    .select("tenant_id, paybill_number, till_number, environment, consumer_key, consumer_secret, passkey, callback_url, shortcode")
+    .select("tenant_id, paybill_number, till_number, environment, consumer_key, consumer_secret, passkey, callback_url, shortcode, service_type")
     .eq("is_active", true)
-    .eq("service_type", serviceType)
     .or(`paybill_number.eq.${shortcode},till_number.eq.${shortcode},shortcode.eq.${shortcode}`)
     .maybeSingle();
 
   if (error) {
-    log.error({ error, shortcode, serviceType }, "Shortcode tenant lookup error");
+    log.error({ error, shortcode }, "Shortcode tenant lookup error");
     return null;
   }
 
@@ -30,7 +30,7 @@ export async function resolveTenantByShortcode(shortcode, serviceType = "c2b") {
 }
 
 // ── Resolve tenant by customer phone number (fallback) ────────────
-export async function resolveTenantByPhone(phone, serviceType = "c2b") {
+export async function resolveTenantByPhone(phone) {
   if (!phone) return null;
   const formats = normalizePhone(phone);
 
@@ -46,8 +46,8 @@ export async function resolveTenantByPhone(phone, serviceType = "c2b") {
     .from("tenant_mpesa_config")
     .select("*")
     .eq("tenant_id", customer.tenant_id)
-    .eq("service_type", serviceType)
     .eq("is_active", true)
+    .limit(1) // Pick the first active config (c2b or b2c)
     .maybeSingle();
 
   if (!mpesaConfig) return null;
@@ -55,18 +55,19 @@ export async function resolveTenantByPhone(phone, serviceType = "c2b") {
 }
 
 // ── Full resolution: shortcode → phone → null ─────────────────────
-export async function resolveTransaction(shortcode, phone, serviceType = "c2b") {
-  let cfg = await resolveTenantByShortcode(shortcode, serviceType);
+export async function resolveTransaction(shortcode, phone) {
+  let cfg = await resolveTenantByShortcode(shortcode);
   if (!cfg) {
-    log.warn({ shortcode, phone, serviceType }, "Shortcode not matched — trying phone fallback");
-    cfg = await resolveTenantByPhone(phone, serviceType);
+    log.warn({ shortcode, phone }, "Shortcode not matched — trying phone fallback");
+    cfg = await resolveTenantByPhone(phone);
   }
-  if (!cfg) log.warn({ shortcode, phone, serviceType }, "Could not resolve tenant");
+  if (!cfg) log.warn({ shortcode, phone }, "Could not resolve tenant");
   return cfg;
 }
 
 // ── Get a tenant's full M-Pesa config (throws if missing) ─────────
 export async function getTenantConfig(tenantId, serviceType = "c2b") {
+  // 1. Try specified service type
   const { data, error } = await supabaseAdmin
     .from("tenant_mpesa_config")
     .select("*")
@@ -75,8 +76,23 @@ export async function getTenantConfig(tenantId, serviceType = "c2b") {
     .eq("is_active", true)
     .maybeSingle();
 
-  if (error || !data) throw new Error(`No active ${serviceType} M-Pesa config for tenant ${tenantId}`);
-  return data;
+  if (data) return data;
+
+  // 2. Fallback to the other type (c2b/b2c sharing credentials)
+  const otherType = serviceType === "c2b" ? "b2c" : "c2b";
+  log.info({ tenantId, requested: serviceType, tryingFallback: otherType }, "M-Pesa config fallback triggered");
+
+  const { data: fallback, error: fallErr } = await supabaseAdmin
+    .from("tenant_mpesa_config")
+    .select("*")
+    .eq("tenant_id", tenantId)
+    .eq("service_type", otherType)
+    .eq("is_active", true)
+    .maybeSingle();
+
+  if (fallback) return fallback;
+
+  throw new Error(`No active M-Pesa config (c2b or b2c) found for tenant ${tenantId}`);
 }
 
 // ── Phone normalisation — produces all format variants ────────────
