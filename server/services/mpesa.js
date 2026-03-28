@@ -22,7 +22,14 @@ export async function getTenantMpesaToken(tenantConfig) {
       ? "https://api.safaricom.co.ke"
       : "https://sandbox.safaricom.co.ke";
 
-    const auth = Buffer.from(`${consumer_key}:${consumer_secret}`).toString("base64");
+    const auth_str = `${consumer_key}:${consumer_secret}`;
+    const auth = Buffer.from(auth_str).toString("base64");
+    
+    // Masked logs for user verification
+    const masked_key = consumer_key.substring(0, 5) + "..." + consumer_key.substring(consumer_key.length - 5);
+    const masked_secret = consumer_secret.substring(0, 5) + "..." + consumer_secret.substring(consumer_secret.length - 5);
+    console.log(`[getTenantMpesaToken] Concatenation (Masked): ${masked_key}:${masked_secret}`);
+    
     const response = await axios.get(
       `${baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
       {
@@ -34,8 +41,7 @@ export async function getTenantMpesaToken(tenantConfig) {
     );
 
     const token = response.data.access_token;
-    const masked = token.substring(0, 10) + "..." + token.substring(token.length - 10);
-    console.log(`[getTenantMpesaToken] Token Generated for ${environment}: ${masked}`);
+    console.log(`[getTenantMpesaToken] Token Generated for ${environment} successfully.`);
 
     return token;
   } catch (err) {
