@@ -128,7 +128,7 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
       );
       return res.json({ success: true, message: `Sync successful for ${config.environment}!`, safaricom_response: registerResult });
     } catch (mpesaErr) {
-       log.error({ err: mpesaErr.message, tenantId, env: config.environment }, "Diagnostic sync failed");
+       logger.error({ err: mpesaErr.message, tenantId, env: config.environment }, "Diagnostic sync failed");
        return res.status(500).json({ 
           success: false, 
           error: `Safaricom Rejected Credentials in ${config.environment}.`,
