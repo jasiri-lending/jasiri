@@ -76,8 +76,8 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
       PartyA: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,
       PartyB: phone,
       Remarks: notes || `Loan Disbursement #${loan_id}`,
-      QueueTimeOutURL: `${tenantConfig.callback_url}/mpesa/b2c/timeout`,
-      ResultURL: `${tenantConfig.callback_url}/mpesa/b2c/result`,
+      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/c" : "/mpesa"}/b2c/timeout`,
+      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/c" : "/mpesa"}/b2c/result`,
       Occasion: `loan-${loan_id}`,
     };
 

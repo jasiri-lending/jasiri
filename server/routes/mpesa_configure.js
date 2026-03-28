@@ -71,8 +71,9 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
     let finalValidationUrl = validation_url;
 
     if (service_type === "c2b") {
-      finalConfirmationUrl = formatAppEndpoint(confirmation_url, "/mpesa/c2b/confirmation") || formatAppEndpoint(callback_url, "/mpesa/c2b/confirmation") || "";
-      finalValidationUrl = formatAppEndpoint(validation_url, "/mpesa/c2b/validation") || formatAppEndpoint(callback_url, "/mpesa/c2b/validation") || "";
+      const mpesaPath = (environment === "sandbox") ? "/c" : "/mpesa";
+      finalConfirmationUrl = formatAppEndpoint(confirmation_url, `${mpesaPath}/c2b/confirmation`) || formatAppEndpoint(callback_url, `${mpesaPath}/c2b/confirmation`) || "";
+      finalValidationUrl = formatAppEndpoint(validation_url, `${mpesaPath}/c2b/validation`) || formatAppEndpoint(callback_url, `${mpesaPath}/c2b/validation`) || "";
     }
 
     const finalCallbackUrl = (callback_url || "").trim().replace(/\/$/, "");

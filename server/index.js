@@ -174,6 +174,8 @@ app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password 
 // ✅ Register M-Pesa Callback Routes (Directly on root for Safaricom)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
+app.use("/c/c2b", c2b); // Non-MPESA alias for Sandbox
+app.use("/c/b2c", b2c); // Non-MPESA alias for Sandbox
 app.use("/", c2b);
 app.use("/", b2c);
 app.use("/mpesa/transaction-status", transactionStatus);
@@ -188,6 +190,7 @@ app.use("/api/journal-entries", JournalEntryRouter);
 app.use("/api/chart-of-accounts", AccountRouter);
 app.use("/api/loan-due", LoanDueRouter);
 app.use("/mpesa/c2b", stkpush); // Move STK push here for group
+app.use("/c/c2b", stkpush); // Alias for Sandbox STK callback
 app.use("/api/report-users/create", verifySupabaseToken, createReportUser); // Secure report user creation
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/scoring", scoringRouter);
