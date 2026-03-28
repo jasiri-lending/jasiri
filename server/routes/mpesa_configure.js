@@ -153,7 +153,7 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
         } else {
           const registerPayload = {
             ShortCode: c2bShortcode,
-            ResponseType: "Completed",
+            ResponseType: (environment === "sandbox") ? "Cancelled" : "Completed",
             ConfirmationURL: finalConfirmationUrl,
             ValidationURL: finalValidationUrl
           };

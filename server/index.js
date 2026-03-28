@@ -110,7 +110,7 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
 
     const payload = {
       ShortCode: config.paybill_number || config.shortcode,
-      ResponseType: "Completed",
+      ResponseType: (config.environment === "sandbox") ? "Cancelled" : "Completed",
       ConfirmationURL: config.confirmation_url,
       ValidationURL: config.validation_url
     };
