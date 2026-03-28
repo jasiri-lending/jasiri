@@ -132,7 +132,7 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
           success: false, 
           error: `Safaricom Rejected Credentials in ${config.environment}.`,
           message: mpesaErr.message,
-          details: mpesaErr.response?.data || "No details available"
+          details: mpesaErr.response?.data || "No details available (Check if credentials are set correctly for Production)"
        });
     }
   } catch (err) {

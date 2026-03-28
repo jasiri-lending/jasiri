@@ -45,7 +45,7 @@ export async function getTenantMpesaToken(tenantConfig) {
     } else {
       log.error({ err: err.message, tenant_id }, "Failed to get MPESA token (Network/Timeout)");
     }
-    throw new Error(`Failed to get MPESA token: ${err.message}`);
+    throw err;
   }
 }
 
