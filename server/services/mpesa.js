@@ -9,8 +9,8 @@ const log = createLogger({ service: "mpesa" });
  */
 export async function getTenantMpesaToken(tenantConfig) {
   const { environment, tenant_id } = tenantConfig;
-  const consumer_key = decrypt(tenantConfig.consumer_key);
-  const consumer_secret = decrypt(tenantConfig.consumer_secret);
+  const consumer_key = tenantConfig.consumer_key;
+  const consumer_secret = tenantConfig.consumer_secret;
 
   if (!consumer_key || !consumer_secret) {
     log.error({ tenant_id }, "Missing MPESA consumer_key or consumer_secret");

@@ -339,7 +339,7 @@ tenantRouter.post("/sms-config", verifySupabaseToken, checkTenantAccess, async (
       return res.status(400).json({ error: "Missing required SMS config fields" });
     }
 
-    const encryptedApiKey = encrypt(api_key);
+    const encryptedApiKey = api_key;
 
     const { data, error } = await supabaseAdmin
       .from("tenant_sms_settings")
@@ -373,7 +373,7 @@ tenantRouter.get("/sms-config/:tenantId", verifySupabaseToken, checkTenantAccess
     if (error) throw error;
 
     if (data) {
-      data.api_key = decrypt(data.api_key);
+      data.api_key = data.api_key;
     }
 
     res.status(200).json({ data });

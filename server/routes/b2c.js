@@ -70,7 +70,7 @@ b2c.post("/disburse", checkTenantAccess, async (req, res) => {
     // Prepare B2C request payload using per‑tenant initiator credentials
     const payload = {
       InitiatorName: tenantConfig.initiator_name,               // from tenant config
-      SecurityCredential: decrypt(tenantConfig.security_credential),     // from tenant config
+      SecurityCredential: tenantConfig.security_credential,     // from tenant config
       CommandID: "BusinessPayment",
       Amount: Math.round(amount),
       PartyA: tenantConfig.paybill_number || tenantConfig.till_number || tenantConfig.shortcode,

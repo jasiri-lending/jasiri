@@ -44,9 +44,8 @@ router.post("/query", async (req, res) => {
       Occasion: `status-${transaction_id}`,
     };
 
-    // Need to use the decrypt util like in b2c.js
-    const { decrypt } = await import("../utils/encryption.js");
-    payload.SecurityCredential = decrypt(tenantConfig.security_credential);
+    // No decryption needed - credentials are plain text
+    payload.SecurityCredential = tenantConfig.security_credential;
 
     const mpesaRes = await mpesaRequest(tenantConfig, "POST", "/mpesa/transactionstatus/v1/query", payload);
     const convId = mpesaRes?.ConversationID;

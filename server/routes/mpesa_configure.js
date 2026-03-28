@@ -54,10 +54,10 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
 
   try {
     // 3️⃣ Encrypt sensitive credentials
-    const encryptedKey = encrypt(consumer_key);
-    const encryptedSecret = encrypt(consumer_secret);
-    const encryptedPasskey = encrypt(passkey);
-    const encryptedSecurityCredential = encrypt(security_credential);
+    const encryptedKey = consumer_key;
+    const encryptedSecret = consumer_secret;
+    const encryptedPasskey = passkey;
+    const encryptedSecurityCredential = security_credential;
 
     // Helper for URL formatting
     const formatAppEndpoint = (baseUrl, endpoint) => {
@@ -151,7 +151,7 @@ mpesaConfigRouter.post("/tenant-mpesa-config", verifySupabaseToken, checkTenantA
           log.info({ tenant_id, registerPayload }, "Registering C2B URLs with Safaricom...");
           
           const registerResult = await mpesaRequest(
-            configData, // mpesaRequest expects encrypted config
+            configData, // plain text
             "POST",
             "/mpesa/c2b/v1/registerurl",
             registerPayload
@@ -204,10 +204,10 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id", verifySupabaseToken, ch
     
     // Decrypt sensitive fields
     if (data) {
-      data.consumer_key = data.consumer_key ? decrypt(data.consumer_key) : null;
-      data.consumer_secret = data.consumer_secret ? decrypt(data.consumer_secret) : null;
-      data.passkey = data.passkey ? decrypt(data.passkey) : null;
-      data.security_credential = data.security_credential ? decrypt(data.security_credential) : null;
+      data.consumer_key = data.consumer_key || null;
+      data.consumer_secret = data.consumer_secret || null;
+      data.passkey = data.passkey || null;
+      data.security_credential = data.security_credential || null;
       // Completely remove initiator_password from response
       delete data.initiator_password;
     }
@@ -234,10 +234,10 @@ mpesaConfigRouter.get("/tenant-mpesa-config/:tenant_id/all", verifySupabaseToken
       const { initiator_password, ...rest } = config; // Remove initiator_password from output
       return {
         ...rest,
-        consumer_key: config.consumer_key ? decrypt(config.consumer_key) : null,
-        consumer_secret: config.consumer_secret ? decrypt(config.consumer_secret) : null,
-        passkey: config.passkey ? decrypt(config.passkey) : null,
-        security_credential: config.security_credential ? decrypt(config.security_credential) : null,
+        consumer_key: config.consumer_key || null,
+        consumer_secret: config.consumer_secret || null,
+        passkey: config.passkey || null,
+        security_credential: config.security_credential || null,
       };
     });
 
@@ -263,8 +263,8 @@ mpesaConfigRouter.get("/diagnostic/register-urls/:tenant_id", async (req, res) =
     if (fetchErr || !config) return res.status(404).json({ error: "Config not found in DB" });
 
     // Decrypt credentials
-    config.consumer_key = decrypt(config.consumer_key);
-    config.consumer_secret = decrypt(config.consumer_secret);
+    config.consumer_key = config.consumer_key;
+    config.consumer_secret = config.consumer_secret;
 
     const payload = {
       ShortCode: config.paybill_number || config.shortcode,
