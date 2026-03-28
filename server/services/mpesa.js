@@ -33,7 +33,11 @@ export async function getTenantMpesaToken(tenantConfig) {
       }
     );
 
-    return response.data.access_token;
+    const token = response.data.access_token;
+    const masked = token.substring(0, 10) + "..." + token.substring(token.length - 10);
+    console.log(`[getTenantMpesaToken] Token Generated for ${environment}: ${masked}`);
+
+    return token;
   } catch (err) {
     if (err.response) {
       log.error({
