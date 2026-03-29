@@ -13,21 +13,26 @@ const log = createLogger({ service: "tenantResolver" });
 export async function resolveTenantByShortcode(shortcode) {
   if (!shortcode) return null;
 
-  // Try to find the shortcode across ANY service type (c2b or b2c)
+  // NOTE: combining .eq("is_active", true) WITH .or(multi-column) has a PostgREST
+  // precedence issue where the is_active AND only applies to the last OR branch.
+  // Fix: fetch all matching shortcode rows and filter is_active in JS.
   const { data, error } = await supabaseAdmin
     .from("tenant_mpesa_config")
-    .select("tenant_id, paybill_number, till_number, environment, consumer_key, consumer_secret, passkey, callback_url, shortcode, service_type")
-    .eq("is_active", true)
-    .or(`paybill_number.eq.${shortcode},till_number.eq.${shortcode},shortcode.eq.${shortcode}`)
-    .maybeSingle();
+    .select("tenant_id, paybill_number, till_number, environment, consumer_key, consumer_secret, passkey, callback_url, shortcode, service_type, is_active")
+    .or(`paybill_number.eq.${shortcode},till_number.eq.${shortcode},shortcode.eq.${shortcode}`);
 
   if (error) {
     log.error({ error, shortcode }, "Shortcode tenant lookup error");
     return null;
   }
 
-  return data;
+  // Prefer active c2b config; fall back to any active config
+  const active = (data || []).filter(r => r.is_active);
+  const c2bRow = active.find(r => r.service_type === "c2b") || active[0] || null;
+
+  return c2bRow;
 }
+
 
 // ── Resolve tenant by customer phone number (fallback) ────────────
 export async function resolveTenantByPhone(phone) {

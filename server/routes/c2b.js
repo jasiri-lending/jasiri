@@ -1,9 +1,6 @@
 import express from "express";
-import { supabase, supabaseAdmin } from "../supabaseClient.js";
-import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
+import { supabaseAdmin } from "../supabaseClient.js";
 import { resolveTransaction } from "../services/tenantResolver.js";
-import { processC2BTransaction } from "../services/c2bProcessor.js";
-import { JOB_TYPES } from "../config/env.js";
 import { createLogger } from "../utils/logger.js";
 
 const c2b = express.Router();
@@ -29,11 +26,10 @@ function parseMpesaTimestamp(timestamp) {
   const hour = timestamp.slice(8, 10);
   const minute = timestamp.slice(10, 12);
   const second = timestamp.slice(12, 14);
-  // Month is 0-indexed in Date.UTC, so subtract 1
   return new Date(Date.UTC(year, month - 1, day, hour, minute, second)).toISOString();
 }
 
-// C2B Validaton and Confirmation are public callbacks from Safaricom
+// C2B Validation and Confirmation are public callbacks from Safaricom
 // Do NOT apply verifySupabaseToken here
 
 c2b.post("/validation", (req, res) => {
@@ -50,12 +46,12 @@ c2b.post("/confirmation", async (req, res) => {
 
   log.info({ TransID, MSISDN, TransAmount, BillRefNumber }, "C2B confirmation received");
 
-  // Respond to Safaricom immediately
+  // Respond to Safaricom immediately — never make Safaricom wait
   res.json({ ResultCode: 0, ResultDesc: "Received" });
 
   setImmediate(async () => {
     try {
-      // Idempotency check
+      // Idempotency check — skip if already inserted and not pending
       const { data: existing } = await supabaseAdmin
         .from("mpesa_c2b_transactions")
         .select("id, status")
@@ -63,7 +59,7 @@ c2b.post("/confirmation", async (req, res) => {
         .maybeSingle();
 
       if (existing && existing.status !== "pending") {
-        log.info({ TransID, status: existing.status }, "Duplicate — skipping");
+        log.info({ TransID, status: existing.status }, "Duplicate — already processed, skipping");
         return;
       }
 
@@ -71,7 +67,7 @@ c2b.post("/confirmation", async (req, res) => {
       const tenantConfig = await resolveTransaction(BusinessShortCode, MSISDN);
 
       if (!tenantConfig) {
-        log.warn({ TransID, BusinessShortCode, MSISDN }, "Tenant not resolved — suspense");
+        log.warn({ TransID, BusinessShortCode, MSISDN }, "Tenant not resolved — saving to suspense");
         const { error: suspenseErr } = await supabaseAdmin.from("suspense_transactions").upsert({
           payer_name: FirstName || "Unknown",
           phone_number: MSISDN,
@@ -82,7 +78,7 @@ c2b.post("/confirmation", async (req, res) => {
           status: "suspense",
           reason: "Tenant not resolved from shortcode or phone",
         }, { onConflict: "transaction_id" });
-        
+
         if (suspenseErr) {
           log.error({ suspenseErr, TransID }, "CRITICAL: Failed to save suspense transaction");
         }
@@ -91,14 +87,9 @@ c2b.post("/confirmation", async (req, res) => {
 
       const tenantId = tenantConfig.tenant_id;
 
-      // Determine job type from billref
-      const ref = (BillRefNumber || "").toLowerCase();
-      let jobType = JOB_TYPES.C2B_REPAYMENT;
-      let priority = 5;
-      if (ref.startsWith("registration")) { jobType = JOB_TYPES.REGISTRATION; priority = 2; }
-      else if (ref.startsWith("processing")) { jobType = JOB_TYPES.PROCESSING_FEE; priority = 3; }
-
-      // Insert transaction record (idempotent)
+      // Insert with status=pending — the DB trigger 'trg_payment_processing'
+      // fires automatically after INSERT and invokes the Edge Function to
+      // handle all downstream processing (repayment, fees, wallet, SMS, etc.)
       const { error: upsertErr } = await supabaseAdmin.from("mpesa_c2b_transactions").upsert({
         transaction_id: TransID,
         phone_number: MSISDN,
@@ -118,13 +109,10 @@ c2b.post("/confirmation", async (req, res) => {
         return;
       }
 
-      // Process instantly natively on the server
-      log.info({ TransID, tenantId, jobType }, "Starting instant C2B processing");
-      const processResult = await processC2BTransaction(TransID, tenantId);
-      log.info({ TransID, processResult }, "Finished instant C2B processing");
+      log.info({ TransID, tenantId }, "C2B transaction inserted as pending — Edge Function trigger will process it");
 
     } catch (err) {
-      log.error({ err: err.message, stack: err.stack, TransID }, "Failed to queue C2B transaction");
+      log.error({ err: err.message, stack: err.stack, TransID }, "C2B confirmation handler error");
     }
   });
 });
