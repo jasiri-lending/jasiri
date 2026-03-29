@@ -878,7 +878,7 @@ const Dashboard = () => {
     // Any installment whose due_date has passed is either paid or in arrears — never clean book.
     const today2 = getTodayDate();
     const cleanBook = filteredInstallments
-      .filter(inst => inst.due_date && inst.due_date > today2 && inst.status === 'pending')
+      .filter(inst => inst.due_date && inst.due_date > today2 && ['pending', 'partial'].includes(inst.status))
       .reduce((sum, inst) =>
         sum + (Number(inst.principal_amount) || 0) + (Number(inst.interest_amount) || 0)
         - (Number(inst.interest_paid) || 0) - (Number(inst.principal_paid) || 0), 0);
