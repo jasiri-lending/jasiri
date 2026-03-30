@@ -10,11 +10,23 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
   if (!transaction) return null;
 
   const payload = transaction.raw_payload || {};
-  const firstName = payload.Firstname || payload.FirstName || 'N/A';
-  const middleName = payload.Middlename || payload.MiddleName || '';
-  const surname = payload.SurName || payload.Surname || '';
-  const fullName = `${firstName} ${middleName} ${surname}`.trim();
+  // Supabase joins can sometimes return an array or an object
+  const customer = Array.isArray(transaction.customers) ? transaction.customers[0] : transaction.customers;
+  
+  const firstName = customer?.Firstname || payload.Firstname || payload.FirstName || 'N/A';
+  const surname = customer?.Surname || payload.SurName || payload.Surname || '';
+  const fullName = `${firstName} ${surname}`.trim();
   const billRef = payload.BillRefNumber || transaction.reference || 'N/A';
+
+  // Handle phone number resolution with hash detection
+  const getDisplayPhone = () => {
+    if (customer?.mobile) return customer.mobile;
+    const rawPhone = transaction.phone_number || payload.MSISDN;
+    if (rawPhone && String(rawPhone).length > 20) {
+      return billRef !== 'N/A' ? billRef : 'Hashed';
+    }
+    return rawPhone || 'N/A';
+  };
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
@@ -45,7 +57,9 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
                   <Phone className="w-4 h-4" style={{ color: "#586ab1" }} />
                   <p className="text-sm text-gray-600">Phone Number</p>
                 </div>
-                <p className="font-semibold text-gray-800">{payload.MSISDN || transaction.phone_number || 'N/A'}</p>
+                <p className="font-semibold text-gray-800">
+                  {getDisplayPhone()}
+                </p>
               </div>
 
               <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
@@ -131,7 +145,7 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
       setLoading(true);
       const { data, error } = await supabase
         .from('mpesa_c2b_transactions')
-        .select('*')
+        .select('*, customers(mobile, Firstname, Surname)')
         .eq('status', 'applied')
         .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
@@ -328,7 +342,9 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
                     {transaction.payer_name || "N/A"}
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-                    {transaction.phone_number}
+                    {transaction.phone_number && transaction.phone_number.length > 20 
+                      ? (transaction.billref || "Hashed") 
+                      : (transaction.phone_number || "N/A")}
                   </td>
                   <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
                     KSh {parseFloat(transaction.amount).toLocaleString()}
