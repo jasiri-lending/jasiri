@@ -113,8 +113,7 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accentColor, trend, loadi
       className="relative p-6 bg-white rounded-2xl transition-all duration-200 hover:shadow-md overflow-hidden"
       style={{ border: `${highlight ? 2 : 1}px solid ${highlight ? accentColor : '#E5E7EB'}` }}
     >
-      <div className="absolute top-0 left-0 w-1 h-full" style={{ backgroundColor: accentColor }} />
-      <div className="pl-2">
+      <div>
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
@@ -440,90 +439,19 @@ const FinancialDashboard = () => {
         portfolioLoansRes,
         portfolioPaymentsRes,
         installmentPenaltiesRes,
-        operationalExpensesRes, // New query for operational costs
+        operationalExpensesRes,
       ] = await Promise.all([
-
-        geo(
-          supabase.from('loan_payments')
-            .select('paid_amount, interest_paid, principal_paid, penalty_paid, created_at, loan_id, payment_type')
-            .eq('tenant_id', tenantId)
-            .gte('created_at', startStr + 'T00:00:00Z')
-            .lte('created_at', endStr + 'T23:59:59Z')
-          , 'loan_payments'
-        ),
-
-        geo(
-          supabase.from('loans')
-            .select('id, processing_fee, registration_fee, net_penalties, scored_amount, disbursed_at')
-            .eq('tenant_id', tenantId)
-            .eq('status', 'disbursed')
-            .gte('disbursed_at', startStr)
-            .lte('disbursed_at', endStr)
-        ),
-
-        geo(
-          supabase.from('loans')
-            .select('id, total_payable')
-            .eq('tenant_id', tenantId)
-            .eq('status', 'disbursed')
-        ),
-
-        supabase.from('loan_payments')
-          .select('loan_id, paid_amount')
-          .eq('tenant_id', tenantId),
-
-        geo(
-          supabase.from('loans')
-            .select('total_payable')
-            .eq('tenant_id', tenantId)
-            .eq('status', 'disbursed')
-            .eq('repayment_state', 'defaulted')
-            .gte('disbursed_at', startStr)
-            .lte('disbursed_at', endStr)
-        ),
-
-        geo(
-          supabase.from('loans')
-            .select('scored_amount, disbursed_at')
-            .eq('tenant_id', tenantId)
-            .eq('status', 'disbursed')
-            .gte('disbursed_at', startStr)
-            .lte('disbursed_at', endStr)
-        ),
-
-        geo(
-          supabase.from('loan_payments')
-            .select('paid_amount, created_at')
-            .eq('tenant_id', tenantId)
-            .gte('created_at', startStr + 'T00:00:00Z')
-            .lte('created_at', endStr + 'T23:59:59Z')
-          , 'loan_payments'
-        ),
-
-        geo(
-          supabase.from('loans')
-            .select('scored_amount, disbursed_at, status')
-            .eq('tenant_id', tenantId)
-            .order('disbursed_at')
-        ),
-
-        supabase.from('loan_payments')
-          .select('paid_amount, created_at, loan_id')
-          .eq('tenant_id', tenantId),
-
-        supabase.from('loan_installments')
-          .select('net_penalty, loan_id, tenant_id')
-          .eq('tenant_id', tenantId)
-          .gt('penalty_amount', 0)
-          .gte('updated_at', startStr)
-          .lte('updated_at', endStr),
-
-        // Fetch operational expenses for the period
-        supabase.from('operational_expenses')
-          .select('amount')
-          .eq('tenant_id', tenantId)
-          .gte('date', startStr)
-          .lte('date', endStr),
+        geo(supabase.from('loan_payments').select('paid_amount, interest_paid, principal_paid, penalty_paid, created_at, loan_id, payment_type, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
+        geo(supabase.from('loans').select('id, processing_fee, registration_fee, processing_fee_paid, registration_fee_paid, net_penalties, scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
+        geo(supabase.from('loans').select('id, total_payable').eq('tenant_id', tenantId).eq('status', 'disbursed')),
+        supabase.from('loan_payments').select('loan_id, paid_amount').eq('tenant_id', tenantId),
+        geo(supabase.from('loans').select('total_payable, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed').eq('repayment_state', 'defaulted')),
+        geo(supabase.from('loans').select('scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
+        geo(supabase.from('loan_payments').select('paid_amount, created_at, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
+        geo(supabase.from('loans').select('scored_amount, disbursed_at, status').eq('tenant_id', tenantId).order('disbursed_at')),
+        supabase.from('loan_payments').select('paid_amount, created_at, loan_id').eq('tenant_id', tenantId),
+        supabase.from('loan_installments').select('net_penalty, loan_id, tenant_id, updated_at').eq('tenant_id', tenantId).gt('penalty_amount', 0),
+        supabase.from('operational_expenses').select('amount, date').eq('tenant_id', tenantId),
       ]);
 
       if (fetchIdRef.current !== myId) return;
@@ -531,9 +459,10 @@ const FinancialDashboard = () => {
       // Payments aggregation
       let interestPaid = 0, principalPaid = 0, penaltiesPaid = 0, totalPaymentsAmount = 0;
       paymentsRes.data?.forEach(p => {
-        const paidAmt = Number(p.paid_amount) || 0;
+        const paidDate = toKenyaDateStr(p.paid_at || p.created_at);
+        if (paidDate < startStr || paidDate > endStr) return;
 
-        // Sum based on payment_type as the primary classification
+        const paidAmt = Number(p.paid_amount) || 0;
         if (p.payment_type === 'interest') {
           interestPaid += paidAmt;
         } else if (p.payment_type === 'principal') {
@@ -541,7 +470,6 @@ const FinancialDashboard = () => {
         } else if (p.payment_type === 'penalty' || p.payment_type === 'penalties') {
           penaltiesPaid += paidAmt;
         } else {
-          // Fallback to split columns if payment_type is missing or 'repayment' (total)
           interestPaid += Number(p.interest_paid) || 0;
           principalPaid += Number(p.principal_paid) || 0;
           penaltiesPaid += Number(p.penalty_paid) || 0;
@@ -552,15 +480,19 @@ const FinancialDashboard = () => {
       // Fee income from disbursed loans in period
       let processingFees = 0, registrationFees = 0, netPenaltiesOnLoans = 0;
       disbursedLoansRes.data?.forEach(l => {
-        processingFees += Number(l.processing_fee) || 0;
-        registrationFees += Number(l.registration_fee) || 0;
+        const dDate = toKenyaDateStr(l.disbursed_at);
+        if (dDate >= startStr && dDate <= endStr) {
+          if (l.processing_fee_paid) processingFees += Number(l.processing_fee) || 0;
+          if (l.registration_fee_paid) registrationFees += Number(l.registration_fee) || 0;
+        }
         netPenaltiesOnLoans += Number(l.net_penalties) || 0;
       });
 
       // Installment-level penalties
-      const netPenaltiesOnInstallments = installmentPenaltiesRes.data?.reduce(
-        (s, i) => s + (Number(i.net_penalty) || 0), 0
-      ) ?? 0;
+      const netPenaltiesOnInstallments = installmentPenaltiesRes.data?.reduce((s, i) => {
+        const upDate = toKenyaDateStr(i.updated_at);
+        return (upDate >= startStr && upDate <= endStr) ? s + (Number(i.net_penalty) || 0) : s;
+      }, 0) ?? 0;
 
       // Outstanding principal
       const loanPaymentMap = {};
@@ -572,17 +504,19 @@ const FinancialDashboard = () => {
       ) ?? 0;
 
       // Write-offs
-      const writeOffs = writeOffsRes.data?.reduce(
-        (s, l) => s + (Number(l.total_payable) || 0), 0
-      ) ?? 0;
+      const writeOffs = writeOffsRes.data?.reduce((s, l) => {
+        const writeOffDate = toKenyaDateStr(l.disbursed_at);
+        return (writeOffDate >= startStr && writeOffDate <= endStr) ? s + (Number(l.total_payable) || 0) : s;
+      }, 0) ?? 0;
 
       // Total revenue
       const totalRevenue = interestPaid + processingFees + registrationFees + penaltiesPaid;
 
       // Operational costs (dynamic sum from table)
-      const operationalCosts = operationalExpensesRes.data?.reduce(
-        (sum, row) => sum + (Number(row.amount) || 0), 0
-      ) ?? 0;
+      const operationalCosts = operationalExpensesRes.data?.reduce((sum, row) => {
+        const expDate = toKenyaDateStr(row.date);
+        return (expDate >= startStr && expDate <= endStr) ? sum + (Number(row.amount) || 0) : sum;
+      }, 0) ?? 0;
 
       setKpis({
         interestPaid, principalPaid, penaltiesPaid, totalPaymentsAmount,
@@ -680,8 +614,8 @@ const FinancialDashboard = () => {
   const tickFmt = (v) => v === 0 ? '0' : Number(v).toLocaleString();
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: BRAND.surface }}>
-      <FilterBar
+<div className="min-h-screen bg-muted">
+        <FilterBar
         filters={filters} filterOptions={filterOptions}
         onFilterChange={handleFilterChange} loading={loading} lastUpdated={lastUpdated}
       />
