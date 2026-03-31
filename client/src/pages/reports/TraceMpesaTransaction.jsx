@@ -157,7 +157,7 @@ const TraceMpesaTransaction = () => {
   };
 
   return (
-    <div className="p-6 bg-white rounded-2xl shadow-md">
+    <div className="p-6 bg-muted rounded-2xl shadow-md">
       <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Trace M-Pesa Transaction</h2>
 
       <form onSubmit={handleSearch} className="mb-6 flex flex-col sm:flex-row gap-3">

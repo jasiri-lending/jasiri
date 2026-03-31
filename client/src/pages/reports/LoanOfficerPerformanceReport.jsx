@@ -721,14 +721,14 @@ const LoanOfficerPerformanceReport = () => {
 
   if (loading && isInitialLoad) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Officer Performance Report..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -857,26 +857,26 @@ const LoanOfficerPerformanceReport = () => {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase whitespace-nowrap">Total Disbursed</p>
-              <h3 className="text-2xl font-bold text-green-600">{formatCurrency(totals.disbursedAmount)}</h3>
+              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Total Disbursed</p>
+              <h3 className="text-2xl  text-green-600">{formatCurrency(totals.disbursedAmount)}</h3>
             </div>
           </div>
           <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase whitespace-nowrap">Active Customers</p>
-              <h3 className="text-2xl font-bold text-gray-600">{totals.activeCustomers}</h3>
+              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Active Customers</p>
+              <h3 className="text-2xl  text-gray-600">{totals.activeCustomers}</h3>
             </div>
           </div>
           <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase whitespace-nowrap">Total Arrears</p>
+              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Total Arrears</p>
               <h3 className="text-2xl font-bold text-red-600">{formatCurrency(totals.arrearsAmount)}</h3>
             </div>
           </div>
           <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase whitespace-nowrap">Overall PAR</p>
-              <h3 className="text-2xl font-bold text-gray-600">{formatPercentage(totals.overallPAR)}</h3>
+              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Overall PAR</p>
+              <h3 className="text-2xl  text-gray-600">{formatPercentage(totals.overallPAR)}</h3>
             </div>
           </div>
         </div>

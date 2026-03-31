@@ -171,7 +171,7 @@ const LoanListing = () => {
   const [sortConfig, setSortConfig] = useState({ key: "booked_date", direction: "desc" });
   const [exportFormat, setExportFormat] = useState("csv");
 
-  const itemsPerPage = 50;
+  const itemsPerPage = 100;
 
   // ========== Combined Filters State (persisted) ==========
   const [filters, setFilters] = useState(() => {
@@ -1339,7 +1339,7 @@ const LoanListing = () => {
   //  Show loading state with custom Spinner
   if (loading && rawLoans.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Loan Listing Report..." />
       </div>
     );
@@ -1348,7 +1348,7 @@ const LoanListing = () => {
   // Show error state with retry option
   if (error && rawLoans.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <X className="w-16 h-16 mx-auto mb-2" />
@@ -1368,7 +1368,7 @@ const LoanListing = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -1438,23 +1438,23 @@ const LoanListing = () => {
         {/* Summary Section */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
           <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Loans</p>
+            <p className="text-sm text-slate-600 font-medium">Total Loans</p>
             <p className="text-2xl font-bold mt-1 text-primary">{stats.totalLoans}</p>
           </div>
           <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Disbursed</p>
+            <p className="text-sm text-slate-600 font-medium">Total Disbursed</p>
             <p className="text-2xl font-bold mt-1 text-accent">{formatCurrency(stats.totalPrincipal)}</p>
           </div>
           <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Payable</p>
+            <p className="text-sm text-slate-600 font-medium">Total Payable</p>
             <p className="text-2xl font-bold mt-1 text-gray-900">{formatCurrency(stats.totalPayable)}</p>
           </div>
           <div className="bg-blue-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Repaid</p>
+            <p className="text-sm text-slate-600 font-medium">Total Repaid</p>
             <p className="text-2xl font-bold mt-1 text-blue-600">{formatCurrency(stats.totalRepaid)}</p>
           </div>
           <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Outstanding Balance</p>
+            <p className="text-sm text-slate-600 font-medium">Outstanding Balance</p>
             <p className="text-2xl font-bold mt-1 text-red-600">{formatCurrency(stats.totalOutstanding)}</p>
           </div>
         </div>

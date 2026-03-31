@@ -10,20 +10,44 @@ import {
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658"];
 
-const MetricCard = ({ title, value, subtitle, icon: Icon, colorClass }) => (
-    <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6 flex flex-col justify-between h-full">
-        <div className="flex justify-between items-start gap-4 mb-4">
-            <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-semibold text-gray-500 uppercase tracking-wider truncate mb-1">{title}</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-gray-900 break-words leading-tight">{value}</h3>
+const MetricCard = ({ title, value, subtitle, icon: Icon, color = "blue" }) => {
+    const colorMap = {
+        blue: { bg: "bg-blue-50", border: "border-blue-100", iconBg: "bg-blue-100", iconColor: "text-blue-600", titleColor: "text-blue-700", valueColor: "text-blue-800" },
+        emerald: { bg: "bg-emerald-50", border: "border-emerald-100", iconBg: "bg-emerald-100", iconColor: "text-emerald-600", titleColor: "text-emerald-700", valueColor: "text-emerald-800" },
+        orange: { bg: "bg-orange-50", border: "border-orange-100", iconBg: "bg-orange-100", iconColor: "text-orange-600", titleColor: "text-orange-700", valueColor: "text-orange-800" },
+        purple: { bg: "bg-purple-50", border: "border-purple-100", iconBg: "bg-purple-100", iconColor: "text-purple-600", titleColor: "text-purple-700", valueColor: "text-purple-800" },
+        red: { bg: "bg-red-50", border: "border-red-100", iconBg: "bg-red-100", iconColor: "text-red-600", titleColor: "text-red-700", valueColor: "text-red-800" },
+        amber: { bg: "bg-amber-50", border: "border-amber-100", iconBg: "bg-amber-100", iconColor: "text-amber-600", titleColor: "text-amber-700", valueColor: "text-amber-800" },
+    };
+
+    const style = colorMap[color] || colorMap.blue;
+
+    return (
+        <div className={`${style.bg} ${style.border} border rounded-2xl shadow-sm p-6 flex flex-col justify-between h-full transition-all hover:shadow-md`}>
+            <div className="flex justify-between items-start gap-4 mb-4">
+                <div className="flex-1 min-w-0">
+                    <p className={`text-xs sm:text-sm font-bold ${style.titleColor} uppercase tracking-wider truncate mb-1 opacity-80`}>
+                        {title}
+                    </p>
+                    <h3 className={`text-lg sm:text-xl font-bold ${style.valueColor} break-words leading-tight`}>
+                        {value}
+                    </h3>
+                </div>
+                <div className={`p-3 sm:p-4 rounded-2xl flex-shrink-0 ${style.iconBg} ${style.iconColor} shadow-inner`}>
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6" />
+                </div>
             </div>
-            <div className={`p-3 sm:p-4 rounded-xl flex-shrink-0 ${colorClass}`}>
-                <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-            </div>
+            {subtitle && (
+                <div className="border-t border-current/10 pt-3 mt-auto">
+                    <p className={`text-xs font-bold ${style.titleColor} opacity-70 flex items-center gap-1.5`}>
+                        <span className="w-2 h-2 rounded-full bg-current opacity-40 animate-pulse"></span>
+                        {subtitle}
+                    </p>
+                </div>
+            )}
         </div>
-        {subtitle && <p className="text-sm font-medium text-gray-500 border-t border-gray-50 pt-3 mt-auto">{subtitle}</p>}
-    </div>
-);
+    );
+};
 
 const ROCumulativePerformanceReport = () => {
     const [tenant] = useState(() => {
@@ -368,11 +392,11 @@ const ROCumulativePerformanceReport = () => {
     };
 
     if (loading) {
-        return <div className="min-h-screen bg-brand-surface flex items-center justify-center"><Spinner text="Loading Cumulative Report..." /></div>;
+        return <div className="min-h-screen bg-muted flex items-center justify-center"><Spinner text="Loading Cumulative Report..." /></div>;
     }
 
     return (
-        <div className="min-h-screen bg-brand-surface p-6">
+        <div className="min-h-screen bg-muted p-6">
             <div className="max-w-[1600px] mx-auto space-y-6">
                 {/* Header */}
                 <div className="bg-brand-secondary rounded-xl shadow-md border p-4 flex flex-wrap items-center justify-between gap-4">
@@ -386,7 +410,7 @@ const ROCumulativePerformanceReport = () => {
                         <button
                             onClick={handleRefreshView}
                             disabled={refreshing}
-                            className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all"
+                            className="px-4 py-2 bg-brand-secondary hover:brightness-110 text-white rounded-lg text-sm font-medium flex items-center gap-2 transition-all shadow-sm active:scale-95"
                         >
                             <RefreshCw className={`w-4 h-4 ${refreshing && 'animate-spin'}`} />
                             {refreshing ? 'Refreshing Data...' : 'Refresh Data'}
@@ -447,12 +471,12 @@ const ROCumulativePerformanceReport = () => {
 
                 {/* KPI Cards */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                    <MetricCard title="Total Loans" value={kpis.loanCount} colorClass="bg-blue-500" icon={FileText} />
-                    <MetricCard title="Principal Disbursed" value={formatCurrency(kpis.totalDisbursed)} colorClass="bg-emerald-500" icon={DollarSign} />
-                    <MetricCard title="Total Payable" value={formatCurrency(kpis.totalPayable)} colorClass="bg-orange-500" icon={DollarSign} />
-                    <MetricCard title="Total Paid" value={formatCurrency(kpis.totalPaid)} colorClass="bg-purple-500" icon={DollarSign} />
-                    <MetricCard title="Arrears Total" value={formatCurrency(kpis.arrearsAmount)} subtitle={`${kpis.arrearsCount} loans`} colorClass="bg-red-500" icon={Activity} />
-                    <MetricCard title="Repayment Rate" value={formatPercentage(overallPaymentRate)} colorClass="bg-amber-500" icon={BarChart2} />
+                    <MetricCard title="Total Loans" value={kpis.loanCount} color="blue" icon={FileText} />
+                    <MetricCard title="Principal Disbursed" value={formatCurrency(kpis.totalDisbursed)} color="emerald" icon={DollarSign} />
+                    <MetricCard title="Total Payable" value={formatCurrency(kpis.totalPayable)} color="orange" icon={DollarSign} />
+                    <MetricCard title="Total Paid" value={formatCurrency(kpis.totalPaid)} color="purple" icon={DollarSign} />
+                    <MetricCard title="Arrears Total" value={formatCurrency(kpis.arrearsAmount)} subtitle={`${kpis.arrearsCount} loans`} color="red" icon={Activity} />
+                    <MetricCard title="Repayment Rate" value={formatPercentage(overallPaymentRate)} color="amber" icon={BarChart2} />
                 </div>
 
                 {/* Charts Section */}

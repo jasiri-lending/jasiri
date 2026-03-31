@@ -644,7 +644,7 @@ const MpesaRepaymentReports = () => {
 
   if (loading && isInitialLoad) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading M-Pesa Repayments..." />
       </div>
     );
@@ -652,7 +652,7 @@ const MpesaRepaymentReports = () => {
 
   // Main render (JSX unchanged from original, except the table body now includes error state)
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section (same as before) */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -765,7 +765,7 @@ const MpesaRepaymentReports = () => {
           <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 font-bold">KES</div>
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Total Collections</p>
+              <p className="text-sm  text-gray-600 uppercase ">Total Collections</p>
               <h3 className="text-2xl font-semibold text-accent">
                 {new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(summaryStats.totalAmount)}
               </h3>
@@ -774,14 +774,14 @@ const MpesaRepaymentReports = () => {
           <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0 font-bold">#</div>
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Successful</p>
+              <p className="text-sm  text-gray-600 uppercase ">Successful</p>
               <h3 className="text-xl font-semibold text-gray-600">{summaryStats.successfulCount}</h3>
             </div>
           </div>
           <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
             <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shrink-0 font-bold">#</div>
             <div>
-              <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">Total Transactions</p>
+              <p className="text-sm  text-gray-600 uppercase ">Total Transactions</p>
               <h3 className="text-xl font-semibold text-gray-600">{summaryStats.totalCount}</h3>
             </div>
           </div>

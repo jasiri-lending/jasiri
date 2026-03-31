@@ -12,15 +12,22 @@ import {
   ChevronsLeft,
   ChevronsRight,
   ArrowLeft,
-  Globe
+  Globe,
+  X
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth.js";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams } from "react-router-dom";
 
 const CustomerStatementModal = () => {
+  // Brand Colors
+  const colors = {
+    primary: "#2E5E99",
+    secondary: "#7BA4D0",
+    muted: "#F8FAFC"
+  };
+
   const { profile, tenant } = useAuth();
-  const navigate = useNavigate();
   const { customerId } = useParams();
   const [transactions, setTransactions] = useState([]);
   const [filteredTransactions, setFilteredTransactions] = useState([]);
@@ -35,6 +42,8 @@ const CustomerStatementModal = () => {
   const [reportTimestamp, setReportTimestamp] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [customerInfo, setCustomerInfo] = useState({});
+  const [selectedTransaction, setSelectedTransaction] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
 
   // Statement period state
   const [statementPeriod, setStatementPeriod] = useState({
@@ -152,11 +161,6 @@ const CustomerStatementModal = () => {
           console.error(" Loan installments fetch failed:", installmentsError.message);
         }
 
-        // Create a set of M-Pesa codes that are loan payments (to exclude from deposits)
-        const loanPaymentMpesaCodes = new Set(
-          (loanPayments || []).map(p => p.mpesa_receipt).filter(Boolean)
-        );
-
         // 5️ C2B Payments (excluding those already in loan_payments)
         const normalizedMobile = customer.mobile?.replace(/^\+?254|^0/, "254");
 
@@ -180,7 +184,7 @@ const CustomerStatementModal = () => {
         // 7️ Wallet Transactions (Credits and Debits)
         const { data: walletTransactions, error: walletError } = await supabase
           .from("customer_wallets")
-          .select("id, amount, created_at, mpesa_reference, type, narration, transaction_type")
+          .select("id, amount, created_at, mpesa_reference, type, narration, transaction_type, debit, credit")
           .eq("customer_id", customerId)
           .eq("tenant_id", tenant?.id)
           .order("created_at", { ascending: true });
@@ -190,84 +194,142 @@ const CustomerStatementModal = () => {
         // Track processed transaction IDs to prevent duplicates
         const processedTransactionIds = new Set();
 
-        // STEP 1: WALLET TRANSACTIONS (Including Joining Fee, Processing Fee, Deposits)
-        (walletTransactions || []).forEach(w => {
-          const transactionKey = `wallet-${w.id}`;
-          if (processedTransactionIds.has(transactionKey)) return;
-          processedTransactionIds.add(transactionKey);
+        // STEP 1: MONEY IN (CREDITS)
+        const processedMpesaRefs = new Set();
 
-          const amt = Number(w.amount || 0);
-
-          // Standardize Naming based on transaction_type or narration
-          let description = w.narration || "Wallet Transaction";
-          let sequence = 10; // Default sequence for other wallet movements
-
-          if (w.transaction_type === "registration") {
-            description = "Joining Fee";
-            sequence = 0; // First in history
-          } else if (w.transaction_type === "processing") {
-            description = "Processing Fee";
-            sequence = 2; // Part of disbursement block
-          } else if (w.narration?.toLowerCase().includes("credited to wallet")) {
-            description = "Mobile Money Deposit";
-            sequence = 4; // Treated as a deposit
-          }
-
-          // Balance = Prev + Credit - Debit
-          // User wants wallet deposits as Debits (reducing debt? or just how their DB is)
-          // 0 - 802 = -802. -802 - (-500) = -302.
-          events.push({
-            id: transactionKey,
-            date: new Date(w.created_at),
-            description: description,
-            reference: w.mpesa_reference || "-",
-            debit: amt, // Show raw amount (can be negative for fees)
-            credit: 0,
-            amount: -amt, // Subtract debit from balance
-            sequence: sequence,
-            timestamp: new Date(w.created_at).getTime(),
-          });
-        });
-
-        // STEP 2: MOBILE MONEY DEPOSITS (C2B - excluding those already handled in wallet or loan payments)
+        // 1a. M-Pesa C2B Transactions (Primary Source for Deposits)
         (c2b || []).forEach(c => {
-          // Check if this M-Pesa code was already handled in loan_payments or wallet
-          const mpesaCode = c.transaction_id;
-          const isLoanPayment = loanPaymentMpesaCodes.has(mpesaCode);
-          const isWalletCredit = (walletTransactions || []).some(w => w.mpesa_reference === mpesaCode);
+          if (c.status !== "applied") return;
+          const ref = c.transaction_id;
+          processedMpesaRefs.add(ref);
 
-          if (isLoanPayment || isWalletCredit) return;
-
-          const transactionKey = `c2b-${mpesaCode}`;
-          if (processedTransactionIds.has(transactionKey)) return;
-          processedTransactionIds.add(transactionKey);
-
-          const depositAmount = Number(c.amount || 0);
           const txDate = new Date(c.transaction_time);
           events.push({
-            id: transactionKey,
+            id: `c2b-credit-${ref}`,
             date: txDate,
-            description: "Mobile Money Deposit",
-            reference: mpesaCode,
+            description: "Account Deposit",
+            reference: ref,
             debit: 0,
-            credit: depositAmount,
-            amount: depositAmount,
-            sequence: 4, // Repayment credit
+            credit: Number(c.amount),
+            amount: Number(c.amount),
+            sequence: 4,
             timestamp: txDate.getTime(),
           });
         });
 
-        // STEP 3: LOAN DISBURSEMENTS
+        // 1b. Wallet Credits (Transfers, Adjustments, and C2B if not already processed)
+        (walletTransactions || []).forEach(w => {
+          if (w.type !== "credit") return;
+          const ref = w.mpesa_reference;
+
+          // If this is a C2B already handled, skip to avoid double counting the Credit
+          if (ref && processedMpesaRefs.has(ref)) return;
+          if (ref) processedMpesaRefs.add(ref);
+
+          const txDate = new Date(w.created_at);
+          
+          // Sanitize Description - Harmonize legacy DB strings with UI/Brand strings
+          let desc = w.narration || "Account Deposit";
+          const lowerDesc = desc.toLowerCase();
+          
+          if (lowerDesc.includes("transfer from")) {
+            desc = "Funds Transfer Received";
+          } else if (
+            lowerDesc.includes("payment received") || 
+            lowerDesc.includes("no active loan") ||
+            lowerDesc.includes("c2b payment") ||
+            lowerDesc.includes("mpesa payment")
+          ) {
+            desc = "Account Deposit";
+          }
+
+          events.push({
+            id: `wallet-credit-${w.id}`,
+            date: txDate,
+            description: desc,
+            reference: ref || "-",
+            debit: 0,
+            credit: Number(w.amount || w.credit || 0),
+            amount: Number(w.amount || w.credit || 0),
+            sequence: 4,
+            timestamp: txDate.getTime(),
+          });
+        });
+
+        // STEP 2: FUNDS APPLIED / USED (DEBITS)
+
+        // 2a. Wallet Debits (Fees, Transfers Out, Withdrawals)
+        (walletTransactions || []).forEach(w => {
+          if (w.type !== "debit") return;
+          const txDate = new Date(w.created_at);
+
+          let desc = w.narration || "Account Withdrawal";
+          const lowerDesc = desc.toLowerCase();
+          
+          let seq = 10;
+          if (w.transaction_type === "registration") {
+            desc = "Registration Fee Payment";
+            seq = 0;
+          } else if (w.transaction_type === "processing") {
+            desc = "Processing Fee Payment";
+            seq = 2;
+          } else if (lowerDesc.includes("transfer to")) {
+            desc = "Funds Transfer Sent";
+          } else if (
+            lowerDesc.includes("withdrawal to") || 
+            lowerDesc.includes("b2c transaction") ||
+            lowerDesc.includes("mpesa b2c")
+          ) {
+            desc = "Account Withdrawal";
+          }
+
+          events.push({
+            id: `wallet-debit-${w.id}`,
+            date: txDate,
+            description: desc,
+            reference: "-",
+            debit: Number(w.amount || w.debit || 0),
+            credit: 0,
+            amount: -Number(w.amount || w.debit || 0),
+            sequence: seq,
+            timestamp: txDate.getTime(),
+          });
+        });
+
+        // 2b. Loan Repayment Allocations (Debits)
+        (loanPayments || []).forEach((p, idx) => {
+          const paymentDate = new Date(p.paid_at || p.created_at);
+          const amt = Number(p.paid_amount || 0);
+          if (!amt) return;
+
+          let desc = "Loan Repayment Allocation";
+          if (p.payment_type === "interest") desc = "Interest Repayment";
+          else if (p.payment_type === "principal") desc = "Principal Repayment";
+          else if (p.payment_type === "penalty") desc = "Penalty Payment";
+
+          events.push({
+            id: `payment-allocation-debit-${p.id}`,
+            date: paymentDate,
+            description: desc,
+            reference: "-",
+            debit: amt,
+            credit: 0,
+            amount: -amt,
+            sequence: 5 + idx,
+            timestamp: paymentDate.getTime(),
+          });
+        });
+
+        // STEP 3: DISBURSEMENTS (Double Entry)
         (loans || []).forEach(loan => {
           const disb = (disbursements || []).find(d => d.loan_id === loan.id);
-          if (!disb) return;
+          if (!disb || disb.status !== "success") return;
 
           const loanDate = new Date(disb.processed_at);
           const baseTimestamp = loanDate.getTime();
-
-          // 3a. Credit: Mobile Money Disbursement (sending funds to customer)
           const disbAmount = Number(disb.amount);
 
+          // 3a. Credit: Cash Hand-over
           events.push({
             id: `disb-credit-${disb.id}`,
             date: loanDate,
@@ -275,88 +337,24 @@ const CustomerStatementModal = () => {
             reference: disb.transaction_id || "-",
             debit: 0,
             credit: disbAmount,
-            amount: disbAmount, // Increases balance
-            sequence: 1, // Follows Joining Fee
+            amount: disbAmount,
+            sequence: 1,
             timestamp: baseTimestamp,
           });
 
-          // Processing Fee (sequence 2) comes from Wallet STEP 1
-
-          // 3b. Debit: Loan Disbursement (booking the debt obligation)
+          // 3b. Debit: Liability Obligation
           events.push({
-            id: `loan-disb-${loan.id}`,
+            id: `disb-debit-obligation-${disb.id}`,
             date: loanDate,
             description: "Loan Disbursement",
             reference: "-",
             debit: disbAmount,
             credit: 0,
-            amount: -disbAmount, // Decreases balance
-            sequence: 3, // Follows Processing Fee
+            amount: -disbAmount,
+            sequence: 3,
             timestamp: baseTimestamp,
           });
         });
-
-        // STEP 4: LOAN PAYMENTS (Grouped per M-Pesa code)
-        if (loanPayments.length > 0) {
-          // Group payments by mpesa_receipt
-          const groupedPayments = loanPayments.reduce((acc, payment) => {
-            const ref = payment.mpesa_receipt || "MPESA";
-            if (!acc[ref]) acc[ref] = [];
-            acc[ref].push(payment);
-            return acc;
-          }, {});
-
-          // Process each grouped transaction
-          for (const [ref, payments] of Object.entries(groupedPayments)) {
-            const paymentDate = new Date(payments[0].paid_at);
-            const baseTimestamp = paymentDate.getTime();
-            const totalPaid = payments.reduce((sum, p) => sum + Number(p.paid_amount || 0), 0);
-
-            // 4a. Credit once: Mobile Money Deposit (if not already handled via wallet/C2B)
-            const transactionKey = `loanpayment-credit-${ref}`;
-            if (!processedTransactionIds.has(`wallet-${ref}`) &&
-              !processedTransactionIds.has(`c2b-${ref}`) &&
-              !processedTransactionIds.has(transactionKey)) {
-
-              processedTransactionIds.add(transactionKey);
-              events.push({
-                id: transactionKey,
-                date: paymentDate,
-                description: "Mobile Money Deposit",
-                reference: ref,
-                debit: 0,
-                credit: totalPaid,
-                amount: totalPaid,
-                sequence: 4, // Repayment credit
-                timestamp: baseTimestamp,
-              });
-            }
-
-            // 4b. Debit for each payment allocation (principal, interest, penalty)
-            payments.forEach((p, idx) => {
-              const amt = Number(p.paid_amount || 0);
-              if (!amt) return;
-
-              // Naming Overrides
-              let desc = "Loan Repayment";
-              if (p.payment_type === "principal") desc = "Principal Repayment";
-              else if (p.payment_type === "interest") desc = "Interest Repayment";
-              else if (p.payment_type === "penalty") desc = "Penalty Repayment";
-
-              events.push({
-                id: `payment-debit-${p.id}`,
-                date: paymentDate,
-                description: desc,
-                reference: ref,
-                debit: amt,
-                credit: 0,
-                amount: -amt, // Decreases balance
-                sequence: 5 + idx, // Details after Credit
-                timestamp: baseTimestamp,
-              });
-            });
-          }
-        }
 
         // STEP 4b: PENALTIES (from installments)
         (loanInstallments || []).forEach(inst => {
@@ -414,17 +412,27 @@ const CustomerStatementModal = () => {
         // Reverse to show newest first (Balance B/F on top)
         const sortedEvents = [balanceBF, ...events.reverse()];
 
-        // Update statement period
+        // Update statement period (Dynamic from first transaction to today)
         if (events.length > 0) {
           const transactionDates = events.map(t => new Date(t.date));
           const minDate = new Date(Math.min(...transactionDates));
-          const maxDate = new Date(Math.max(...transactionDates));
+          const today = new Date();
 
-          setStatementPeriod(prev => ({
-            ...prev,
+          // Calculate period string (e.g. "3 Month" or "15 Day")
+          const diffTime = Math.abs(today - minDate);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          const diffMonths = Math.floor(diffDays / 30);
+
+          let periodStr = `${diffDays} Day`;
+          if (diffMonths > 0) {
+            periodStr = `${diffMonths} Month${diffMonths > 1 ? 's' : ''}`;
+          }
+
+          setStatementPeriod({
             startDate: minDate.toLocaleDateString("en-KE"),
-            endDate: maxDate.toLocaleDateString("en-KE")
-          }));
+            endDate: today.toLocaleDateString("en-KE"),
+            period: periodStr
+          });
         }
 
         const customerLoans = loans || [];
@@ -477,12 +485,12 @@ const CustomerStatementModal = () => {
         // 5️ Outstanding Balance = Total Payable - Total Paid
         const outstandingBalance = totalLoanAmount - totalPaid;
 
-        // Update summary
+        // Update summary (REVERTED TO ORIGINAL 5)
         setStatementSummary({
           totalLoanAmount,   // total payable from loans table
           principal,         // scored_amount
           interest,          // total_interest
-          totalPaid,         // from loan_payments OR installments (principal_paid + interest_paid)
+          totalPaid,         // from loan_payments OR installments
           outstandingBalance // total payable - total paid
         });
 
@@ -963,8 +971,9 @@ const CustomerStatementModal = () => {
     );
 
     if (found) {
-      alert(`Transaction found: ${found.description} on ${new Date(found.date).toLocaleDateString()}`);
-      setFilteredTransactions([found]); // show only that transaction
+      setSelectedTransaction(found);
+      setIsModalOpen(true);
+      setFilteredTransactions([found]); // Optional: still filter the background table
     } else {
       alert("Transaction not found.");
       // Reset to show all transactions if not found
@@ -1008,7 +1017,7 @@ const CustomerStatementModal = () => {
   const customerName = `${customerInfo?.Firstname || ""} ${customerInfo?.Surname || ""}`.trim() || "Customer";
 
   return (
-    <div className="min-h-screen bg-brand-surface py-8 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen py-8 px-4 sm:px-6 lg:px-8 bg-muted" >
       <div className="max-w-7xl mx-auto">
 
         {/* Customer Statement Header */}
@@ -1039,25 +1048,25 @@ const CustomerStatementModal = () => {
             </span>.
           </p>
         </div>
-
-
-
-        {/* Filters and Export Section */}
-        <div className="bg-white rounded-xl shadow-md border border-gray-200 mb-6">
-          <div className="p-5">
-            <div className="flex flex-wrap gap-3 items-center justify-between">
-              {/* Left Filters Section */}
-              <div className="flex flex-wrap gap-3 items-center">
-                {/* Date Filter */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-gray-700">Filter by:</label>
+ 
+        {/* Compact Premium Filter & Action Bar */}
+        <div className="bg-white rounded-xl shadow-lg border border-gray-200 mb-6 overflow-hidden transform transition-all hover:shadow-xl">
+          <div className="p-2 sm:p-3 bg-gray-50/50">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              
+              {/* Left Side: Filter & Custom Range */}
+              <div className="flex flex-wrap items-center gap-4">
+                {/* Period Select */}
+                <div className="flex items-center gap-2 px-3 bg-white border-2 rounded-lg shadow-sm focus-within:ring-2 focus-within:ring-blue-100 transition-all h-10" style={{ borderColor: colors.secondary }}>
+                  <Globe size={16} className="text-gray-400" />
+                  <span className="text-xs font-bold text-gray-700 whitespace-nowrap">Filter Period:</span>
                   <select
                     value={dateFilter}
                     onChange={(e) => handleDateFilterChange(e.target.value)}
-                    className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white hover:border-gray-400"
+                    className="text-xs font-bold focus:outline-none bg-transparent min-w-[120px] cursor-pointer"
                   >
-                    <option value="all">All Time</option>
-                    <option value="today">Today</option>
+                    <option value="all">Full History</option>
+                    <option value="today">Today Only</option>
                     <option value="week">This Week</option>
                     <option value="month">This Month</option>
                     <option value="quarter">This Quarter</option>
@@ -1065,108 +1074,93 @@ const CustomerStatementModal = () => {
                     <option value="custom">Custom Range</option>
                   </select>
                 </div>
-
-                {/* Custom Date Range */}
+ 
+                {/* Custom Date Range Inputs */}
                 {dateFilter === "custom" && (
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={customStartDate}
-                      onChange={(e) => setCustomStartDate(e.target.value)}
-                      className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    />
-                    <span className="text-sm font-semibold text-gray-600">to</span>
-                    <input
-                      type="date"
-                      value={customEndDate}
-                      onChange={(e) => setCustomEndDate(e.target.value)}
-                      className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                    />
+                  <div className="flex items-center gap-2 p-0.5 bg-white border-2 rounded-lg shadow-sm animate-in slide-in-from-left duration-300 h-10" style={{ borderColor: colors.secondary }}>
+                    <div className="flex items-center gap-2 px-2">
+                      <input
+                        type="date"
+                        value={customStartDate}
+                        onChange={(e) => setCustomStartDate(e.target.value)}
+                        className="text-xs font-bold focus:outline-none bg-transparent border-none p-0 w-[110px]"
+                      />
+                      <span className="text-gray-300 font-bold">|</span>
+                      <input
+                        type="date"
+                        value={customEndDate}
+                        onChange={(e) => setCustomEndDate(e.target.value)}
+                        className="text-xs font-bold focus:outline-none bg-transparent border-none p-0 w-[110px]"
+                      />
+                    </div>
                     <button
                       onClick={handleCustomDateApply}
-                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+                      className="h-full px-3 bg-blue-600 text-white rounded-md text-[10px] font-black uppercase tracking-widest hover:bg-blue-700 transition-colors shadow-inner"
+                      style={{ backgroundColor: colors.primary }}
                     >
                       Apply
                     </button>
                   </div>
                 )}
-
-                {/* Items Per Page */}
-                <div className="flex items-center gap-2">
-                  <label className="text-sm font-semibold text-gray-700">Show:</label>
-                  <select
-                    value={itemsPerPage}
-                    onChange={(e) => setItemsPerPage(Number(e.target.value))}
-                    className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all bg-white hover:border-gray-400"
-                  >
-                    <option value={10}>10</option>
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                  </select>
-                </div>
               </div>
-
-              {/* Right Action Buttons */}
-              <div className="flex items-center gap-2 flex-wrap">
-                {/* Find Transaction */}
-                <div className="flex items-center gap-2 border-2 border-gray-300 rounded-lg px-3 py-2 bg-white hover:border-gray-400 transition-all">
-                  <Search size={16} className="text-gray-600" />
+ 
+              {/* Right Side: Tools & Actions */}
+              <div className="flex flex-wrap items-center gap-4 flex-grow lg:flex-grow-0 lg:justify-end">
+                {/* Search Tool */}
+                <div 
+                  className="flex items-center gap-2 px-3 bg-white border-2 rounded-lg shadow-sm h-10 min-w-[260px] focus-within:ring-2 focus-within:ring-blue-100 transition-all group lg:min-w-[300px]"
+                  style={{ borderColor: colors.secondary }}
+                >
+                  <Search size={16} className="text-gray-400 group-focus-within:text-blue-500 transition-colors" />
                   <input
                     type="text"
-                    placeholder="Find by M-Pesa Txn ID..."
+                    placeholder="Search Transaction ID..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="text-sm font-medium focus:outline-none w-40"
+                    className="text-xs font-bold focus:outline-none flex-grow placeholder:text-gray-400 placeholder:font-normal bg-transparent"
                   />
                   <button
                     onClick={handleFindTransaction}
-                    className="text-sm font-semibold text-blue-600 hover:text-blue-800 transition-colors"
+                    className="text-xs font-extrabold uppercase tracking-tighter hover:opacity-75 transition-opacity"
+                    style={{ color: colors.primary }}
                   >
                     Find
                   </button>
                   {searchTerm && (
                     <button
                       onClick={handleResetSearch}
-                      className="text-sm font-semibold text-gray-600 hover:text-gray-800 transition-colors"
+                      className="p-1 hover:bg-red-50 text-red-500 rounded-md transition-colors"
                     >
-                      Reset
+                      <X size={14} />
                     </button>
                   )}
                 </div>
-
+ 
                 {/* Export Options */}
-                <select
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  className="border-2 border-gray-300 rounded-lg px-3 py-2 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all bg-white hover:border-gray-400"
-                >
-                  <option value="csv">CSV</option>
-                  <option value="pdf">PDF</option>
-                  <option value="excel">Excel</option>
-                  <option value="word">Word</option>
-                </select>
-                <button
-                  onClick={handleExport}
-                  className="flex items-center gap-2 bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-green-700 transition-all shadow-sm hover:shadow-md"
-                >
-                  <Download size={16} />
-                  Export
-                </button>
-
-                {/* Share Report */}
-                <button
-                  onClick={handleShareReport}
-                  className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
-                >
-                  <Share2 size={16} />
-                  Share
-                </button>
+                <div className="flex items-center gap-2 bg-white p-0.5 border-2 rounded-lg shadow-sm h-10" style={{ borderColor: colors.secondary }}>
+                  <select
+                    value={exportFormat}
+                    onChange={(e) => setExportFormat(e.target.value)}
+                    className="px-2 text-xs font-bold focus:outline-none bg-transparent cursor-pointer border-r border-gray-100 h-full"
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
+                    <option value="excel">Excel</option>
+                    <option value="word">Word</option>
+                  </select>
+                  <button
+                    onClick={handleExport}
+                    className="flex items-center gap-2 text-white px-4 rounded-md text-xs font-bold h-full hover:brightness-110 active:scale-95 transition-all shadow-md group"
+                    style={{ backgroundColor: colors.primary }}
+                  >
+                    <Download size={14} className="group-hover:translate-y-0.5 transition-transform" />
+                    Export
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-
 
         {/* Summary Table */}
         <div className="bg-white rounded-xl shadow-md border border-gray-200 mb-2">
@@ -1301,11 +1295,12 @@ const CustomerStatementModal = () => {
                         }
                         disabled={page === "..."}
                         className={`px-3 py-2 rounded-lg min-w-[40px] text-sm font-semibold transition-all shadow-sm ${currentPage === page
-                          ? "bg-blue-600 text-white shadow-md"
+                          ? "text-white shadow-md"
                           : page === "..."
                             ? "bg-transparent cursor-default shadow-none"
                             : "bg-gray-100 hover:bg-gray-200 text-gray-700"
                           } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        style={currentPage === page ? { backgroundColor: colors.secondary } : {}}
                       >
                         {page}
                       </button>
@@ -1342,6 +1337,76 @@ const CustomerStatementModal = () => {
           </p>
         </div>
       </div>
+ 
+      {/* Transaction Details Modal */}
+      {isModalOpen && selectedTransaction && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-200">
+            {/* Modal Header */}
+            <div className={`p-6 text-white ${selectedTransaction.credit > 0 ? 'bg-gradient-to-r from-green-600 to-emerald-500' : 'bg-gradient-to-r from-blue-600 to-indigo-500'}`}>
+              <div className="flex justify-between items-start">
+                <div>
+                  <h3 className="text-xl font-bold">Transaction Details</h3>
+                  <p className="text-white/80 text-sm mt-1">Ref: {selectedTransaction.reference}</p>
+                </div>
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="p-1 hover:bg-white/20 rounded-full transition-colors"
+                >
+                  <ArrowLeft className="rotate-90 sm:rotate-0" size={24} />
+                </button>
+              </div>
+              <div className="mt-6 text-center">
+                <div className="text-4xl font-extrabold tracking-tight">
+                  {formatAmount(selectedTransaction.credit > 0 ? selectedTransaction.credit : selectedTransaction.debit)}
+                </div>
+                <div className="text-sm font-medium mt-1 text-white/90">
+                  {selectedTransaction.credit > 0 ? 'Total Credit Received' : 'Total Applied / Deducted'}
+                </div>
+              </div>
+            </div>
+ 
+            {/* Modal Content */}
+            <div className="p-6 space-y-4">
+              <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <span className="text-gray-500 text-sm font-medium">Type / Description</span>
+                <span className="text-gray-900 font-bold text-sm">{selectedTransaction.description}</span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <span className="text-gray-500 text-sm font-medium">Date & Time</span>
+                <span className="text-gray-900 font-semibold text-sm">
+                  {new Date(selectedTransaction.date).toLocaleString("en-KE")}
+                </span>
+              </div>
+              <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                <span className="text-gray-500 text-sm font-medium">Running Balance</span>
+                <span className="text-gray-900 font-bold text-sm">{formatAmount(selectedTransaction.balance)}</span>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-100 mt-2">
+                <div className="flex items-center gap-3 text-gray-600">
+                  <div className={`p-2 rounded-lg ${selectedTransaction.credit > 0 ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
+                    <Globe size={18} />
+                  </div>
+                  <div className="text-xs font-medium leading-relaxed">
+                    This is a reconciled financial record from the Jasiri Lending ledger.
+                    The ID <strong>{selectedTransaction.reference}</strong> uniquely identifies this event.
+                  </div>
+                </div>
+              </div>
+            </div>
+ 
+            {/* Modal Action */}
+            <div className="p-6 bg-gray-50 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => setIsModalOpen(false)}
+                className="w-full py-3 bg-gray-800 text-white rounded-xl font-bold text-sm hover:bg-gray-900 transition-all shadow-md active:scale-95"
+              >
+                Close Details
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

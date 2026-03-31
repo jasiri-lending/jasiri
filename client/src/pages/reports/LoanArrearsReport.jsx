@@ -793,7 +793,7 @@ const LoanArrearsReport = () => {
   // ✅ Show loading state with custom Spinner
   if (loading && arrearsData.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Loan Arrears Report..." />
       </div>
     );
@@ -802,7 +802,7 @@ const LoanArrearsReport = () => {
   // ✅ Show error state with retry option
   if (error && arrearsData.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <X className="w-16 h-16 mx-auto mb-2" />
@@ -822,7 +822,7 @@ const LoanArrearsReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section - Aligned with other reports */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">

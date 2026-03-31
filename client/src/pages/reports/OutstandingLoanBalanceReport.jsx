@@ -371,10 +371,7 @@ const OutstandingLoanBalanceReport = () => {
         if (branchesRes.error) throw branchesRes.error;
         if (regionsRes.error) throw regionsRes.error;
 
-        console.log("✅ All tables fetched successfully");
-        console.log("- Loans:", loansRes.data?.length || 0);
-        console.log("- Installments:", installmentsRes.data?.length || 0);
-        console.log("- Customers:", customersRes.data?.length || 0);
+       
 
         if (!isMountedRef.current) {
           console.log("🧹 Component unmounted during fetch");
@@ -388,7 +385,6 @@ const OutstandingLoanBalanceReport = () => {
         const branchData = branchesRes.data || [];
         const regionData = regionsRes.data || [];
 
-        console.log("🔄 Processing loans into reports...");
 
         // Process loans into reports
         const processedReports = loans.map((loan) => {
@@ -482,7 +478,6 @@ const OutstandingLoanBalanceReport = () => {
           };
         });
 
-        console.log("✅ Reports processed:", processedReports.length);
 
         const cacheData = {
           reports: processedReports,
@@ -1119,7 +1114,7 @@ const OutstandingLoanBalanceReport = () => {
   // ✅ Show loading state with custom Spinner
   if (loading && rawReports.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Outstanding Loan Balance Report..." />
       </div>
     );
@@ -1128,7 +1123,7 @@ const OutstandingLoanBalanceReport = () => {
   // ✅ Show error state with retry option
   if (error && rawReports.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <X className="w-16 h-16 mx-auto mb-2" />
@@ -1148,7 +1143,7 @@ const OutstandingLoanBalanceReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
       <div className="max-w-full mx-auto space-y-8">
         {/* COMPACT HEADER */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -1209,20 +1204,20 @@ const OutstandingLoanBalanceReport = () => {
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Balance</p>
+            <p className="text-sm text-slate-600 font-medium">Total Balance</p>
             <p className="text-2xl font-bold mt-1 text-primary">
               {formatCurrency(totals.outstanding)}
             </p>
           </div>
           <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Principal Outstanding</p>
+            <p className="text-sm text-slate-600 font-medium">Principal Outstanding</p>
             <p className="text-2xl font-bold mt-1 text-accent">
               {formatCurrency(totals.principal)}
             </p>
           </div>
           <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted font-medium">Number of Loans</p>
+              <p className="text-sm text-slate-600 font-medium">Number of Loans</p>
               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
                 ACTIVE
               </span>

@@ -662,7 +662,7 @@ const OutstandingLoanBalanceReportEOM = () => {
   const cutoffDate = getCutoffDate();
 
   return (
-    <div className="min-h-screen bg-brand-surface pb-12">
+    <div className="min-h-screen bg-muted pb-12">
       {/* HEADER SECTION */}
       <div className="bg-brand-secondary border-b border-gray-200 shadow-sm relative z-20 rounded-lg mx-4 mt-4">
         <div className="max-w-[1600px] mx-auto px-6 py-4">
@@ -986,54 +986,61 @@ const OutstandingLoanBalanceReportEOM = () => {
               </table>
             </div>
 
-            <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-normal">{startIdx + 1}</span> to{' '}
-                <span className="font-normal">{Math.min(endIdx, allLoans.length)}</span> of{' '}
-                <span className="font-normal">{allLoans.length}</span> loans
+          {/* Pagination */}
+          {!loading && allLoans.length > 0 && (
+            <div className="px-6 py-4 bg-gray-50/50 border-t border-gray-100 flex items-center justify-between">
+              <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                Showing {Math.min(currentPage * itemsPerPage, allLoans.length)} of {allLoans.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 disabled:opacity-50 hover:border-brand-primary transition-all shadow-sm"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+                <div className="flex gap-1">
+                  {[...Array(totalPages)].map((_, i) => {
+                    const pageNum = i + 1;
+                    // Only show first, last, and pages around current
+                    if (
+                      pageNum === 1 ||
+                      pageNum === totalPages ||
+                      Math.abs(pageNum - currentPage) <= 1
+                    ) {
+                      return (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`w-8 h-8 rounded-lg text-xs font-bold transition-all shadow-sm ${currentPage === pageNum
+                            ? "bg-brand-primary text-white"
+                            : "bg-white text-gray-600 border border-gray-200 hover:border-brand-primary hover:text-brand-primary"
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      );
+                    }
+                    if (
+                      pageNum === currentPage - 2 ||
+                      pageNum === currentPage + 2
+                    ) {
+                      return <span key={pageNum} className="px-1 text-gray-400 mt-2">...</span>;
+                    }
+                    return null;
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="p-2 rounded-lg bg-white border border-gray-200 text-gray-600 disabled:opacity-50 hover:border-brand-primary transition-all shadow-sm"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </button>
               </div>
-
-              <button
-                onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                disabled={currentPage === 1}
-                className={`p-2 rounded-lg border border-gray-300 transition-all ${currentPage === 1
-                  ? "opacity-40 cursor-not-allowed bg-gray-50"
-                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 active:scale-95"
-                  }`}
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <div className="flex items-center gap-1">
-                {Array.from({ length: totalPages }, (_, i) => i + 1)
-                  .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
-                  .map((p, i, arr) => (
-                    <React.Fragment key={p}>
-                      {i > 0 && arr[i - 1] !== p - 1 && <span className="text-gray-400 px-1">...</span>}
-                      <button
-                        onClick={() => setCurrentPage(p)}
-                        className={`w-7 h-7 rounded-lg font-normal transition-all ${currentPage === p
-                          ? "bg-accent text-white shadow-lg scale-105"
-                          : "text-gray-600 hover:bg-white border border-transparent hover:border-gray-300"
-                          }`}
-                      >
-                        {p}
-                      </button>
-                    </React.Fragment>
-                  ))}
-              </div>
-
-              <button
-                onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                disabled={currentPage === totalPages}
-                className={`p-2 rounded-lg border border-gray-300 transition-all ${currentPage === totalPages
-                  ? "opacity-40 cursor-not-allowed bg-gray-50"
-                  : "bg-white text-gray-700 hover:bg-gray-50 hover:border-gray-400 active:scale-95"
-                  }`}
-              >
-                <ChevronRight className="w-5 h-5" />
-              </button>
             </div>
+          )}
           </>
         )}
       </div>

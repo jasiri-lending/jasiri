@@ -27,6 +27,8 @@ export function useReportAuth() {
         localStorage.removeItem("reportUser");
         setReportUser(null);
       } else {
+        // Support both old and new structures for graceful transition if needed,
+        // but prioritize branchName for the new UI.
         setReportUser(parsed);
       }
     } catch {

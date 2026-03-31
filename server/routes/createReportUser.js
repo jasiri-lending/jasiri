@@ -25,87 +25,79 @@ function generatePassword(length = 12) {
   return password.split('').sort(() => Math.random() - 0.5).join('');
 }
 
-// Create report user with auto-generated password
+// Create/Update branch or tenant master report access password
 router.post("/", async (req, res) => {
   try {
-    const { email, tenant_id } = req.body;
+    const { branch_id, tenant_id } = req.body;
 
-    console.log("📝 Creating report user:", { email, tenant_id });
-
-    if (!email) {
-      return res.status(400).json({ error: "Email is required" });
-    }
+    console.log("📝 Setting report password:", { branch_id, tenant_id });
 
     if (!tenant_id) {
       return res.status(400).json({ error: "Tenant ID is required" });
     }
 
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      return res.status(400).json({ error: "Invalid email format" });
-    }
+    let targetName = "";
+    let updateTable = "";
+    let updateId = "";
 
-    // Check if tenant exists
-    const { data: tenantExists, error: tenantError } = await supabaseAdmin
-      .from("tenants")
-      .select("id")
-      .eq("id", tenant_id)
-      .maybeSingle();
+    if (branch_id) {
+      // Branch-specific password
+      const { data: branch, error: branchError } = await supabaseAdmin
+        .from("branches")
+        .select("id, name")
+        .eq("id", branch_id)
+        .eq("tenant_id", tenant_id)
+        .maybeSingle();
 
-    if (tenantError) {
-      console.error("❌ Tenant lookup error:", tenantError);
-      return res.status(500).json({ error: "Failed to verify tenant" });
-    }
+      if (branchError || !branch) {
+        return res.status(400).json({ error: "Invalid branch ID or tenant mismatch" });
+      }
+      targetName = `Branch: ${branch.name}`;
+      updateTable = "branches";
+      updateId = branch_id;
+    } else {
+      // Tenant master password
+      const { data: tenant, error: tenantError } = await supabaseAdmin
+        .from("tenants")
+        .select("id, name")
+        .eq("id", tenant_id)
+        .maybeSingle();
 
-    if (!tenantExists) {
-      return res.status(400).json({ error: "Invalid tenant ID" });
-    }
-
-    // Check if user already exists for this tenant
-    const { data: existingUser } = await supabase
-      .from("report_users")
-      .select("email")
-      .eq("email", email)
-      .eq("tenant_id", tenant_id)
-      .maybeSingle();
-
-    if (existingUser) {
-      return res.status(400).json({
-        error: "User with this email already exists for this tenant"
-      });
+      if (tenantError || !tenant) {
+        return res.status(400).json({ error: "Invalid tenant ID" });
+      }
+      targetName = `Tenant Master (HQ): ${tenant.name}`;
+      updateTable = "tenants";
+      updateId = tenant_id;
     }
 
     // Generate a secure password
     const generatedPassword = generatePassword(12);
-    console.log("🔑 Generated password for:", email);
+    console.log("🔑 Generated password for:", targetName);
 
     // Hash the password
     const hashed = await bcrypt.hash(generatedPassword, 10);
 
-    // Insert into database
-    const { data, error } = await supabaseAdmin
-      .from("report_users")
-      .insert([{
-        email,
-        password: hashed,
-        tenant_id
-      }])
-      .select();
+    // Update record
+    const { error: updateError } = await supabaseAdmin
+      .from(updateTable)
+      .update({
+        report_password: hashed
+      })
+      .eq("id", updateId);
 
-    if (error) {
-      console.error("❌ Database error:", error);
-      return res.status(400).json({ error: error.message });
+    if (updateError) {
+      console.error("❌ Database update error:", updateError);
+      return res.status(400).json({ error: updateError.message });
     }
 
-    console.log("✅ Report user created successfully");
+    console.log("✅ Report password set successfully for:", targetName);
 
-    // Return the plain password so it can be shown to admin once
     res.json({
       success: true,
-      message: "Report user created successfully",
-      email: email,
-      password: generatedPassword, // Return plain password for one-time display
+      message: `Report password for ${targetName} set successfully`,
+      target: targetName,
+      password: generatedPassword,
       tenant_id: tenant_id,
     });
 

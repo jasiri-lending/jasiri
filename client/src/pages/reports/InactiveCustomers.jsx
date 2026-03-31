@@ -10,6 +10,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  UserX,
   MapPin,
   Globe
 } from "lucide-react";
@@ -734,7 +735,7 @@ const InactiveCustomers = () => {
   // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Inactive Customers Report..." />
       </div>
     );
@@ -743,7 +744,7 @@ const InactiveCustomers = () => {
   // Error state
   if (errorMsg) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <AlertTriangle className="w-16 h-16 mx-auto mb-2" />
@@ -766,7 +767,7 @@ const InactiveCustomers = () => {
 
 
   return (
-    <div className="min-h-screen bg-brand-surface pb-12">
+    <div className="min-h-screen bg-muted pb-12">
       {/* HEADER SECTION */}
       <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">

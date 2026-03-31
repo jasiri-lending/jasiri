@@ -41,9 +41,9 @@ const LoanTableRow = React.memo(({ loan, index, currentPage, itemsPerPage }) => 
       <td className="px-4 py-4 text-center text-slate-400 font-medium whitespace-nowrap">
         {(currentPage - 1) * itemsPerPage + index + 1}
       </td>
-      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">{loan.branch}</td>
+      <td className="px-4 py-4 font-bold text-slate-600 whitespace-nowrap">{loan.branch}</td>
       <td className="px-4 py-4 font-semibold text-slate-600 whitespace-nowrap">{loan.officer}</td>
-      <td className="px-4 py-4 font-bold text-slate-900 whitespace-nowrap">
+      <td className="px-4 py-4 font-bold text-slate-600 whitespace-nowrap">
         {loan.customerName}
       </td>
 
@@ -734,7 +734,7 @@ const LoanDueReport = () => {
   // ✅ Show loading state with custom Spinner
   if (loading && rawLoans.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Loan Due Report..." />
       </div>
     );
@@ -763,7 +763,7 @@ const LoanDueReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
 
         {/* Header Section */}
@@ -946,22 +946,22 @@ const LoanDueReport = () => {
         {/* Summary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
-            <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 font-bold">
+            <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 font-semibold">
               KES
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Total Amount Due</p>
-              <h3 className="text-2xl font-bold text-brand-primary">{formatCurrency(grandTotals.totalDue)}</h3>
+              <p className="text-xs font-semibold text-gray-600 mb-0.5">Total Amount Due</p>
+              <h3 className="text-2xl font-semibold text-brand-primary">{formatCurrency(grandTotals.totalDue)}</h3>
             </div>
           </div>
 
           <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
-            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0 font-bold">
+            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0 font-semibold">
               KES
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Total Unpaid Balance</p>
-              <h3 className="text-2xl font-bold text-accent">{formatCurrency(grandTotals.totalUnpaid)}</h3>
+              <p className="text-xs font-semibold text-gray-600  mb-0.5">Total Unpaid Balance</p>
+              <h3 className="text-2xl font-semibold text-accent">{formatCurrency(grandTotals.totalUnpaid)}</h3>
             </div>
           </div>
 
@@ -970,8 +970,8 @@ const LoanDueReport = () => {
               #
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-0.5">Number of Loans</p>
-              <h3 className="text-2xl font-bold text-gray-900">{filteredData.length}</h3>
+              <p className="text-xs font-semibold text-gray-600 uppercase tracking-wider mb-0.5">Number of Loans</p>
+              <h3 className="text-2xl font-semibold text-gray-900">{filteredData.length}</h3>
             </div>
           </div>
         </div>
@@ -982,18 +982,18 @@ const LoanDueReport = () => {
             <table className="min-w-full text-sm text-left">
               <thead className="bg-slate-50 border-b border-slate-200">
                 <tr>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px] text-center w-12">No.</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">Branch Name</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase whitespace-nowrap text-[11px]">RO</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Customer Name</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">ID Number</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] whitespace-nowrap">Phone</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase text-[11px] text-center whitespace-nowrap">Inst. Due</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase  text-[11px] text-right whitespace-nowrap">Disbursed</th>
-                  <th className="px-4 py-4 font-black text-red-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap font-bold">Total Due</th>
-                  <th className="px-4 py-4 font-black text-accent uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Total Paid</th>
-                  <th className="px-4 py-4 font-black text-orange-600 uppercase tracking-wider text-[11px] text-right whitespace-nowrap">Unpaid Balance</th>
-                  <th className="px-4 py-4 font-black text-slate-700 uppercase tracking-wider text-[11px] whitespace-nowrap">Due Date</th>
+                  <th className="px-4 py-4  text-slate-700  whitespace-nowrap  text-center w-12">No.</th>
+                  <th className="px-4 py-4  text-slate-700  whitespace-nowrap ">Branch Name</th>
+                  <th className="px-4 py-4  text-slate-700  whitespace-nowrap ">RO</th>
+                  <th className="px-4 py-4  text-slate-700   whitespace-nowrap">Customer Name</th>
+                  <th className="px-4 py-4  text-slate-700   whitespace-nowrap">ID Number</th>
+                  <th className="px-4 py-4  text-slate-700   whitespace-nowrap">Phone</th>
+                  <th className="px-4 py-4  text-slate-700   text-center whitespace-nowrap">Inst. Due</th>
+                  <th className="px-4 py-4  text-slate-700    text-right whitespace-nowrap">Disbursed</th>
+                  <th className="px-4 py-4  text-slate-700   text-right whitespace-nowrap font-bold">Total Due</th>
+                  <th className="px-4 py-4  text-slate-700  text-right whitespace-nowrap">Total Paid</th>
+                  <th className="px-4 py-4  text-slate-700  text-right whitespace-nowrap">Unpaid Balance</th>
+                  <th className="px-4 py-4  text-slate-700  whitespace-nowrap">Due Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -1025,11 +1025,11 @@ const LoanDueReport = () => {
               </tbody>
               <tfoot className="bg-gray-50/50">
                 <tr className="border-t-2 border-gray-200">
-                  <td colSpan="7" className="px-4 py-4 text-sm font-bold text-gray-900 text-right uppercase tracking-wider">Grand Totals</td>
-                  <td className="px-4 py-4 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(grandTotals.disbursedAmount)}</td>
-                  <td className="px-4 py-4 text-right font-bold text-red-600 whitespace-nowrap">{formatCurrency(grandTotals.totalDue)}</td>
-                  <td className="px-4 py-4 text-right font-bold text-accent whitespace-nowrap">{formatCurrency(grandTotals.totalPaid)}</td>
-                  <td className="px-4 py-4 text-right font-bold text-orange-600 whitespace-nowrap">{formatCurrency(grandTotals.totalUnpaid)}</td>
+                  <td colSpan="7" className="px-4 py-4 text-sm font-semibold text-gray-900 text-right ">Grand Totals</td>
+                  <td className="px-4 py-4 text-right font-semibold text-gray-600 whitespace-nowrap">{formatCurrency(grandTotals.disbursedAmount)}</td>
+                  <td className="px-4 py-4 text-right font-semibold text-red-600 whitespace-nowrap">{formatCurrency(grandTotals.totalDue)}</td>
+                  <td className="px-4 py-4 text-right font-semibold text-accent whitespace-nowrap">{formatCurrency(grandTotals.totalPaid)}</td>
+                  <td className="px-4 py-4 text-right font-semibold text-orange-600 whitespace-nowrap">{formatCurrency(grandTotals.totalUnpaid)}</td>
                   <td></td>
                 </tr>
               </tfoot>
@@ -1040,9 +1040,9 @@ const LoanDueReport = () => {
           {!loading && currentData.length > 0 && (
             <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between">
               <p className="text-sm text-gray-500">
-                Showing <span className="font-bold text-gray-900">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
-                <span className="font-bold text-gray-900">{Math.min(currentPage * itemsPerPage, totalRows)}</span> of{" "}
-                <span className="font-bold text-gray-900">{totalRows}</span> loans
+                Showing <span className="font-semibold text-gray-600">{(currentPage - 1) * itemsPerPage + 1}</span> to{" "}
+                <span className="font-semibold text-gray-600">{Math.min(currentPage * itemsPerPage, totalRows)}</span> of{" "}
+                <span className="font-semibold text-gray-600">{totalRows}</span> loans
               </p>
               <div className="flex items-center gap-2">
                 <button

@@ -662,7 +662,7 @@ const CustomerListing = () => {
   // ========== Render ==========
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading customers..." />
       </div>
     );
@@ -670,7 +670,7 @@ const CustomerListing = () => {
 
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -859,10 +859,10 @@ const CustomerListing = () => {
                 <Users className="w-6 h-6 text-brand-primary" />
               </div>
               <div>
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">
+                <p className="text-sm  text-gray-600 uppercase ">
                   Total Customers
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900">{summary.total}</h3>
+                <h3 className="text-2xl font-bold text-gray-600">{summary.total}</h3>
               </div>
             </div>
           </div>
@@ -873,10 +873,10 @@ const CustomerListing = () => {
                 <UserCheck className="w-6 h-6 text-accent" />
               </div>
               <div>
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">
+                <p className="text-sm  text-gray-600 uppercase ">
                   Active Customers
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900">{summary.active}</h3>
+                <h3 className="text-2xl font-bold text-gray-600">{summary.active}</h3>
               </div>
             </div>
           </div>
@@ -887,10 +887,10 @@ const CustomerListing = () => {
                 <UserPlus className="w-6 h-6 text-yellow-600" />
               </div>
               <div>
-                <p className="text-sm font-bold text-gray-400 uppercase tracking-wider">
+                <p className="text-sm  text-gray-600 uppercase ">
                   New this Month
                 </p>
-                <h3 className="text-2xl font-bold text-gray-900">{summary.newThisMonth}</h3>
+                <h3 className="text-2xl font-bold text-gray-600">{summary.newThisMonth}</h3>
               </div>
             </div>
           </div>

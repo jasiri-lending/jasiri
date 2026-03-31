@@ -11,13 +11,13 @@ router.use(authLimiter);
 // POST /api/checkReportUser
 router.post("/", async (req, res) => {
   try {
-    const { email, password, tenant_id } = req.body;
+    const { branch_id, password, tenant_id } = req.body;
 
-    console.log("🔐 Login attempt:", { email, tenant_id });
+    console.log("🔐 Report login attempt:", { branch_id, tenant_id });
 
-    if (!email || !password) {
+    if (!password) {
       return res.status(400).json({
-        error: "Email and password are required",
+        error: "Password is required",
       });
     }
 
@@ -27,44 +27,66 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // Fetch user with tenant_id validation
-    const { data: user, error } = await supabaseAdmin
-      .from("report_users")
-      .select("id, email, password, tenant_id, created_at")
-      .eq("email", email)
-      .eq("tenant_id", tenant_id) // Must match the logged-in user's tenant
-      .maybeSingle();
+    let authenticated = false;
+    let displayName = "";
+    let userId = "";
 
-    if (error) {
-      console.error("❌ Supabase error:", error);
-      return res.status(500).json({ error: "Database error" });
+    if (branch_id) {
+      // Fetch branch with tenant_id validation
+      const { data: branch, error } = await supabaseAdmin
+        .from("branches")
+        .select("id, name, report_password, tenant_id")
+        .eq("id", branch_id)
+        .eq("tenant_id", tenant_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Supabase branch error:", error);
+        return res.status(500).json({ error: "Database error during branch lookup" });
+      }
+
+      if (branch && branch.report_password) {
+        authenticated = await bcrypt.compare(password, branch.report_password);
+        displayName = branch.name;
+        userId = branch.id;
+      }
+    } else {
+      // If no branch_id, check tenant master password (for admins/HQ)
+      const { data: tenant, error } = await supabaseAdmin
+        .from("tenants")
+        .select("id, name, report_password")
+        .eq("id", tenant_id)
+        .maybeSingle();
+
+      if (error) {
+        console.error("❌ Supabase tenant error:", error);
+        return res.status(500).json({ error: "Database error during tenant lookup" });
+      }
+
+      if (tenant && tenant.report_password) {
+        authenticated = await bcrypt.compare(password, tenant.report_password);
+        displayName = `Admin (${tenant.name})`;
+        userId = `admin-${tenant.id}`;
+      }
     }
 
-    if (!user) {
-      console.warn("⚠️ User not found or tenant mismatch:", email);
-      return res.status(401).json({ error: "Invalid email or password" });
+    if (!authenticated) {
+      console.warn("⚠️ Authentication failed for:", { branch_id, tenant_id });
+      return res.status(401).json({ error: "Invalid password for selected branch or admin access" });
     }
 
-    // Verify password
-    const validPassword = await bcrypt.compare(password, user.password);
-
-    if (!validPassword) {
-      console.warn("⚠️ Invalid password:", email);
-      return res.status(401).json({ error: "Invalid email or password" });
-    }
-
-    console.log("✅ Login success:", { userId: user.id, tenant: user.tenant_id });
+    console.log("✅ Report login success:", { userId, tenant_id, displayName });
 
     res.json({
       success: true,
       message: "Login success",
-      userId: user.id,
-      email: user.email,
-      tenant_id: user.tenant_id,
+      userId,
+      branchName: displayName,
+      tenant_id: tenant_id,
     });
 
   } catch (err) {
-    console.error("🔥 Login server error:", err);
+    console.error("🔥 Report login server error:", err);
     res.status(500).json({
       error: "Internal server error",
     });

@@ -1032,7 +1032,7 @@ const DisbursementLoansReport = () => {
     }
   };
 
-  // ✅ Show loading state with custom Spinner (only once)
+  //  Show loading state with custom Spinner (only once)
   if (loading && rawLoans.length === 0) {
     return (
       <div className="min-h-screen bg-brand-surface flex items-center justify-center">
@@ -1041,10 +1041,10 @@ const DisbursementLoansReport = () => {
     );
   }
 
-  // ✅ Show error state with retry option (only once)
+  //  Show error state with retry option (only once)
   if (error && rawLoans.length === 0) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <div className="text-center">
           <div className="text-red-600 mb-4">
             <X className="w-16 h-16 mx-auto mb-2" />
@@ -1064,7 +1064,7 @@ const DisbursementLoansReport = () => {
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -1122,15 +1122,15 @@ const DisbursementLoansReport = () => {
         {/* Summary Section */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Payable</p>
+            <p className="text-sm text-slate-600 font-medium">Total Payable</p>
             <p className="text-2xl font-bold mt-1 text-primary">{formatCurrency(summaryStats.totalPayable)}</p>
           </div>
           <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Principal</p>
+            <p className="text-sm text-slate-600 font-medium">Total Principal</p>
             <p className="text-2xl font-bold mt-1 text-accent">{formatCurrency(summaryStats.totalPrincipal)}</p>
           </div>
           <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Number of Loans</p>
+            <p className="text-sm text-slate-600 font-medium">Number of Loans</p>
             <p className="text-2xl font-bold mt-1 text-gray-900">{summaryStats.totalLoans}</p>
           </div>
         </div>

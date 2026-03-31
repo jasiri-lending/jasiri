@@ -707,7 +707,7 @@ const LoanInstallmentReport = () => {
   };
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
         {/* Header Section */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -738,14 +738,14 @@ const LoanInstallmentReport = () => {
                 </div>
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px - 4 py - 2 rounded - lg flex items - center gap - 2 text - sm font - medium transition - all border
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
                     ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-white border-white/20 hover:bg-white/10"
-                    } `}
+                      : "text-white border-white/40 hover:bg-white/20 shadow-sm"
+                    }`}
                 >
                   <Filter className="w-4 h-4" />
-                  <span>Filters</span>
+                  <span>Filter</span>
                 </button>
 
                 <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1">

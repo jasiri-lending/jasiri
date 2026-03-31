@@ -102,7 +102,7 @@ PendingRow.displayName = "PendingRow";
 // ========== Main Component ==========
 
 const PendingDisbursementReport = () => {
-  // ✅ Get tenant from localStorage ONCE
+  //  Get tenant from localStorage ONCE
   const [tenant] = useState(() => {
     try {
       const savedTenant = localStorage.getItem("tenant");
@@ -748,14 +748,14 @@ const PendingDisbursementReport = () => {
 
   if (loading && isInitialLoad) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading Pending Disbursement Report..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
       <div className="max-w-full mx-auto space-y-8">
         {/* COMPACT HEADER */}
         <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
@@ -817,26 +817,26 @@ const PendingDisbursementReport = () => {
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Scored Amount</p>
+            <p className="text-sm text-slate-600 font-medium">Total Scored Amount</p>
             <p className="text-2xl font-bold mt-1 text-primary">
               {formatCurrency(summaryStats.totalAmount)}
             </p>
           </div>
           <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Net Disbursement</p>
+            <p className="text-sm text-slate-600 font-medium">Net Disbursement</p>
             <p className="text-2xl font-bold mt-1 text-accent">
               {formatCurrency(summaryStats.totalNet)}
             </p>
           </div>
           <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-muted font-medium">Total Fees</p>
+            <p className="text-sm text-slate-600 font-medium">Total Fees</p>
             <p className="text-2xl font-bold mt-1 text-red-600">
               {formatCurrency(summaryStats.totalFees)}
             </p>
           </div>
           <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-muted font-medium">Number of Loans</p>
+              <p className="text-sm text-slate-600 font-medium">Number of Loans</p>
               <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
                 PENDING
               </span>
