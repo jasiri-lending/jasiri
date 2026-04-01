@@ -40,7 +40,7 @@ const getFullProfileData = async (userId) => {
   // Fetch user details INCLUDING tenant_id and session_expires_at
   const { data: userData, error: userError } = await supabaseAdmin
     .from("users")
-    .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at")
+    .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at, created_at, last_login")
     .eq("id", userId)
     .single();
 
@@ -123,7 +123,9 @@ const getFullProfileData = async (userId) => {
       branch_code: branchCode,
       region: regionName,
       must_change_password: userData.must_change_password,
-      session_expires_at: userData.session_expires_at
+      session_expires_at: userData.session_expires_at,
+      created_at: userData.created_at,
+      last_login: userData.last_login
     },
     tenant: tenantData
   };

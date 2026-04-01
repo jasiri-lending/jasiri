@@ -54,7 +54,7 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
   };
 
   return (
-    <div className="flex justify-center gap-3" onPaste={handlePaste}>
+    <div bg-muted className="flex justify-center gap-3" onPaste={handlePaste}>
       {Array.from({ length }).map((_, index) => (
         <input
           key={index}
@@ -128,7 +128,7 @@ const CountdownTimer = ({ seconds, onResend, disabled = false }) => {
 };
 
 export default function UserProfile() {
-  const { profile, refreshProfile, logout } = useAuth();
+  const { profile, refreshProfile,  } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
 
@@ -148,6 +148,7 @@ export default function UserProfile() {
   const [previewUrl, setPreviewUrl] = useState(null);
   const [avatarKey, setAvatarKey] = useState(Date.now());
   const fileInputRef = useRef(null);
+  const [loading, setLoading] = useState(false); // Local loading state for avatar removal
 
   // Role display names
   const roleDisplayNames = {
@@ -428,7 +429,7 @@ export default function UserProfile() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-brand-surface to-white">
+    <div className="min-h-screen bg-muted">
       {/* Non-sticky Header */}
       <div className="bg-white/80 backdrop-blur-sm border-b border-brand-secondary/10 shadow-sm">
         <div className="px-6 py-5 max-w-7xl mx-auto">
@@ -581,7 +582,7 @@ export default function UserProfile() {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                     className="flex items-center justify-center gap-2 px-3 py-2 bg-brand-primary text-white 
-                      rounded-lg hover:bg-brand-btn transition-all duration-200 text-sm
+                      rounded-lg hover:bg-brand-btn transition-all duration-200 text-xs
                       disabled:opacity-50"
                   >
                     {uploading ? (
@@ -601,7 +602,7 @@ export default function UserProfile() {
                     <button
                       onClick={handleRemoveAvatar}
                       className="flex items-center justify-center gap-2 px-3 py-2 border border-red-300 
-                        text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200 text-sm"
+                        text-red-600 rounded-lg hover:bg-red-50 transition-all duration-200 text-xs"
                     >
                       <X className="h-3 w-3" />
                       <span>Remove Photo</span>
@@ -671,7 +672,7 @@ export default function UserProfile() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Full Name</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 transition-colors duration-200">
                           <Users className="h-4 w-4 text-brand-primary/50 mr-3" />
                           <span className="text-brand-primary font-medium">{profile.name}</span>
@@ -680,7 +681,7 @@ export default function UserProfile() {
 
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Email Address</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 transition-colors duration-200">
                           <Mail className="h-4 w-4 text-brand-primary/50 mr-3" />
                           <span className="text-brand-primary font-medium">{profile.email}</span>
@@ -689,7 +690,7 @@ export default function UserProfile() {
 
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Personal Phone</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 hover:bg-white hover:shadow-sm transition-all duration-200">
                           <Phone className="h-4 w-4 text-brand-primary/50 mr-3 group-hover:text-brand-btn transition-colors" />
                           <span className="text-brand-primary font-medium">{profile.phone || 'Not provided'}</span>
@@ -698,7 +699,7 @@ export default function UserProfile() {
 
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Company Phone</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 hover:bg-white hover:shadow-sm transition-all duration-200">
                           <Building className="h-4 w-4 text-brand-primary/50 mr-3 group-hover:text-brand-btn transition-colors" />
                           <span className="text-brand-primary font-medium">{profile.company_phone || 'Not provided'}</span>
@@ -726,7 +727,7 @@ export default function UserProfile() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Role</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 transition-colors duration-200">
                           <Shield className="h-4 w-4 text-brand-primary/50 mr-3" />
                           <span className="text-brand-primary font-medium">{getRoleDisplayName(profile.role)}</span>
@@ -735,7 +736,7 @@ export default function UserProfile() {
 
                       <div className="space-y-2">
                         <label className="text-xs font-semibold text-brand-primary/70">Region</label>
-                        <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                        <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                           group hover:border-brand-primary/30 transition-colors duration-200">
                           <MapPin className="h-4 w-4 text-brand-primary/50 mr-3" />
                           <span className="text-brand-primary font-medium">{profile.region || 'Not assigned'}</span>
@@ -745,7 +746,7 @@ export default function UserProfile() {
 
                     <div className="space-y-2">
                       <label className="text-xs font-semibold text-brand-primary/70">Branch</label>
-                      <div className="flex items-center p-3 bg-brand-surface/50 rounded-lg border border-brand-secondary/10 
+                      <div className="flex items-center p-3 bg-muted rounded-lg border border-brand-secondary/10 
                         group hover:border-brand-primary/30 transition-colors duration-200">
                         <Building className="h-4 w-4 text-brand-primary/50 mr-3" />
                         <span className="text-brand-primary font-medium">{profile.branch || 'Not assigned'}</span>
@@ -798,22 +799,6 @@ export default function UserProfile() {
                         {profile.last_login ? formatDate(profile.last_login) : 'Never'}
                       </span>
                     </div>
-
-                    <div className="flex justify-between items-center py-3">
-                      <div className="flex items-center gap-3">
-                        <div className="h-8 w-8 rounded-full bg-green-100 flex items-center justify-center">
-                          <Check className="h-4 w-4 text-green-600" />
-                        </div>
-                        <div>
-                          <span className="text-brand-primary font-medium">Account Status</span>
-                          <p className="text-xs text-brand-primary/50">Current account status</p>
-                        </div>
-                      </div>
-                      <div className="flex items-center">
-                        <div className="w-2 h-2 rounded-full bg-green-500 mr-2 animate-pulse"></div>
-                        <span className="font-semibold text-green-600 text-sm">Active</span>
-                      </div>
-                    </div>
                   </div>
                 </div>
               </div>
@@ -847,7 +832,7 @@ export default function UserProfile() {
                         onClick={requestPasswordChangeCode}
                         disabled={changingPassword}
                         className="px-6 py-3 bg-brand-primary text-white 
-                          rounded-lg hover:bg-brand-btn transition-all duration-200 font-semibold text-sm
+                          rounded-lg hover:bg-brand-btn transition-all duration-200 font-semibold text-xs
                           disabled:opacity-50"
                       >
                         Send Verification Code
@@ -898,7 +883,7 @@ export default function UserProfile() {
                               required
                               className="w-full pl-10 pr-10 py-2.5 border border-brand-secondary/20 rounded-lg 
                                 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-transparent 
-                                bg-brand-surface/50 transition-all duration-200 text-sm"
+                                bg-muted transition-all duration-200 text-xs"
                               placeholder="Enter new password"
                             />
                             <button
@@ -933,7 +918,7 @@ export default function UserProfile() {
                               required
                               className="w-full pl-10 pr-10 py-2.5 border border-brand-secondary/20 rounded-lg 
                                 focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-transparent 
-                                bg-brand-surface/50 transition-all duration-200 text-sm"
+                                bg-muted transition-all duration-200 text-xs"
                               placeholder="Confirm new password"
                             />
                             <button
@@ -961,7 +946,7 @@ export default function UserProfile() {
                             setConfirmPassword("");
                           }}
                           className="px-4 py-2.5 border border-brand-secondary/20 text-brand-primary 
-                            rounded-lg hover:bg-brand-surface transition-all duration-200 font-medium text-sm"
+                            rounded-lg hover:bg-brand-surface transition-all duration-200 font-medium text-xs"
                         >
                           Cancel
                         </button>
@@ -969,7 +954,7 @@ export default function UserProfile() {
                           type="submit"
                           disabled={changingPassword}
                           className="px-4 py-2.5 bg-brand-primary text-white 
-                            rounded-lg hover:bg-brand-btn transition-all duration-200 font-semibold text-sm
+                            rounded-lg hover:bg-brand-btn transition-all duration-200 font-semibold text-xs
                             disabled:opacity-50 flex items-center justify-center gap-2"
                         >
                           {changingPassword ? (

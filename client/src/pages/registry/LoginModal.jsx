@@ -53,7 +53,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
       const data = await res.json();
 
       if (!res.ok || !data?.success) {
-        setError(data?.error || "Invalid password for your branch or admin access");
+        setError("Invalid credentials");
         return;
       }
 
@@ -128,7 +128,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
 
           {error && (
             <div className="text-red-600 text-[11px] font-bold bg-red-50 p-4 rounded-2xl border border-red-200 animate-shake text-center">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
@@ -136,9 +136,9 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
             <button
               type="submit"
               disabled={loading || !password}
-              className="w-full bg-brand-primary text-white py-5 rounded-3xl font-black text-base uppercase tracking-widest shadow-2xl shadow-brand-primary/40 hover:bg-blue-800 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:grayscale disabled:pointer-events-none flex items-center justify-center gap-3"
+              className="w-full bg-brand-primary text-white py-4 rounded-3xl font-black text-xs uppercase tracking-widest shadow-2xl shadow-brand-primary/40 hover:bg-blue-800 hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:grayscale disabled:pointer-events-none flex items-center justify-center gap-3"
             >
-              {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : null}
+              {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : null}
               {loading ? "VERIFYING..." : "LOGIN"}
             </button>
           </div>

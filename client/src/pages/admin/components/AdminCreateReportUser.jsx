@@ -132,7 +132,7 @@ const AdminCreateReportUser = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="max-w-2xl mx-auto py-8 px-4 ">
       <div className="bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden translate-y-0 transition-all duration-300">
         {/* Header Header */}
         <div className="bg-brand-secondary p-6 text-white">
@@ -140,7 +140,7 @@ const AdminCreateReportUser = () => {
             <div className="p-2 bg-white/10 rounded-lg">
               <ShieldCheck className="w-6 h-6 text-white" />
             </div>
-            <h2 className="text-xl font-bold font-heading uppercase tracking-wider">Report Access Manager</h2>
+            <h2 className="text-white">Report Access Manager</h2>
           </div>
           <p className="text-brand-surface/70 text-sm">Configure secure access passcodes for branch tablets or administrative HQ access.</p>
         </div>
@@ -153,7 +153,7 @@ const AdminCreateReportUser = () => {
                 <button
                   type="button"
                   onClick={() => setAccessType("branch")}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     accessType === "branch" 
                       ? "bg-white text-brand-primary shadow-sm border border-gray-200" 
                       : "text-gray-400 hover:text-gray-600"
@@ -165,7 +165,7 @@ const AdminCreateReportUser = () => {
                 <button
                   type="button"
                   onClick={() => setAccessType("master")}
-                  className={`flex-1 py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                  className={`flex-1 py-2.5 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     accessType === "master" 
                       ? "bg-white text-brand-primary shadow-sm border border-gray-200" 
                       : "text-gray-400 hover:text-gray-600"
@@ -228,7 +228,7 @@ const AdminCreateReportUser = () => {
                           key={b.id}
                           type="button"
                           onClick={() => setSelectedBranch(b.id)}
-                          className={`p-3 rounded-xl text-xs font-bold transition-all border text-left flex items-center justify-between ${
+                          className={`p-2.5 rounded-xl text-xs font-bold transition-all border text-left flex items-center justify-between ${
                             selectedBranch === b.id 
                               ? "bg-brand-primary text-white border-brand-primary shadow-md" 
                               : "bg-white text-gray-600 border-gray-100 hover:border-brand-primary/30 hover:bg-gray-50"
@@ -273,9 +273,9 @@ const AdminCreateReportUser = () => {
               <button
                 type="submit"
                 disabled={loading || (accessType === "branch" && !selectedBranch)}
-                className="w-full bg-brand-primary text-white py-4 rounded-xl font-bold shadow-lg hover:bg-blue-800 transition-all hover:shadow-brand-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:pointer-events-none mt-4 flex items-center justify-center gap-2"
+                className="w-full bg-brand-primary text-white py-3 rounded-xl text-xs font-bold shadow-lg hover:bg-blue-800 transition-all hover:shadow-brand-primary/20 active:scale-[0.98] disabled:opacity-50 disabled:grayscale disabled:pointer-events-none mt-4 flex items-center justify-center gap-2"
               >
-                {loading ? <RefreshCw className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
+                {loading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
                 {loading ? "GENERATING..." : `SET ${accessType.toUpperCase()} REPORT PASSWORD`}
               </button>
             </form>
@@ -310,11 +310,11 @@ const AdminCreateReportUser = () => {
                   />
                   <button
                     onClick={copyToClipboard}
-                    className={`px-8 rounded-2xl font-bold transition-all flex items-center gap-2 shadow-lg ${
+                    className={`px-6 rounded-2xl text-xs font-bold transition-all flex items-center gap-2 shadow-lg ${
                       copied ? "bg-emerald-600 text-white" : "bg-brand-primary text-white hover:bg-blue-800 shadow-brand-primary/20 active:scale-95"
                     }`}
                   >
-                    {copied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                    {copied ? <CheckCircle2 className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                     {copied ? "COPIED!" : "COPY"}
                   </button>
                 </div>
@@ -322,7 +322,7 @@ const AdminCreateReportUser = () => {
 
               <button
                 onClick={handleReset}
-                className="w-full bg-gray-100 text-gray-600 py-4 rounded-2xl font-bold hover:bg-gray-200 transition-all border border-gray-200"
+                className="w-full bg-gray-100 text-gray-600 py-3 rounded-2xl text-xs font-bold hover:bg-gray-200 transition-all border border-gray-200"
               >
                 GENERATE ANOTHER PASSCODE
               </button>
