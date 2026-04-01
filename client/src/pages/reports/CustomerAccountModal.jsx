@@ -98,7 +98,6 @@ const CustomerAccountModal = () => {
     };
   });
 
-  const { hasPermission } = usePermissions();
   const itemsPerPage = 10;
   const hasFetchedRef = useRef(false);
 
@@ -592,14 +591,14 @@ const CustomerAccountModal = () => {
   // ========== Render ==========
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
+      <div className="min-h-screen bg-muted flex items-center justify-center">
         <Spinner text="Loading account statements..." />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-[1600px] mx-auto space-y-6">
 
         {/* Header Section */}

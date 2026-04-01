@@ -39,7 +39,9 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
       // Automatically use the branch_id from the user's profile
       // If the user is an admin/HQ and has no branch_id, it will be null
       // and the backend will validate against the tenant's master report password.
-      const branchId = profile.branch_id || null;
+      const branchRoles = ["relationship_officer", "branch_manager", "customer_service_officer"];
+      const isBranchUser = branchRoles.includes(profile?.role);
+      const branchId = isBranchUser ? (profile.branch_id || null) : null;
 
       const res = await apiFetch(`/api/checkReportUser`, {
         method: "POST",
@@ -95,7 +97,7 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
           </div>
           <h2 className="text-lg font-black text-white uppercase tracking-[0.25em] font-heading">Secure Reports</h2>
           
-          {profile?.branch_id && (
+          {profile?.branch_id && ["relationship_officer", "branch_manager", "customer_service_officer"].includes(profile?.role) && (
             <div className="mt-3 flex items-center justify-center">
                <div className="bg-white/10 px-4 py-1.5 rounded-full flex items-center gap-2">
                   <Building2 className="w-3 h-3 text-white/70" />
