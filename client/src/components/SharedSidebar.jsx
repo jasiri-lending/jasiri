@@ -48,6 +48,7 @@ import {
   BarChart3
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
+import { usePermissions } from "../hooks/usePermissions";
 
 const SharedSidebar = () => {
   const [expandedItems, setExpandedItems] = useState({});
@@ -55,12 +56,14 @@ const SharedSidebar = () => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const { profile } = useAuth();
+  const { hasPermission, permissions } = usePermissions();
   const location = useLocation();
 
   /* -----------------------------------------------------
    Role access helper
   ----------------------------------------------------- */
   const hasAccess = (item) => {
+    if (item.permission && !hasPermission(item.permission)) return false;
     if (!item.roles || item.roles.length === 0) return true;
     return item.roles.includes(profile?.role);
   };
@@ -283,7 +286,8 @@ const SharedSidebar = () => {
       // { name: "Customer Categories", href: "/registry/customer-categories", icon: FolderOpen },
       { name: "Customer Edits", href: "/registry/customer-edits", icon: FileSpreadsheet },
       // { name: "Prequalified Amount Edit", href: "/registry/prequalified-amount-edit", icon: CreditCard },
-      { name: "Guarantors", href: "/registry/guarantors", icon: Handshake }
+      { name: "Guarantors", href: "/registry/guarantors", icon: Handshake },
+      { name: "Refunds", href: "/admin/refunds", icon: DollarSign, permission: "refund.approve" }
     ];
 
     const loaningNavigation = [
@@ -348,7 +352,7 @@ const SharedSidebar = () => {
           ? { ...item, children: item.children.filter(hasAccess) }
           : item
       );
-  }, [profile?.role]);
+  }, [profile?.role, permissions]);
 
 
   const sidebarStyles = {

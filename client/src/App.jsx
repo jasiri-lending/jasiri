@@ -154,6 +154,7 @@ const ReportsLayout = lazy(() => import("./context/ReportsLayout.jsx"));
 const ReviewEditRequest = lazy(() => import("./pages/registry/ReviewEditRequest.jsx"));
 const TransferReviewPage = lazy(() => import("./pages/registry/TransferReviewPage.jsx"));
 const PasswordSetup = lazy(() => import("./pages/PasswordSetup.jsx"));
+const RefundApprovals = lazy(() => import("./pages/admin/RefundApprovals.jsx"));
 
 // ReportWrapper component for permission-based report access
 const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) => {
@@ -581,6 +582,15 @@ function MainLayout({
                         element={
                           <ProtectedRoute>
                             <EditAccount userRole={role} />
+                          </ProtectedRoute>
+                        }
+                      />
+
+                      <Route
+                        path="/admin/refunds"
+                        element={
+                          <ProtectedRoute>
+                            <RefundApprovals userRole={role} />
                           </ProtectedRoute>
                         }
                       />

@@ -25,6 +25,8 @@ import {
 import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
+import { usePermissions } from "../../hooks/usePermissions";
+import RefundInitiatorModal from "../../components/RefundInitiatorModal";
 
 // ========== SKELETON COMPONENTS =======
 const SkeletonPulse = () => (
@@ -189,7 +191,11 @@ const Customer360View = () => {
   });
   const [savingInteraction, setSavingInteraction] = useState(false);
   const { profile } = useAuth();
+  const { hasPermission } = usePermissions();
   const { imageUploadEnabled } = useTenantFeatures();
+  
+  // Refund states
+  const [showRefundModal, setShowRefundModal] = useState(false);
 
   // Promised to Pay states
   const [ptps, setPtps] = useState([]);
@@ -895,33 +901,33 @@ const Customer360View = () => {
     <div className="space-y-6">
       {loanDetails ? (
         <>
-          <div className="bg-gradient-to-r from-blue-100 to-indigo-100 rounded-lg p-6 text-slate-600">
-            <h3 className="text-sm  mb-2">
+          <div className="bg-brand-primary/50 rounded-lg p-6 text-slate-600">
+            <h3 className="text-sm text-white mb-2">
               Current Loan - {loanDetails.product_name || loanDetails.product}
             </h3>
-            <p className="text-xl font-bold text-slate-600 ">
+            <p className="text-xl font-bold text-white ">
               {formatCurrency(loanDetails.scored_amount)}
             </p>
             <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
               <div>
-                <p className="text-slate-500 text-sm">Status</p>
-                <p className="font-semibold capitalize">{loanDetails.status}</p>
+                <p className="text-white text-sm">Status</p>
+                <p className="font-semibold text-white capitalize">{loanDetails.status}</p>
               </div>
               <div>
-                <p className="text-slate-500 text-sm">Repayment State</p>
-                <p className="font-semibold capitalize">
+                <p className="text-white text-sm">Repayment State</p>
+                <p className="font-semibold text-white capitalize">
                   {loanDetails.repayment_state || "N/A"}
                 </p>
               </div>
               <div>
-                <p className="text-slate-500 text-sm">Duration</p>
-                <p className="font-semibold">
+                <p className="text-white text-sm">Duration</p>
+                <p className="font-semibold text-white">
                   {loanDetails.duration_weeks} weeks
                 </p>
               </div>
               <div>
-                <p className="text-slate-500 text-sm">Product Type</p>
-                <p className="font-semibold capitalize">
+                <p className="text-white text-sm">Product Type</p>
+                <p className="font-semibold text-white capitalize">
                   {loanDetails.product_type || "N/A"}
                 </p>
               </div>
@@ -1038,11 +1044,11 @@ const Customer360View = () => {
 
           {/* Loan Installments */}
           {loanInstallments.length > 0 && (
-            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
-              <div className="px-8 py-6 border-b border-white/20 flex items-center justify-between">
+            <div className="space-y-6 pt-6 border-t border-gray-100">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-base font-black text-slate-700 uppercase tracking-tight">Installment Schedule</h4>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Payment Roadmap & Alerts</p>
+                  <h4 className="text-base font-semibold text-slate-700">Installment Schedule</h4>
+                  <p className="text-sm text-slate-500">Payment Roadmap & Alerts</p>
                 </div>
                 <div className="flex gap-2">
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-tight border border-rose-100">
@@ -1055,64 +1061,55 @@ const Customer360View = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">#</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Due Date</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Amount Due</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Paid</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Status</th>
-                      <th className="px-6 py-4 text-left text-[10px] font-black uppercase tracking-widest text-slate-500">Alerts</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount Due</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alerts</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {loanInstallments.map((installment) => (
                       <tr
                         key={installment.id}
-                        className="hover:bg-slate-50/50 transition-colors group"
+                        className="hover:bg-gray-50"
                       >
-                        <td className="px-6 py-4">
-                          <span className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-black text-slate-500 group-hover:bg-white transition-colors">
-                            {installment.installment_number}
-                          </span>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {installment.installment_number}
                         </td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-black text-slate-700">
-                              {new Date(installment.due_date).toLocaleDateString()}
-                            </span>
-                            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight">Scheduled Arrival</span>
-                          </div>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {new Date(installment.due_date).toLocaleDateString()}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className="text-[11px] font-black text-slate-700">
-                            {formatCurrency(installment.due_amount)}
-                          </span>
+                        <td className="px-4 py-3 text-sm text-slate-600">
+                          {formatCurrency(installment.due_amount)}
                         </td>
-                        <td className="px-6 py-4">
-                          <span className={`${parseFloat(installment.paid_amount) > 0 ? 'text-emerald-600' : 'text-slate-400'} text-[11px] font-black`}>
+                        <td className="px-4 py-3 text-sm font-semibold">
+                          <span className={parseFloat(installment.paid_amount) > 0 ? 'text-emerald-600' : 'text-slate-400'}>
                             {formatCurrency(installment.paid_amount || 0)}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-sm whitespace-nowrap">
                           <span
-                            className={`inline-flex px-3 py-1 text-[9px] font-black uppercase tracking-widest rounded-full border ${installment.status === "paid"
+                            className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${installment.status === "paid"
                               ? "bg-emerald-50 text-emerald-600 border-emerald-100"
                               : installment.status === "partial"
                                 ? "bg-amber-50 text-amber-600 border-amber-100"
                                 : installment.status === "overdue"
-                                  ? "bg-rose-50 text-rose-600 border-rose-100 animate-pulse"
+                                  ? "bg-rose-50 text-rose-600 border-rose-100"
                                   : "bg-slate-50 text-slate-500 border-slate-100"
                               }`}
                           >
                             {installment.status}
                           </span>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-4 py-3 text-sm">
                           {installment.days_overdue > 0 ? (
                             <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">
                               {installment.days_overdue} Days Late
                             </span>
                           ) : (
-                            <span className="text-[10px] text-slate-300 font-bold">—</span>
+                            <span className="text-slate-300">—</span>
                           )}
                         </td>
                       </tr>
@@ -1153,30 +1150,30 @@ const Customer360View = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Payable</p>
+                <p className=" text-slate-600 text-sm uppercase ">Total Payable</p>
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-                  <BanknotesIcon className="h-4 w-4 text-blue-600" />
+                  <BanknotesIcon className="h-4 w-4 text-brand-primary" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-slate-700">
+              <p className="text-2xl font-semibold text-slate-600">
                 {formatCurrency(loanDetails.total_payable)}
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-blue-500 rounded-full" style={{ width: '100%' }} />
+                  <div className="h-full bg-brand-primary rounded-full" style={{ width: '100%' }} />
                 </div>
-                <span className="text-[10px] font-black text-blue-600">100%</span>
+                <span className="text-[10px] font-black text-brand-primary">100%</span>
               </div>
             </div>
 
-            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
+            <div className="bg-emerald-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Amount Cleared</p>
+                <p className=" text-slate-600 uppercase text-sm">Amount Cleared</p>
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-emerald-600">
+              <p className="text-2xl font-semibold text-emerald-600">
                 {formatCurrency(totalPaidAmount)}
               </p>
               <div className="mt-4 flex items-center gap-2">
@@ -1186,20 +1183,20 @@ const Customer360View = () => {
                     style={{ width: `${Math.min(100, (totalPaidAmount / (parseFloat(loanDetails.total_payable) || 1)) * 100)}%` }}
                   />
                 </div>
-                <span className="text-[10px] font-black text-emerald-600">
+                <span className=" text-emerald-600">
                   {((totalPaidAmount / parseFloat(loanDetails.total_payable || 1)) * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
 
-            <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
+            <div className="bg-amber-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Arrears Balance</p>
+                <p className=" text-slate-600 uppercase text-sm">O.L.B</p>
                 <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
                   <ExclamationCircleIcon className="h-4 w-4 text-rose-600" />
                 </div>
               </div>
-              <p className="text-2xl font-black text-rose-600">
+              <p className="text-2xl font-semibold text-rose-600">
                 {formatCurrency(outstandingBalance)}
               </p>
               <div className="mt-4 flex items-center gap-2">
@@ -1290,7 +1287,7 @@ const Customer360View = () => {
 
   const renderWallet = () => (
     <div className="space-y-6">
-      <div className="relative overflow-hidden bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl p-8 text-white shadow-xl shadow-emerald-100">
+      <div className="relative overflow-hidden bg-brand-primary/50 rounded-3xl p-8 text-white ">
         <div className="relative z-10">
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-50 mb-2">Verified Liquid Assets</p>
           <div className="flex items-end justify-between">
@@ -1298,8 +1295,16 @@ const Customer360View = () => {
               <h3 className="text-3xl font-black tracking-tight">{formatCurrency(walletBalance)}</h3>
               <p className="text-xs text-emerald-50 mt-2 font-medium">Available Wallet Balance</p>
             </div>
-            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10">
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10 flex flex-col items-center gap-2">
               <WalletIcon className="h-8 w-8 text-white" />
+              {hasPermission("refund.initiate") && (
+                <button
+                  onClick={() => setShowRefundModal(true)}
+                  className="px-4 py-2 bg-white text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-50 transition-colors"
+                >
+                  Refund
+                </button>
+              )}
             </div>
           </div>
         </div>
@@ -1377,10 +1382,10 @@ const Customer360View = () => {
   const renderStatements = () => (
     <div className="space-y-4">
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-blue-900 mb-2">
+        <h4 className="font-semibold text-brand-primary mb-2">
           M-Pesa C2B Transactions
         </h4>
-        <p className="text-sm text-blue-700">
+        <p className="text-sm text-brand-primary">
           All M-Pesa payments received from this customer's phone number
         </p>
       </div>
@@ -2189,7 +2194,7 @@ const Customer360View = () => {
                 <button
                   onClick={handleSendSms}
                   disabled={sendingSms || !smsMessage.trim() || !profile?.id}
-                  className="px-4 py-2 text-xs font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg disabled:opacity-50 flex items-center"
+                  className="px-4 py-2 text-xs font-medium text-white bg-primary hover:bg-brand-primary/80 rounded-lg disabled:opacity-50 flex items-center"
                 >
                   {sendingSms ? "Sending..." : "Send SMS"}
                 </button>
@@ -2675,6 +2680,18 @@ const Customer360View = () => {
           {activeTab === "promised" && renderPromisedToPay()}
         </div>
       </div>
+
+      {/* Refund Modal */}
+      <RefundInitiatorModal
+        isOpen={showRefundModal}
+        onClose={() => setShowRefundModal(false)}
+        customer={customer}
+        walletBalance={walletBalance}
+        onSubmitSuccess={() => {
+          setShowRefundModal(false);
+          fetchCustomerData(); // Refresh data to show any pending requests if we had a list, or just to be safe
+        }}
+      />
     </div>
   );
 };

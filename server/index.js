@@ -26,6 +26,7 @@ import createReportUser from "./routes/createReportUser.js";
 import checkReportUserRoute from "./routes/checkReportUser.js";
 import AccountRouter from "./routes/accounts.js";
 import scoringRouter from "./routes/scoring.js";
+import RefundRouter from "./routes/refunds.js";
 import { mpesaRequest } from "./services/mpesa.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
@@ -195,6 +196,7 @@ app.use("/api/c2b", stkpush); // Alias for Sandbox STK callback
 app.use("/api/report-users/create", verifySupabaseToken, createReportUser); // Secure report user creation
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/scoring", scoringRouter);
+app.use("/api/refunds", RefundRouter);
 
 // import "./cron/loanInstallmentCron.js"; // 
 

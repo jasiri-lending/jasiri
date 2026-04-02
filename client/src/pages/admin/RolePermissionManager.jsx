@@ -37,7 +37,8 @@ export default function RolePermissionManager() {
         'customers': 'Customer Management',
         'amendments': 'Customer Amendments',
         'penalty': 'Penalty Management',
-        'transfers': 'Customer Transfers'
+        'transfers': 'Customer Transfers',
+        'refunds': 'Refund Operations'
     };
 
     const mountedRef = useRef(true);
@@ -98,6 +99,10 @@ export default function RolePermissionManager() {
             'transfers.initiate',
             'transfers.confirm',
             'transfers.authorize'
+        ],
+        'refunds': [
+            'refund.initiate',
+            'refund.approve'
         ]
     };
 
@@ -258,6 +263,10 @@ export default function RolePermissionManager() {
                 { resource: 'transfers', name: 'transfers.initiate', description: 'Initiate Customer Transfers' },
                 { resource: 'transfers', name: 'transfers.confirm', description: 'Confirm Customer Transfers' },
                 { resource: 'transfers', name: 'transfers.authorize', description: 'Authorize Customer Transfers' },
+
+                // Refunds
+                { resource: 'refunds', name: 'refund.initiate', description: 'Initiate Customer Refund' },
+                { resource: 'refunds', name: 'refund.approve', description: 'Approve/Reject Customer Refund' },
             ];
 
             const { data: existingPerms, error: fetchError } = await supabase
@@ -276,14 +285,47 @@ export default function RolePermissionManager() {
                         resource: p.resource,
                         name: p.name,
                         description: p.description,
-                        action: p.name // Using name as action for simplicity or as needed
+                        action: p.name 
                     })));
 
                 if (insertError) throw insertError;
-                success(`Synced ${missingPerms.length} new report permissions.`);
+                success(`Synced ${missingPerms.length} new permissions.`);
             } else {
                 success("Permissions are up to date.");
             }
+
+            // --- AUTO GRANT TO ADMIN ROLES ---
+            const { data: allPerms } = await supabase.from("permissions").select("id, name");
+            const { data: adminRoles } = await supabase
+                .from("roles")
+                .select("id")
+                .eq("tenant_id", profile.tenant_id)
+                .in("name", ["admin", "super_admin"]);
+
+            if (adminRoles?.length > 0 && allPerms?.length > 0) {
+                const allAllowedNames = Object.values(ALLOWED_PERMISSIONS).flat();
+                const allowedPermIds = allPerms
+                    .filter(p => allAllowedNames.includes(p.name))
+                    .map(p => p.id);
+
+                for (const role of adminRoles) {
+                    const { data: existing } = await supabase
+                        .from("role_permissions")
+                        .select("permission_id")
+                        .eq("role_id", role.id);
+                    
+                    const existingIds = new Set(existing?.map(e => e.permission_id) || []);
+                    const toAdd = allowedPermIds.filter(id => !existingIds.has(id));
+
+                    if (toAdd.length > 0) {
+                        await supabase.from("role_permissions").insert(
+                            toAdd.map(permission_id => ({ role_id: role.id, permission_id }))
+                        );
+                    }
+                }
+                success("Verified admin role permissions.");
+            }
+
             // Clear cache and refresh
             const cacheKey = `roles_perms_${profile.tenant_id || 'all'}`;
             localStorage.removeItem(cacheKey);
@@ -458,7 +500,7 @@ export default function RolePermissionManager() {
     }
 
     return (
-        <div className="min-h-screen bg-brand-surface p-6">
+        <div className="min-h-screen bg-muted p-6">
             <div className="max-w-6xl mx-auto space-y-6">
                 {/* Header */}
                 <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
