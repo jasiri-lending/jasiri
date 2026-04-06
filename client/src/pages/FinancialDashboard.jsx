@@ -66,6 +66,7 @@ const resolveDateRange = (filters) => {
   const end = filters.dateRange === 'custom' ? filters.endDate : new Date();
   let start;
   switch (filters.dateRange) {
+    case 'all_time': start = new Date(2000, 0, 1); break;
     case 'qtd': start = getQuarterStart(); break;
     case 'ytd': start = getYearStart(); break;
     case 'custom': start = filters.startDate; break;
@@ -307,6 +308,7 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: BRAND.secondary }} />
             <select value={filters.dateRange} onChange={handleDateRangeChange}
               className={selectBase} style={{ color: BRAND.text, borderColor: '#D1D5DB' }}>
+              <option value="all_time">All Time</option>
               <option value="mtd">Month to Date</option>
               <option value="qtd">Quarter to Date</option>
               <option value="ytd">Year to Date</option>
@@ -362,8 +364,8 @@ const FinancialDashboard = () => {
 
   const [filterOptions, setFilterOptions] = useState({ regions: [], branches: [] });
   const [filters, setFilters] = useState({
-    dateRange: 'mtd',
-    startDate: getMonthStart(),
+    dateRange: 'all_time',
+    startDate: new Date(2000, 0, 1),
     endDate: new Date(),
     region: 'all',
     branch: 'all',

@@ -149,30 +149,23 @@ const StatCard = ({
 // Time Period Selector Component
 const TimePeriodSelector = ({ value, onChange }) => {
   const periods = [
-    { id: 'today', label: 'Today' },
-    { id: 'week', label: 'This Week' },
-    { id: 'month', label: 'This Month' },
-    { id: 'quarter', label: 'This Quarter' },
-    { id: 'year', label: 'This Year' },
-    { id: 'custom', label: 'Custom' },
+    { value: 'all_time', label: 'All Time' },
+    { value: 'today', label: 'Today' },
+    { value: 'week', label: 'This Week' },
+    { value: 'month', label: 'This Month' },
+    { value: 'quarter', label: 'This Quarter' },
+    { value: 'year', label: 'This Year' },
+    { value: 'custom', label: 'Custom' },
   ];
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-white/80 backdrop-blur-sm rounded-xl border border-gray-200">
-      {periods.map((period) => (
-        <button
-          key={period.id}
-          onClick={() => onChange(period.id)}
-          className={`px-3 py-1.5 text-sm font-medium rounded-lg transition-all duration-200 ${value === period.id
-            ? 'text-white shadow-sm'
-            : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-            }`}
-          style={value === period.id ? { backgroundColor: "#586ab1" } : {}}
-        >
-          {period.label}
-        </button>
-      ))}
-    </div>
+    <FilterSelect
+      icon={Calendar}
+      label="Period"
+      value={value}
+      onChange={onChange}
+      options={periods}
+    />
   );
 };
 
@@ -184,7 +177,7 @@ const AdminDashboard = () => {
   const [filteredTenants, setFilteredTenants] = useState([]);
   const [loading, setLoading] = useState(true);
   const [dashboardLoading, setDashboardLoading] = useState(true);
-  const [timePeriod, setTimePeriod] = useState('month');
+  const [timePeriod, setTimePeriod] = useState('all_time');
   const [searchQuery, setSearchQuery] = useState('');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [hasFetched, setHasFetched] = useState(false);
@@ -222,6 +215,9 @@ const AdminDashboard = () => {
     let end = now;
 
     switch (timePeriod) {
+      case 'all_time':
+        start = new Date(2000, 0, 1);
+        break;
       case 'today':
         start = startOfDay(now);
         break;
@@ -694,7 +690,7 @@ const AdminDashboard = () => {
 
 
         {/* Filters Bar */}
-        <div className="mb-6 px-4 py-3 bg-white/80 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="mb-6 px-4 py-3 mt-2 bg-white/80 rounded-2xl border border-gray-200 shadow-sm">
           <div className="flex flex-wrap gap-3 items-center">
             <TimePeriodSelector value={timePeriod} onChange={handleTimePeriodChange} />
 

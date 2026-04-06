@@ -199,7 +199,7 @@ const OperationsDashboard = ({ userRole }) => {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedRO, setSelectedRO] = useState("all");
-  const [dateFilter, setDateFilter] = useState("this_month");
+  const [dateFilter, setDateFilter] = useState("all_time");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -880,13 +880,13 @@ const OperationsDashboard = ({ userRole }) => {
               value={dateFilter}
               onChange={setDateFilter}
               options={[
+                { value: 'all_time', label: 'All Time' },
                 { value: 'today', label: 'Today' },
                 { value: 'yesterday', label: 'Yesterday' },
                 { value: 'this_week', label: 'This Week' },
                 { value: 'this_month', label: 'This Month' },
                 { value: 'last_month', label: 'Last Month' },
-                { value: 'custom_range', label: 'Custom Range' },
-                { value: 'all_time', label: 'All Time' }
+                { value: 'custom_range', label: 'Custom Range' }
               ]}
             />
           </div>

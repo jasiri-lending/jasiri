@@ -120,10 +120,12 @@ const SharedSidebar = () => {
     if (isSuperAdmin) {
       dashboardChildren.push(
         { name: "SuperAdmin Dashboard", href: "/dashboard/superadmin", icon: Home },
-        { name: "Analytics Dashboard", href: "/dashboard/analytics", icon: BarChart3 },
+        { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
         { name: "Performance Dashboard", href: "/dashboard/performance", icon: TrendingUp },
-        { name: "General Analysis", href: "/dashboard/general-analysis", icon: PieChart },
-        { name: "Financial Dashboard", href: "/dashboard/financial", icon: DollarSign },
+        { name: "General Analysis", href: "/dashboard/main", icon: PieChart },
+        { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign },
+                { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
+
         { name: "System Health", href: "/dashboard/system-health", icon: Activity }
       );
     } else if (isAdmin) {
@@ -131,6 +133,8 @@ const SharedSidebar = () => {
         { name: "Admin Dashboard", href: "/dashboard/admin", icon: Home },
         { name: "Analytics Dashboard", href: "/analytics", icon: BarChart3 },
         { name: "Main Dashboard", href: "/dashboard/main", icon: PieChart },
+                { name: "Operations Dashboard", href: "/operations/dashboard", icon: Workflow },
+
         { name: "Financial Dashboard", href: "/financial/dashboard", icon: DollarSign }
       );
     } else {
