@@ -129,33 +129,6 @@ const CollectionsActivityWidget = ({ data }) => (
   </DashboardCard>
 );
 
-// Revenue Widget
-const RevenueWidget = ({ data }) => (
-  <DashboardCard title="Fees & Revenue Tracking">
-    <div className="space-y-4 mt-2">
-      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
-        <span className="text-sm text-gray-500">Interest Earned</span>
-        <span className="font-bold text-gray-600">{formatCurrency(data.interest)}</span>
-      </div>
-      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
-        <span className="text-sm text-gray-500">Penalties</span>
-        <span className="font-bold text-gray-600">{formatCurrency(data.penalties)}</span>
-      </div>
-      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
-        <span className="text-sm text-gray-500">Processing Fees</span>
-        <span className="font-bold text-gray-600">{formatCurrency(data.processingFees)}</span>
-      </div>
-      <div className="flex justify-between items-center border-b border-dashed border-gray-200 pb-2">
-        <span className="text-sm text-gray-500">Registration Fees</span>
-        <span className="font-bold text-gray-600">{formatCurrency(data.registrationFees)}</span>
-      </div>
-      <div className="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
-        <span className="text-sm font-bold text-gray-700">Total Revenue</span>
-        <span className="text-lg font-extrabold text-emerald-600">{formatCurrency(data.totalRevenue)}</span>
-      </div>
-    </div>
-  </DashboardCard>
-);
 
 // Loading Skeleton
 const DashboardSkeleton = () => (
@@ -956,7 +929,6 @@ const OperationsDashboard = ({ userRole }) => {
               statusData={dashboardData.portfolio.status}
               typeData={dashboardData.portfolio.types}
             />
-            {isFinanceRole && <RevenueWidget data={dashboardData.revenue} />}
           </div>
 
           {/* Right Column */}
