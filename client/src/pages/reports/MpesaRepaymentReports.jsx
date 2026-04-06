@@ -254,8 +254,8 @@ const MpesaRepaymentReports = () => {
       setFetchError(null);
       isTimeout.current = false;
 
-      // Try cache first
-      const cacheKey = `mpesa-repayments-raw-data-${tenantId}-${profile?.id}`;
+      // Try cache first (v2 to invalidate old un-grouped data)
+      const cacheKey = `mpesa-repayments-raw-data-v2-${tenantId}-${profile?.id}`;
       try {
         const cached = localStorage.getItem(cacheKey);
         if (cached) {
@@ -344,40 +344,52 @@ const MpesaRepaymentReports = () => {
         }, {});
       }
 
-      // Format data
-      const formatted = payments.map(item => {
-        const customer = item.loans?.customers;
-        const branch = customer?.branches;
-        const region = branch?.regions;
+      // Format data and group by Transaction ID to sum up split payments
+      const groupedData = payments.reduce((acc, item) => {
+        const rawReceipt = (item.mpesa_receipt || "").trim();
+        const mpesaReceipt = rawReceipt || `N/A-${item.id}`; // If ID is missing, keep separate
+        const amount = parseFloat(item.paid_amount) || 0;
 
-        const fullName = customer
-          ? [customer.Firstname, customer.Middlename, customer.Surname]
-            .filter(n => n && n.trim() !== "")
-            .join(" ")
-          : "N/A";
+        if (!acc[mpesaReceipt]) {
+          const customer = item.loans?.customers;
+          const branch = customer?.branches;
+          const region = branch?.regions;
 
-        const paymentDate = item.paid_at ? new Date(item.paid_at) : null;
-        const rawPayload = mpesaMap[item.mpesa_receipt];
-        const billRef = rawPayload?.BillRefNumber || "N/A";
+          const fullName = customer
+            ? [customer.Firstname, customer.Middlename, customer.Surname]
+              .filter(n => n && n.trim() !== "")
+              .join(" ")
+            : "N/A";
 
-        return {
-          id: item.id,
-          customerName: fullName,
-          idNumber: customer?.id_number || "N/A",
-          mobile: item.phone_number || "N/A",
-          branch: branch?.name || "N/A",
-          region: region?.name || "N/A",
-          transactionId: item.mpesa_receipt || "N/A",
-          amountPaid: parseFloat(item.paid_amount) || 0,
-          dbStatus: "success",
-          displayStatus: "success",
-          billRef,
-          paymentDate,
-          rawDate: item.paid_at,
-          customerId: customer?.id || null,
-          loanId: item.loan_id || null,
-        };
-      });
+          const paymentDate = item.paid_at ? new Date(item.paid_at) : null;
+          const rawPayload = mpesaMap[item.mpesa_receipt];
+          const billRef = rawPayload?.BillRefNumber || "N/A";
+
+          acc[mpesaReceipt] = {
+            id: mpesaReceipt, // React Key (must be consistent)
+            customerName: fullName,
+            idNumber: customer?.id_number || "N/A",
+            mobile: item.phone_number || "N/A",
+            branch: branch?.name || "N/A",
+            region: region?.name || "N/A",
+            transactionId: rawReceipt || "N/A",
+            amountPaid: amount,
+            dbStatus: "success",
+            displayStatus: "success",
+            billRef,
+            paymentDate,
+            rawDate: item.paid_at,
+            customerId: customer?.id || null,
+            loanId: item.loan_id || null,
+          };
+        } else {
+          // If transaction ID is one we've seen, just add the amount (summing split payments)
+          acc[mpesaReceipt].amountPaid += amount;
+        }
+        return acc;
+      }, {});
+
+      const formatted = Object.values(groupedData);
 
       if (isMounted.current) setRawRepayments(formatted);
       try {
@@ -672,12 +684,12 @@ const MpesaRepaymentReports = () => {
 
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className={`px - 4 py - 2 rounded - lg flex items - center gap - 2 text - sm font - medium transition - all border ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
-                    } `}
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-300 border ${showFilters
+                      ? "bg-[#586ab1] text-white shadow-md border-transparent shadow shadow-[#586ab1]/30"
+                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300 select-none"
+                    }`}
                 >
-                  <Filter className="w-4 h-4" />
+                  <Filter className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} />
                   <span>Filters</span>
                 </button>
                 <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
@@ -693,7 +705,7 @@ const MpesaRepaymentReports = () => {
                   </select>
                   <button
                     onClick={exportToCSV}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
+                    className="ml-2 px-3 py-1.5 rounded-md bg-[#586ab1] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
                   >
                     <Download className="w-3.5 h-3.5" />
                     Export
