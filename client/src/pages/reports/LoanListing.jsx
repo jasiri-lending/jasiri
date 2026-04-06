@@ -893,6 +893,13 @@ const LoanListing = () => {
     const totalPrincipal = disbursedLoans.reduce((sum, r) => sum + (r.disbursed_amount || 0), 0);
     const totalPayable = disbursedLoans.reduce((sum, r) => sum + (r.total_payable || 0), 0);
     const totalRepaid = disbursedLoans.reduce((sum, r) => sum + (r.total_repaid || 0), 0);
+
+    // Listing-wide totals (all filtered rows)
+    const listingTotalApplied = filteredData.reduce((sum, r) => sum + (r.applied_amount || 0), 0);
+    const listingTotalDisbursed = filteredData.reduce((sum, r) => sum + (r.disbursed_amount || 0), 0);
+    const listingTotalPayable = filteredData.reduce((sum, r) => sum + (r.total_payable || 0), 0);
+    const listingTotalRepaid = filteredData.reduce((sum, r) => sum + (r.total_repaid || 0), 0);
+
     const totalDue = disbursedLoans.reduce((sum, r) => sum + (r.total_due || 0), 0);
     const totalOutstanding = totalPayable - totalRepaid;
     const activeLoans = disbursedLoans.length;
@@ -911,6 +918,10 @@ const LoanListing = () => {
       totalOutstanding,
       activeLoans,
       overdueLoans,
+      listingTotalApplied,
+      listingTotalDisbursed,
+      listingTotalPayable,
+      listingTotalRepaid,
     };
   }, [filteredData]);
 
@@ -1450,7 +1461,7 @@ const LoanListing = () => {
             <p className="text-2xl font-bold mt-1 text-gray-900">{formatCurrency(stats.totalPayable)}</p>
           </div>
           <div className="bg-blue-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-slate-600 font-medium">Total Repaid</p>
+            <p className="text-sm text-slate-600 font-medium">Total Paid</p>
             <p className="text-2xl font-bold mt-1 text-blue-600">{formatCurrency(stats.totalRepaid)}</p>
           </div>
           <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-gray-100">
@@ -1616,7 +1627,7 @@ const LoanListing = () => {
                   <SortableHeader label="Prequalified Amount" sortKey="applied_amount" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Disbursed Amount" sortKey="disbursed_amount" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Total Payable" sortKey="total_payable" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Total Repaid" sortKey="total_repaid" sortConfig={sortConfig} onSort={handleSort} />
+                  <SortableHeader label="Total Paid" sortKey="total_repaid" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Weekly Payment" sortKey="weekly_payment" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Duration" sortKey="duration_weeks" sortConfig={sortConfig} onSort={handleSort} />
                   <SortableHeader label="Interest" sortKey="interest_rate" sortConfig={sortConfig} onSort={handleSort} />
@@ -1675,21 +1686,27 @@ const LoanListing = () => {
                 )}
               </tbody>
 
-              <tfoot className="bg-gray-50 border-t border-gray-200">
-                <tr>
-                  <td colSpan="8" className="px-4 py-3 text-right text-xs font-semibold text-gray-700 whitespace-nowrap">
-                    Totals ({filteredData.length} loans):
+              <tfoot className="bg-gray-100 border-t border-gray-300">
+                <tr className="divide-x divide-gray-200">
+                  <td colSpan="7" className="px-4 py-3 text-right text-xs font-bold text-gray-700 whitespace-nowrap bg-gray-50">
+                    REPORT TOTALS:
                   </td>
-                  <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-right">
-                    {formatCurrency(stats.totalPrincipal)}
+                  <td className="px-4 py-3 text-xs font-bold text-purple-700 text-center">
+                    {filteredData.length}
                   </td>
-                  <td className="px-4 py-3 text-xs font-semibold text-gray-700 text-right">
-                    {formatCurrency(stats.totalPayable)}
+                  <td className="px-4 py-3 text-xs font-bold text-gray-900 text-right">
+                    {formatCurrency(stats.listingTotalApplied)}
                   </td>
-                  <td className="px-4 py-3 text-xs font-semibold text-emerald-700 text-right">
-                    {formatCurrency(stats.totalRepaid)}
+                  <td className="px-4 py-3 text-xs font-bold text-green-700 text-right">
+                    {formatCurrency(stats.listingTotalDisbursed)}
                   </td>
-                  <td colSpan="7" className="px-4 py-3"></td>
+                  <td className="px-4 py-3 text-xs font-bold text-gray-900 text-right">
+                    {formatCurrency(stats.listingTotalPayable)}
+                  </td>
+                  <td className="px-4 py-3 text-xs font-bold text-emerald-700 text-right">
+                    {formatCurrency(stats.listingTotalRepaid)}
+                  </td>
+                  <td colSpan="7" className="px-4 py-3 bg-gray-50"></td>
                 </tr>
               </tfoot>
             </table>

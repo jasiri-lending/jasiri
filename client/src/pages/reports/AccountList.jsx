@@ -89,7 +89,7 @@ const CustomerStatementModal = () => {
         // 1️ Customer Info
         let customerQuery = supabase
           .from("customers")
-          .select("id, Firstname, Surname, mobile, created_at, branch_id, created_by, branch:branch_id(region_id)")
+          .select("id, Firstname, Surname, mobile, id_number, created_at, branch_id, created_by, branch:branch_id(region_id)")
           .eq("id", customerId);
 
         // RBAC Implementation
@@ -161,15 +161,28 @@ const CustomerStatementModal = () => {
           console.error(" Loan installments fetch failed:", installmentsError.message);
         }
 
-        // 5️ C2B Payments (excluding those already in loan_payments)
+        // 5️ C2B Payments (matching mobile, id_number, or specific receipts from loan_payments)
         const normalizedMobile = customer.mobile?.replace(/^\+?254|^0/, "254");
+        const receiptIds = [...new Set((loanPayments || []).map(p => p.mpesa_receipt).filter(Boolean))];
+        const idNo = customer.id_number;
 
-        const { data: c2b = [], error: c2bError } = await supabase
+        let c2bQuery = supabase
           .from("mpesa_c2b_transactions")
           .select("id, amount, transaction_time, transaction_id, loan_id, phone_number, status, payment_type, reference, billref")
-          .eq("status", "applied")
-          .in("phone_number", [customer.mobile, normalizedMobile])
           .order("transaction_time", { ascending: true });
+
+        // Build composite filter
+        const orFilters = [];
+        if (customer.mobile) orFilters.push(`phone_number.eq.${customer.mobile}`);
+        if (normalizedMobile) orFilters.push(`phone_number.eq.${normalizedMobile}`);
+        if (idNo) orFilters.push(`billref.eq.${idNo}`);
+        if (receiptIds.length > 0) orFilters.push(`transaction_id.in.(${receiptIds.join(',')})`);
+
+        if (orFilters.length > 0) {
+          c2bQuery = c2bQuery.or(orFilters.join(','));
+        }
+
+        const { data: c2b = [], error: c2bError } = await c2bQuery;
 
         if (c2bError) console.error(" C2B fetch error:", c2bError.message);
 
