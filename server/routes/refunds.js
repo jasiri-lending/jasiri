@@ -243,7 +243,8 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
         status: "processing",
         approved_by: approver_id,
         approved_at: new Date().toISOString(),
-        mpesa_transaction_id: mpesaRes?.ConversationID || "processing"
+        mpesa_transaction_id: mpesaRes?.ConversationID || "processing",
+        originator_conversation_id: mpesaRes?.OriginatorConversationID || null
       })
       .eq("id", id);
 
@@ -277,32 +278,45 @@ router.post("/result", async (req, res) => {
     try {
       const isSuccess = Result.ResultCode === 0;
       const status = isSuccess ? "completed" : "failed";
+      const originatorId = Result.OriginatorConversationID;
 
-      // Find the refund request using conversation ID
-      const { data: refund, error } = await supabaseAdmin
+      // Find the refund request using conversation ID OR originator ID
+      const { data: refund, error: findError } = await supabaseAdmin
         .from("refund_requests")
         .select("*")
-        .eq("mpesa_transaction_id", convId)
+        .or(`mpesa_transaction_id.eq.${convId},mpesa_transaction_id.eq.${originatorId}`)
         .maybeSingle();
 
-      if (error || !refund) {
-        log.error({ convId }, "Could not find refund request for B2C callback");
+      if (findError) {
+        console.error(`[REFUND] Database error finding request for ConvId=${convId}:`, findError);
         return;
       }
 
-      // Update refund status
-      await supabaseAdmin
+      if (!refund) {
+        console.warn(`[REFUND] Cold not find refund request for ConvId=${convId} or OrigId=${originatorId}`);
+        return;
+      }
+
+      console.log(`[REFUND] Processing callback for ${refund.id}. Status: ${status}`);
+
+      // Update refund status (Remove updated_at as it might not exist)
+      const { error: updateError } = await supabaseAdmin
         .from("refund_requests")
         .update({
           status,
-          mpesa_transaction_id: Result.TransactionID || convId, // Store actual transaction ID on success
-          updated_at: new Date().toISOString()
+          safaricom_transaction_id: Result.TransactionID || null
         })
         .eq("id", refund.id);
 
+      if (updateError) {
+        console.error(`[REFUND] Failed to update status for ${refund.id}:`, updateError);
+        return;
+      }
+
       if (isSuccess) {
+        console.log(`[REFUND] Attempting wallet debit for ${refund.id}...`);
         // Debit Wallet ONLY on success
-        await supabaseAdmin.rpc("wallet_transact", {
+        const { data: walletRes, error: walletError } = await supabaseAdmin.rpc("wallet_transact", {
           p_tenant_id: refund.tenant_id,
           p_customer_id: refund.customer_id,
           p_amount: refund.amount,
@@ -311,11 +325,18 @@ router.post("/result", async (req, res) => {
           p_reference: refund.id,
           p_ref_type: "refund"
         });
-        log.info({ refund_id: refund.id }, "Refund wallet debit completed");
+
+        if (walletError) {
+          console.error(`[REFUND] Wallet transaction failed for ${refund.id}:`, walletError);
+        } else {
+          console.log(`[REFUND] Wallet debit successfully recorded for ${refund.id}. Result:`, walletRes);
+          log.info({ refund_id: refund.id }, "Refund wallet debit completed");
+        }
       } else {
-        log.warn({ refund_id: refund.id, resultDesc: Result.ResultDesc }, "Refund B2C failed");
+        log.warn({ refund_id: refund.id, resultDesc: Result.ResultDesc }, "Refund B2C failed at Safaricom");
       }
     } catch (err) {
+      console.error(`[REFUND] UNCAUGHT CRASH in callback processing:`, err);
       log.error({ err: err.message }, "Failed to process refund B2C result");
     }
   });

@@ -154,6 +154,9 @@ const RefundApprovals = () => {
                     Request Date
                   </th>
                   <th className="px-4 py-3  text-xs whitespace-nowrap text-slate-600">
+                    M-Pesa Ref
+                  </th>
+                  <th className="px-4 py-3  text-xs whitespace-nowrap text-slate-600">
                     Status
                   </th>
                   <th className="px-4 py-3  text-xs whitespace-nowrap text-slate-600">
@@ -214,6 +217,11 @@ const RefundApprovals = () => {
                             {new Date(refund.created_at).toLocaleDateString()}
                           </span>
                         </div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
+                        <span className="text-[10px] font-mono text-slate-500 uppercase tracking-tighter">
+                          {refund.safaricom_transaction_id || (refund.mpesa_transaction_id?.length > 12 ? refund.mpesa_transaction_id.substring(0, 8) + '...' : refund.mpesa_transaction_id) || '-'}
+                        </span>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center">
                         {refund.status === "pending" && (
