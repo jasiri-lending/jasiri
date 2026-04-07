@@ -67,11 +67,14 @@ const LoginModal = ({ isOpen, onClose, onSuccess }) => {
       };
 
       localStorage.setItem("reportUser", JSON.stringify(reportUserData));
-      window.dispatchEvent(new Event("report-login"));
-
-      setPassword("");
+      
+      // Close and trigger success immediately to speed up UI transition
       if (onSuccess) onSuccess();
       if (onClose) onClose();
+      
+      // Notify other components for reactive updates
+      window.dispatchEvent(new Event("report-login"));
+      setPassword("");
 
     } catch (err) {
       setError(err.message || "An unexpected error occurred.");

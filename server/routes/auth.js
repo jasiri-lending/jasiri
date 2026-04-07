@@ -34,101 +34,81 @@ const isExpired = (expiryTimestamp) => {
   return expiry.getTime() < now.getTime();
 };
 
-// Reusable helper to fetch full profile and tenant data
+// Reusable helper to fetch full profile and tenant data in parallel for speed
 const getFullProfileData = async (userId) => {
+  try {
+    // 1️⃣ WAVE 1: Fetch primary user and basic profile mapping in parallel
+    const [userRes, profileRes] = await Promise.all([
+      supabaseAdmin
+        .from("users")
+        .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at, created_at, last_login")
+        .eq("id", userId)
+        .single(),
+      supabaseAdmin
+        .from("profiles")
+        .select("branch_id, region_id, avatar_url")
+        .eq("id", userId)
+        .maybeSingle()
+    ]);
 
-  // Fetch user details INCLUDING tenant_id and session_expires_at
-  const { data: userData, error: userError } = await supabaseAdmin
-    .from("users")
-    .select("id, full_name, email, role, tenant_id, phone, company_phone, must_change_password, session_expires_at, created_at, last_login")
-    .eq("id", userId)
-    .single();
+    const userData = userRes.data;
+    const basicProfile = profileRes.data;
 
-  if (userError || !userData) {
-    console.error(" [PROFILE HELPER] User fetch error:", userError);
+    if (!userData) {
+      console.error(" [PROFILE HELPER] User NOT found in users table for ID:", userId);
+      return null;
+    }
+
+    // 2️⃣ WAVE 2: Fetch related entities (Branch, Region, Tenant) in parallel based on Wave 1
+    const branchId = basicProfile?.branch_id;
+    const regionIdFromProfile = basicProfile?.region_id;
+    const tenantId = userData.tenant_id;
+
+    const [branchRes, tenantRes] = await Promise.all([
+      branchId ? supabaseAdmin.from("branches").select("name, code, region_id").eq("id", branchId).single() : Promise.resolve({ data: null }),
+      tenantId ? supabaseAdmin.from("tenants").select("*").eq("id", tenantId).single() : Promise.resolve({ data: null })
+    ]);
+
+    const branchData = branchRes.data;
+    const tenantData = tenantRes.data;
+
+    // 3️⃣ WAVE 3: Fetch Region (depends on branch data if profile region is missing)
+    const finalRegionId = regionIdFromProfile || branchData?.region_id || null;
+    const regionRes = finalRegionId 
+      ? await supabaseAdmin.from("regions").select("name").eq("id", finalRegionId).single()
+      : { data: null };
+
+    const regionName = regionRes.data?.name || "N/A";
+    const branchName = branchData?.name || "N/A";
+    const branchCode = branchData?.code || null;
+
+    return {
+      profile: {
+        id: userData.id,
+        full_name: userData.full_name,
+        name: userData.full_name,
+        email: userData.email,
+        role: userData.role,
+        tenant_id: userData.tenant_id,
+        phone: userData.phone,
+        company_phone: userData.company_phone,
+        branch_id: branchId || null,
+        region_id: finalRegionId,
+        avatar_url: basicProfile?.avatar_url || null,
+        branch: branchName,
+        branch_code: branchCode,
+        region: regionName,
+        must_change_password: userData.must_change_password,
+        session_expires_at: userData.session_expires_at,
+        created_at: userData.created_at,
+        last_login: userData.last_login
+      },
+      tenant: tenantData
+    };
+  } catch (error) {
+    console.error(" [PROFILE HELPER] Error fetching full profile:", error);
     return null;
   }
-
-  // Fetch profile info (branch/region)
-  const { data: basicProfile, error: basicError } = await supabaseAdmin
-    .from("profiles")
-    .select("branch_id, region_id, avatar_url")
-    .eq("id", userId)
-    .maybeSingle();
-
-  let branchName = "N/A";
-  let branchCode = null;
-  let regionName = "N/A";
-  let tenantData = null;
-  let finalBranchId = basicProfile?.branch_id || null;
-  let finalRegionId = basicProfile?.region_id || null;
-
-  // Fetch branch data (including region_id from branch)
-  if (finalBranchId) {
-    const { data: branchData, error: branchError } = await supabaseAdmin
-      .from("branches")
-      .select("name, code, region_id")
-      .eq("id", finalBranchId)
-      .single();
-
-    if (branchData) {
-      branchName = branchData.name;
-      branchCode = branchData.code;
-      if (!finalRegionId && branchData.region_id) {
-        finalRegionId = branchData.region_id;
-      }
-    }
-  }
-
-  // Fetch region name
-  if (finalRegionId) {
-    const { data: regionData, error: regionError } = await supabaseAdmin
-      .from("regions")
-      .select("name")
-      .eq("id", finalRegionId)
-      .single();
-
-    if (regionData) {
-      regionName = regionData.name;
-    }
-  }
-
-  // Fetch tenant data if tenant_id exists
-  if (userData.tenant_id) {
-    const { data: tenant, error: tenantError } = await supabaseAdmin
-      .from("tenants")
-      .select("*")
-      .eq("id", userData.tenant_id)
-      .single();
-
-    if (!tenantError && tenant) {
-      tenantData = tenant;
-    }
-  }
-
-  return {
-    profile: {
-      id: userData.id,
-      full_name: userData.full_name,
-      name: userData.full_name,
-      email: userData.email,
-      role: userData.role,
-      tenant_id: userData.tenant_id,
-      phone: userData.phone,
-      company_phone: userData.company_phone,
-      branch_id: finalBranchId,
-      region_id: finalRegionId,
-      avatar_url: basicProfile?.avatar_url || null,
-      branch: branchName,
-      branch_code: branchCode,
-      region: regionName,
-      must_change_password: userData.must_change_password,
-      session_expires_at: userData.session_expires_at,
-      created_at: userData.created_at,
-      last_login: userData.last_login
-    },
-    tenant: tenantData
-  };
 };
 
 // POST /api/login - Verify credentials via Supabase and send OTP via Brevo

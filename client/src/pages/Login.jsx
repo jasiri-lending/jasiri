@@ -216,45 +216,41 @@ export default function Login() {
 
 
       if (data.otpHandshake) {
-        // 4️⃣ Finalize Supabase Session
-        const cleanEmail = email.trim();
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-          email: cleanEmail,
-          password
-        });
-
-        if (authError || !authData.session) {
-          throw new Error(authError?.message || "Final authentication failed");
-        }
-
-        // Store session token and userId so the auth hook can pick them up
-        localStorage.setItem("sessionToken", authData.session.access_token);
-        localStorage.setItem("userId", authData.user.id);
-
-        // Proactively set profile and tenant if returned by the verify-code API
+        // 1️⃣ PROACTIVELY set profile and tenant from API response
+        // This allows the App shell to start loading immediately
         if (data.profileData) {
           const { profile, tenant } = data.profileData;
           localStorage.setItem("profile", JSON.stringify(profile));
           if (tenant) {
             localStorage.setItem("tenant", JSON.stringify(tenant));
           }
-          if (profile.session_expires_at) {
-            localStorage.setItem("sessionExpiresAt", profile.session_expires_at);
+          if (data.session_expires_at) {
+            localStorage.setItem("sessionExpiresAt", data.session_expires_at);
           }
-
-          // Set states directly to trigger App.jsx redirection immediately
+          
           setProfile(profile);
           setTenant(tenant);
         }
 
-        // Set user state directly so App.jsx knows we're authenticated
-        setUser(authData.user);
+        // 2️⃣ IMEDIATELY clear loading and notify user
+        setGlobalLoading(false);
+        toast.success("Login successful! Redirecting...");
+
+        // 3️⃣ Finalize Supabase Session in background
+        const cleanEmail = email.trim();
+        supabase.auth.signInWithPassword({
+          email: cleanEmail,
+          password
+        }).then(({ data: authData, error: authError }) => {
+          if (!authError && authData.session) {
+            localStorage.setItem("sessionToken", authData.session.access_token);
+            localStorage.setItem("userId", authData.user.id);
+            setUser(authData.user);
+          }
+        });
 
         // Clear any logout locks
         sessionStorage.removeItem("isLoggingOut");
-
-        toast.success("Login successful! Redirecting...");
-        // No explicit navigate – the App's <Navigate> inside the login route will redirect
       }
 
     } catch (err) {
