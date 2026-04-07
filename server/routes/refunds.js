@@ -17,8 +17,13 @@ const formatPhone = (phone) => {
   return cleaned;
 };
 
-// Apply authentication
-router.use(verifySupabaseToken);
+// Apply authentication globally except for callbacks
+router.use((req, res, next) => {
+  if (req.path === "/result" || req.path === "/timeout") {
+    return next();
+  }
+  return verifySupabaseToken(req, res, next);
+});
 
 /**
  * Initiate a refund request
@@ -215,33 +220,112 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
 
     const mpesaRes = await mpesaRequest(tenantConfig, "POST", "/mpesa/b2c/v1/paymentrequest", payload);
     
-    // 4. Record approval and M-Pesa attempt
+    // 4. Record initiation and M-Pesa attempt
     await supabaseAdmin
       .from("refund_requests")
       .update({
-        status: "approved",
+        status: "processing",
         approved_by: approver_id,
         approved_at: new Date().toISOString(),
         mpesa_transaction_id: mpesaRes?.ConversationID || "processing"
       })
       .eq("id", id);
 
-    // 5. Debit Wallet
-    await supabaseAdmin.rpc("wallet_transact", {
-      p_tenant_id: refund.tenant_id,
-      p_customer_id: refund.customer_id,
-      p_amount: refund.amount,
-      p_direction: "debit",
-      p_narration: `Refund Approved: ${refund.reason || 'N/A'}`,
-      p_reference: refund.id,
-      p_ref_type: "refund"
-    });
-
-    res.json({ success: true, message: "Refund approved and M-Pesa B2C initiated" });
+    res.json({ success: true, message: "Refund approval initiated, waiting for M-Pesa callback" });
   } catch (err) {
     log.error({ err: err.message, refund_id: id }, "Refund approval failed");
     res.status(500).json({ success: false, error: err.message });
   }
+});
+
+/**
+ * B2C Result callback for Refunds
+ * POST /api/refunds/result
+ */
+router.post("/result", async (req, res) => {
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  const { Result } = body;
+  if (!Result) return res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  const convId = Result.ConversationID;
+  log.info({ resultCode: Result?.ResultCode, convId }, "Refund B2C result received");
+
+  // Acknowledge Safaricom immediately
+  res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  setImmediate(async () => {
+    try {
+      const isSuccess = Result.ResultCode === 0;
+      const status = isSuccess ? "completed" : "failed";
+
+      // Find the refund request using conversation ID
+      const { data: refund, error } = await supabaseAdmin
+        .from("refund_requests")
+        .select("*")
+        .eq("mpesa_transaction_id", convId)
+        .maybeSingle();
+
+      if (error || !refund) {
+        log.error({ convId }, "Could not find refund request for B2C callback");
+        return;
+      }
+
+      // Update refund status
+      await supabaseAdmin
+        .from("refund_requests")
+        .update({
+          status,
+          mpesa_transaction_id: Result.TransactionID || convId, // Store actual transaction ID on success
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", refund.id);
+
+      if (isSuccess) {
+        // Debit Wallet ONLY on success
+        await supabaseAdmin.rpc("wallet_transact", {
+          p_tenant_id: refund.tenant_id,
+          p_customer_id: refund.customer_id,
+          p_amount: refund.amount,
+          p_direction: "debit",
+          p_narration: `Refund Completed: ${refund.reason || 'N/A'}`,
+          p_reference: refund.id,
+          p_ref_type: "refund"
+        });
+        log.info({ refund_id: refund.id }, "Refund wallet debit completed");
+      } else {
+        log.warn({ refund_id: refund.id, resultDesc: Result.ResultDesc }, "Refund B2C failed");
+      }
+    } catch (err) {
+      log.error({ err: err.message }, "Failed to process refund B2C result");
+    }
+  });
+});
+
+/**
+ * B2C Timeout callback for Refunds
+ * POST /api/refunds/timeout
+ */
+router.post("/timeout", async (req, res) => {
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  const { Result } = body;
+  const convId = Result?.ConversationID;
+
+  log.warn({ convId }, "Refund B2C timeout received");
+  res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  setImmediate(async () => {
+    try {
+      await supabaseAdmin
+        .from("refund_requests")
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString()
+        })
+        .eq("mpesa_transaction_id", convId);
+    } catch (err) {
+      log.error({ err: err.message }, "Failed to process refund B2C timeout");
+    }
+  });
 });
 
 /**
