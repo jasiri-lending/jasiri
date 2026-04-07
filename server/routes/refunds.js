@@ -217,12 +217,12 @@ router.post("/initiate", checkTenantAccess, async (req, res) => {
 
       const loanFees = (feeLogs || []).reduce((sum, log) => sum + parseFloat(log.paid_amount), 0) || (loan?.processing_fee_paid ? loan.processing_fee : 0);
 
-      // Check for already approved or processing refunds to avoid double refunding
+      // Check for already approved or processing refunds to avoid double-charging
       const { data: existingRefunds } = await supabaseAdmin
         .from("refund_requests")
         .select("amount")
         .eq("loan_id", loan_id)
-        .in("status", ["pending", "processing", "completed"]);
+        .in("status", ["pending", "processing"]);
       
       const totalRefunded = (existingRefunds || []).reduce((sum, ref) => sum + parseFloat(ref.amount), 0);
       
@@ -242,7 +242,7 @@ router.post("/initiate", checkTenantAccess, async (req, res) => {
         .from("refund_requests")
         .select("amount")
         .eq("customer_id", customer_id)
-        .in("status", ["pending", "processing", "completed"]);
+        .in("status", ["pending", "processing"]);
 
       const totalRefundedByCustomer = (allRefunds || []).reduce((sum, ref) => sum + parseFloat(ref.amount), 0);
       refundableLimit += (totalFees - totalRefundedByCustomer);
