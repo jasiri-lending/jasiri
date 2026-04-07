@@ -8,6 +8,15 @@ import { mpesaRequest } from "../services/mpesa.js";
 const router = express.Router();
 const log = createLogger({ service: "refunds" });
 
+const formatPhone = (phone) => {
+  if (!phone) return "";
+  const cleaned = String(phone).replace(/\D/g, "");
+  if (cleaned.startsWith("254") && cleaned.length === 12) return cleaned;
+  if (cleaned.startsWith("0") && cleaned.length === 10) return "254" + cleaned.substring(1);
+  if (cleaned.length === 9 && (cleaned.startsWith("7") || cleaned.startsWith("1"))) return "254" + cleaned;
+  return cleaned;
+};
+
 // Apply authentication
 router.use(verifySupabaseToken);
 
@@ -185,16 +194,22 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
 
     // 3. Trigger M-Pesa B2C
     const tenantConfig = await getTenantConfig(refund.tenant_id, "b2c");
+    const formattedPhone = formatPhone(refund.customers?.mobile);
+
+    if (!formattedPhone) {
+      return res.status(400).json({ error: "Customer mobile number is missing or invalid for refund." });
+    }
+
     const payload = {
       InitiatorName: tenantConfig.initiator_name,
       SecurityCredential: tenantConfig.security_credential,
       CommandID: "BusinessPayment",
       Amount: Math.round(refund.amount),
       PartyA: tenantConfig.paybill_number || tenantConfig.shortcode,
-      PartyB: refund.customers.mobile,
+      PartyB: formattedPhone,
       Remarks: refund.reason || "Customer Refund",
-      QueueTimeOutURL: `${tenantConfig.callback_url}/mpesa/b2c/timeout`,
-      ResultURL: `${tenantConfig.callback_url}/mpesa/b2c/result`,
+      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/b2c/timeout`,
+      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/b2c/result`,
       Occasion: `refund-${refund.id}`,
     };
 
