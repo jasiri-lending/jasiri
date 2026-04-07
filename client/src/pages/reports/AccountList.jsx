@@ -277,6 +277,10 @@ const CustomerStatementModal = () => {
           const txDate = new Date(w.created_at);
 
           let desc = w.narration || "Account Withdrawal";
+          // Hide technical wallet-to-loan transfers from the UI statement 
+          // to prevent perceived double-debiting (the actual loan payment row handles this).
+          if (desc === "Applied from wallet to loan repayment" || w.transaction_type === "loan") return;
+
           const lowerDesc = desc.toLowerCase();
           
           let seq = 10;
