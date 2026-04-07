@@ -164,7 +164,8 @@ router.get("/pending", checkTenantAccess, async (req, res) => {
         initiator:users!initiated_by (full_name)
       `)
       .eq("tenant_id", tenant_id)
-      .eq("status", "pending");
+      .in("status", ["pending", "processing", "completed", "failed"])
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
     res.json({ success: true, data });
@@ -182,6 +183,8 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
   const approver_id = req.user.id;
 
   try {
+    console.log(`[REFUND] Approving request ${id} by user ${approver_id}`);
+
     // 1. Fetch details
     const { data: refund, error: fetchErr } = await supabaseAdmin
       .from("refund_requests")
@@ -189,8 +192,17 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
       .eq("id", id)
       .single();
 
-    if (fetchErr || !refund) return res.status(404).json({ error: "Refund request not found" });
-    if (refund.status !== "pending") return res.status(400).json({ error: "Refund is not in pending state" });
+    if (fetchErr || !refund) {
+      console.error(`[REFUND] Fetch error for ${id}:`, fetchErr);
+      return res.status(404).json({ error: "Refund request not found" });
+    }
+    
+    console.log(`[REFUND] Found request for customer ${refund.customer_id} (${refund.customers?.mobile})`);
+
+    if (refund.status !== "pending") {
+      console.warn(`[REFUND] Request ${id} is already in state: ${refund.status}`);
+      return res.status(400).json({ error: "Refund is not in pending state" });
+    }
 
     // 2. Maker-Checker check
     if (refund.initiated_by === approver_id) {
@@ -198,10 +210,12 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
     }
 
     // 3. Trigger M-Pesa B2C
+    console.log(`[REFUND] Preparing M-Pesa B2C for ${refund.id}`);
     const tenantConfig = await getTenantConfig(refund.tenant_id, "b2c");
     const formattedPhone = formatPhone(refund.customers?.mobile);
 
     if (!formattedPhone) {
+      console.error(`[REFUND] Phone formatting failed for ${refund.customers?.mobile}`);
       return res.status(400).json({ error: "Customer mobile number is missing or invalid for refund." });
     }
 
@@ -213,12 +227,14 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
       PartyA: tenantConfig.paybill_number || tenantConfig.shortcode,
       PartyB: formattedPhone,
       Remarks: refund.reason || "Customer Refund",
-      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/b2c/timeout`,
-      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/b2c/result`,
+      QueueTimeOutURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/refunds/timeout`,
+      ResultURL: `${tenantConfig.callback_url}${(tenantConfig.environment === "sandbox") ? "/api" : "/mpesa"}/refunds/result`,
       Occasion: `refund-${refund.id}`,
     };
 
+    console.log(`[REFUND] Sending payload to M-Pesa...`);
     const mpesaRes = await mpesaRequest(tenantConfig, "POST", "/mpesa/b2c/v1/paymentrequest", payload);
+    console.log(`[REFUND] M-Pesa response received:`, mpesaRes);
     
     // 4. Record initiation and M-Pesa attempt
     await supabaseAdmin

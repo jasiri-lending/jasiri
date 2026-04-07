@@ -77,7 +77,7 @@ const RefundApprovals = () => {
           </h1>
         </div>
         <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm bg-brand-primary">
-          <span className="font-medium text-white">{filteredRefunds.length}</span> pending requests
+          <span className="font-medium text-white">{filteredRefunds.filter(r => r.status === 'pending').length}</span> pending requests
         </div>
       </div>
 
@@ -154,6 +154,9 @@ const RefundApprovals = () => {
                     Request Date
                   </th>
                   <th className="px-4 py-3  text-xs whitespace-nowrap text-slate-600">
+                    Status
+                  </th>
+                  <th className="px-4 py-3  text-xs whitespace-nowrap text-slate-600">
                     Actions
                   </th>
                 </tr>
@@ -213,15 +216,44 @@ const RefundApprovals = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center">
+                        {refund.status === "pending" && (
+                          <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase bg-blue-100 text-blue-600 border border-blue-200">
+                            Pending
+                          </span>
+                        )}
+                        {refund.status === "processing" && (
+                          <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase bg-amber-100 text-amber-600 border border-amber-200 animate-pulse">
+                            Processing
+                          </span>
+                        )}
+                        {refund.status === "completed" && (
+                          <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase bg-green-100 text-green-600 border border-green-200">
+                            Completed
+                          </span>
+                        )}
+                        {refund.status === "failed" && (
+                          <span className="px-2 py-1 rounded-full text-[10px] font-black uppercase bg-red-100 text-red-600 border border-red-200">
+                            Failed
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-center">
                         <button
                           onClick={() => {
-                            setSelectedRefund(refund);
-                            setShowProcessModal(true);
+                            if (refund.status === "pending") {
+                              setSelectedRefund(refund);
+                              setShowProcessModal(true);
+                            }
                           }}
-                          className="px-4 py-1.5 bg-brand-primary text-white rounded-lg text-sm hover:bg-brand-secondary shadow-md shadow-brand-primary/10 transition-all flex items-center justify-center gap-1.5 mx-auto"
+                          disabled={refund.status !== "pending"}
+                          className={`px-4 py-1.5 rounded-lg text-sm transition-all flex items-center justify-center gap-1.5 mx-auto ${
+                            refund.status === "pending" 
+                              ? "bg-brand-primary text-white hover:bg-brand-secondary shadow-md shadow-brand-primary/10" 
+                              : "bg-gray-100 text-gray-400 cursor-not-allowed border border-gray-200"
+                          }`}
                         >
                           <BanknotesIcon className="w-3.5 h-3.5" />
-                          Process
+                          {refund.status === "pending" ? "Process" : refund.status === "completed" ? "Refunded" : "Actioned"}
                         </button>
                       </td>
                     </tr>
