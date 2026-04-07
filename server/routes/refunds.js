@@ -264,7 +264,11 @@ router.post("/result", async (req, res) => {
   if (!Result) return res.json({ ResultCode: 0, ResultDesc: "Received" });
 
   const convId = Result.ConversationID;
-  log.info({ resultCode: Result?.ResultCode, convId }, "Refund B2C result received");
+  const resultDesc = Result.ResultDesc || "No description";
+  const resultCode = Result.ResultCode;
+  
+  console.log(`[REFUND] B2C result received: ConvId=${convId}, Code=${resultCode}, Desc=${resultDesc}`);
+  log.info({ resultCode, convId, resultDesc }, "Refund B2C result received");
 
   // Acknowledge Safaricom immediately
   res.json({ ResultCode: 0, ResultDesc: "Received" });
@@ -326,6 +330,7 @@ router.post("/timeout", async (req, res) => {
   const { Result } = body;
   const convId = Result?.ConversationID;
 
+  console.warn(`[REFUND] B2C timeout received for ConvId=${convId}`);
   log.warn({ convId }, "Refund B2C timeout received");
   res.json({ ResultCode: 0, ResultDesc: "Received" });
 

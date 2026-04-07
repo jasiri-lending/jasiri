@@ -197,6 +197,7 @@ app.use("/api/report-users/create", verifySupabaseToken, createReportUser); // S
 app.use("/api/checkReportUser", checkReportUserRoute);
 app.use("/api/scoring", scoringRouter);
 app.use("/api/refunds", RefundRouter);
+app.use("/mpesa/refunds", RefundRouter);
 
 // import "./cron/loanInstallmentCron.js"; // 
 
