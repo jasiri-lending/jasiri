@@ -17,11 +17,129 @@ const formatPhone = (phone) => {
   return cleaned;
 };
 
-// Apply authentication globally except for callbacks
+// 1. PUBLIC CALLBACK ENDPOINTS (Must be above any middleware)
+/**
+ * B2C Result callback for Refunds
+ * POST /api/refunds/result
+ */
+router.post("/result", async (req, res) => {
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  const { Result } = body;
+  if (!Result) return res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  const convId = Result.ConversationID;
+  const resultDesc = Result.ResultDesc || "No description";
+  const resultCode = Result.ResultCode;
+  
+  console.log(`[REFUND] B2C result received: ConvId=${convId}, Code=${resultCode}, Desc=${resultDesc}`);
+  log.info({ resultCode, convId, resultDesc }, "Refund B2C result received");
+
+  // Acknowledge Safaricom immediately
+  res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  setImmediate(async () => {
+    try {
+      const isSuccess = Result.ResultCode === 0;
+      const status = isSuccess ? "completed" : "failed";
+      const originatorId = Result.OriginatorConversationID;
+
+      console.log(`[REFUND] Searching for request with ConvId=${convId} or OrigId=${originatorId}`);
+
+      // Find the refund request using conversation ID OR originator ID
+      const { data: refund, error: findError } = await supabaseAdmin
+        .from("refund_requests")
+        .select("*")
+        .or(`mpesa_transaction_id.eq.${convId}${originatorId ? `,originator_conversation_id.eq.${originatorId}` : ""}`)
+        .maybeSingle();
+
+      if (findError) {
+        console.error(`[REFUND] Database error finding request:`, findError);
+        return;
+      }
+
+      if (!refund) {
+        console.warn(`[REFUND] Could not find refund request for ConvId=${convId} or OrigId=${originatorId}`);
+        return;
+      }
+
+      console.log(`[REFUND] Processing callback for ${refund.id}. Status: ${status}`);
+
+      // Update refund status
+      const { error: updateError } = await supabaseAdmin
+        .from("refund_requests")
+        .update({
+          status,
+          safaricom_transaction_id: Result.TransactionID || null,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", refund.id);
+
+      if (updateError) {
+        console.error(`[REFUND] Failed to update status for ${refund.id}:`, updateError);
+        return;
+      }
+
+      console.log(`[REFUND] Successfully updated status for ${refund.id} to ${status}`);
+
+      if (isSuccess) {
+        console.log(`[REFUND] Attempting wallet debit for ${refund.id}...`);
+        // Debit Wallet ONLY on success
+        const { data: walletRes, error: walletError } = await supabaseAdmin.rpc("wallet_transact", {
+          p_tenant_id: refund.tenant_id,
+          p_customer_id: refund.customer_id,
+          p_amount: refund.amount,
+          p_direction: "debit",
+          p_narration: `Refund Completed: ${refund.reason || 'N/A'}`,
+          p_reference: refund.id,
+          p_ref_type: "refund"
+        });
+
+        if (walletError) {
+          console.error(`[REFUND] Wallet transaction failed for ${refund.id}:`, walletError);
+        } else {
+          console.log(`[REFUND] Wallet debit successfully recorded for ${refund.id}. Result:`, walletRes);
+          log.info({ refund_id: refund.id }, "Refund wallet debit completed");
+        }
+      } else {
+        log.warn({ refund_id: refund.id, resultDesc: Result.ResultDesc }, "Refund B2C failed at Safaricom");
+      }
+    } catch (err) {
+      console.error(`[REFUND] UNCAUGHT CRASH in callback processing:`, err);
+      log.error({ err: err.message }, "Failed to process refund B2C result");
+    }
+  });
+});
+
+/**
+ * B2C Timeout callback for Refunds
+ * POST /api/refunds/timeout
+ */
+router.post("/timeout", async (req, res) => {
+  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
+  const { Result } = body;
+  const convId = Result?.ConversationID;
+
+  console.warn(`[REFUND] B2C timeout received for ConvId=${convId}`);
+  log.warn({ convId }, "Refund B2C timeout received");
+  res.json({ ResultCode: 0, ResultDesc: "Received" });
+
+  setImmediate(async () => {
+    try {
+      await supabaseAdmin
+        .from("refund_requests")
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString()
+        })
+        .eq("mpesa_transaction_id", convId);
+    } catch (err) {
+      log.error({ err: err.message }, "Failed to process refund B2C timeout");
+    }
+  });
+});
+
+// Apply authentication globally for all subsequent routes
 router.use((req, res, next) => {
-  if (req.path === "/result" || req.path === "/timeout") {
-    return next();
-  }
   return verifySupabaseToken(req, res, next);
 });
 
@@ -64,63 +182,77 @@ router.post("/initiate", checkTenantAccess, async (req, res) => {
         return res.status(404).json({ success: false, error: "Loan not found" });
       }
 
+      // Matches the SQL constraint: 'bm_review', 'rn_review', 'ca_review', 'ready_for_disbursement', 'approved', 'rejected'
+      const allowedStatuses = [
+        "bm_review", 
+        "rn_review", 
+        "ca_review", 
+        "ready_for_disbursement", 
+        "approved", 
+        "rejected"
+      ];
+      
       const isDisbursed = loan.status === 'disbursed';
-      const isRepaymentActive = ['ongoing', 'partial', 'overdue', 'defaulted'].includes(loan.repayment_state);
-
-      if (isDisbursed && isRepaymentActive) {
+      
+      if (isDisbursed) {
         return res.status(400).json({ 
           success: false, 
-          error: "Refunds are not allowed for active disbursed loans." 
+          error: "Refunds are not allowed once a loan has been disbursed." 
         });
       }
 
+      if (!allowedStatuses.includes(loan.status)) {
+        return res.status(400).json({ 
+          success: false, 
+          error: `Loan status '${loan.status}' is not eligible for a refund.` 
+        });
+      }
+
+      // Sum all processing fees paid for this loan
       const { data: feeLogs } = await supabaseAdmin
-        .from("loan_fee_logs")
-        .select("amount")
+        .from("loan_fees_log")
+        .select("paid_amount")
         .eq("loan_id", loan_id)
         .eq("fee_type", "processing");
 
-      const loanFees = (feeLogs || []).reduce((sum, log) => sum + parseFloat(log.amount), 0) || (loan?.processing_fee_paid ? loan.processing_fee : 0);
+      const loanFees = (feeLogs || []).reduce((sum, log) => sum + parseFloat(log.paid_amount), 0) || (loan?.processing_fee_paid ? loan.processing_fee : 0);
 
+      // Check for already approved or processing refunds to avoid double refunding
       const { data: existingRefunds } = await supabaseAdmin
         .from("refund_requests")
         .select("amount")
         .eq("loan_id", loan_id)
-        .eq("status", "approved");
+        .in("status", ["pending", "processing", "completed"]);
       
       const totalRefunded = (existingRefunds || []).reduce((sum, ref) => sum + parseFloat(ref.amount), 0);
+      
+      // Eligibility: Wallet Balance + Fees already paid - Prior refunds
       refundableLimit += (loanFees - totalRefunded);
     } else {
-      // If no loan_id, check total across all eligible loans
+      // If no loan_id, check total across all eligible loans for this customer
       const { data: allLoans } = await supabaseAdmin
         .from("loans")
         .select("id, processing_fee, processing_fee_paid, status, repayment_state")
-        .eq("customer_id", customer_id);
+        .eq("customer_id", customer_id)
+        .neq("status", "disbursed");
 
-      const eligibleLoans = (allLoans || []).filter(l => {
-        if (!l.processing_fee_paid) return false;
-        const isDisbursed = l.status === 'disbursed';
-        const isRepaymentActive = ['ongoing', 'partial', 'overdue', 'defaulted'].includes(l.repayment_state);
-        return !(isDisbursed && isRepaymentActive);
-      });
-
-      const totalFees = eligibleLoans.reduce((sum, l) => sum + (parseFloat(l.processing_fee) || 0), 0);
+      const totalFees = (allLoans || []).filter(l => l.processing_fee_paid).reduce((sum, l) => sum + (parseFloat(l.processing_fee) || 0), 0);
       
       const { data: allRefunds } = await supabaseAdmin
         .from("refund_requests")
         .select("amount")
         .eq("customer_id", customer_id)
-        .eq("status", "approved");
+        .in("status", ["pending", "processing", "completed"]);
 
-      const totalRefunded = (allRefunds || []).reduce((sum, ref) => sum + parseFloat(ref.amount), 0);
-      refundableLimit += (totalFees - totalRefunded);
+      const totalRefundedByCustomer = (allRefunds || []).reduce((sum, ref) => sum + parseFloat(ref.amount), 0);
+      refundableLimit += (totalFees - totalRefundedByCustomer);
     }
 
-    // Combined Check
+    // 4. Combined Check
     if (amount > refundableLimit) {
       return res.status(400).json({ 
         success: false, 
-        error: `Refund amount exceeds total refundable assets (Max: KES ${refundableLimit.toLocaleString()})` 
+        error: `Refund amount exceeds total refundable assets (Max: KES ${refundableLimit.toLocaleString()}). Wallet: ${currentBalance.toLocaleString()} + Refundable Fee: ${(refundableLimit - currentBalance).toLocaleString()}` 
       });
     }
 
@@ -255,120 +387,6 @@ router.post("/approve/:id", checkTenantAccess, async (req, res) => {
   }
 });
 
-/**
- * B2C Result callback for Refunds
- * POST /api/refunds/result
- */
-router.post("/result", async (req, res) => {
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  const { Result } = body;
-  if (!Result) return res.json({ ResultCode: 0, ResultDesc: "Received" });
-
-  const convId = Result.ConversationID;
-  const resultDesc = Result.ResultDesc || "No description";
-  const resultCode = Result.ResultCode;
-  
-  console.log(`[REFUND] B2C result received: ConvId=${convId}, Code=${resultCode}, Desc=${resultDesc}`);
-  log.info({ resultCode, convId, resultDesc }, "Refund B2C result received");
-
-  // Acknowledge Safaricom immediately
-  res.json({ ResultCode: 0, ResultDesc: "Received" });
-
-  setImmediate(async () => {
-    try {
-      const isSuccess = Result.ResultCode === 0;
-      const status = isSuccess ? "completed" : "failed";
-      const originatorId = Result.OriginatorConversationID;
-
-      // Find the refund request using conversation ID OR originator ID
-      const { data: refund, error: findError } = await supabaseAdmin
-        .from("refund_requests")
-        .select("*")
-        .or(`mpesa_transaction_id.eq.${convId},mpesa_transaction_id.eq.${originatorId}`)
-        .maybeSingle();
-
-      if (findError) {
-        console.error(`[REFUND] Database error finding request for ConvId=${convId}:`, findError);
-        return;
-      }
-
-      if (!refund) {
-        console.warn(`[REFUND] Cold not find refund request for ConvId=${convId} or OrigId=${originatorId}`);
-        return;
-      }
-
-      console.log(`[REFUND] Processing callback for ${refund.id}. Status: ${status}`);
-
-      // Update refund status (Remove updated_at as it might not exist)
-      const { error: updateError } = await supabaseAdmin
-        .from("refund_requests")
-        .update({
-          status,
-          safaricom_transaction_id: Result.TransactionID || null
-        })
-        .eq("id", refund.id);
-
-      if (updateError) {
-        console.error(`[REFUND] Failed to update status for ${refund.id}:`, updateError);
-        return;
-      }
-
-      if (isSuccess) {
-        console.log(`[REFUND] Attempting wallet debit for ${refund.id}...`);
-        // Debit Wallet ONLY on success
-        const { data: walletRes, error: walletError } = await supabaseAdmin.rpc("wallet_transact", {
-          p_tenant_id: refund.tenant_id,
-          p_customer_id: refund.customer_id,
-          p_amount: refund.amount,
-          p_direction: "debit",
-          p_narration: `Refund Completed: ${refund.reason || 'N/A'}`,
-          p_reference: refund.id,
-          p_ref_type: "refund"
-        });
-
-        if (walletError) {
-          console.error(`[REFUND] Wallet transaction failed for ${refund.id}:`, walletError);
-        } else {
-          console.log(`[REFUND] Wallet debit successfully recorded for ${refund.id}. Result:`, walletRes);
-          log.info({ refund_id: refund.id }, "Refund wallet debit completed");
-        }
-      } else {
-        log.warn({ refund_id: refund.id, resultDesc: Result.ResultDesc }, "Refund B2C failed at Safaricom");
-      }
-    } catch (err) {
-      console.error(`[REFUND] UNCAUGHT CRASH in callback processing:`, err);
-      log.error({ err: err.message }, "Failed to process refund B2C result");
-    }
-  });
-});
-
-/**
- * B2C Timeout callback for Refunds
- * POST /api/refunds/timeout
- */
-router.post("/timeout", async (req, res) => {
-  const body = typeof req.body === "string" ? JSON.parse(req.body) : req.body;
-  const { Result } = body;
-  const convId = Result?.ConversationID;
-
-  console.warn(`[REFUND] B2C timeout received for ConvId=${convId}`);
-  log.warn({ convId }, "Refund B2C timeout received");
-  res.json({ ResultCode: 0, ResultDesc: "Received" });
-
-  setImmediate(async () => {
-    try {
-      await supabaseAdmin
-        .from("refund_requests")
-        .update({
-          status: "failed",
-          updated_at: new Date().toISOString()
-        })
-        .eq("mpesa_transaction_id", convId);
-    } catch (err) {
-      log.error({ err: err.message }, "Failed to process refund B2C timeout");
-    }
-  });
-});
 
 /**
  * Reject a refund
