@@ -659,15 +659,21 @@ Authrouter.post("/logout", verifySupabaseToken, async (req, res) => {
 });
 // POST /api/verify-password-change-code - Verify code and change password
 Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req, res) => {
-  const { email, code, newPassword } = req.body;
+  const { userId, email, code, newPassword } = req.body;
 
   try {
     // Get user
-    const { data: user, error } = await supabaseAdmin
-      .from("users")
-      .select("*")
-      .eq("email", email)
-      .single();
+    let query = supabaseAdmin.from("users").select("*");
+    
+    if (userId) {
+      query = query.eq("id", userId);
+    } else if (email) {
+      query = query.eq("email", email);
+    } else {
+      return res.status(400).json({ success: false, error: "Identifier (userId or email) required" });
+    }
+
+    const { data: user, error } = await query.single();
 
     if (error || !user) {
       return res.status(400).json({ success: false, error: "User not found" });

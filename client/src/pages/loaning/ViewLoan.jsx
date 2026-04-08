@@ -26,6 +26,7 @@ import {
   ArrowTrendingUpIcon,
   ArrowTrendingDownIcon,
 } from "@heroicons/react/24/outline";
+import Spinner from "../../components/Spinner";
 
 
 const ViewLoan = () => {
@@ -271,7 +272,7 @@ const ViewLoan = () => {
       case "rm_review":
         return <ClockIcon className="h-5 w-5 text-blue-600" />;
       case "ca_review":
-        return <ClockIcon className="h-5 w-5 text-purple-600" />;
+        return <ClockIcon className="h-5 w-5 text-indigo-600" />;
       case "ready_for_disbursement":
         return <ClockIcon className="h-5 w-5 text-green-600" />;
       case "disbursed":
@@ -288,7 +289,7 @@ const ViewLoan = () => {
       booked: "bg-amber-100 text-amber-800 border-amber-200",
       bm_review: "bg-orange-100 text-orange-800 border-orange-200",
       rm_review: "bg-blue-100 text-blue-800 border-blue-200",
-      ca_review: "bg-purple-100 text-purple-800 border-purple-200",
+      ca_review: "bg-indigo-100 text-indigo-800 border-indigo-200",
       ready_for_disbursement: "bg-green-100 text-green-800 border-green-200",
       disbursed: "bg-emerald-100 text-emerald-800 border-emerald-200",
       rejected: "bg-red-100 text-red-800 border-red-200",
@@ -342,7 +343,7 @@ const ViewLoan = () => {
           <div className="space-y-3">
             <div className="flex justify-between items-center">
               <span className="text-gray-600 font-medium">Product:</span>
-              <span className="text-purple-600 font-semibold">
+              <span className="text-brand-primary font-semibold">
                 {loanDetails.product_name || loanDetails.product}
               </span>
             </div>
@@ -443,12 +444,11 @@ const ViewLoan = () => {
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Date</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Transaction ID</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Phone Number</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Amount</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Type</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Status</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-900">Date</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-900">Transaction ID</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-900">Account Number</th>
+                  <th className="px-6 py-3 text-right text-sm  text-gray-900">Amount</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-900">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -457,7 +457,7 @@ const ViewLoan = () => {
                     <td className="px-6 py-4 text-sm text-gray-900">
                       {formatDate(payment.transaction_time)}
                     </td>
-                    <td className="px-6 py-4 text-sm font-mono text-blue-600">
+                    <td className="px-6 py-4 text-sm font-mono text-brand-primary">
                       {payment.transaction_id}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-900">
@@ -466,18 +466,7 @@ const ViewLoan = () => {
                     <td className="px-6 py-4 text-sm text-right font-semibold text-green-600">
                       {formatCurrency(payment.amount)}
                     </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.payment_type === 'repayment'
-                          ? 'bg-green-100 text-green-800'
-                          : payment.payment_type === 'processing'
-                            ? 'bg-blue-100 text-blue-800'
-                            : payment.payment_type === 'registration'
-                              ? 'bg-purple-100 text-purple-800'
-                              : 'bg-gray-100 text-gray-800'
-                        }`}>
-                        {payment.payment_type}
-                      </span>
-                    </td>
+                  
                     <td className="px-6 py-4 text-sm">
                       <span className={`px-2 py-1 rounded-full text-xs font-medium ${payment.status === 'applied'
                           ? 'bg-green-100 text-green-800'
@@ -502,7 +491,7 @@ const ViewLoan = () => {
     <div className="space-y-6">
       {installments.length > 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4">
+          <div className="bg-[#2E5E99] text-white p-4">
             <h3 className="text-xl font-bold flex items-center">
               <DocumentTextIcon className="h-6 w-6 mr-3" />
               Repayment Schedule ({installments.length} installments)
@@ -530,13 +519,13 @@ const ViewLoan = () => {
             <table className="min-w-full">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">#</th>
-                  <th className="px-6 py-3 text-left text-sm font-semibold text-gray-900">Due Date</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Due Amount</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Principal Due</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Interest Due</th>
-                  <th className="px-6 py-3 text-right text-sm font-semibold text-gray-900">Paid Amount</th>
-                  <th className="px-6 py-3 text-center text-sm font-semibold text-gray-900">Status</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">#</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Due Date</th>
+                  <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Due Amount</th>
+                  <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Principal Due</th>
+                  <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Interest Due</th>
+                  <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Paid Amount</th>
+                  <th className="px-6 py-3 text-center text-sm  text-gray-600 whitespace-nowrap">Status</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -553,7 +542,7 @@ const ViewLoan = () => {
                                 installment.status === 'partial' ? 'bg-blue-100' :
                                   'bg-gray-100'
                             }`}>
-                            <span className={`font-semibold text-sm ${installment.status === 'paid' ? 'text-green-600' :
+                            <span className={` text-sm ${installment.status === 'paid' ? 'text-green-600' :
                                 installment.status === 'overdue' ? 'text-red-600' :
                                   installment.status === 'partial' ? 'text-blue-600' :
                                     'text-gray-600'
@@ -564,22 +553,22 @@ const ViewLoan = () => {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <div className="text-gray-900">{formatDate(installment.due_date)}</div>
+                        <div className="text-gray-600">{formatDate(installment.due_date)}</div>
                         {installment.paid_date && (
                           <div className="text-xs text-green-600">Paid: {formatDate(installment.paid_date)}</div>
                         )}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-900">
+                      <td className="px-6 py-4 text-sm text-right  text-gray-600 whitespace-nowrap">
                         {formatCurrency(installment.due_amount)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-purple-600">
+                      <td className="px-6 py-4 text-sm text-right  text-brand-primary whitespace-nowrap">
                         {formatCurrency(installment.principal_amount)}
                       </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">
+                      <td className="px-6 py-4 text-sm text-right  text-brand-primary whitespace-nowrap">
                         {formatCurrency(installment.interest_amount)}
                       </td>
                       <td className="px-6 py-4 text-sm text-right">
-                        <div className={`font-semibold ${paidAmount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
+                        <div className={` ${paidAmount > 0 ? 'text-green-600' : 'text-gray-400'}`}>
                           {formatCurrency(paidAmount)}
                         </div>
                         {paidAmount > 0 && (
@@ -923,15 +912,15 @@ const ViewLoan = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-
+      <div className="min-h-screen flex items-center justify-center bg-muted">
+        <Spinner text="Fetching loan details..." />
       </div>
     );
   }
 
   if (!loanDetails || !customer) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="text-center">
           <XCircleIcon className="h-16 w-16 text-red-300 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-gray-900 mb-2">Loan Not Found</h2>
@@ -1057,13 +1046,16 @@ const ViewLoan = () => {
           {/* Outstanding Balance & Next Installment */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Outstanding Balance */}
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200 shadow-sm">
+            <div className="bg-white rounded-xl p-6 border border-brand-primary/20 shadow-sm relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                 <CurrencyDollarIcon className="h-16 w-16 text-brand-primary" />
+              </div>
               <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
-                <CurrencyDollarIcon className="h-6 w-6 text-purple-600 mr-3" />
+                <CurrencyDollarIcon className="h-6 w-6 text-brand-primary mr-3" />
                 Outstanding Balance
               </h3>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600 mb-2">
+                <div className="text-2xl font-bold text-brand-primary mb-2">
                   {formatCurrency(loanMetrics.outstandingBalance)}
                 </div>
                 <p className="text-gray-600 text-sm">
@@ -1120,9 +1112,9 @@ const ViewLoan = () => {
           </div>
 
           {/* Approval Team with Disbursed By */}
-          <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-xl p-6 border border-indigo-200 shadow-sm">
+          <div className="bg-white rounded-xl p-6 border border-slate-200 shadow-sm">
             <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
-              <IdentificationIcon className="h-6 w-6 text-indigo-600 mr-3" />
+              <IdentificationIcon className="h-6 w-6 text-brand-primary mr-3" />
               Approval Team
             </h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

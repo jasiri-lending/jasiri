@@ -11,8 +11,9 @@ export const apiFetch = async (endpoint, options = {}) => {
     // Only send the token if it exists and looks like a valid JWT (3 segments)
     const isValidJwt = sessionToken && sessionToken !== "undefined" && sessionToken !== "null" && sessionToken.split(".").length === 3;
 
+    const isFormData = options.body instanceof FormData;
     const headers = {
-        "Content-Type": "application/json",
+        ...(isFormData ? {} : { "Content-Type": "application/json" }),
         ...(isValidJwt && { "Authorization": `Bearer ${sessionToken}` }),
         ...(options.headers || {})
     };

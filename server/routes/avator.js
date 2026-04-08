@@ -9,8 +9,9 @@ const AvatarRouter = express.Router();
 
 const storage = multer.diskStorage({
   destination: function (req, file, cb) {
-    const uploadDir = '/tmp/uploads';
+    const uploadDir = path.join(process.cwd(), 'uploads');
     if (!fs.existsSync(uploadDir)) {
+      console.log("📁 Creating uploads directory:", uploadDir);
       fs.mkdirSync(uploadDir, { recursive: true });
     }
     cb(null, uploadDir);
@@ -70,7 +71,7 @@ AvatarRouter.post("/upload-avatar", verifySupabaseToken, upload.single('avatar')
     // Check if user has existing avatar and delete it
     const { data: existingProfile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("avatar_url, branch_id, region_id, tenant_id")
+      .select("avatar_url, branch_id, region_id")
       .eq("id", userId)
       .maybeSingle();
 
@@ -141,8 +142,7 @@ AvatarRouter.post("/upload-avatar", verifySupabaseToken, upload.single('avatar')
         // Preserve existing data if any
         ...(existingProfile && {
           branch_id: existingProfile.branch_id,
-          region_id: existingProfile.region_id,
-          tenant_id: existingProfile.tenant_id
+          region_id: existingProfile.region_id
         })
       }, {
         onConflict: 'id'
@@ -201,7 +201,7 @@ AvatarRouter.delete("/delete-avatar", verifySupabaseToken, async (req, res) => {
     // Get current avatar URL
     const { data: profile, error: profileError } = await supabaseAdmin
       .from("profiles")
-      .select("avatar_url, branch_id, region_id, tenant_id")
+      .select("avatar_url, branch_id, region_id")
       .eq("id", userId)
       .maybeSingle();
 
@@ -244,8 +244,7 @@ AvatarRouter.delete("/delete-avatar", verifySupabaseToken, async (req, res) => {
         avatar_url: null,
         // Preserve existing data
         branch_id: profile?.branch_id || null,
-        region_id: profile?.region_id || null,
-        tenant_id: profile?.tenant_id || null
+        region_id: profile?.region_id || null
       }, {
         onConflict: 'id'
       });

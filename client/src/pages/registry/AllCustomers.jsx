@@ -507,6 +507,14 @@ const AllCustomers = () => {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-muted">
+        <Spinner text="Loading customer registry..." />
+      </div>
+    );
+  }
+
   return (
     <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
@@ -852,16 +860,14 @@ const AllCustomers = () => {
                           <ChatBubbleLeftRightIcon className="h-4 w-4" />
                         </button>
 
-                        {/* Loan Details (only if disbursed) */}
-                        {customer.hasDisbursedLoan && (
-                          <button
-                            onClick={() => handleOpenLoanDetails(customer)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 text-yellow-600 hover:from-yellow-100 hover:to-yellow-200 hover:text-yellow-700 hover:border-yellow-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Loan Details"
-                          >
-                            <BanknotesIcon className="h-4 w-4" />
-                          </button>
-                        )}
+                        {/* Loan Details (always displayed) */}
+                        <button
+                          onClick={() => handleOpenLoanDetails(customer)}
+                          className="p-2 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 text-yellow-600 hover:from-yellow-100 hover:to-yellow-200 hover:text-yellow-700 hover:border-yellow-300 transition-all duration-200 shadow-sm hover:shadow"
+                          title="Loan Details"
+                        >
+                          <BanknotesIcon className="h-4 w-4" />
+                        </button>
 
                         {/* Promise to Pay (only if disbursed AND repayment_state is ongoing or partial) */}
                         {customer.hasDisbursedLoan &&

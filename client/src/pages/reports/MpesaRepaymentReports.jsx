@@ -293,7 +293,7 @@ const MpesaRepaymentReports = () => {
               Middlename,
               Surname,
               id_number,
-              branches!inner (
+              branch:branch_id (
                 name,
                 region_id,
                 regions ( name )
@@ -313,7 +313,7 @@ const MpesaRepaymentReports = () => {
         }
       } else if (profile.role === 'regional_manager') {
         if (profile.region_id) {
-          query = query.filter('loans.branches.region_id', 'eq', profile.region_id);
+          query = query.filter('loans.customers.branch.region_id', 'eq', profile.region_id);
         }
       }
 
@@ -352,7 +352,7 @@ const MpesaRepaymentReports = () => {
 
         if (!acc[mpesaReceipt]) {
           const customer = item.loans?.customers;
-          const branch = customer?.branches;
+          const branch = customer?.branch;
           const region = branch?.regions;
 
           const fullName = customer
