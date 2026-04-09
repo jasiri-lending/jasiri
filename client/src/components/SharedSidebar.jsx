@@ -323,6 +323,7 @@ const SharedSidebar = () => {
         icon: BarChart3,
         children: [
           { name: "All Reports", href: "/reports/all", icon: FileText },
+          { name: "Income Statement", href: "/reports/income-statement", icon: BarChart3 },
           { name: "PTP Reports", href: "/reports/ptp", icon: Handshake },
         ],
       },

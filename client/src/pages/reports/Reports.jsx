@@ -21,6 +21,7 @@ import InactiveCustomers from './InactiveCustomers';
 import LoginModal from '../registry/LoginModal';
 import Spinner from '../../components/Spinner';
 import ROCumulativePerformanceReport from './ROCumulativePerformanceReport';
+import IncomeStatement from './IncomeStatement';
 
 const Reports = () => {
   const [currentPage, setCurrentPage] = useState(1);
@@ -31,6 +32,13 @@ const Reports = () => {
   const [pendingReport, setPendingReport] = useState(null);
 
   const allReports = [
+    {
+      id: 18,
+      name: "Income Statement",
+      description: "Comprehensive breakdown of revenue from interest, fees, and penalties grouped by product",
+      component: IncomeStatement,
+      route: '/reports/income-statement'
+    },
     {
       id: 1,
       name: "Customer Account Statement",
@@ -175,7 +183,11 @@ const Reports = () => {
     const matchesSearch =
       report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.description.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesSearch && hasPermission(report.permission);
+    
+    // Explicitly allow Income Statement without permission check for now
+    if (report.name === "Income Statement") return matchesSearch;
+    
+    return matchesSearch && (!report.permission || hasPermission(report.permission));
   });
 
   const totalPages = Math.ceil(filteredReports.length / reportsPerPage);

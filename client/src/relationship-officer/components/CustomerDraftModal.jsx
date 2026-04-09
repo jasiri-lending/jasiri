@@ -1827,7 +1827,6 @@ const CustomerDraft = () => {
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
         business_location: formData.businessLocation || null,
-        business_county: formData.businessCounty || null,
         business_lat: formData.businessCoordinates?.lat || null,
         business_lng: formData.businessCoordinates?.lng || null,
         road: formData.road || null,

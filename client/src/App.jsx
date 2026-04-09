@@ -90,6 +90,7 @@ const OutstandingLoanBalanceReport = lazy(() => import("./pages/reports/Outstand
 const NonPerformingLoansReport = lazy(() => import("./pages/reports/NonPerformingLoansReport"));
 const LoanOfficerPerformanceReport = lazy(() => import("./pages/reports/LoanOfficerPerformanceReport"));
 const ROCumulativePerformanceReport = lazy(() => import("./pages/reports/ROCumulativePerformanceReport"));
+const IncomeStatement = lazy(() => import("./pages/reports/IncomeStatement"));
 const MpesaRepaymentReports = lazy(() => import("./pages/reports/MpesaRepaymentReports"));
 const CustomerListing = lazy(() => import("./pages/reports/CustomerListing"));
 const LoanDueReport = lazy(() => import("./pages/reports/LoanDueReport"));
@@ -1100,6 +1101,14 @@ function MainLayout({
                         element={
                           <ProtectedRoute>
                             <ReportWrapper component={CustomerAccountModal} userRole={role} permission="report.customer_account_statement" />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/reports/income-statement"
+                        element={
+                          <ProtectedRoute>
+                            <ReportWrapper component={IncomeStatement} userRole={role} />
                           </ProtectedRoute>
                         }
                       />

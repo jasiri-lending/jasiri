@@ -153,7 +153,7 @@ const InactiveCustomers = () => {
       region: "",
       branch: "",
       officer: "",
-      minInactivityDays: 30,
+      minInactivityDays: 0,
     };
   });
 
@@ -278,33 +278,48 @@ const InactiveCustomers = () => {
           id,
           status,
           repayment_state,
+          total_payable,
           disbursed_at,
           booked_by,
-          booked_by_user:booked_by ( full_name )
+          booked_by_user:booked_by ( full_name ),
+          loan_payments ( paid_amount )
         )
       `)
-          .eq('tenant_id', tenantId);
+          .eq('tenant_id', tenantId)
+          .neq("form_status", "draft");
 
-        // RBAC Implementation
-        if (profile.role === 'relationship_officer') {
-          query = query.eq('created_by', profile.id);
-        } else if (['branch_manager', 'customer_service_officer'].includes(profile.role)) {
-          if (profile.branch_id) {
-            query = query.eq('branch_id', profile.branch_id);
-          }
-        } else if (profile.role === 'regional_manager') {
-          if (profile.region_id) {
-            query = query.filter('branch.region_id', 'eq', profile.region_id);
-          }
-        }
-
-        const { data: customersData, error } = await query.order('created_at', { ascending: false });
+        const { data: customersData, error } = await query;
 
         if (error) throw error;
         if (!mounted) return;
 
+        // --- Aligned RBAC Logic (JS Filtering) ---
+        const { role, region_id: userRegionId, branch_id: userBranchId, id: userId } = profile;
+        let filteredCustomers = customersData.map(c => ({
+          ...c,
+          region_id: c.region_id || c.branch?.region_id
+        }));
+
+        if (role === "relationship_officer") {
+          // RO: customers they created OR customers whose loans they booked
+          // We can check booked_by within the joined loans
+          filteredCustomers = filteredCustomers.filter(cust => {
+            const isCreator = String(cust.created_by) === String(userId);
+            const isLoanBooker = cust.loans?.some(l => String(l.booked_by) === String(userId));
+            return isCreator || isLoanBooker;
+          });
+        } else if (role === "branch_manager" || role === "customer_service_officer") {
+          if (userBranchId) {
+            filteredCustomers = filteredCustomers.filter(item => item.branch_id === userBranchId);
+          }
+        } else if (role === "regional_manager") {
+          if (userRegionId) {
+            filteredCustomers = filteredCustomers.filter(item => item.region_id === userRegionId);
+          }
+        }
+
         // Process each customer
-        const processed = customersData.map(cust => {
+        const processed = filteredCustomers.map(cust => {
           // Build full name
           const customer_name = [cust.Firstname, cust.Middlename, cust.Surname]
             .filter(Boolean)
@@ -313,10 +328,28 @@ const InactiveCustomers = () => {
           // Consider only disbursed loans
           const disbursedLoans = cust.loans?.filter(l => l.status === 'disbursed') || [];
 
-          // 1. Exclude if any disbursed loan is still active (not completed)
-          const hasActiveLoan = disbursedLoans.some(l =>
-            l.repayment_state && l.repayment_state !== 'completed'
-          );
+          // --- Aligned Active Loan Logic (Part 2: Siloed Visibility) ---
+          // Dashboard.jsx filters loans by RBAC BEFORE checking for outstanding balance
+          let visibilityFilteredLoans = disbursedLoans;
+          if (role === "relationship_officer") {
+            visibilityFilteredLoans = disbursedLoans.filter(l => String(l.booked_by) === String(userId));
+          } else if (role === "branch_manager" || role === "customer_service_officer") {
+            if (userBranchId) {
+              visibilityFilteredLoans = disbursedLoans.filter(l => l.branch_id === userBranchId);
+            }
+          } else if (role === "regional_manager") {
+            if (userRegionId) {
+              visibilityFilteredLoans = disbursedLoans.filter(l => (l.region_id || c.branch?.region_id) === userRegionId);
+            }
+          }
+
+          // 1. Exclude if any visibility-filtered disbursed loan is still active
+          const hasActiveLoan = visibilityFilteredLoans.some(l => {
+            if (l.repayment_state === 'completed') return false;
+            const totalPayable = Number(l.total_payable) || 0;
+            const totalPaid = (l.loan_payments || []).reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
+            return (totalPayable - totalPaid) > 0;
+          });
           if (hasActiveLoan) return null;
 
           // Find latest disbursed loan (if any)
@@ -497,7 +530,7 @@ const InactiveCustomers = () => {
       region: "",
       branch: "",
       officer: "",
-      minInactivityDays: 30,
+      minInactivityDays: 0,
     });
     setCurrentPage(1);
   }, []);
@@ -719,6 +752,7 @@ const InactiveCustomers = () => {
 
   // Options
   const inactivityPeriodOptions = [
+    { value: 0, label: "0 Days (All Inactive)" },
     { value: 30, label: "30 Days" },
     { value: 60, label: "60 Days" },
     { value: 90, label: "90 Days" },
