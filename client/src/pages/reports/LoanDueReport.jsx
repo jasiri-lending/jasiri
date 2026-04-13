@@ -447,7 +447,12 @@ const LoanDueReport = () => {
 
         if (dueInRange.length === 0) return null;
 
-        const totalDueInRange = dueInRange.reduce((sum, i) => sum + Number(i.due_amount || 0), 0);
+        const totalDueInRange = dueInRange.reduce((sum, i) => {
+          const dueAmt = Number(i.due_amount || 0);
+          const paidAmt = Number(i.paid_amount || 0);
+          const netDue = (i.status === "partial" || paidAmt > 0) ? Math.max(0, dueAmt - paidAmt) : dueAmt;
+          return sum + netDue;
+        }, 0);
         const principalDueVal = dueInRange.reduce((sum, i) => sum + Number(i.principal_due || i.principal_amount || 0), 0);
         const interestDueVal = dueInRange.reduce((sum, i) => sum + Number(i.interest_due || i.interest_amount || 0), 0);
         const numDueInstallments = dueInRange.length;

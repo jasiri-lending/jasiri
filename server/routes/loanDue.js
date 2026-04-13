@@ -151,11 +151,19 @@ const getLoanDueData = async (tenant_id, filters, regionMap) => {
         }
 
         const loanData = loanMap.get(loanId);
+        const currentInstDue = Number(installment.due_amount || 0);
+        const currentInstPaid = Number(installment.paid_amount || 0);
+        
+        // Subtract paid amount from the due amount if partially paid
+        const netDueAmount = (installment.status === 'partial' || currentInstPaid > 0)
+            ? Math.max(0, currentInstDue - currentInstPaid)
+            : currentInstDue;
+
         loanData.numDueInstallments++;
         loanData.principalDue += Number(installment.principal_due || installment.principal_amount || 0);
         loanData.interestDue += Number(installment.interest_due || installment.interest_amount || 0);
-        loanData.totalDue += Number(installment.due_amount || 0);
-        loanData.totalPaid += Number(installment.paid_amount || 0);
+        loanData.totalDue += netDueAmount;
+        loanData.totalPaid += currentInstPaid;
 
         const currentInstDate = installment.due_date?.split("T")[0];
         if (currentInstDate < loanData.expectedDueDate) {
