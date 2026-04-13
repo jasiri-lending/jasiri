@@ -188,7 +188,7 @@ const calculateLoanArrears = (loan, installments = []) => {
   const overdueInstallments = sorted.filter((inst) => {
     if (!inst.due_date) return false;
     const dueDate = inst.due_date;
-    const isOverdue = dueDate <= today;
+    const isOverdue = dueDate < today;
     if (!isOverdue) return false;
     const paidAmount = num(inst.paid_amount) || 0;
     const dueAmount = (num(inst.due_amount) || 0) + (num(inst.penalty_amount) || 0);

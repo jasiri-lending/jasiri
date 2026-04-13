@@ -828,7 +828,7 @@ const Dashboard = () => {
 
 
   const calculatePortfolioMetrics = useCallback((filteredLoans) => {
-    const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed");
+    const disbursedLoans = filteredLoans.filter(loan => loan.status === "disbursed" && loan.repayment_state !== "completed");
     const loanIds = disbursedLoans.map(loan => loan.id);
 
     const filteredPayments = allPayments.filter(payment => loanIds.includes(payment.loan_id));
@@ -849,7 +849,7 @@ const Dashboard = () => {
       const monthStart = getMonthStartDate();
 
       const overdueInstallments = filteredInstallments.filter(inst =>
-        ["overdue", "partial"].includes(inst.status) && inst.due_date && inst.due_date <= today
+        ["overdue", "partial"].includes(inst.status) && inst.due_date && inst.due_date < today
       );
 
       overdueInstallments.forEach(inst => {
@@ -874,11 +874,11 @@ const Dashboard = () => {
 
     const outstandingBalance = Math.max(0, totalPayable - totalPaid);
 
-    // Clean Book = only future, not-yet-due scheduled P+I.
+    // Clean Book = future and today's scheduled P+I.
     // Any installment whose due_date has passed is either paid or in arrears — never clean book.
     const today2 = getTodayDate();
     const cleanBook = filteredInstallments
-      .filter(inst => inst.due_date && inst.due_date > today2 && ['pending', 'partial'].includes(inst.status))
+      .filter(inst => inst.due_date && inst.due_date >= today2 && ['pending', 'partial'].includes(inst.status))
       .reduce((sum, inst) =>
         sum + (Number(inst.principal_amount) || 0) + (Number(inst.interest_amount) || 0)
         - (Number(inst.interest_paid) || 0) - (Number(inst.principal_paid) || 0), 0);
