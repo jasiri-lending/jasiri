@@ -686,7 +686,7 @@ const MpesaRepaymentReports = () => {
                   onClick={() => setShowFilters(!showFilters)}
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-300 border ${showFilters
                       ? "bg-[#586ab1] text-white shadow-md border-transparent shadow shadow-[#586ab1]/30"
-                      : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300 select-none"
+                      : "text-white border-white/30 hover:bg-white/10 select-none"
                     }`}
                 >
                   <Filter className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} />

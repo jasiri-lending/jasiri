@@ -165,11 +165,9 @@ const LoanOfficerPerformanceReport = () => {
           usersQuery = usersQuery.eq("id", profile.id);
         } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
           branchesQuery = branchesQuery.eq("id", profile.branch_id);
-          usersQuery = usersQuery.eq("branch_id", profile.branch_id);
         } else if (profile?.role === "regional_manager") {
           regionsQuery = regionsQuery.eq("id", profile.region_id);
           branchesQuery = branchesQuery.eq("region_id", profile.region_id);
-          usersQuery = usersQuery.eq("region_id", profile.region_id);
         }
 
         const [branchesRes, regionsRes, usersRes] = await Promise.all([
@@ -245,7 +243,7 @@ const LoanOfficerPerformanceReport = () => {
         }
         abortControllerRef.current = new AbortController();
 
-        const cacheKey = `officer-performance-data-${tenantId}`;
+        const cacheKey = `officer-performance-data-v2-${tenantId}`;  // v2: includes repayment_state
 
         // Try cache first
         try {
@@ -276,6 +274,7 @@ const LoanOfficerPerformanceReport = () => {
             branch_id,
             customer_id,
             status,
+            repayment_state,
             scored_amount,
             created_at,
             disbursed_at,
@@ -315,10 +314,8 @@ const LoanOfficerPerformanceReport = () => {
           usersQuery = usersQuery.eq("id", profile.id);
         } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
           loansQuery = loansQuery.eq("branch_id", profile.branch_id);
-          usersQuery = usersQuery.eq("branch_id", profile.branch_id);
         } else if (profile?.role === "regional_manager") {
           loansQuery = loansQuery.eq("region_id", profile.region_id);
-          usersQuery = usersQuery.eq("region_id", profile.region_id);
         }
 
         // 2️⃣ Fetch other data sources
@@ -352,6 +349,9 @@ const LoanOfficerPerformanceReport = () => {
         const today = new Date();
         const yesterday = new Date();
         yesterday.setDate(today.getDate() - 1);
+        // Precompute date strings once (avoids timezone issues inside loop)
+        const todayStr = today.toISOString().split("T")[0];
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
 
         // Group loans by officer
         const officerStats = {};
@@ -397,8 +397,8 @@ const LoanOfficerPerformanceReport = () => {
             stat.disbursed_loans_amount += Number(loan.scored_amount) || 0;
           }
 
-          // Cleared loans
-          if (loan.status === "cleared") stat.cleared_loans_count++;
+          // Cleared loans — loans fully repaid (repayment_state = completed)
+          if (loan.repayment_state === "completed") stat.cleared_loans_count++;
 
           // New loans in date range
           if (dateRange.start && loan.created_at) {
@@ -427,24 +427,36 @@ const LoanOfficerPerformanceReport = () => {
           let loanArrears = 0;
           let loanOutstanding = 0;
 
+          // Only count due installments for active/non-completed loans
+          const isCompletedLoan = loan.repayment_state === "completed";
+
           loanInstallments.forEach((i) => {
-            const dueDate = new Date(i.due_date);
+            const dueDateStr = i.due_date ? i.due_date.split("T")[0] : null;
             const dueAmount = Number(i.due_amount) || 0;
             const paidAmount = Number(i.paid_amount) || 0;
-            const outstanding = dueAmount - paidAmount;
+            // Net outstanding: subtract paid amount for partial installments
+            const outstanding = Math.max(0, dueAmount - paidAmount);
 
-            if (dueDate.toDateString() === yesterday.toDateString()) {
-              stat.loan_due_yesterday_count++;
-              stat.loan_due_yesterday_amount += dueAmount;
+            // "Due today/yesterday" = pending or partial installments only (not overdue),
+            // on active loans only — mirrors LoanDueReport logic
+            if (!isCompletedLoan && dueDateStr && ["pending", "partial"].includes(i.status)) {
+              const netDue = (i.status === "partial" || paidAmount > 0)
+                ? Math.max(0, dueAmount - paidAmount)
+                : dueAmount;
+
+              if (dueDateStr === yesterdayStr) {
+                stat.loan_due_yesterday_count++;
+                stat.loan_due_yesterday_amount += netDue;
+              }
+
+              if (dueDateStr === todayStr) {
+                stat.loan_due_today_count++;
+                stat.loan_due_today_amount += netDue;
+              }
             }
 
-            if (dueDate.toDateString() === today.toDateString()) {
-              stat.loan_due_today_count++;
-              stat.loan_due_today_amount += dueAmount;
-            }
-
-            // Arrears
-            if (i.status === "overdue" || (i.days_overdue && i.days_overdue > 0)) {
+            // Arrears: only for non-completed loans
+            if (!isCompletedLoan && (i.status === "overdue" || (i.days_overdue && i.days_overdue > 0))) {
               stat.arrears_count++;
               stat.arrears_amount += outstanding;
               loanArrears += outstanding;
@@ -455,7 +467,7 @@ const LoanOfficerPerformanceReport = () => {
               loanOutstanding += outstanding;
             }
 
-            if (dueDate < yesterday && ["pending", "partial", "overdue"].includes(i.status)) {
+            if (dueDateStr && dueDateStr < yesterdayStr && ["pending", "partial", "overdue"].includes(i.status)) {
               stat.balance_yesterday += outstanding;
             }
           });
@@ -752,7 +764,7 @@ const LoanOfficerPerformanceReport = () => {
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
                     ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                      : "text-white border-white/30 hover:bg-white/10"
                     }`}
                 >
                   <Filter className="w-4 h-4" />

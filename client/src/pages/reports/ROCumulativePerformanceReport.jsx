@@ -119,12 +119,10 @@ const ROCumulativePerformanceReport = () => {
             } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
                 loansQuery = loansQuery.eq("branch_id", profile.branch_id);
                 branchesQuery = branchesQuery.eq("id", profile.branch_id);
-                usersQuery = usersQuery.eq("branch_id", profile.branch_id);
             } else if (profile?.role === "regional_manager") {
                 loansQuery = loansQuery.eq("region_id", profile.region_id);
                 regionsQuery = regionsQuery.eq("id", profile.region_id);
                 branchesQuery = branchesQuery.eq("region_id", profile.region_id);
-                usersQuery = usersQuery.eq("region_id", profile.region_id);
             }
 
             const [branchesRes, regionsRes, usersRes, loansRes, installmentsRes, paymentsRes] = await Promise.all([
@@ -415,7 +413,7 @@ const ROCumulativePerformanceReport = () => {
                             <RefreshCw className={`w-4 h-4 ${refreshing && 'animate-spin'}`} />
                             {refreshing ? 'Refreshing Data...' : 'Refresh Data'}
                         </button>
-                        <button onClick={() => setShowFilters(!showFilters)} className="px-4 py-2 bg-white text-gray-800 rounded-lg text-sm font-medium flex items-center gap-2">
+                        <button onClick={() => setShowFilters(!showFilters)} className="px-4 py-2 border-white/30 text-white hover:bg-white/10 rounded-lg text-sm font-medium flex items-center gap-2 border">
                             <Filter className="w-4 h-4" /> Filters
                         </button>
                         <button onClick={exportToCSV} className="px-4 py-2 bg-accent text-white rounded-lg text-sm font-medium flex items-center gap-2">

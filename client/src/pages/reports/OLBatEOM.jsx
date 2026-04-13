@@ -700,7 +700,7 @@ const OutstandingLoanBalanceReportEOM = () => {
                   className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
                     ${showFilters
                       ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-gray-600 border-gray-200 hover:bg-brand-secondary hover:text-white"
+                      : "text-white border-white/30 hover:bg-white/10"
                     }`}
                 >
                   <Filter className="w-4 h-4" />
