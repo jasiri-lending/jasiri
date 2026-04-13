@@ -445,8 +445,8 @@ const FinancialDashboard = () => {
       ] = await Promise.all([
         geo(supabase.from('loan_payments').select('paid_amount, interest_paid, principal_paid, penalty_paid, created_at, loan_id, payment_type, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
         geo(supabase.from('loans').select('id, processing_fee, registration_fee, processing_fee_paid, registration_fee_paid, net_penalties, scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
-        geo(supabase.from('loans').select('id, total_payable').eq('tenant_id', tenantId).eq('status', 'disbursed')),
-        supabase.from('loan_payments').select('loan_id, paid_amount').eq('tenant_id', tenantId),
+        geo(supabase.from('loans').select('id, scored_amount').eq('tenant_id', tenantId).eq('status', 'disbursed')),
+        supabase.from('loan_payments').select('loan_id, paid_amount, principal_paid').eq('tenant_id', tenantId),
         geo(supabase.from('loans').select('total_payable, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed').eq('repayment_state', 'defaulted')),
         geo(supabase.from('loans').select('scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
         geo(supabase.from('loan_payments').select('paid_amount, created_at, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
@@ -496,13 +496,14 @@ const FinancialDashboard = () => {
         return (upDate >= startStr && upDate <= endStr) ? s + (Number(i.net_penalty) || 0) : s;
       }, 0) ?? 0;
 
-      // Outstanding principal
-      const loanPaymentMap = {};
+      // Outstanding principal — scored_amount minus principal already repaid (excludes interest)
+      const loanPrincipalPaidMap = {};
       allPaymentsRes.data?.forEach(p => {
-        loanPaymentMap[p.loan_id] = (loanPaymentMap[p.loan_id] || 0) + (Number(p.paid_amount) || 0);
+        // Use principal_paid field; fall back to 0 if not recorded separately
+        loanPrincipalPaidMap[p.loan_id] = (loanPrincipalPaidMap[p.loan_id] || 0) + (Number(p.principal_paid) || 0);
       });
       const outstandingPrincipal = allDisbursedLoansRes.data?.reduce((s, l) =>
-        s + Math.max(0, (Number(l.total_payable) || 0) - (loanPaymentMap[l.id] || 0)), 0
+        s + Math.max(0, (Number(l.scored_amount) || 0) - (loanPrincipalPaidMap[l.id] || 0)), 0
       ) ?? 0;
 
       // Write-offs
