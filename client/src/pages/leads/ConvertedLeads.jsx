@@ -10,7 +10,6 @@ import {
 import { useAuth } from "../../hooks/userAuth";
 import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
-import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner.jsx";
 
 const STATUS_COLORS = { Hot: "#ef4444", Warm: "#f59e0b", Cold: "#3b82f6" };
@@ -40,7 +39,6 @@ const ConvertedLeads = () => {
 
   const { profile } = useAuth();
   const { showToast } = useToast();
-  const navigate = useNavigate();
 
   const role = profile?.role;
   const isOfficer = role === "relationship_officer";
@@ -144,7 +142,6 @@ const ConvertedLeads = () => {
 
   const totalPages = Math.ceil(visibleLeads.length / itemsPerPage);
 
-  const activeFilterCount = [filterRegion, filterBranch, filterRO].filter(Boolean).length;
 
   if (isLoading) return <div className="h-64 flex items-center justify-center"><Spinner /></div>;
 
@@ -152,8 +149,7 @@ const ConvertedLeads = () => {
     <div className="bg-muted p-6 min-h-screen font-sans">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">Leads / Converted Leads</h1>
-          <p className="text-sm text-gray-500">Successfully converted leads within your pipeline</p>
+          <h1 className="text-sm text-gray-600">Leads / Converted Leads</h1>
         </div>
 
       </div>
@@ -195,16 +191,16 @@ const ConvertedLeads = () => {
           <table className="w-full text-left">
             <thead className="bg-[#E7F0FA] border-b">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Officer</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Branch</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Contact</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Business Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Location</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Industry</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 uppercase">Source</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Name</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap ">Officer</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Branch</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Contact</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap ">Business Name</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap ">Location</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Status</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap ">Industry</th>
+                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap ">Source</th>
               </tr>
             </thead>
             <tbody className="divide-y">
