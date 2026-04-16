@@ -585,7 +585,7 @@ const AnalyticsDashboard = () => {
     return distribution.filter(group => group.male + group.female + group.other > 0);
   }, []);
 
-  // 8. Repeat Loan Analysis
+  // 8. Repite Loan Analysis
   const fetchRepeatCustomers = useCallback(async () => {
     const { data, error } = await supabase
       .from('loans')

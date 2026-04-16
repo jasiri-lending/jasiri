@@ -243,7 +243,7 @@ const PendingLoans = () => {
       return walletInfo.registration_fee_paid && walletInfo.processing_fee_paid;
     }
 
-    // For repeat loans: only processing fee must be paid
+    // For Repite loans: only processing fee must be paid
     return walletInfo.processing_fee_paid;
   };
 
@@ -512,7 +512,7 @@ const PendingLoans = () => {
                               {loan.product_name}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {loan.duration_weeks} weeks • {loan.is_new_loan ? 'New Loan' : 'Repeat Loan'}
+                              {loan.duration_weeks} weeks • {loan.is_new_loan ? 'New Loan' : 'Repite Loan'}
                             </span>
                           </div>
                         </td>

@@ -195,7 +195,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
       return walletInfo.registration_fee_paid && walletInfo.processing_fee_paid;
     }
     
-    // For repeat loans: only processing fee must be paid
+    // For Repite loans: only processing fee must be paid
     return walletInfo.processing_fee_paid;
   };
 
@@ -226,7 +226,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
       if (loanDetails.is_new_loan) {
         newStatus = "rn_review";  // New loans go to Regional Manager
       } else {
-        newStatus = "ca_review";  // Repeat loans go directly to Credit Analyst
+        newStatus = "ca_review";  // Repite loans go directly to Credit Analyst
       }
     }
 
@@ -358,7 +358,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
               </div>
               <div className="text-sm text-gray-500">
                 Type: <span className={`font-semibold ${loanDetails.is_new_loan ? 'text-green-600' : 'text-blue-600'}`}>
-                  {loanDetails.is_new_loan ? 'New Loan' : 'Repeat Loan'}
+                  {loanDetails.is_new_loan ? 'New Loan' : 'Repite Loan'}
                 </span>
               </div>
               <div className="text-sm text-gray-500">

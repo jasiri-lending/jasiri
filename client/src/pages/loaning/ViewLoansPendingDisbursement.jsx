@@ -727,7 +727,7 @@ const ViewLoansPendingDisbursement = () => {
                 <div className="flex justify-between items-center pb-2 border-b">
                   <span className="text-sm text-gray-600 ">Loan Type:</span>
                   <span className={`px-2 py-1 rounded-full text-xs  ${loanDetails.is_new_loan ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                    {loanDetails.is_new_loan ? 'New Loan' : 'Repeat Loan'}
+                    {loanDetails.is_new_loan ? 'New Loan' : 'Repite Loan'}
                   </span>
                 </div>
                 <div className="flex justify-between items-center pb-2 border-b">

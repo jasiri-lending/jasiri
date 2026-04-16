@@ -371,7 +371,7 @@ const ROCumulativePerformanceReport = () => {
     const exportToCSV = () => {
         if (tableData.length === 0) return;
         const csvRows = [
-            ["RO Name", "Region", "Branch", "Total Payable", "Total Disbursed", "Outstanding Loan Balance", "Loan Count", "New Loans", "Repeat Loans", "Interest", "Principal", "Amount Paid", "Amount in Arrears", "Arrears Count", "Payment Rate %"]
+            ["RO Name", "Region", "Branch", "Total Payable", "Total Disbursed", "Outstanding Loan Balance", "Loan Count", "New Loans", "Repite Loans", "Interest", "Principal", "Amount Paid", "Amount in Arrears", "Arrears Count", "Payment Rate %"]
         ];
         tableData.forEach(r => {
             csvRows.push([
@@ -526,7 +526,7 @@ const ROCumulativePerformanceReport = () => {
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-right">Outstanding Balance</th>
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-center">Loan Count</th>
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-center">New Loans</th>
-                                    <th className="px-4 py-3 font-semibold text-gray-700 text-center">Repeat Loans</th>
+                                    <th className="px-4 py-3 font-semibold text-gray-700 text-center">Repite Loans</th>
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-right">Interest</th>
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-right">Principal</th>
                                     <th className="px-4 py-3 font-semibold text-gray-700 text-right">Amount Paid</th>

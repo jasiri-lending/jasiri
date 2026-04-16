@@ -331,7 +331,18 @@ const AllLoans = () => {
     return pageNumbers;
   };
 
-  const getStatusBadge = (status) => {
+  const getStatusBadge = (loan) => {
+    if (loan.status === 'disbursed') {
+      const repaymentMap = {
+        'ongoing': { bg: '#1E3A8A', label: 'Ongoing' }, // Navy Blue
+        'partial': { bg: '#f59e0b', label: 'Partial' }, // Amber
+        'completed': { bg: '#10b981', label: 'Completed' }, // Emerald
+        'overdue': { bg: '#f97316', label: 'Overdue' }, // Orange
+        'defaulted': { bg: '#ef4444', label: 'Defaulted' }, // Red
+      };
+      return repaymentMap[loan.repayment_state] || { bg: '#10b981', label: 'Disbursed' };
+    }
+
     const statusMap = {
       'booked': { bg: '#f59e0b', label: 'Booked' },
       'bm_review': { bg: '#f97316', label: 'BM Review' },
@@ -340,7 +351,7 @@ const AllLoans = () => {
       'disbursed': { bg: '#10b981', label: 'Disbursed' },
       'rejected': { bg: '#ef4444', label: 'Rejected' },
     };
-    return statusMap[status] || { bg: '#586ab1', label: status };
+    return statusMap[loan.status] || { bg: '#586ab1', label: loan.status };
   };
 
   const handleViewLoan = (loanId) => navigate(`/loans/${loanId}`);
@@ -402,7 +413,7 @@ const AllLoans = () => {
                     onClick={() => setSearchTerm("")}
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                   >
-                    <XMarkIcon className="h-3 w-3" />
+                    <XMarkIcon className="h-3.5 w-3.5" />
                   </button>
                 )}
               </div>
@@ -522,7 +533,7 @@ const AllLoans = () => {
                       <option value="">All Statuses</option>
                       {uniqueStatuses.map((status) => (
                         <option key={status} value={status}>
-                          {getStatusBadge(status).label}
+                          {getStatusBadge({ status }).label}
                         </option>
                       ))}
                     </select>
@@ -586,7 +597,7 @@ const AllLoans = () => {
                     )}
                     {selectedStatus && (
                       <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
-                        Status: {getStatusBadge(selectedStatus).label}
+                        Status: {getStatusBadge({ status: selectedStatus }).label}
                         <button onClick={() => setSelectedStatus("")} className="ml-1 text-gray-500 hover:text-gray-700">
                           <XMarkIcon className="h-2.5 w-2.5" />
                         </button>
@@ -640,7 +651,7 @@ const AllLoans = () => {
             <tbody>
               {currentLoans.map((loan, index) => {
                 const customer = customers[loan.customer_id];
-                const statusInfo = getStatusBadge(loan.status);
+                const statusInfo = getStatusBadge(loan);
 
                 return (
                   <tr key={loan.id} className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}>
@@ -675,7 +686,7 @@ const AllLoans = () => {
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
                       <span
-                        className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
+                        className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap font-medium"
                         style={{
                           backgroundColor: statusInfo.bg,
                           color: 'white'

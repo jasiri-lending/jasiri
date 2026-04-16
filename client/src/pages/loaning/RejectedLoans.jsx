@@ -903,7 +903,7 @@ const RejectedLoans = () => {
                   <label className="text-sm font-medium text-gray-500">Loan Type</label>
                   <div className={`text-lg font-semibold ${selectedLoan.is_new_loan ? 'text-green-600' : 'text-blue-600'
                     }`}>
-                    {selectedLoan.is_new_loan ? 'New Loan' : 'Repeat Loan'}
+                    {selectedLoan.is_new_loan ? 'New Loan' : 'Repite Loan'}
                   </div>
                 </div>
               </div>

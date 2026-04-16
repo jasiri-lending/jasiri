@@ -1026,7 +1026,7 @@ const ViewLoan = () => {
                 <div>
                   <span className="text-gray-600 font-medium block mb-1 text-sm ">Loan Type:</span>
                   <span className={`font-semibold text-lg ${loanDetails.is_new_loan ? 'text-green-600' : 'text-blue-600'}`}>
-                    {loanDetails.is_new_loan ? 'New Loan' : 'Returning Loan'}
+                    {loanDetails.is_new_loan ? 'New Loan' : 'Repite Loan'}
                   </span>
                 </div>
                 <div>
