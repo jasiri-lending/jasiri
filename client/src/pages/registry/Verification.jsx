@@ -1309,6 +1309,12 @@ const Verification = () => {
                     </p>
                   </div>
                   <div>
+                    <p className="text-sm text-gray-500">Industry</p>
+                    <p className="font-semibold text-gray-900">
+                      {customer.industry || "Not provided"}
+                    </p>
+                  </div>
+                  <div>
                     <p className="text-sm text-gray-500">Location</p>
                     <p className="font-semibold text-gray-900">
                       {customer.business_location || "Not provided"}

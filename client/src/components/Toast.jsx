@@ -99,7 +99,7 @@ export const ToastProvider = ({ children }) => {
     const [toasts, setToasts] = useState([]);
 
     const showToast = useCallback((message, type = 'info', duration = 3000) => {
-        const id = Date.now().toString();
+        const id = Date.now().toString() + '_' + Math.random().toString(36).substring(2, 9);
         const newToast = { id, message, type, duration };
         setToasts(prev => [...prev, newToast]);
         return id;

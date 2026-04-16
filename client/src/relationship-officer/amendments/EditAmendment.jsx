@@ -40,6 +40,72 @@ const KENYA_COUNTIES = [
   "Trans Nzoia", "Turkana", "Uasin Gishu", "Vihiga", "Wajir", "West Pokot"
 ];
 
+const COUNTY_TOWNS = {
+  "Baringo": ["Kabarnet", "Eldama Ravine", "Marigat"],
+  "Bomet": ["Bomet", "Sotik"],
+  "Bungoma": ["Bungoma", "Webuye", "Chwele", "Kimilili"],
+  "Busia": ["Busia", "Malaba", "Butula"],
+  "Elgeyo Marakwet": ["Iten", "Kapsowar"],
+  "Embu": ["Embu", "Runyenjes", "Siakago"],
+  "Garissa": ["Garissa", "Dadaab"],
+  "Homa Bay": ["Homa Bay", "Mbita", "Oyugis"],
+  "Isiolo": ["Isiolo", "Merti"],
+  "Kajiado": ["Kajiado", "Ngong", "Kitengela", "Isinya", "Loitokitok"],
+  "Kakamega": ["Kakamega", "Mumias", "Butere", "Lugari"],
+  "Kericho": ["Kericho", "Litein"],
+  "Kiambu": ["Kiambu", "Thika", "Ruiru", "Limuru", "Kikuyu", "Karuri", "Githunguri"],
+  "Kilifi": ["Kilifi", "Malindi", "Mtwapa", "Mariakani", "Watamu"],
+  "Kirinyaga": ["Kerugoya", "Kutus", "Sagana", "Wang'uru"],
+  "Kisii": ["Kisii", "Ogembo", "Suneka"],
+  "Kisumu": ["Kisumu", "Ahero", "Muhoroni"],
+  "Kitui": ["Kitui", "Mwingi", "Mutomo"],
+  "Kwale": ["Kwale", "Ukunda", "Msambweni", "Lunga Lunga"],
+  "Laikipia": ["Nanyuki", "Nyahururu", "Rumuruti"],
+  "Lamu": ["Lamu", "Mpeketoni"],
+  "Machakos": ["Machakos", "Athi River", "Kangundo", "Tala"],
+  "Makueni": ["Wote", "Mtito Andei", "Kibwezi"],
+  "Mandera": ["Mandera", "El Wak"],
+  "Marsabit": ["Marsabit", "Moyale"],
+  "Meru": ["Meru", "Maua", "Nkubu", "Timau"],
+  "Migori": ["Migori", "Kuria", "Rongo", "Awendo"],
+  "Mombasa": ["Mombasa", "Nyali", "Likoni", "Changamwe", "Kisauni", "Jomvu"],
+  "Murang'a": ["Murang'a", "Kenol", "Kangema", "Maragua"],
+  "Nairobi": ["Nairobi Central", "Westlands", "Dagoretti", "Langata", "Kibra", "Kasarani", "Embakasi", "Makadara", "Kamkunji"],
+  "Nakuru": ["Nakuru", "Naivasha", "Gilgil", "Molo", "Njoro"],
+  "Nandi": ["Kapsabet", "Nandi Hills"],
+  "Narok": ["Narok", "Kilgoris"],
+  "Nyamira": ["Nyamira", "Nyansiongo"],
+  "Nyandarua": ["Ol Kalou", "Njabini", "Mai Mahiu"],
+  "Nyeri": ["Nyeri", "Karatina", "Othaya", "Chaka"],
+  "Samburu": ["Maralal", "Baragoi"],
+  "Siaya": ["Siaya", "Bondo", "Ugunja"],
+  "Taita Taveta": ["Voi", "Wundanyi", "Taveta", "Mwatate"],
+  "Tana River": ["Hola", "Garsen", "Madogo"],
+  "Tharaka Nithi": ["Chuka", "Chogoria", "Marimanti"],
+  "Trans Nzoia": ["Kitale", "Endebess"],
+  "Turkana": ["Lodwar", "Kakuma", "Lokichogio"],
+  "Uasin Gishu": ["Eldoret", "Burnt Forest"],
+  "Vihiga": ["Mbale", "Chavakali", "Hamisi"],
+  "Wajir": ["Wajir", "Habaswein"],
+  "West Pokot": ["Kapenguria", "Sigor"]
+};
+
+const INDUSTRIES = {
+  Retail: ["Clothing Shop", "Second-hand Clothes (Mtumba)", "Electronics Shop", "Grocery Shop", "Supermarket", "Cosmetics Shop", "Hardware Shop", "Furniture Shop", "Mobile Phone Shop", "General Shop (Kiosk)"],
+  "Hospitality & Entertainment": ["Bar", "Restaurant", "Hotel", "Club", "Café", "Lounge", "Fast Food Outlet"],
+  Agriculture: ["Crop Farming", "Dairy Farming", "Poultry Farming", "Fish Farming", "Agro-processing", "Agrovet Shop"],
+  Education: ["Primary School", "Secondary School", "College", "Training Institute", "Driving School", "Daycare / Kindergarten"],
+  "Transport & Logistics": ["Matatu Business", "Taxi / Ride-hailing", "Courier Service", "Logistics Company", "Truck Transport", "Delivery Services"],
+  Technology: ["Software Development", "SaaS Business", "Cyber Café", "IT Services", "Online Business (E-commerce)"],
+  "Financial Services": ["Lending Business", "SACCO", "Microfinance", "Insurance Agency", "Forex Bureau"],
+  Healthcare: ["Clinic", "Pharmacy", "Hospital", "Laboratory", "Medical Supplies Shop"],
+  "Real Estate": ["Property Management", "Real Estate Agency", "Rental Business", "Property Development"],
+  "Creative & Media": ["Photography", "Videography", "Graphic Design", "Printing Services", "Music Production", "Content Creation"],
+  Services: ["Salon / Barber Shop", "Laundry Business", "Cleaning Services", "Repair Shop (Phones/Electronics)", "Auto Garage", "Car Wash"],
+  Manufacturing: ["Furniture Production", "Clothing Production", "Food Processing", "Metal Fabrication", "Plastic Production"],
+  Wholesale: ["General Wholesale", "Food Wholesale", "Clothing Wholesale", "Electronics Wholesale", "Hardware Wholesale"]
+};
+
 // Section mapping from JSON to our form sections
 const SECTION_MAPPINGS = {
   'Personal Info': 'personal',
@@ -85,10 +151,18 @@ const AmendmentField = memo(
     errors = {},
     handleNestedChange,
     isAmendment = false,
+    index,
   }) => {
     const fieldClasses = isAmendment
       ? "border-red-300 bg-red-50 focus:ring-red-500 focus:border-red-500"
       : "border-gray-300 bg-gray-50 focus:ring-brand-primary focus:border-brand-primary";
+
+    let errorMessage = '';
+    if (section && index !== undefined && index !== null) {
+      errorMessage = errors[`${section}_${index}_${name}`];
+    } else {
+      errorMessage = errors[name];
+    }
 
     return (
       <div className={className}>
@@ -99,8 +173,8 @@ const AmendmentField = memo(
           <select
             name={name}
             value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-brand-primary focus:border-brand-primary transition-colors ${fieldClasses} ${errors[name] ? "border-red-500" : ""}`}
+            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
+            className={`w-full p-3 border rounded-lg focus:ring-brand-primary focus:border-brand-primary transition-colors ${fieldClasses} ${errorMessage ? "border-red-500" : ""}`}
             required={required}
             disabled={disabled}
           >
@@ -116,15 +190,15 @@ const AmendmentField = memo(
             type={type}
             name={name}
             value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section) : onChange}
+            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
             placeholder={placeholder}
-            className={`w-full p-3 border rounded-lg focus:ring-brand-primary focus:border-brand-primary transition-colors ${fieldClasses} ${errors[name] ? "border-red-500" : ""}`}
+            className={`w-full p-3 border rounded-lg focus:ring-brand-primary focus:border-brand-primary transition-colors ${fieldClasses} ${errorMessage ? "border-red-500" : ""}`}
             required={required}
             disabled={disabled}
           />
         )}
-        {errors[name] && (
-          <span className="text-red-500 text-xs mt-1">{errors[name]}</span>
+        {errorMessage && (
+          <span className="text-red-500 text-xs mt-1">{errorMessage}</span>
         )}
       </div>
     );
@@ -177,48 +251,18 @@ function EditAmendment({ customerId, onClose }) {
     status: "pending",
     businessCoordinates: null,
 
-    guarantor: {
-      prefix: "",
-      Firstname: "",
-      Surname: "",
-      idNumber: "",
-      maritalStatus: "",
-      Middlename: "",
-      dateOfBirth: "",
-      residenceStatus: "",
-      gender: "",
-      mobile: "",
-      postalAddress: "",
-      code: "",
-      occupation: "",
-      relationship: "",
-      county: "",
-      cityTown: "",
-    },
+    guarantors: [],
+    nextOfKins: [],
     spouse: {
       name: "",
       idNumber: "",
       mobile: "",
       economicActivity: "",
     },
-    nextOfKin: {
-      Firstname: "",
-      Surname: "",
-      Middlename: "",
-      idNumber: "",
-      relationship: "",
-      relationshipOther: "",
-      mobile: "",
-      alternativeNumber: "",
-      employmentStatus: "",
-      companyName: "",
-      salary: "",
-      businessName: "",
-      businessIncome: "",
-      county: "",
-      cityTown: "",
-    },
   });
+
+  const [isCustomIndustry, setIsCustomIndustry] = useState(false);
+  const [isCustomType, setIsCustomType] = useState(false);
 
   // File upload state
   const [passportFile, setPassportFile] = useState(null);
@@ -353,15 +397,15 @@ function EditAmendment({ customerId, onClose }) {
         { data: spouseData, error: spouseError },
       ] = await Promise.all([
         supabase.from("guarantors").select("*").eq("customer_id", customerId),
-        supabase.from("next_of_kin").select("*").eq("customer_id", customerId).maybeSingle(),
+        supabase.from("next_of_kin").select("*").eq("customer_id", customerId),
         supabase.from("security_items").select("*, security_item_images(image_url)").eq("customer_id", customerId),
         supabase.from("business_images").select("*").eq("customer_id", customerId),
         supabase.from("documents").select("id, document_type, document_url").eq("customer_id", customerId),
-        supabase.from("spouse").select("*").eq("customer_id", customerId).maybeSingle(),
+        supabase.from("spouse").select("*").eq("customer_id", customerId),
       ]);
 
       const guarantor = guarantorsData?.[0] || null;
-      const nextOfKin = nextOfKinData || null;
+      const spouse = spouseData?.[0] || null;
 
       // Fetch guarantor security if guarantor exists
       let guarantorSecurityData = [];
@@ -407,56 +451,51 @@ function EditAmendment({ customerId, onClose }) {
           lng: customer.business_lng
         } : null,
 
-        guarantor: guarantor ? {
-          prefix: guarantor.prefix || "",
-          Firstname: guarantor.Firstname || "",
-          Surname: guarantor.Surname || "",
-          idNumber: guarantor.id_number || "",
-          maritalStatus: guarantor.marital_status || "",
-          Middlename: guarantor.Middlename || "",
-          dateOfBirth: guarantor.date_of_birth || "",
-          residenceStatus: guarantor.residence_status || "",
-          gender: guarantor.gender || "",
-          mobile: guarantor.mobile || "",
-          postalAddress: guarantor.postal_address || "",
-          code: guarantor.code || "",
-          occupation: guarantor.occupation || "",
-          relationship: guarantor.relationship || "",
-          county: guarantor.county || "",
-          cityTown: guarantor.city_town || "",
-        } : {
-          prefix: "", Firstname: "", Surname: "", idNumber: "", maritalStatus: "", Middlename: "",
-          dateOfBirth: "", residenceStatus: "", gender: "", mobile: "", postalAddress: "", code: "",
-          occupation: "", relationship: "", county: "", cityTown: "",
-        },
+        guarantors: guarantorsData?.map(g => ({
+          id: g.id,
+          prefix: g.prefix || "",
+          Firstname: g.Firstname || "",
+          Middlename: g.Middlename || "",
+          Surname: g.Surname || "",
+          idNumber: g.id_number?.toString() || "",
+          maritalStatus: g.marital_status || "",
+          gender: g.gender || "",
+          dateOfBirth: g.date_of_birth || "",
+          mobile: g.mobile || "",
+          alternativeMobile: g.alternative_mobile || "",
+          residenceStatus: g.residence_status || "",
+          postalAddress: g.postal_address || "",
+          code: g.code?.toString() || "",
+          occupation: g.occupation || "",
+          relationship: g.relationship || "",
+          county: g.county || "",
+          cityTown: g.city_town || ""
+        })) || [],
 
         spouse: {
-          name: spouseData?.name || "",
-          idNumber: spouseData?.id_number || "",
-          mobile: spouseData?.mobile || "",
-          economicActivity: spouseData?.economic_activity || "",
+          name: spouse?.name || "",
+          idNumber: spouse?.id_number || "",
+          mobile: spouse?.mobile || "",
+          economicActivity: spouse?.economic_activity || "",
         },
-        nextOfKin: nextOfKin ? {
-          Firstname: nextOfKin.Firstname || "",
-          Surname: nextOfKin.Surname || "",
-          Middlename: nextOfKin.Middlename || "",
-          idNumber: nextOfKin.id_number || "",
-          relationship: nextOfKin.relationship || "",
-          relationshipOther: nextOfKin.relationship_other || "",
-          mobile: nextOfKin.mobile || "",
-          alternativeNumber: nextOfKin.alternative_number || "",
-          employmentStatus: nextOfKin.employment_status || "",
-          companyName: nextOfKin.company_name || "",
-          salary: nextOfKin.salary || "",
-          businessName: nextOfKin.business_name || "",
-          businessIncome: nextOfKin.business_income || "",
-          county: nextOfKin.county || "",
-          cityTown: nextOfKin.city_town || "",
-        } : {
-          Firstname: "", Surname: "", Middlename: "", idNumber: "", relationship: "", relationshipOther: "", mobile: "",
-          alternativeNumber: "", employmentStatus: "", companyName: "", salary: "", businessName: "", businessIncome: "",
-          county: "", cityTown: "",
-        },
+        nextOfKins: nextOfKinData ? nextOfKinData.map(nk => ({
+          id: nk.id,
+          Firstname: nk.Firstname || "",
+          Surname: nk.Surname || "",
+          Middlename: nk.Middlename || "",
+          idNumber: nk.id_number?.toString() || "",
+          relationship: nk.relationship || "",
+          relationshipOther: nk.relationship_other || "",
+          mobile: nk.mobile || "",
+          alternativeNumber: nk.alternative_number || "",
+          employmentStatus: nk.employment_status || "",
+          companyName: nk.company_name || "",
+          salary: nk.salary || "",
+          businessName: nk.business_name || "",
+          businessIncome: nk.business_income || "",
+          county: nk.county || "",
+          cityTown: nk.city_town || "",
+        })) : [],
       };
 
       setFormData(updatedFormData);
@@ -549,12 +588,25 @@ function EditAmendment({ customerId, onClose }) {
     }
   };
 
-  const handleNestedChange = (e, section) => {
+  const handleNestedChange = (e, section, index = null) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [section]: { ...prev[section], [name]: value },
-    }));
+    setFormData((prev) => {
+      if (index !== null && Array.isArray(prev[section])) {
+        const newList = [...prev[section]];
+        newList[index] = { ...newList[index], [name]: value };
+
+        // Dependent resets
+        if (name === "county") {
+          newList[index].cityTown = "";
+          newList[index].town = "";
+        }
+        return { ...prev, [section]: newList };
+      }
+      return {
+        ...prev,
+        [section]: { ...prev[section], [name]: value },
+      };
+    });
   };
 
   const handleSecurityChange = (e, index) => {
@@ -588,12 +640,129 @@ function EditAmendment({ customerId, onClose }) {
     setSecurityItemImages((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const addGuarantor = () => {
+    if (formData.guarantors.length >= 3) return toast.error("Maximum 3 guarantors allowed");
+    setFormData(prev => ({
+      ...prev,
+      guarantors: [...prev.guarantors, {
+        prefix: "", Firstname: "", Surname: "", Middlename: "", idNumber: "",
+        maritalStatus: "", gender: "", mobile: "", postalAddress: "", code: "",
+        occupation: "", relationship: "", dateOfBirth: "", county: "", cityTown: ""
+      }]
+    }));
+  };
+
+  const removeGuarantor = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      guarantors: prev.guarantors.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addNextOfKin = () => {
+    if (formData.nextOfKins.length >= 3) return toast.error("Maximum 3 Next of Kin allowed");
+    setFormData(prev => ({
+      ...prev,
+      nextOfKins: [...prev.nextOfKins, {
+        Firstname: "", Surname: "", Middlename: "", idNumber: "",
+        relationship: "", mobile: "", county: "", cityTown: ""
+      }]
+    }));
+  };
+
+  const removeNextOfKin = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      nextOfKins: prev.nextOfKins.filter((_, i) => i !== index)
+    }));
+  };
+
   const addGuarantorSecurityItem = () => {
     setGuarantorSecurityItems([
       ...guarantorSecurityItems,
       { type: "", description: "", identification: "", value: "" },
     ]);
     setGuarantorSecurityImages([...guarantorSecurityImages, []]);
+  };
+
+  const uploadFile = async (file, path, bucket = "customers") => {
+    if (!file) return null;
+    try {
+      const { data, error } = await supabase.storage.from(bucket).upload(path, file, { upsert: true });
+      if (error) throw error;
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const projectRef = supabaseUrl.split('//')[1].split('.')[0];
+      return `https://${projectRef}.supabase.co/storage/v1/object/public/${bucket}/${data.path}`;
+    } catch (error) {
+      console.error("Upload error:", error);
+      return null;
+    }
+  };
+
+  const buildSyncPromises = (passportUrl, idFrontUrl, idBackUrl, houseImageUrl, finalBusinessUrls) => {
+    const syncPromises = [];
+
+    // Business images sync
+    syncPromises.push(supabase.from("business_images").delete().eq("customer_id", customerId).then(() => {
+      if (finalBusinessUrls.length > 0) {
+        return supabase.from("business_images").insert(finalBusinessUrls.map((url) => ({
+          customer_id: customerId, image_url: url, created_by: profile?.id,
+          tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id, created_at: new Date().toISOString(),
+        }))).then(res => res);
+      }
+    }));
+
+    // Spouse sync
+    if (formData.maritalStatus === "Married" && formData.spouse) {
+      syncPromises.push(supabase.from("spouse").upsert({
+        customer_id: customerId, name: formData.spouse.name || null, id_number: formData.spouse.idNumber || null,
+        mobile: formData.spouse.mobile || null, economic_activity: formData.spouse.economicActivity || null,
+        created_by: profile?.id, tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id, updated_at: new Date().toISOString(),
+      }, { onConflict: "customer_id" }).then(res => res));
+    } else {
+      syncPromises.push(supabase.from("spouse").delete().eq("customer_id", customerId).then(res => res));
+    }
+
+    // Next of Kin sync
+    syncPromises.push(supabase.from("next_of_kin").delete().eq("customer_id", customerId).then(() => {
+      if (formData.nextOfKins.length > 0) {
+        return supabase.from("next_of_kin").insert(formData.nextOfKins.map(nok => ({
+          customer_id: customerId, Firstname: nok.Firstname || null, Surname: nok.Surname || null,
+          Middlename: nok.Middlename || null, id_number: nok.idNumber || null, relationship: nok.relationship || null,
+          mobile: nok.mobile || null, county: nok.county || null, city_town: nok.cityTown || null,
+          created_by: profile?.id, tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id, created_at: new Date().toISOString(),
+        }))).then(res => res);
+      }
+    }));
+
+    // Guarantors sync
+    syncPromises.push(supabase.from("guarantors").delete().eq("customer_id", customerId).then(() => {
+      if (formData.guarantors.length > 0) {
+        const guarantorRecords = formData.guarantors.map((g, idx) => ({
+          customer_id: customerId, Firstname: g.Firstname || null, Surname: g.Surname || null,
+          Middlename: g.Middlename || null, id_number: g.idNumber || null, marital_status: g.maritalStatus || null,
+          gender: g.gender || null, mobile: g.mobile || null, postal_address: g.postalAddress || null,
+          code: g.code ? parseInt(g.code, 10) || null : null, occupation: g.occupation || null,
+          relationship: g.relationship || null, date_of_birth: g.dateOfBirth || null, county: g.county || null,
+          city_town: g.cityTown || null, tenant_id: profile?.tenant_id, branch_id: profile?.branch_id,
+          created_at: new Date().toISOString(),
+        }));
+        return supabase.from("guarantors").insert(guarantorRecords).then(res => res);
+      }
+    }));
+
+    // Security Items sync
+    syncPromises.push(supabase.from("security_items").delete().eq("customer_id", customerId).then(() => {
+      if (securityItems.length > 0) {
+        return supabase.from("security_items").insert(securityItems.map(s => ({
+          customer_id: customerId, item: s.type || s.item || null, description: s.description || null,
+          identification: s.identification || null, value: s.value ? parseFloat(s.value) : null,
+          tenant_id: profile?.tenant_id, created_by: profile?.id, created_at: new Date().toISOString()
+        }))).then(res => res);
+      }
+    }));
+
+    return syncPromises;
   };
 
   const handleFileUpload = async (e, setter, key) => {
@@ -656,27 +825,14 @@ function EditAmendment({ customerId, onClose }) {
     setIsSubmitting(true);
 
     try {
-      const safeParseInt = (value) => {
-        if (!value || value === "" || isNaN(parseInt(value))) return null;
-        return parseInt(value);
-      };
-
-      const safeParseFloat = (value) => {
-        if (!value || value === "" || isNaN(parseFloat(value))) return null;
-        return parseFloat(value);
-      };
-
       const { data: currentCustomer, error: fetchError } = await supabase
         .from("customers")
         .select("status")
         .eq("id", customerId)
         .single();
-
       if (fetchError) throw fetchError;
 
       let newStatus = currentCustomer.status;
-
-      // Transition rules for RO amendment
       if (currentCustomer.status === "sent_back_by_bm") {
         newStatus = "bm_review_amend";
       } else if (currentCustomer.status === "sent_back_by_rm") {
@@ -685,442 +841,94 @@ function EditAmendment({ customerId, onClose }) {
         newStatus = "cso_review_amend";
       }
 
-      // Update customer status
-      const { error: updateError } = await supabase
-        .from("customers")
-        .update({ status: newStatus })
-        .eq("id", customerId);
+      const timestamp = Date.now();
+      // 1. Parallel image uploads
+      const [passportUrl, idFrontUrl, idBackUrl, houseImageUrl, newBusinessUrls] = await Promise.all([
+        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : Promise.resolve(existingImages.passport),
+        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : Promise.resolve(existingImages.idFront),
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : Promise.resolve(existingImages.idBack),
+        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : Promise.resolve(existingImages.house),
+        businessImages.length > 0 ? Promise.all(businessImages.map(f => uploadFile(f, `business/${timestamp}_${f.name}`))) : Promise.resolve([]),
+      ]);
 
-      if (updateError) throw updateError;
+      const finalBusinessUrls = [...(existingImages.business?.filter(Boolean) || []), ...newBusinessUrls.filter(Boolean)];
 
-      // 1. Update customer details
+      // 2. Main customer record update
       const { error: customerError } = await supabase
         .from("customers")
         .update({
-          prefix: formData.prefix || null,
-          Firstname: formData.Firstname || null,
-          Middlename: formData.Middlename || null,
-          Surname: formData.Surname || null,
-          marital_status: formData.maritalStatus || null,
-          residence_status: formData.residenceStatus || null,
-          occupation: formData.occupation || null,
-          date_of_birth: formData.dateOfBirth || null,
-          gender: formData.gender || null,
-          id_number: safeParseInt(formData.idNumber),
-          postal_address: formData.postalAddress || null,
-          code: safeParseInt(formData.code),
-          town: formData.town || null,
-          county: formData.county || null,
-          business_name: formData.businessName || null,
-          business_type: formData.businessType || null,
-          year_established: formData.year_established || formData.yearEstablished || null,
-          business_location: formData.businessLocation || null,
-          daily_Sales: safeParseFloat(formData.daily_Sales),
-          road: formData.road || null,
-          landmark: formData.landmark || null,
-          has_local_authority_license:
-            formData.hasLocalAuthorityLicense === "Yes",
-          edited_at: new Date().toISOString(),
+          prefix: formData.prefix,
+          Firstname: formData.Firstname,
+          Middlename: formData.Middlename,
+          Surname: formData.Surname,
+          marital_status: formData.maritalStatus,
+          residence_status: formData.residenceStatus,
+          occupation: formData.occupation,
+          date_of_birth: formData.dateOfBirth,
+          gender: formData.gender,
+          id_number: parseNumber(formData.idNumber),
+          postal_address: formData.postalAddress,
+          code: parseNumber(formData.code),
+          town: formData.town,
+          county: formData.county,
+          business_name: formData.businessName,
+          business_type: formData.businessType,
+          year_established: formData.yearEstablished,
+          business_location: formData.businessLocation,
+          daily_Sales: parseNumber(formData.daily_Sales),
+          road: formData.road,
+          landmark: formData.landmark,
+          has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
+          prequalifiedAmount: parseNumber(formData.prequalifiedAmount),
           status: newStatus,
+          updated_at: new Date().toISOString(),
+          passport_url: passportUrl,
+          id_front_url: idFrontUrl,
+          id_back_url: idBackUrl,
+          house_image_url: houseImageUrl,
         })
-        .eq("id", customerId);
-
+        .eq("id", customerId)
+        .then(res => res);
       if (customerError) throw customerError;
 
-      // 2. Helper function for file uploads
-      const uploadFile = async (file, folderPath, fileNamePrefix) => {
-        if (!file) return null;
+      // 3. Parallel child record synchronization
+      const results = await Promise.all(buildSyncPromises(passportUrl, idFrontUrl, idBackUrl, houseImageUrl, finalBusinessUrls));
+      const syncError = results.find(r => r?.error);
+      if (syncError) throw syncError.error;
 
-        if (typeof file === "string") {
-          return file;
-        }
-
-        if (file instanceof File) {
-          const fileExt = file.name.split(".").pop();
-          const filePath = `${folderPath}/${fileNamePrefix}_${Date.now()}_${Math.random()
-            .toString(36)
-            .substring(7)}.${fileExt}`;
-
-          const { error: uploadError } = await supabase.storage
-            .from("customers")
-            .upload(filePath, file, { upsert: true });
-
-          if (uploadError) throw uploadError;
-
-          const {
-            data: { publicUrl },
-          } = supabase.storage.from("customers").getPublicUrl(filePath);
-
-          return publicUrl;
-        }
-
-        return null;
-      };
-
-      // 3. Upload customer personal images
-      const passportUrl = await uploadFile(
-        passportFile,
-        "personal",
-        "passport"
-      );
-      const idFrontUrl = await uploadFile(idFrontFile, "personal", "id_front");
-      const idBackUrl = await uploadFile(idBackFile, "personal", "id_back");
-      const houseImageUrl = await uploadFile(
-        houseImageFile,
-        "personal",
-        "house"
-      );
-
-      // Update customer with new image URLs
-      if (passportUrl || idFrontUrl || idBackUrl || houseImageUrl) {
-        const updateData = {};
-        if (passportUrl) updateData.passport_url = passportUrl;
-        if (idFrontUrl) updateData.id_front_url = idFrontUrl;
-        if (idBackUrl) updateData.id_back_url = idBackUrl;
-        if (houseImageUrl) updateData.house_image_url = houseImageUrl;
-
-        if (imageError) throw imageError;
-      }
-
-      // 3b. Update or Insert spouse details
-      if (formData.maritalStatus === "Married" && formData.spouse) {
-        const { data: existingSpouse } = await supabase
-          .from("spouse")
-          .select("id")
-          .eq("customer_id", customerId)
-          .maybeSingle();
-
-        const spousePayload = {
-          customer_id: customerId,
-          name: formData.spouse.name || null,
-          id_number: formData.spouse.idNumber || null,
-          mobile: formData.spouse.mobile || null,
-          economic_activity: formData.spouse.economicActivity || null,
-          tenant_id: profile?.tenant_id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_by: profile?.id,
-        };
-
-        if (existingSpouse) {
-          const { error: spouseError } = await supabase
-            .from("spouse")
-            .update(spousePayload)
-            .eq("id", existingSpouse.id);
-          if (spouseError) throw spouseError;
-        } else {
-          const { error: spouseError } = await supabase
-            .from("spouse")
-            .insert(spousePayload);
-          if (spouseError) throw spouseError;
-        }
-      }
-
-      // 4. Update guarantor details - FIRST GET EXISTING GUARANTOR ID
-      let existingGuarantorId = null;
-
-      const { data: existingGuarantor } = await supabase
-        .from("guarantors")
-        .select("id")
-        .eq("customer_id", customerId)
-        .maybeSingle();
-
-      if (existingGuarantor) {
-        existingGuarantorId = existingGuarantor.id;
-
-        // Upload guarantor images
-        const guarantorPassportUrl = await uploadFile(
-          guarantorPassportFile,
-          "guarantor",
-          "passport"
-        );
-        const guarantorIdFrontUrl = await uploadFile(
-          guarantorIdFrontFile,
-          "guarantor",
-          "id_front"
-        );
-        const guarantorIdBackUrl = await uploadFile(
-          guarantorIdBackFile,
-          "guarantor",
-          "id_back"
-        );
-
-        const { error: guarantorError } = await supabase
-          .from("guarantors")
-          .update({
-            prefix: formData.guarantor.prefix || null,
-            Firstname: formData.guarantor.Firstname || null,
-            Surname: formData.guarantor.Surname || null,
-            Middlename: formData.guarantor.Middlename || null,
-            id_number: safeParseInt(formData.guarantor.idNumber),
-            marital_status: formData.guarantor.maritalStatus || null,
-            date_of_birth: formData.guarantor.dateOfBirth || null,
-            residence_status: formData.guarantor.residenceStatus || null,
-            gender: formData.guarantor.gender || null,
-            mobile: formData.guarantor.mobile || null,
-            postal_address: formData.guarantor.postalAddress || null,
-            code: safeParseInt(formData.guarantor.code),
-            occupation: formData.guarantor.occupation || null,
-            relationship: formData.guarantor.relationship || null,
-            county: formData.guarantor.county || null,
-            city_town: formData.guarantor.cityTown || null,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_by: profile?.id,
-            ...(guarantorPassportUrl && { passport_url: guarantorPassportUrl }),
-            ...(guarantorIdFrontUrl && { id_front_url: guarantorIdFrontUrl }),
-            ...(guarantorIdBackUrl && { id_back_url: guarantorIdBackUrl }),
-          })
-          .eq("id", existingGuarantorId);
-
-        if (guarantorError) throw guarantorError;
-      }
-
-      // 5. Update next of kin details
-      const { data: existingNextOfKin } = await supabase
-        .from("next_of_kin")
-        .select("id")
-        .eq("customer_id", customerId)
-        .maybeSingle();
-
-      if (existingNextOfKin && formData.nextOfKin) {
-        const { error: nextOfKinError } = await supabase
-          .from("next_of_kin")
-          .update({
-            Firstname: formData.nextOfKin.Firstname || null,
-            Surname: formData.nextOfKin.Surname || null,
-            Middlename: formData.nextOfKin.Middlename || null,
-            id_number: safeParseInt(formData.nextOfKin.idNumber),
-            relationship: formData.nextOfKin.relationship || null,
-            relationship_other: formData.nextOfKin.relationshipOther || null,
-            mobile: formData.nextOfKin.mobile || null,
-            alternative_number: formData.nextOfKin.alternativeNumber || null,
-            employment_status: formData.nextOfKin.employmentStatus || null,
-            company_name: formData.nextOfKin.companyName || null,
-            salary: safeParseFloat(formData.nextOfKin.salary),
-            business_name: formData.nextOfKin.businessName || null,
-            business_income: safeParseFloat(formData.nextOfKin.businessIncome),
-            county: formData.nextOfKin.county || null,
-            city_town: formData.nextOfKin.cityTown || null,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_by: profile?.id,
-          })
-          .eq("id", existingNextOfKin.id);
-
-        if (nextOfKinError) throw nextOfKinError;
-      }
-
-      // 6. Handle business images
-      if (businessImages.length > 0) {
-        await supabase
-          .from("business_images")
-          .delete()
-          .eq("customer_id", customerId);
-
-        for (const image of businessImages) {
-          const businessImageUrl = await uploadFile(
-            image,
-            "business",
-            "business"
-          );
-
-          if (businessImageUrl) {
-            const { error: insertError } = await supabase
-              .from("business_images")
-              .insert({
-                customer_id: customerId,
-                image_url: businessImageUrl,
-                tenant_id: profile?.tenant_id,
-                branch_id: profile?.branch_id,
-                region_id: profile?.region_id,
-                created_by: profile?.id,
-              });
-
-            if (insertError) throw insertError;
-          }
-        }
-      }
-
-      // 7. Handle security items
-      await supabase
-        .from("security_items")
-        .delete()
-        .eq("customer_id", customerId);
-
-      for (const [index, item] of securityItems.entries()) {
-        const { data: securityItem, error: securityError } = await supabase
-          .from("security_items")
-          .insert({
-            customer_id: customerId,
-            item: item.item || item.type || null,
-            description: item.description || null,
-            identification: item.identification || null,
-            value: safeParseFloat(item.value),
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_by: profile?.id,
-          })
-          .select()
-          .single();
-
-        if (securityError) throw securityError;
-
-        // Handle security item images
-        if (securityItemImages[index] && securityItemImages[index].length > 0) {
-          for (const image of securityItemImages[index]) {
-            const securityImageUrl = await uploadFile(
-              image,
-              "borrower_security",
-              `item_${securityItem.id}`
-            );
-
-            if (securityImageUrl) {
-              const { error: imageError } = await supabase
-                .from("security_item_images")
-                .insert({
-                  security_item_id: securityItem.id,
-                  image_url: securityImageUrl,
-                  tenant_id: profile?.tenant_id,
-                  branch_id: profile?.branch_id,
-                  region_id: profile?.region_id,
-                  created_by: profile?.id,
-                });
-
-              if (imageError) throw imageError;
-            }
-          }
-        }
-      }
-
-      // 8. Handle guarantor security items (only if guarantor exists)
-      if (existingGuarantorId) {
-        await supabase
-          .from("guarantor_security")
-          .delete()
-          .eq("guarantor_id", existingGuarantorId);
-
-        for (const [index, item] of guarantorSecurityItems.entries()) {
-          const { data: securityItem, error: securityError } = await supabase
-            .from("guarantor_security")
-            .insert({
-              guarantor_id: existingGuarantorId,
-              item: item.item || item.type || null,
-              description: item.description || null,
-              identification: item.identification || null,
-              estimated_market_value: safeParseFloat(item.value),
-              tenant_id: profile?.tenant_id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id,
-              created_by: profile?.id,
-            })
-            .select()
-            .single();
-
-          if (securityError) throw securityError;
-
-          // Handle guarantor security item images
-          if (
-            guarantorSecurityImages[index] &&
-            guarantorSecurityImages[index].length > 0
-          ) {
-            for (const image of guarantorSecurityImages[index]) {
-              const securityImageUrl = await uploadFile(
-                image,
-                "guarantor_security",
-                `item_${securityItem.id}`
-              );
-
-              if (securityImageUrl) {
-                const { error: imageError } = await supabase
-                  .from("guarantor_security_images")
-                  .insert({
-                    guarantor_security_id: securityItem.id,
-                    image_url: securityImageUrl,
-                    tenant_id: profile?.tenant_id,
-                    branch_id: profile?.branch_id,
-                    region_id: profile?.region_id,
-                    created_by: profile?.id,
-                  });
-
-                if (imageError) throw imageError;
-              }
-            }
-          }
-        }
-      }
-
-      // 9. Handle document verification images
-      const documentUpload = async (file, documentType) => {
-        if (!file) return;
-
-        const documentUrl = await uploadFile(
-          file,
-          "documents",
-          documentType.replace(/\s+/g, "_")
-        );
-
-        if (documentUrl) {
-          const { data: existingDoc } = await supabase
-            .from("documents")
-            .select("id")
-            .eq("customer_id", customerId)
-            .eq("document_type", documentType)
-            .single();
-
-          if (existingDoc) {
-            const { error: updateError } = await supabase
-              .from("documents")
-              .update({ document_url: documentUrl })
-              .eq("id", existingDoc.id);
-
-            if (updateError) throw updateError;
-          } else {
-            const { error: insertError } = await supabase
-              .from("documents")
-              .insert({
-                customer_id: customerId,
-                document_type: documentType,
-                document_url: documentUrl,
-                tenant_id: profile?.tenant_id,
-                branch_id: profile?.branch_id,
-                region_id: profile?.region_id,
-                created_by: profile?.id,
-              });
-
-            if (insertError) throw insertError;
-          }
-        }
-      };
-
-      await documentUpload(
-        officerClientImage1,
-        "First Officer and Client Image"
-      );
-      await documentUpload(
-        officerClientImage2,
-        "Second Officer and Client Image"
-      );
-      await documentUpload(bothOfficersImage, "Both Officers Image");
-
-      toast.success("Customer information updated successfully!");
+      toast.success("Amendments submitted successfully");
       onClose();
-      navigate(-1);
-    } catch (error) {
-      console.error("Error updating customer:", error);
-      toast.error(`Failed to update customer: ${error.message}`);
+    } catch (err) {
+      console.error("Submit error:", err);
+      toast.error("Failed to submit amendments");
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const parseNumber = (val) => {
+    if (val === null || val === undefined || val === "" || val === "undefined") return null;
+    const n = Number(val);
+    return isNaN(n) ? null : n;
+  };
+
+
   const handleSaveDraft = async () => {
     setIsSavingDraft(true);
     try {
-      // 1. Update customer details (keep existing status)
+      const timestamp = Date.now();
+      // 1. Parallel image uploads
+      const [passportUrl, idFrontUrl, idBackUrl, houseImageUrl, newBusinessUrls] = await Promise.all([
+        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : Promise.resolve(existingImages.passport),
+        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : Promise.resolve(existingImages.idFront),
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : Promise.resolve(existingImages.idBack),
+        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : Promise.resolve(existingImages.house),
+        businessImages.length > 0 ? Promise.all(businessImages.map(f => uploadFile(f, `business/${timestamp}_${f.name}`))) : Promise.resolve([]),
+      ]);
+
+      const finalBusinessUrls = [...(existingImages.business?.filter(Boolean) || []), ...newBusinessUrls.filter(Boolean)];
+
+      // 2. Update customer details (keep existing status)
       const { error: customerError } = await supabase
         .from("customers")
         .update({
@@ -1147,57 +955,20 @@ function EditAmendment({ customerId, onClose }) {
           landmark: formData.landmark || null,
           has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
           edited_at: new Date().toISOString(),
+          passport_url: passportUrl,
+          id_front_url: idFrontUrl,
+          id_back_url: idBackUrl,
+          house_image_url: houseImageUrl,
         })
-        .eq("id", customerId);
+        .eq("id", customerId)
+        .then(res => res);
 
       if (customerError) throw customerError;
 
-      // 2. Spouse details
-      if (formData.maritalStatus === "Married" && formData.spouse) {
-        const { data: existingSpouse } = await supabase.from("spouse").select("id").eq("customer_id", customerId).maybeSingle();
-        const spousePayload = {
-          customer_id: customerId,
-          name: formData.spouse.name || null,
-          id_number: formData.spouse.idNumber || null,
-          mobile: formData.spouse.mobile || null,
-          economic_activity: formData.spouse.economicActivity || null,
-          tenant_id: profile?.tenant_id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_by: profile?.id,
-        };
-        if (existingSpouse) {
-          await supabase.from("spouse").update(spousePayload).eq("id", existingSpouse.id);
-        } else {
-          await supabase.from("spouse").insert(spousePayload);
-        }
-      }
-
-      // 3. Next of Kin details
-      const { data: existingNextOfKin } = await supabase.from("next_of_kin").select("id").eq("customer_id", customerId).maybeSingle();
-      if (existingNextOfKin && formData.nextOfKin) {
-        await supabase.from("next_of_kin").update({
-          Firstname: formData.nextOfKin.Firstname || null,
-          Surname: formData.nextOfKin.Surname || null,
-          Middlename: formData.nextOfKin.Middlename || null,
-          id_number: safeParseInt(formData.nextOfKin.idNumber),
-          relationship: formData.nextOfKin.relationship || null,
-          relationship_other: formData.nextOfKin.relationshipOther || null,
-          mobile: formData.nextOfKin.mobile || null,
-          alternative_number: formData.nextOfKin.alternativeNumber || null,
-          employment_status: formData.nextOfKin.employmentStatus || null,
-          company_name: formData.nextOfKin.companyName || null,
-          salary: safeParseFloat(formData.nextOfKin.salary),
-          business_name: formData.nextOfKin.businessName || null,
-          business_income: safeParseFloat(formData.nextOfKin.businessIncome),
-          county: formData.nextOfKin.county || null,
-          city_town: formData.nextOfKin.cityTown || null,
-          tenant_id: profile?.tenant_id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_by: profile?.id,
-        }).eq("id", existingNextOfKin.id);
-      }
+      // 3. Parallel sync of child records
+      const results = await Promise.all(buildSyncPromises(passportUrl, idFrontUrl, idBackUrl, houseImageUrl, finalBusinessUrls));
+      const syncError = results.find(r => r?.error);
+      if (syncError) throw syncError.error;
 
       toast.success("Draft saved successfully!");
     } catch (error) {
@@ -1820,16 +1591,17 @@ function EditAmendment({ customerId, onClose }) {
                 </div>
               ))}
 
-              <button
-                type="button"
-                onClick={addSecurityItem}
-                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-medium text-sm  ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-primary hover:bg-brand-primary/90"
-                  }`}
-                disabled={!canEdit}
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Security Item
-              </button>
+              <div className="flex justify-center mt-6">
+                <button
+                  type="button"
+                  onClick={addSecurityItem}
+                  className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                  disabled={!canEdit}
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  Add Another Security Item
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -1872,179 +1644,128 @@ function EditAmendment({ customerId, onClose }) {
       case "guarantor":
         return (
           <div className="space-y-8">
-            <div className="border-b border-gray-200 pb-6">
-              <h2 className="text-lg  text-slate-600 flex items-center">
-                <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
-                Guarantor Information
-                {currentSectionHasAmendments && (
-                  <span className="ml-2 bg-red-100 text-red-700 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
-                    Amendments Required
-                  </span>
-                )}
-              </h2>
-              <p className="text-gray-600 mt-2">
-                Update guarantor personal details
-                {sectionAmendmentDetails.length > 0 && (
-                  <div className="mt-2 text-red-700 text-sm font-medium">
-                    <strong>Required amendments:</strong> {sectionAmendmentDetails.map(detail => detail.fields?.join(', ')).join('; ')}
-                  </div>
-                )}
-              </p>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <UserGroupIcon className="h-6 w-6 text-brand-primary" />
+                <h3 className="text-lg font-bold text-gray-800">Guarantors Information</h3>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AmendmentField
-                label="Prefix"
-                name="prefix"
-                value={formData.guarantor.prefix}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                options={["Mr", "Mrs", "Ms", "Dr"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
+            {formData.guarantors.map((g, i) => (
+              <div key={i} className="mb-8 p-6 bg-gray-50 rounded-xl border border-gray-200 relative">
+                {formData.guarantors.length > 1 && (
+                  <button type="button" onClick={() => removeGuarantor(i)} className="absolute top-4 right-4 text-red-500 hover:text-red-700">
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                )}
+                <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-wider">Guarantor {i + 1}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <AmendmentField
+                    label="Prefix"
+                    name="prefix"
+                    value={g.prefix}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={["Mr", "Mrs", "Ms", "Dr"]}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="First Name"
+                    name="Firstname"
+                    value={g.Firstname}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Middle Name"
+                    name="Middlename"
+                    value={g.Middlename}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Surname"
+                    name="Surname"
+                    value={g.Surname}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="ID Number"
+                    name="idNumber"
+                    value={g.idNumber}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Mobile Number"
+                    name="mobile"
+                    value={g.mobile}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Relationship"
+                    name="relationship"
+                    value={g.relationship}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="County"
+                    name="county"
+                    value={g.county}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={KENYA_COUNTIES}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Town"
+                    name="cityTown"
+                    value={g.cityTown}
+                    section="guarantors"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={g.county ? COUNTY_TOWNS[g.county] : []}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-center mt-6">
+              <button
+                type="button"
+                onClick={addGuarantor}
+                className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
                 disabled={!canEdit}
-              />
-              <AmendmentField
-                label="First Name"
-                name="Firstname"
-                value={formData.guarantor.Firstname}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Middle Name"
-                name="Middlename"
-                value={formData.guarantor.Middlename}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Surname"
-                name="Surname"
-                value={formData.guarantor.Surname}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="ID Number"
-                name="idNumber"
-                value={formData.guarantor.idNumber}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Mobile Number"
-                name="mobile"
-                value={formData.guarantor.mobile}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Date of Birth"
-                name="dateOfBirth"
-                type="date"
-                value={formData.guarantor.dateOfBirth}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Gender"
-                name="gender"
-                value={formData.guarantor.gender}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                options={["Male", "Female"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Marital Status"
-                name="maritalStatus"
-                value={formData.guarantor.maritalStatus}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                options={["Single", "Married", "Separated/Divorced", "Other"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Residence Status"
-                name="residenceStatus"
-                value={formData.guarantor.residenceStatus}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                options={["Own", "Rent", "Family", "Other"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Occupation"
-                name="occupation"
-                value={formData.guarantor.occupation}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Relationship"
-                name="relationship"
-                value={formData.guarantor.relationship}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                placeholder="e.g. Spouse, Friend"
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Postal Address"
-                name="postalAddress"
-                value={formData.guarantor.postalAddress}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Postal Code"
-                name="code"
-                type="number"
-                value={formData.guarantor.code}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="County"
-                name="county"
-                value={formData.guarantor.county}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                options={KENYA_COUNTIES}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="City/Town"
-                name="cityTown"
-                value={formData.guarantor.cityTown}
-                section="guarantor"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
+              >
+                <PlusIcon className="h-5 w-5" />
+                Add Another Guarantor
+              </button>
             </div>
 
             {/* Guarantor Documents */}
@@ -2299,16 +2020,17 @@ function EditAmendment({ customerId, onClose }) {
                 </div>
               ))}
 
-              <button
-                type="button"
-                onClick={addGuarantorSecurityItem}
-                className={`flex items-center gap-2 px-6 py-2.5 text-white rounded-xl transition-all shadow-md hover:shadow-lg font-medium text-sm ${currentSectionHasAmendments ? "bg-red-600 hover:bg-red-700" : "bg-brand-btn hover:bg-brand-primary"
-                  }`}
-                disabled={!canEdit}
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Guarantor Security Item
-              </button>
+              <div className="flex justify-center mt-6">
+                <button
+                  type="button"
+                  onClick={addGuarantorSecurityItem}
+                  className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                  disabled={!canEdit}
+                >
+                  <PlusIcon className="h-5 w-5" />
+                  Add Another Guarantor Security Item
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -2316,172 +2038,118 @@ function EditAmendment({ customerId, onClose }) {
       case "nextOfKin":
         return (
           <div className="space-y-8">
-            <div className="border-b border-gray-200 pb-6">
-              <h2 className="text-lg  text-slate-600 flex items-center">
-                <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
-                Next of Kin Information
-              </h2>
-              <p className="text-gray-600 mt-2">
-                Update next of kin details
-                {sectionAmendmentDetails.length > 0 && (
-                  <div className="mt-2 text-red-700 text-sm font-medium">
-                    <strong>Required amendments:</strong> {sectionAmendmentDetails.map(detail => detail.fields?.join(', ')).join('; ')}
-                  </div>
-                )}
-              </p>
+            <div className="flex justify-between items-center mb-6">
+              <div className="flex items-center gap-3">
+                <UserGroupIcon className="h-6 w-6 text-brand-primary" />
+                <h3 className="text-lg font-bold text-gray-800">Next of Kin Information</h3>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              <AmendmentField
-                label="First Name"
-                name="Firstname"
-                value={formData.nextOfKin.Firstname}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Middle Name"
-                name="Middlename"
-                value={formData.nextOfKin.Middlename}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Surname"
-                name="Surname"
-                value={formData.nextOfKin.Surname}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="ID Number"
-                name="idNumber"
-                value={formData.nextOfKin.idNumber}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Relationship"
-                name="relationship"
-                value={formData.nextOfKin.relationship}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                options={["Sister", "Brother", "Guardian", "Father", "Mother", "Spouse", "Other"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              {formData.nextOfKin.relationship === "Other" && (
-                <AmendmentField
-                  label="Specify Relationship"
-                  name="relationshipOther"
-                  value={formData.nextOfKin.relationshipOther}
-                  section="nextOfKin"
-                  handleNestedChange={handleNestedChange}
-                  isAmendment={currentSectionHasAmendments && !isPending}
-                  disabled={!canEdit}
-                />
-              )}
-              <AmendmentField
-                label="Mobile Number"
-                name="mobile"
-                value={formData.nextOfKin.mobile}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Alternative Number"
-                name="alternativeNumber"
-                value={formData.nextOfKin.alternativeNumber}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              <AmendmentField
-                label="Employment Status"
-                name="employmentStatus"
-                value={formData.nextOfKin.employmentStatus}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                options={["Employed", "Self Employed", "Unemployed", "Student", "Retired"]}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
-              {formData.nextOfKin.employmentStatus === "Employed" && (
-                <>
+            {formData.nextOfKins.map((nk, i) => (
+              <div key={i} className="mb-6 p-6 bg-gray-50 rounded-xl border border-gray-200 relative">
+                {formData.nextOfKins.length > 1 && (
+                  <button type="button" onClick={() => removeNextOfKin(i)} className="absolute top-4 right-4 text-red-500 hover:text-red-700">
+                    <TrashIcon className="h-5 w-5" />
+                  </button>
+                )}
+                <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-wider">Next of Kin {i + 1}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                   <AmendmentField
-                    label="Company Name"
-                    name="companyName"
-                    value={formData.nextOfKin.companyName}
-                    section="nextOfKin"
+                    label="First Name"
+                    name="Firstname"
+                    value={nk.Firstname}
+                    section="nextOfKins"
+                    index={i}
                     handleNestedChange={handleNestedChange}
                     isAmendment={currentSectionHasAmendments && !isPending}
                     disabled={!canEdit}
                   />
                   <AmendmentField
-                    label="Estimated Salary (KES)"
-                    name="salary"
-                    type="number"
-                    value={formData.nextOfKin.salary}
-                    section="nextOfKin"
-                    handleNestedChange={handleNestedChange}
-                    isAmendment={currentSectionHasAmendments && !isPending}
-                    disabled={!canEdit}
-                  />
-                </>
-              )}
-              {formData.nextOfKin.employmentStatus === "Self Employed" && (
-                <>
-                  <AmendmentField
-                    label="Business Name"
-                    name="businessName"
-                    value={formData.nextOfKin.businessName}
-                    section="nextOfKin"
+                    label="Middle Name"
+                    name="Middlename"
+                    value={nk.Middlename}
+                    section="nextOfKins"
+                    index={i}
                     handleNestedChange={handleNestedChange}
                     isAmendment={currentSectionHasAmendments && !isPending}
                     disabled={!canEdit}
                   />
                   <AmendmentField
-                    label="Estimated Income (KES)"
-                    name="businessIncome"
-                    type="number"
-                    value={formData.nextOfKin.businessIncome}
-                    section="nextOfKin"
+                    label="Surname"
+                    name="Surname"
+                    value={nk.Surname}
+                    section="nextOfKins"
+                    index={i}
                     handleNestedChange={handleNestedChange}
                     isAmendment={currentSectionHasAmendments && !isPending}
                     disabled={!canEdit}
                   />
-                </>
-              )}
-              <AmendmentField
-                label="County"
-                name="county"
-                value={formData.nextOfKin.county}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                options={KENYA_COUNTIES}
-                isAmendment={currentSectionHasAmendments && !isPending}
+                  <AmendmentField
+                    label="ID Number"
+                    name="idNumber"
+                    value={nk.idNumber}
+                    section="nextOfKins"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Relationship"
+                    name="relationship"
+                    value={nk.relationship}
+                    section="nextOfKins"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={["Sister", "Brother", "Guardian", "Father", "Mother", "Spouse", "Other"]}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="Mobile Number"
+                    name="mobile"
+                    value={nk.mobile}
+                    section="nextOfKins"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="County"
+                    name="county"
+                    value={nk.county}
+                    section="nextOfKins"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={KENYA_COUNTIES}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                  <AmendmentField
+                    label="City/Town"
+                    name="cityTown"
+                    value={nk.cityTown}
+                    section="nextOfKins"
+                    index={i}
+                    handleNestedChange={handleNestedChange}
+                    options={nk.county ? COUNTY_TOWNS[nk.county] : []}
+                    isAmendment={currentSectionHasAmendments && !isPending}
+                    disabled={!canEdit}
+                  />
+                </div>
+              </div>
+            ))}
+            <div className="flex justify-center mt-6">
+              <button
+                type="button"
+                onClick={addNextOfKin}
+                className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
                 disabled={!canEdit}
-              />
-              <AmendmentField
-                label="City/Town"
-                name="cityTown"
-                value={formData.nextOfKin.cityTown}
-                section="nextOfKin"
-                handleNestedChange={handleNestedChange}
-                isAmendment={currentSectionHasAmendments && !isPending}
-                disabled={!canEdit}
-              />
+              >
+                <PlusIcon className="h-5 w-5" />
+                Add Another Next of Kin
+              </button>
             </div>
           </div>
         );

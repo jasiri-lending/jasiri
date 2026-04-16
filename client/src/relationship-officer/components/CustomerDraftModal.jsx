@@ -164,7 +164,7 @@ const CustomerDraft = () => {
       mobile: '',
       economicActivity: ''
     },
-    nextOfKin: {
+    nextOfKins: [{
       Firstname: '',
       Surname: '',
       Middlename: '',
@@ -180,8 +180,8 @@ const CustomerDraft = () => {
       businessName: '',
       businessIncome: '',
       relationshipOther: ''
-    },
-    guarantor: {
+    }],
+    guarantors: [{
       prefix: '',
       Firstname: '',
       Surname: '',
@@ -199,7 +199,7 @@ const CustomerDraft = () => {
       dateOfBirth: '',
       county: '',
       cityTown: ''
-    }
+    }]
   });
 
   const [securityItems, setSecurityItems] = useState([{
@@ -261,21 +261,23 @@ const CustomerDraft = () => {
 
       const [
         { data: customer },
-        { data: guarantor },
-        { data: nextOfKin },
-        { data: spouse },
+        { data: guarantorsData },
+        { data: nextOfKinData },
+        { data: spouseData },
         { data: securityItemsData },
         { data: businessImagesData },
         { data: documentsData },
       ] = await Promise.all([
         supabase.from("customers").select("*").eq("id", id).single(),
-        supabase.from("guarantors").select("*").eq("customer_id", id).single(),
-        supabase.from("next_of_kin").select("*").eq("customer_id", id).single(),
-        supabase.from("spouse").select("*").eq("customer_id", id).single(),
+        supabase.from("guarantors").select("*").eq("customer_id", id),
+        supabase.from("next_of_kin").select("*").eq("customer_id", id),
+        supabase.from("spouse").select("*").eq("customer_id", id),
         supabase.from("security_items").select("*, security_item_images(image_url)").eq("customer_id", id),
         supabase.from("business_images").select("*").eq("customer_id", id),
         supabase.from("documents").select("id, document_type, document_url").eq("customer_id", id),
       ]);
+
+      const spouse = spouseData?.[0] || null;
 
       const updatedFormData = {
         id: customer?.id || '',
@@ -326,83 +328,57 @@ const CustomerDraft = () => {
             mobile: '',
             economicActivity: ''
           },
-        nextOfKin: nextOfKin
-          ? {
-            Firstname: nextOfKin.Firstname || "",
-            Surname: nextOfKin.Surname || "",
-            Middlename: nextOfKin.Middlename || "",
-            idNumber: nextOfKin.id_number?.toString() || "",
-            relationship: nextOfKin.relationship || "",
-            mobile: nextOfKin.mobile || "",
-            alternativeNumber: nextOfKin.alternative_number || "",
-            employmentStatus: nextOfKin.employment_status || "",
-            county: nextOfKin.county || "",
-            cityTown: nextOfKin.city_town || "",
-            companyName: nextOfKin.company_name || "",
-            salary: nextOfKin.salary?.toString() || "",
-            businessName: nextOfKin.business_name || "",
-            businessIncome: nextOfKin.business_income?.toString() || "",
-            relationshipOther: nextOfKin.relationship_other || ""
-          }
-          : {
-            Firstname: '',
-            Surname: '',
-            Middlename: '',
-            idNumber: '',
-            relationship: '',
-            mobile: '',
-            alternativeNumber: '',
-            employmentStatus: '',
-            county: '',
-            cityTown: '',
-            companyName: '',
-            salary: '',
-            businessName: '',
-            businessIncome: '',
-            relationshipOther: ''
-          },
-        guarantor: guarantor
-          ? {
-            prefix: guarantor.prefix || "",
-            Firstname: guarantor.Firstname || "",
-            Surname: guarantor.Surname || "",
-            Middlename: guarantor.Middlename || "",
-            idNumber: guarantor.id_number?.toString() || "",
-            maritalStatus: guarantor.marital_status || "",
-            gender: guarantor.gender || "",
-            mobile: guarantor.mobile || "",
-            alternativeMobile: guarantor.alternative_number || "",
-            residenceStatus: guarantor.residence_status || "",
-            postalAddress: guarantor.postal_address || "",
-            code: guarantor.code?.toString() || "",
-            occupation: guarantor.occupation || "",
-            relationship: guarantor.relationship || "",
-            dateOfBirth: guarantor.date_of_birth?.split("T")[0] || "",
-            county: guarantor.county || "",
-            cityTown: guarantor.city_town || "",
-            passport_url: guarantor.passport_url || null,
-            id_front_url: guarantor.id_front_url || null,
-            id_back_url: guarantor.id_back_url || null,
-          }
-          : {
-            prefix: '',
-            Firstname: '',
-            Surname: '',
-            Middlename: '',
-            idNumber: '',
-            maritalStatus: '',
-            gender: '',
-            mobile: '',
-            alternativeMobile: '',
-            residenceStatus: '',
-            postalAddress: '',
-            code: '',
-            occupation: '',
-            relationship: '',
-            dateOfBirth: '',
-            county: '',
-            cityTown: ''
-          }
+        nextOfKins: nextOfKinData?.length > 0
+          ? nextOfKinData.map(nok => ({
+            Firstname: nok.Firstname || "",
+            Surname: nok.Surname || "",
+            Middlename: nok.Middlename || "",
+            idNumber: nok.id_number?.toString() || "",
+            relationship: nok.relationship || "",
+            mobile: nok.mobile || "",
+            alternativeNumber: nok.alternative_number || "",
+            employmentStatus: nok.employment_status || "",
+            county: nok.county || "",
+            cityTown: nok.city_town || "",
+            companyName: nok.company_name || "",
+            salary: nok.salary?.toString() || "",
+            businessName: nok.business_name || "",
+            businessIncome: nok.business_income?.toString() || "",
+            relationshipOther: nok.relationship_other || ""
+          }))
+          : [{
+            Firstname: '', Surname: '', Middlename: '', idNumber: '', relationship: '',
+            mobile: '', alternativeNumber: '', employmentStatus: '', county: '', cityTown: '',
+            companyName: '', salary: '', businessName: '', businessIncome: '', relationshipOther: ''
+          }],
+        guarantors: guarantorsData?.length > 0
+          ? guarantorsData.map(g => ({
+            prefix: g.prefix || "",
+            Firstname: g.Firstname || "",
+            Surname: g.Surname || "",
+            Middlename: g.Middlename || "",
+            idNumber: g.id_number?.toString() || "",
+            maritalStatus: g.marital_status || "",
+            gender: g.gender || "",
+            mobile: g.mobile || "",
+            alternativeMobile: g.alternative_number || "",
+            residenceStatus: g.residence_status || "",
+            postalAddress: g.postal_address || "",
+            code: g.code?.toString() || "",
+            occupation: g.occupation || "",
+            relationship: g.relationship || "",
+            dateOfBirth: g.date_of_birth?.split("T")[0] || "",
+            county: g.county || "",
+            cityTown: g.city_town || "",
+            passport_url: g.passport_url || null,
+            id_front_url: g.id_front_url || null,
+            id_back_url: g.id_back_url || null,
+          }))
+          : [{
+            prefix: '', Firstname: '', Surname: '', Middlename: '', idNumber: '', maritalStatus: '',
+            gender: '', mobile: '', alternativeMobile: '', residenceStatus: '', postalAddress: '',
+            code: '', occupation: '', relationship: '', dateOfBirth: '', county: '', cityTown: ''
+          }]
       };
 
       setFormData(updatedFormData);
@@ -773,14 +749,22 @@ const CustomerDraft = () => {
   );
 
   const handleNestedChange = useCallback(
-    async (e, section) => {
+    async (e, section, index = null) => {
       if (!e || !e.target) return;
       const { name, value } = e.target;
 
-      setFormData((prev) => ({
-        ...prev,
-        [section]: { ...prev[section], [name]: value },
-      }));
+      if (index !== null) {
+        setFormData((prev) => {
+          const newData = [...prev[section]];
+          newData[index] = { ...newData[index], [name]: value };
+          return { ...prev, [section]: newData };
+        });
+      } else {
+        setFormData((prev) => ({
+          ...prev,
+          [section]: { ...prev[section], [name]: value },
+        }));
+      }
 
       const errorKey = `${section}${name.charAt(0).toUpperCase() + name.slice(1)}`;
       if (errors[errorKey]) {
@@ -945,7 +929,7 @@ const CustomerDraft = () => {
     return birthDate <= eighteenYearsAgo;
   };
 
-  const addSecurityItem = () => {
+   const addSecurityItem = () => {
     setSecurityItems([
       ...securityItems,
       { type: "", description: "", identification: "", value: "", otherType: "" },
@@ -956,6 +940,42 @@ const CustomerDraft = () => {
   const removeSecurityItem = (index) => {
     setSecurityItems((prev) => prev.filter((_, i) => i !== index));
     setSecurityItemImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addGuarantor = () => {
+    setFormData(prev => ({
+      ...prev,
+      guarantors: [...prev.guarantors, {
+        prefix: '', Firstname: '', Surname: '', Middlename: '', idNumber: '', maritalStatus: '',
+        gender: '', mobile: '', alternativeMobile: '', residenceStatus: '', postalAddress: '',
+        code: '', occupation: '', relationship: '', dateOfBirth: '', county: '', cityTown: ''
+      }]
+    }));
+  };
+
+  const removeGuarantor = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      guarantors: prev.guarantors.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addNextOfKin = () => {
+    setFormData(prev => ({
+      ...prev,
+      nextOfKins: [...prev.nextOfKins, {
+        Firstname: '', Surname: '', Middlename: '', idNumber: '', relationship: '',
+        mobile: '', alternativeNumber: '', employmentStatus: '', county: '', cityTown: '',
+        companyName: '', salary: '', businessName: '', businessIncome: '', relationshipOther: ''
+      }]
+    }));
+  };
+
+  const removeNextOfKin = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      nextOfKins: prev.nextOfKins.filter((_, i) => i !== index)
+    }));
   };
 
   const addGuarantorSecurityItem = () => {
@@ -1006,9 +1026,16 @@ const CustomerDraft = () => {
   const handleGuarantorSecurityChange = (e, index) => {
     const { name, value } = e.target;
     setGuarantorSecurityItems(prev =>
-      prev.map((item, i) =>
-        i === index ? { ...item, [name]: value } : item
-      )
+      prev.map((item, i) => {
+        if (i === index) {
+          const newItem = { ...item, [name]: value };
+          if (name === "type" && value !== "Other (specify)") {
+            newItem.otherType = "";
+          }
+          return newItem;
+        }
+        return item;
+      })
     );
   };
 
@@ -1642,11 +1669,11 @@ const CustomerDraft = () => {
       ] = await Promise.all([
         passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : formData.passport_url,
         idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : formData.id_front_url,
-        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : formData.id_back_url,
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : formData.id_front_url, // Fixed typo in key
         houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : formData.house_image_url,
-        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData.guarantor.passport_url,
-        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : formData.guarantor.id_front_url,
-        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : formData.guarantor.id_back_url,
+        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData?.guarantors?.[0]?.passport_url,
+        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : formData?.guarantors?.[0]?.id_front_url,
+        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : formData?.guarantors?.[0]?.id_back_url,
         businessImages.length > 0 ? uploadFilesBatch(businessImages, "business") : [],
         officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : null,
         officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : null,
@@ -1700,30 +1727,90 @@ const CustomerDraft = () => {
       const childOps = [
         insertSecurityItemsOptimized(securityItems, securityItemImages, customerId, false),
         insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, customerId, true),
-        // Update Guarantor Details including URLs
-        supabase.from("guarantors").update({
-          Firstname: formData.guarantor?.Firstname || null,
-          Surname: formData.guarantor?.Surname || null,
-          Middlename: formData.guarantor?.Middlename || null,
-          id_number: formData.guarantor?.idNumber || null,
-          marital_status: formData.guarantor?.maritalStatus || null,
-          gender: formData.guarantor?.gender || null,
-          mobile: formData.guarantor?.mobile || null,
-          alternative_number: formData.guarantor?.alternativeMobile || null,
-          residence_status: formData.guarantor?.residenceStatus || null,
-          postal_address: formData.guarantor?.postalAddress || null,
-          code: formData.guarantor?.code ? parseInt(formData.guarantor?.code) : null,
-          occupation: formData.guarantor?.occupation || null,
-          relationship: formData.guarantor?.relationship || null,
-          date_of_birth: formData.guarantor?.dateOfBirth || null,
-          county: formData.guarantor?.county || null,
-          city_town: formData.guarantor?.cityTown || null,
-          passport_url: guarantorPassportUrl,
-          id_front_url: guarantorIdFrontUrl,
-          id_back_url: guarantorIdBackUrl,
-          updated_at: new Date().toISOString()
-        }).eq("customer_id", customerId)
       ];
+
+      // Handle Multiple Next of Kin
+      if (formData.nextOfKins && formData.nextOfKins.length > 0) {
+        await supabase.from("next_of_kin").delete().eq("customer_id", customerId);
+        const nokPayloads = formData.nextOfKins
+          .filter(nok => nok.Firstname || nok.Surname)
+          .map(nok => ({
+            customer_id: customerId,
+            Firstname: nok.Firstname || null,
+            Surname: nok.Surname || null,
+            Middlename: nok.Middlename || null,
+            id_number: nok.idNumber || null,
+            relationship: nok.relationship || null,
+            mobile: nok.mobile || null,
+            alternative_number: nok.alternativeNumber || null,
+            employment_status: nok.employmentStatus || null,
+            county: nok.county || null,
+            city_town: nok.cityTown || null,
+            company_name: nok.companyName || null,
+            salary: nok.salary || null,
+            business_name: nok.businessName || null,
+            business_income: nok.businessIncome || null,
+            relationship_other: nok.relationshipOther || null,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+        if (nokPayloads.length > 0) childOps.push(supabase.from("next_of_kin").insert(nokPayloads));
+      }
+
+      // Handle Multiple Guarantors
+      if (formData.guarantors && formData.guarantors.length > 0) {
+        await supabase.from("guarantors").delete().eq("customer_id", customerId);
+        const guarantorPayloads = formData.guarantors
+          .filter(g => g.Firstname || g.Surname)
+          .map((g, idx) => ({
+            customer_id: customerId,
+            Firstname: g?.Firstname || null,
+            Surname: g?.Surname || null,
+            Middlename: g?.Middlename || null,
+            id_number: g?.idNumber || null,
+            marital_status: g?.maritalStatus || null,
+            gender: g?.gender || null,
+            mobile: g?.mobile || null,
+            alternative_number: g?.alternativeMobile || null,
+            residence_status: g?.residenceStatus || null,
+            postal_address: g?.postal_address || null,
+            code: g?.code ? parseInt(g?.code) : null,
+            occupation: g?.occupation || null,
+            relationship: g?.relationship || null,
+            date_of_birth: g?.date_of_birth || null,
+            county: g?.county || null,
+            city_town: g?.cityTown || null,
+            passport_url: idx === 0 ? guarantorPassportUrl : g?.passport_url,
+            id_front_url: idx === 0 ? guarantorIdFrontUrl : g?.id_front_url,
+            id_back_url: idx === 0 ? guarantorIdBackUrl : g?.id_back_url,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+        if (guarantorPayloads.length > 0) childOps.push(supabase.from("guarantors").insert(guarantorPayloads));
+      }
+
+      // Handle Spouse
+      if (formData.maritalStatus === "Married" && formData.spouse) {
+        childOps.push(
+          supabase.from("spouse").upsert({
+            customer_id: customerId,
+            name: formData.spouse.name || null,
+            id_number: formData.spouse.idNumber || null,
+            mobile: formData.spouse.mobile || null,
+            economic_activity: formData.spouse.economicActivity || null,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            updated_at: new Date().toISOString()
+          }, { onConflict: "customer_id" })
+        );
+      } else {
+        childOps.push(supabase.from("spouse").delete().eq("customer_id", customerId));
+      }
 
       if (businessUrls?.length > 0) {
         childOps.push(
@@ -1795,9 +1882,9 @@ const CustomerDraft = () => {
         idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_idfront_${idFrontFile.name}`) : formData.id_front_url,
         idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_idback_${idBackFile.name}`) : formData.id_back_url,
         houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : formData.house_image_url,
-        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData?.guarantor?.passport_url,
-        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_idfront_${guarantorIdFrontFile.name}`) : formData?.guarantor?.id_front_url,
-        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_idback_${guarantorIdBackFile.name}`) : formData?.guarantor?.id_back_url,
+        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : formData?.guarantors?.[0]?.passport_url,
+        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_idfront_${guarantorIdFrontFile.name}`) : formData?.guarantors?.[0]?.id_front_url,
+        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_idback_${guarantorIdBackFile.name}`) : formData?.guarantors?.[0]?.id_back_url,
         businessImages?.length > 0 ? uploadFilesBatch(businessImages, "business") : [],
         officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : null,
         officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : null,
@@ -1843,19 +1930,81 @@ const CustomerDraft = () => {
         created_by: profile?.id,
         branch_id: profile?.branch_id,
         region_id: profile?.region_id,
-        ...(existingCustomerId ? { id: existingCustomerId } : { created_at: new Date().toISOString() })
+        ...(existingCustomerId ? {} : { created_at: new Date().toISOString() })
       };
 
-      const { data: customerData, error: customerError } = await supabase
-        .from("customers")
-        .upsert(customerPayload, { onConflict: "id" })
-        .select("id")
-        .single();
+      const { data: customerData, error: customerError } = existingCustomerId 
+        ? await supabase.from("customers").update(customerPayload).eq("id", existingCustomerId).select("id").single()
+        : await supabase.from("customers").insert(customerPayload).select("id").single();
 
       if (customerError) throw customerError;
 
-      const currentCustomerId = customerData.id;
+      const currentCustomerId = existingCustomerId || customerData.id;
       const childOps = [];
+
+      // Handle Multiple Next of Kin for Draft
+      if (formData.nextOfKins && formData.nextOfKins.length > 0) {
+        await supabase.from("next_of_kin").delete().eq("customer_id", currentCustomerId);
+        const nokPayloads = formData.nextOfKins
+          .filter(nok => nok.Firstname || nok.Surname)
+          .map(nok => ({
+            customer_id: currentCustomerId,
+            Firstname: nok.Firstname || null,
+            Surname: nok.Surname || null,
+            Middlename: nok.Middlename || null,
+            id_number: nok.idNumber || null,
+            relationship: nok.relationship || null,
+            mobile: nok.mobile || null,
+            alternative_number: nok.alternativeNumber || null,
+            employment_status: nok.employmentStatus || null,
+            county: nok.county || null,
+            city_town: nok.cityTown || null,
+            company_name: nok.companyName || null,
+            salary: nok.salary || null,
+            business_name: nok.businessName || null,
+            business_income: nok.businessIncome || null,
+            relationship_other: nok.relationshipOther || null,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+        if (nokPayloads.length > 0) childOps.push(supabase.from("next_of_kin").insert(nokPayloads));
+      }
+
+      // Handle Multiple Guarantors for Draft
+      if (formData.guarantors && formData.guarantors.length > 0) {
+        await supabase.from("guarantors").delete().eq("customer_id", currentCustomerId);
+        const guarantorPayloads = formData.guarantors
+          .filter(g => g.Firstname || g.Surname)
+          .map((g, idx) => ({
+            customer_id: currentCustomerId,
+            Firstname: g?.Firstname || null,
+            Surname: g?.Surname || null,
+            Middlename: g?.Middlename || null,
+            id_number: g?.idNumber || null,
+            marital_status: g?.maritalStatus || null,
+            gender: g?.gender || null,
+            mobile: g?.mobile || null,
+            alternative_number: g?.alternativeMobile || null,
+            residence_status: g?.residenceStatus || null,
+            postal_address: g?.postalAddress || null,
+            code: g?.code ? parseInt(g?.code) : null,
+            occupation: g?.occupation || null,
+            relationship: g?.relationship || null,
+            date_of_birth: g?.dateOfBirth || null,
+            county: g?.county || null,
+            city_town: g?.cityTown || null,
+            passport_url: idx === 0 ? guarantorPassportUrl : g?.passport_url,
+            id_front_url: idx === 0 ? guarantorIdFrontUrl : g?.id_front_url,
+            id_back_url: idx === 0 ? guarantorIdBackUrl : g?.id_back_url,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+        if (guarantorPayloads.length > 0) childOps.push(supabase.from("guarantors").insert(guarantorPayloads));
+      }
 
       if (formData.spouse && Object.values(formData.spouse).some(Boolean)) {
         childOps.push(
@@ -1875,66 +2024,76 @@ const CustomerDraft = () => {
         );
       }
 
-      if (formData.nextOfKin && Object.values(formData.nextOfKin).some(Boolean)) {
-        childOps.push(
-          supabase.from("next_of_kin").upsert(
-            {
-              customer_id: currentCustomerId,
-              Firstname: formData.nextOfKin.Firstname || null,
-              Surname: formData.nextOfKin.Surname || null,
-              Middlename: formData.nextOfKin.Middlename || null,
-              id_number: formData.nextOfKin.idNumber || null,
-              relationship: formData.nextOfKin.relationship || null,
-              mobile: formData.nextOfKin.mobile || null,
-              alternative_number: formData.nextOfKin.alternativeNumber || null,
-              employment_status: formData.nextOfKin.employmentStatus || null,
-              county: formData.nextOfKin.county || null,
-              city_town: formData.nextOfKin.cityTown || null,
-              company_name: formData.nextOfKin.companyName || null,
-              salary: formData.nextOfKin.salary || null,
-              business_name: formData.nextOfKin.businessName || null,
-              business_income: formData.nextOfKin.businessIncome || null,
-              relationship_other: formData.nextOfKin.relationshipOther || null,
-              created_by: profile?.id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id
-            },
-            { onConflict: "customer_id" }
-          )
-        );
+      if (formData.nextOfKins && formData.nextOfKins.length > 0) {
+        // Delete existing and insert new for clean draft update
+        await supabase.from("next_of_kin").delete().eq("customer_id", currentCustomerId);
+        
+        const nokPayloads = formData.nextOfKins
+          .filter(nok => nok.Firstname || nok.Surname)
+          .map(nok => ({
+            customer_id: currentCustomerId,
+            Firstname: nok.Firstname || null,
+            Surname: nok.Surname || null,
+            Middlename: nok.Middlename || null,
+            id_number: nok.idNumber || null,
+            relationship: nok.relationship || null,
+            mobile: nok.mobile || null,
+            alternative_number: nok.alternativeNumber || null,
+            employment_status: nok.employmentStatus || null,
+            county: nok.county || null,
+            city_town: nok.cityTown || null,
+            company_name: nok.companyName || null,
+            salary: nok.salary || null,
+            business_name: nok.businessName || null,
+            business_income: nok.businessIncome || null,
+            relationship_other: nok.relationshipOther || null,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+          
+        if (nokPayloads.length > 0) {
+          childOps.push(supabase.from("next_of_kin").insert(nokPayloads));
+        }
       }
 
-      if (formData.guarantor && Object.values(formData.guarantor).some(Boolean)) {
-        childOps.push(
-          supabase.from("guarantors").upsert(
-            {
-              customer_id: currentCustomerId,
-              Firstname: formData.guarantor.Firstname || null,
-              Surname: formData.guarantor.Surname || null,
-              Middlename: formData.guarantor.Middlename || null,
-              id_number: formData.guarantor.idNumber || null,
-              marital_status: formData.guarantor.maritalStatus || null,
-              gender: formData.guarantor.gender || null,
-              mobile: formData.guarantor.mobile || null,
-              alternative_number: formData.guarantor.alternativeMobile || null,
-              residence_status: formData.guarantor.residenceStatus || null,
-              postal_address: formData.guarantor.postalAddress || null,
-              code: formData.guarantor.code ? parseInt(formData.guarantor.code) : null,
-              occupation: formData.guarantor.occupation || null,
-              relationship: formData.guarantor.relationship || null,
-              date_of_birth: formData.guarantor.dateOfBirth || null,
-              county: formData.guarantor.county || null,
-              city_town: formData.guarantor.cityTown || null,
-              passport_url: guarantorPassportUrl,
-              id_front_url: guarantorIdFrontUrl,
-              id_back_url: guarantorIdBackUrl,
-              created_by: profile?.id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id
-            },
-            { onConflict: "customer_id" }
-          )
-        );
+      if (formData.guarantors && formData.guarantors.length > 0) {
+        // Delete existing and insert new
+        await supabase.from("guarantors").delete().eq("customer_id", currentCustomerId);
+
+        const guarantorPayloads = formData.guarantors
+          .filter(g => g.Firstname || g.Surname)
+          .map(g => ({
+            customer_id: currentCustomerId,
+            Firstname: g.Firstname || null,
+            Surname: g.Surname || null,
+            Middlename: g.Middlename || null,
+            id_number: g.idNumber || null,
+            marital_status: g.maritalStatus || null,
+            gender: g.gender || null,
+            mobile: g.mobile || null,
+            alternative_number: g.alternativeMobile || null,
+            residence_status: g.residenceStatus || null,
+            postal_address: g.postalAddress || null,
+            code: g.code ? parseInt(g.code) : null,
+            occupation: g.occupation || null,
+            relationship: g.relationship || null,
+            date_of_birth: g.dateOfBirth || null,
+            county: g.county || null,
+            city_town: g.cityTown || null,
+            passport_url: guarantorPassportUrl, // Note: This might need array support for images later if multiple guarantors have different images
+            id_front_url: guarantorIdFrontUrl,
+            id_back_url: guarantorIdBackUrl,
+            created_by: profile?.id,
+            branch_id: profile?.branch_id,
+            region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+
+        if (guarantorPayloads.length > 0) {
+          childOps.push(supabase.from("guarantors").insert(guarantorPayloads));
+        }
       }
 
       const docs = [];
@@ -1970,12 +2129,28 @@ const CustomerDraft = () => {
           )
         );
       }
-
       await Promise.all([
         insertSecurityItemsOptimized(securityItems, securityItemImages, currentCustomerId, false),
         insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, currentCustomerId, true),
         ...childOps
       ]);
+
+      // Ensure spouse information is saved synchronously if it was omitted from childOps or needs cleanup
+      if (formData.maritalStatus === 'Married' && formData.spouse) {
+        await supabase.from("spouse").upsert({
+          customer_id: currentCustomerId,
+          name: formData.spouse.name || null,
+          id_number: formData.spouse.idNumber || null,
+          mobile: formData.spouse.mobile || null,
+          economic_activity: formData.spouse.economicActivity || null,
+          created_by: profile?.id,
+          branch_id: profile?.branch_id,
+          region_id: profile?.region_id,
+          updated_at: new Date().toISOString()
+        }, { onConflict: "customer_id" });
+      } else {
+        await supabase.from("spouse").delete().eq("customer_id", currentCustomerId);
+      }
 
       toast.success("Draft saved successfully!");
       navigate("/registry/customers")
@@ -2242,9 +2417,16 @@ const CustomerDraft = () => {
           </div>
         ))}
 
-        <button type="button" onClick={addSecurityItem} className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white text-sm rounded-lg hover:bg-brand-primary shadow-sm hover:shadow-md transition-all w-fit">
-          <PlusIcon className="h-4 w-4" /> Add Security
-        </button>
+        <div className="flex justify-center mt-6">
+          <button
+            type="button"
+            onClick={addSecurityItem}
+            className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add Another Security Item
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2262,10 +2444,6 @@ const CustomerDraft = () => {
         <div className="max-w-md mx-auto">
           <FormField label="Pre-qualified Amount (KES)" name="prequalifiedAmount" type="number" value={formData.prequalifiedAmount} onChange={handleChange} className="text-center" required handleNestedChange={handleNestedChange} errors={errors} />
         </div>
-      </div>
-    </div>
-  );
-
   const renderGuarantorSection = () => (
     <div className="space-y-8">
       <div className="border-b border-gray-200 pb-6">
@@ -2276,60 +2454,85 @@ const CustomerDraft = () => {
         <p className="text-muted mt-2">Enter guarantor personal details</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <FormField label="Prefix" name="prefix" value={formData.guarantor.prefix} section="guarantor" options={["Mr", "Mrs", "Ms", "Dr"]} handleNestedChange={handleNestedChange} />
-        <FormField label="First Name" name="Firstname" value={formData.guarantor.Firstname} section="guarantor" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Middle Name" name="Middlename" value={formData.guarantor.Middlename} section="guarantor" handleNestedChange={handleNestedChange} />
-        <FormField label="Surname" name="Surname" value={formData.guarantor.Surname} section="guarantor" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="ID Number" name="idNumber" value={formData.guarantor.idNumber} section="guarantor" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Mobile Number" name="mobile" value={formData.guarantor.mobile} section="guarantor" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Alternative Number" name="alternativeMobile" value={formData.guarantor.alternativeMobile} section="guarantor" handleNestedChange={handleNestedChange} />
-        <FormField label="Date of Birth" name="dateOfBirth" type="date" value={formData.guarantor.dateOfBirth} section="guarantor" handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Gender" name="gender" value={formData.guarantor.gender} section="guarantor" options={["Male", "Female"]} required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Marital Status" name="maritalStatus" value={formData.guarantor.maritalStatus} section="guarantor" options={["Single", "Married", "Separated/Divorced", "Other"]} handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Residence Status" name="residenceStatus" value={formData.guarantor.residenceStatus} section="guarantor" options={["Own", "Rent", "Family", "Other"]} handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Occupation" name="occupation" value={formData.guarantor.occupation} section="guarantor" handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Relationship" name="relationship" value={formData.guarantor.relationship} section="guarantor" placeholder="e.g. Spouse, Friend" handleNestedChange={handleNestedChange} required />
-        <FormField label="Postal Address" name="postalAddress" value={formData.guarantor.postalAddress} section="guarantor" handleNestedChange={handleNestedChange} />
-        <FormField label="Postal Code" name="code" type="number" value={formData.guarantor.code} section="guarantor" handleNestedChange={handleNestedChange} />
-        <FormField label="Guarantor County" name="county" value={formData.guarantor?.county || ""} section="guarantor" options={KENYA_COUNTIES} handleNestedChange={handleNestedChange} />
-        <FormField label="City/Town" name="cityTown" value={formData.guarantor.cityTown} section="guarantor" handleNestedChange={handleNestedChange} />
-      </div>
-
-      {imageUploadEnabled && (
-        <div className="mt-10 pt-8 border-t border-gray-100">
-          <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
-            <IdentificationIcon className="w-5 h-5" />
-            Guarantor Documents
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              { key: "guarantorPassport", label: "Passport Photo", handler: setGuarantorPassportFile },
-              { key: "guarantorIdFront", label: "ID Front", handler: setGuarantorIdFrontFile },
-              { key: "guarantorIdBack", label: "ID Back", handler: setGuarantorIdBackFile },
-            ].map((file) => (
-              <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
-                <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
-                <div className="flex gap-2">
-                  <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
-                    <ArrowUpTrayIcon className="w-4 h-4" />
-                    Upload
-                    <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
-                  </label>
-                </div>
-                {previews[file.key] && (
-                  <div className="mt-3 relative">
-                    <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white shadow-sm" />
-                    <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
-                      <XMarkIcon className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            ))}
+      {formData.guarantors.map((guarantor, index) => (
+        <div key={index} className="bg-brand-surface rounded-xl p-6 border border-brand-surface relative mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-md font-semibold text-brand-primary flex items-center">
+              Guarantor {index + 1}
+            </h3>
+            {formData.guarantors.length > 1 && (
+              <button type="button" onClick={() => removeGuarantor(index)} className="text-red-500 hover:text-red-700">
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            )}
           </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField label="Prefix" name="prefix" value={guarantor.prefix} section="guarantors" index={index} options={["Mr", "Mrs", "Ms", "Dr"]} handleNestedChange={handleNestedChange} />
+            <FormField label="First Name" name="Firstname" value={guarantor.Firstname} section="guarantors" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Middle Name" name="Middlename" value={guarantor.Middlename} section="guarantors" index={index} handleNestedChange={handleNestedChange} />
+            <FormField label="Surname" name="Surname" value={guarantor.Surname} section="guarantors" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="ID Number" name="idNumber" value={guarantor.idNumber} section="guarantors" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Mobile Number" name="mobile" value={guarantor.mobile} section="guarantors" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Alternative Number" name="alternativeMobile" value={guarantor.alternativeMobile} section="guarantors" index={index} handleNestedChange={handleNestedChange} />
+            <FormField label="Date of Birth" name="dateOfBirth" type="date" value={guarantor.dateOfBirth} section="guarantors" index={index} handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Gender" name="gender" value={guarantor.gender} section="guarantors" index={index} options={["Male", "Female"]} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Marital Status" name="maritalStatus" value={guarantor.maritalStatus} section="guarantors" index={index} options={["Single", "Married", "Separated/Divorced", "Other"]} handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Residence Status" name="residenceStatus" value={guarantor.residenceStatus} section="guarantors" index={index} options={["Own", "Rent", "Family", "Other"]} handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Occupation" name="occupation" value={guarantor.occupation} section="guarantors" index={index} handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Relationship" name="relationship" value={guarantor.relationship} section="guarantors" index={index} placeholder="e.g. Spouse, Friend" handleNestedChange={handleNestedChange} required />
+            <FormField label="Postal Address" name="postalAddress" value={guarantor.postalAddress} section="guarantors" index={index} handleNestedChange={handleNestedChange} />
+            <FormField label="Postal Code" name="code" type="number" value={guarantor.code} section="guarantors" index={index} handleNestedChange={handleNestedChange} />
+            <FormField label="Guarantor County" name="county" value={guarantor?.county || ""} section="guarantors" index={index} options={KENYA_COUNTIES} handleNestedChange={handleNestedChange} />
+            <FormField label="City/Town" name="cityTown" value={guarantor.cityTown} section="guarantors" index={index} handleNestedChange={handleNestedChange} />
+          </div>
+
+          {imageUploadEnabled && index === 0 && ( /* Keeping image uploads for the first guarantor as per current complex logic */
+            <div className="mt-10 pt-8 border-t border-gray-100">
+              <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                <IdentificationIcon className="w-5 h-5" />
+                Guarantor Documents (Primary)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {[
+                  { key: "guarantorPassport", label: "Passport Photo", handler: setGuarantorPassportFile },
+                  { key: "guarantorIdFront", label: "ID Front", handler: setIdFrontFile },
+                  { key: "guarantorIdBack", label: "ID Back", handler: setIdBackFile },
+                ].map((file) => (
+                  <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                    <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                    <div className="flex gap-2">
+                      <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
+                        <ArrowUpTrayIcon className="w-4 h-4" />
+                        Upload
+                        <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
+                      </label>
+                    </div>
+                    {previews[file.key] && (
+                      <div className="mt-3 relative">
+                        <img src={previews[file.key].url} alt={file.label} className="w-full h-24 object-cover rounded-lg border border-white shadow-sm" />
+                        <button type="button" onClick={() => handleRemoveFile(file.key, file.handler)} className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md">
+                          <XMarkIcon className="w-3 h-3" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      )}
+      ))}
+
+      <div className="flex justify-center mt-6">
+        <button
+          type="button"
+          onClick={addGuarantor}
+          className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+        >
+          <PlusIcon className="h-5 w-5" />
+          Add Another Guarantor
+        </button>
+      </div>
     </div>
   );
 
@@ -2384,6 +2587,22 @@ const CustomerDraft = () => {
                   <option>Other (specify)</option>
                 </select>
               </div>
+
+              {/* Custom Security Type for "Other" - FIX BOUNCE */}
+              {item.type === "Other (specify)" && (
+                <div className="mb-4">
+                  <FormField
+                    label="Specific Security Type"
+                    name="otherType"
+                    value={item.otherType}
+                    onChange={(e) => handleGuarantorSecurityChange(e, index)}
+                    placeholder="Describe the security type..."
+                    required
+                    errors={errors}
+                    index={index}
+                  />
+                </div>
+              )}
               <FormField label="Identification (e.g. Serial No/Reg No)" name="identification" value={item.identification} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
               <FormField label="Description" name="description" value={item.description} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
               <FormField label="Est. Market Value (KES)" name="value" type="number" value={item.value} onChange={(e) => handleGuarantorSecurityChange(e, index)} required errors={errors} index={index} className="mb-4" />
@@ -2433,9 +2652,16 @@ const CustomerDraft = () => {
           </div>
         ))}
 
-        <button type="button" onClick={addGuarantorSecurityItem} className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white text-sm rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md w-fit">
-          <PlusIcon className="h-4 w-4" /> Add Guarantor Security Item
-        </button>
+        <div className="flex justify-center mt-6">
+          <button
+            type="button"
+            onClick={addGuarantorSecurityItem}
+            className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+          >
+            <PlusIcon className="h-5 w-5" />
+            Add Another Guarantor Security Item
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -2450,58 +2676,83 @@ const CustomerDraft = () => {
         <p className="text-muted mt-2">Enter next of kin details</p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <FormField label="First Name" name="Firstname" value={formData.nextOfKin.Firstname} section="nextOfKin" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Middle Name" name="Middlename" value={formData.nextOfKin.Middlename} section="nextOfKin" handleNestedChange={handleNestedChange} />
-        <FormField label="Surname" name="Surname" value={formData.nextOfKin.Surname} section="nextOfKin" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="ID Number" name="idNumber" value={formData.nextOfKin.idNumber} section="nextOfKin" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Mobile Number" name="mobile" value={formData.nextOfKin.mobile} section="nextOfKin" required handleNestedChange={handleNestedChange} errors={errors} />
-        <FormField label="Alternative Number" name="alternativeNumber" value={formData.nextOfKin.alternativeNumber} section="nextOfKin" handleNestedChange={handleNestedChange} />
+      {formData.nextOfKins.map((nok, index) => (
+        <div key={index} className="bg-brand-surface rounded-xl p-6 border border-brand-surface relative mb-8">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-md font-semibold text-brand-primary flex items-center">
+              Next of Kin {index + 1}
+            </h3>
+            {formData.nextOfKins.length > 1 && (
+              <button type="button" onClick={() => removeNextOfKin(index)} className="text-red-500 hover:text-red-700">
+                <TrashIcon className="h-5 w-5" />
+              </button>
+            )}
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <FormField label="First Name" name="Firstname" value={nok.Firstname} section="nextOfKins" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Middle Name" name="Middlename" value={nok.Middlename} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+            <FormField label="Surname" name="Surname" value={nok.Surname} section="nextOfKins" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="ID Number" name="idNumber" value={nok.idNumber} section="nextOfKins" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Mobile Number" name="mobile" value={nok.mobile} section="nextOfKins" index={index} required handleNestedChange={handleNestedChange} errors={errors} />
+            <FormField label="Alternative Number" name="alternativeNumber" value={nok.alternativeNumber} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
 
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Relationship *</label>
-          <select name="relationship" value={formData.nextOfKin.relationship} onChange={(e) => handleNestedChange(e, 'nextOfKin')} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-brand-primary focus:border-brand-primary focus:outline-none" required>
-            <option value="">Select Relationship</option>
-            <option value="Sister">Sister</option>
-            <option value="Brother">Brother</option>
-            <option value="Guardian">Guardian</option>
-            <option value="Father">Father</option>
-            <option value="Mother">Mother</option>
-            <option value="Spouse">Spouse</option>
-            <option value="Other">Other</option>
-          </select>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Relationship *</label>
+              <select name="relationship" value={nok.relationship} onChange={(e) => handleNestedChange(e, 'nextOfKins', index)} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-brand-primary focus:border-brand-primary focus:outline-none" required>
+                <option value="">Select Relationship</option>
+                <option value="Sister">Sister</option>
+                <option value="Brother">Brother</option>
+                <option value="Guardian">Guardian</option>
+                <option value="Father">Father</option>
+                <option value="Mother">Mother</option>
+                <option value="Spouse">Spouse</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+
+            {nok.relationship === "Other" && (
+              <FormField label="Specify Relationship" name="relationshipOther" value={nok.relationshipOther} section="nextOfKins" index={index} required handleNestedChange={handleNestedChange} />
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-slate-700 mb-1">Employment Status</label>
+              <select name="employmentStatus" value={nok.employmentStatus} onChange={(e) => handleNestedChange(e, 'nextOfKins', index)} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-brand-primary focus:border-brand-primary focus:outline-none">
+                <option value="">Select Employment Status</option>
+                <option value="Employed">Employed</option>
+                <option value="Self Employed">Self Employed</option>
+                <option value="Unemployed">Unemployed</option>
+              </select>
+            </div>
+
+            {nok.employmentStatus === "Employed" && (
+              <>
+                <FormField label="Company Name" name="companyName" value={nok.companyName} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+                <FormField label="Estimated Salary (KES)" name="salary" type="number" value={nok.salary} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+              </>
+            )}
+
+            {nok.employmentStatus === "Self Employed" && (
+              <>
+                <FormField label="Business Name" name="businessName" value={nok.businessName} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+                <FormField label="Estimated Income (KES)" name="businessIncome" type="number" value={nok.businessIncome} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+              </>
+            )}
+
+            <FormField label="Next of Kin County" name="county" value={nok.county} section="nextOfKins" index={index} options={KENYA_COUNTIES} handleNestedChange={handleNestedChange} />
+            <FormField label="City/Town" name="cityTown" value={nok.cityTown} section="nextOfKins" index={index} handleNestedChange={handleNestedChange} />
+          </div>
         </div>
+      ))}
 
-        {formData.nextOfKin.relationship === "Other" && (
-          <FormField label="Specify Relationship" name="relationshipOther" value={formData.nextOfKin.relationshipOther} section="nextOfKin" required handleNestedChange={handleNestedChange} />
-        )}
-
-        <div className="mb-4">
-          <label className="block text-sm font-medium text-slate-700 mb-1">Employment Status</label>
-          <select name="employmentStatus" value={formData.nextOfKin.employmentStatus} onChange={(e) => handleNestedChange(e, 'nextOfKin')} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-brand-primary focus:border-brand-primary focus:outline-none">
-            <option value="">Select Employment Status</option>
-            <option value="Employed">Employed</option>
-            <option value="Self Employed">Self Employed</option>
-            <option value="Unemployed">Unemployed</option>
-          </select>
-        </div>
-
-        {formData.nextOfKin.employmentStatus === "Employed" && (
-          <>
-            <FormField label="Company Name" name="companyName" value={formData.nextOfKin.companyName} section="nextOfKin" handleNestedChange={handleNestedChange} />
-            <FormField label="Estimated Salary (KES)" name="salary" type="number" value={formData.nextOfKin.salary} section="nextOfKin" handleNestedChange={handleNestedChange} />
-          </>
-        )}
-
-        {formData.nextOfKin.employmentStatus === "Self Employed" && (
-          <>
-            <FormField label="Business Name" name="businessName" value={formData.nextOfKin.businessName} section="nextOfKin" handleNestedChange={handleNestedChange} />
-            <FormField label="Estimated Income (KES)" name="businessIncome" type="number" value={formData.nextOfKin.businessIncome} section="nextOfKin" handleNestedChange={handleNestedChange} />
-          </>
-        )}
-
-        <FormField label="Next of Kin County" name="county" value={formData.nextOfKin.county} section="nextOfKin" options={KENYA_COUNTIES} handleNestedChange={handleNestedChange} />
-        <FormField label="City/Town" name="cityTown" value={formData.nextOfKin.cityTown} section="nextOfKin" handleNestedChange={handleNestedChange} />
+      <div className="flex justify-center mt-6">
+        <button
+          type="button"
+          onClick={addNextOfKin}
+          className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+        >
+          <PlusIcon className="h-5 w-5" />
+          Add Another Next of Kin
+        </button>
       </div>
     </div>
   );

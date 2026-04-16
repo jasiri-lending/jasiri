@@ -45,7 +45,8 @@ import {
   ClipboardList,
   FileSpreadsheet,
   Home,
-  BarChart3
+  BarChart3,
+  CheckCircle,
 } from "lucide-react";
 import { useAuth } from "../hooks/userAuth";
 import { usePermissions } from "../hooks/usePermissions";
@@ -162,7 +163,6 @@ const SharedSidebar = () => {
 
     const officerNavigation = isOfficer
       ? [
-        { name: "Leads", href: "/officer/leads", icon: UserPlus },
         { name: "Loan Applications", href: "/officer/loans/applications", icon: FileText },
       ]
       : [];
@@ -294,6 +294,13 @@ const SharedSidebar = () => {
       { name: "Refunds", href: "/admin/refunds", icon: DollarSign, permission: "refund.approve" }
     ];
 
+    const leadsChildren = [
+      { name: "All Leads", href: "/leads/all", icon: Users },
+      { name: "Aging Leads", href: "/leads/aging", icon: History },
+      { name: "Converted Leads", href: "/leads/converted", icon: CheckCircle },
+      { name: "Lead Insights", href: "/leads/insights", icon: BarChart3 },
+    ];
+
     const loaningNavigation = [
       {
         name: "Loaning",
@@ -330,6 +337,7 @@ const SharedSidebar = () => {
     ];
 
     const sharedNavigation = [
+      { name: "Leads", href: "/leads", icon: UserPlus, children: leadsChildren },
       { name: "Registry", href: "/registry", icon: Users, children: registryChildren },
       ...loaningNavigation,
       { name: "Drafts", href: "/drafts", icon: FileText, children: draftsChildren },

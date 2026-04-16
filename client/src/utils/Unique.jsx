@@ -17,8 +17,8 @@ export const checkUniqueValue = async (tables, column, value, excludeId = null) 
       if (data && data.length > 0) {
         if (excludeId) {
           const hasOtherOwners = data.some(record =>
-            (table === 'customers' && record.id !== excludeId) ||
-            (record.customer_id !== excludeId)
+            (table === 'customers' && String(record.id) !== String(excludeId)) ||
+            (record.customer_id && String(record.customer_id) !== String(excludeId))
           );
           if (hasOtherOwners) return { table, conflict: true };
           return { table, conflict: false }; // Owned records only

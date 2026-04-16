@@ -24,7 +24,10 @@ import { PermissionProvider } from "./context/PermissionContext";
 
 // Relationship Officer Pages
 const OfficerDashboard = lazy(() => import("./relationship-officer/Dashboard"));
-const Leads = lazy(() => import("./relationship-officer/Leads"));
+const AllLeads = lazy(() => import("./pages/leads/AllLeads"));
+const AgingLeads = lazy(() => import("./pages/leads/AgingLeads"));
+const ConvertedLeads = lazy(() => import("./pages/leads/ConvertedLeads"));
+const LeadInsights = lazy(() => import("./pages/leads/LeadInsights"));
 const Customers = lazy(() => import("./relationship-officer/Customers"));
 const Loans = lazy(() => import("./relationship-officer/loans/Loans"));
 const LoanApplication = lazy(() => import("./relationship-officer/loans/LoanApplication"));
@@ -106,6 +109,7 @@ const CustomerInteractions = lazy(() => import("./pages/registry/CustomerInterac
 const LoanDetails = lazy(() => import("./pages/registry/LoanDetails.jsx"));
 const PromiseToPay = lazy(() => import("./pages/registry/PromiseToPay.jsx"));
 const AddCustomer = lazy(() => import("./relationship-officer/components/AddCustomer.jsx"));
+const EditCustomerPage = lazy(() => import("./pages/registry/EditCustomerPage.jsx"));
 const EditAmendment = lazy(() => import("./relationship-officer/amendments/EditAmendment.jsx"));
 const AmendmentDetailsModal = lazy(() => import("./relationship-officer/amendments/AmendmentDetailsModal.jsx"));
 const AmendmentDetailsPage = lazy(() => import("./relationship-officer/amendments/AmendmentDetailsPage.jsx"));
@@ -460,6 +464,14 @@ function MainLayout({
                           </ProtectedRoute>
                         }
                       />
+                      <Route
+                        path="/editcustomer/:customerId"
+                        element={
+                          <ProtectedRoute>
+                            <EditCustomerPage />
+                          </ProtectedRoute>
+                        }
+                      />
 
                       <Route
                         path="/registry/pending-amendments"
@@ -596,17 +608,44 @@ function MainLayout({
                         }
                       />
 
+                      {/* Leads Submodules */}
+                      <Route path="/leads" element={<Navigate to="/leads/all" replace />} />
+                      <Route
+                        path="/leads/all"
+                        element={
+                          <ProtectedRoute>
+                            <AllLeads />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/leads/aging"
+                        element={
+                          <ProtectedRoute>
+                            <AgingLeads />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/leads/converted"
+                        element={
+                          <ProtectedRoute>
+                            <ConvertedLeads />
+                          </ProtectedRoute>
+                        }
+                      />
+                      <Route
+                        path="/leads/insights"
+                        element={
+                          <ProtectedRoute>
+                            <LeadInsights />
+                          </ProtectedRoute>
+                        }
+                      />
+
                       {/* Relationship Officer Specific Routes */}
                       {role === 'relationship_officer' && (
                         <>
-                          <Route
-                            path="/officer/leads"
-                            element={
-                              <ProtectedRoute>
-                                <Leads />
-                              </ProtectedRoute>
-                            }
-                          />
                           <Route
                             path="/officer/customers"
                             element={

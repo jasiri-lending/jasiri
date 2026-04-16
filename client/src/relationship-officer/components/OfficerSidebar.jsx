@@ -91,7 +91,7 @@ const OfficerSidebar = ({ sidebarOpen, setSidebarOpen }) => {
     ,
     {
       name: 'Leads',
-      href: '/officer/leads',
+      href: '/leads',
       icon: UserPlus,
       color: 'text-accent',
       bgColor: 'bg-accent/10',

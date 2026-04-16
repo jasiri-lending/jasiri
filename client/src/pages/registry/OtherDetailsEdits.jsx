@@ -27,6 +27,7 @@ import {
   FunnelIcon,
   EyeIcon,
   PhotoIcon,
+  PlusIcon,
 } from "@heroicons/react/24/outline";
 
 import { supabase } from "../../supabaseClient.js";
@@ -1796,18 +1797,11 @@ function CustomerDetailsEdit() {
     if (section === 'security') {
       return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Security & Collateral</h3>
               <p className="text-[10px] text-slate-500 font-medium">Add or remove borrower security items</p>
             </div>
-            <button
-              type="button"
-              onClick={addSecurityItem}
-              className="px-3 py-1.5 bg-white text-[#586ab1] border border-[#586ab1] rounded-lg text-[10px] font-bold hover:bg-[#586ab1] hover:text-white transition-all flex items-center gap-1.5"
-            >
-              <PencilSquareIcon className="w-3 h-3" /> Add Item
-            </button>
           </div>
 
           {securityItems.map((item, index) => (
@@ -1924,6 +1918,17 @@ function CustomerDetailsEdit() {
               )}
             </div>
           ))}
+
+          <div className="flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={addSecurityItem}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Add Another Security Item
+            </button>
+          </div>
         </div>
       );
     }
@@ -1931,18 +1936,11 @@ function CustomerDetailsEdit() {
     if (section === 'guarantor_security') {
       return (
         <div className="space-y-6">
-          <div className="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-100">
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-100">
             <div>
               <h3 className="text-sm font-bold text-slate-800">Guarantor Security</h3>
               <p className="text-[10px] text-slate-500 font-medium">Add or remove guarantor security items</p>
             </div>
-            <button
-              type="button"
-              onClick={addGuarantorSecurityItem}
-              className="px-3 py-1.5 bg-white text-[#586ab1] border border-[#586ab1] rounded-lg text-[10px] font-bold hover:bg-[#586ab1] hover:text-white transition-all flex items-center gap-1.5"
-            >
-              <PencilSquareIcon className="w-3 h-3" /> Add Item
-            </button>
           </div>
 
           {guarantorSecurityItems.map((item, index) => (
@@ -2059,6 +2057,17 @@ function CustomerDetailsEdit() {
               )}
             </div>
           ))}
+
+          <div className="flex justify-center mt-6">
+            <button
+              type="button"
+              onClick={addGuarantorSecurityItem}
+              className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+            >
+              <PlusIcon className="h-5 w-5" />
+              Add Another Guarantor Security Item
+            </button>
+          </div>
         </div>
       );
     }

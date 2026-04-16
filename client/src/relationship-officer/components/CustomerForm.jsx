@@ -24,6 +24,7 @@ import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
 import { checkUniqueValue } from "../../utils/Unique";
 import { useAuth } from "../../hooks/userAuth";
+import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
 
@@ -38,6 +39,72 @@ const KENYA_COUNTIES = [
   "Samburu", "Siaya", "Taita Taveta", "Tana River", "Tharaka Nithi",
   "Trans Nzoia", "Turkana", "Uasin Gishu", "Vihiga", "Wajir", "West Pokot"
 ];
+
+const COUNTY_TOWNS = {
+  "Baringo": ["Kabarnet", "Eldama Ravine", "Marigat"],
+  "Bomet": ["Bomet", "Sotik"],
+  "Bungoma": ["Bungoma", "Webuye", "Chwele", "Kimilili"],
+  "Busia": ["Busia", "Malaba", "Butula"],
+  "Elgeyo Marakwet": ["Iten", "Kapsowar"],
+  "Embu": ["Embu", "Runyenjes", "Siakago"],
+  "Garissa": ["Garissa", "Dadaab"],
+  "Homa Bay": ["Homa Bay", "Mbita", "Oyugis"],
+  "Isiolo": ["Isiolo", "Merti"],
+  "Kajiado": ["Kajiado", "Ngong", "Kitengela", "Isinya", "Loitokitok"],
+  "Kakamega": ["Kakamega", "Mumias", "Butere", "Lugari"],
+  "Kericho": ["Kericho", "Litein"],
+  "Kiambu": ["Kiambu", "Thika", "Ruiru", "Limuru", "Kikuyu", "Karuri", "Githunguri"],
+  "Kilifi": ["Kilifi", "Malindi", "Mtwapa", "Mariakani", "Watamu"],
+  "Kirinyaga": ["Kerugoya", "Kutus", "Sagana", "Wang'uru"],
+  "Kisii": ["Kisii", "Ogembo", "Suneka"],
+  "Kisumu": ["Kisumu", "Ahero", "Muhoroni"],
+  "Kitui": ["Kitui", "Mwingi", "Mutomo"],
+  "Kwale": ["Kwale", "Ukunda", "Msambweni", "Lunga Lunga"],
+  "Laikipia": ["Nanyuki", "Nyahururu", "Rumuruti"],
+  "Lamu": ["Lamu", "Mpeketoni"],
+  "Machakos": ["Machakos", "Athi River", "Kangundo", "Tala"],
+  "Makueni": ["Wote", "Mtito Andei", "Kibwezi"],
+  "Mandera": ["Mandera", "El Wak"],
+  "Marsabit": ["Marsabit", "Moyale"],
+  "Meru": ["Meru", "Maua", "Nkubu", "Timau"],
+  "Migori": ["Migori", "Kuria", "Rongo", "Awendo"],
+  "Mombasa": ["Mombasa", "Nyali", "Likoni", "Changamwe", "Kisauni", "Jomvu"],
+  "Murang'a": ["Murang'a", "Kenol", "Kangema", "Maragua"],
+  "Nairobi": ["Nairobi Central", "Westlands", "Dagoretti", "Langata", "Kibra", "Kasarani", "Embakasi", "Makadara", "Kamkunji"],
+  "Nakuru": ["Nakuru", "Naivasha", "Gilgil", "Molo", "Njoro"],
+  "Nandi": ["Kapsabet", "Nandi Hills"],
+  "Narok": ["Narok", "Kilgoris"],
+  "Nyamira": ["Nyamira", "Nyansiongo"],
+  "Nyandarua": ["Ol Kalou", "Njabini", "Mai Mahiu"],
+  "Nyeri": ["Nyeri", "Karatina", "Othaya", "Chaka"],
+  "Samburu": ["Maralal", "Baragoi"],
+  "Siaya": ["Siaya", "Bondo", "Ugunja"],
+  "Taita Taveta": ["Voi", "Wundanyi", "Taveta", "Mwatate"],
+  "Tana River": ["Hola", "Garsen", "Madogo"],
+  "Tharaka Nithi": ["Chuka", "Chogoria", "Marimanti"],
+  "Trans Nzoia": ["Kitale", "Endebess"],
+  "Turkana": ["Lodwar", "Kakuma", "Lokichogio"],
+  "Uasin Gishu": ["Eldoret", "Burnt Forest"],
+  "Vihiga": ["Mbale", "Chavakali", "Hamisi"],
+  "Wajir": ["Wajir", "Habaswein"],
+  "West Pokot": ["Kapenguria", "Sigor"]
+};
+
+const INDUSTRIES = {
+  Retail: ["Clothing Shop", "Second-hand Clothes (Mtumba)", "Electronics Shop", "Grocery Shop", "Supermarket", "Cosmetics Shop", "Hardware Shop", "Furniture Shop", "Mobile Phone Shop", "General Shop (Kiosk)"],
+  "Hospitality & Entertainment": ["Bar", "Restaurant", "Hotel", "Club", "Café", "Lounge", "Fast Food Outlet"],
+  Agriculture: ["Crop Farming", "Dairy Farming", "Poultry Farming", "Fish Farming", "Agro-processing", "Agrovet Shop"],
+  Education: ["Primary School", "Secondary School", "College", "Training Institute", "Driving School", "Daycare / Kindergarten"],
+  "Transport & Logistics": ["Matatu Business", "Taxi / Ride-hailing", "Courier Service", "Logistics Company", "Truck Transport", "Delivery Services"],
+  Technology: ["Software Development", "SaaS Business", "Cyber Café", "IT Services", "Online Business (E-commerce)"],
+  "Financial Services": ["Lending Business", "SACCO", "Microfinance", "Insurance Agency", "Forex Bureau"],
+  Healthcare: ["Clinic", "Pharmacy", "Hospital", "Laboratory", "Medical Supplies Shop"],
+  "Real Estate": ["Property Management", "Real Estate Agency", "Rental Business", "Property Development"],
+  "Creative & Media": ["Photography", "Videography", "Graphic Design", "Printing Services", "Music Production", "Content Creation"],
+  Services: ["Salon / Barber Shop", "Laundry Business", "Cleaning Services", "Repair Shop (Phones/Electronics)", "Auto Garage", "Car Wash"],
+  Manufacturing: ["Furniture Production", "Clothing Production", "Food Processing", "Metal Fabrication", "Plastic Production"],
+  Wholesale: ["General Wholesale", "Food Wholesale", "Clothing Wholesale", "Electronics Wholesale", "Hardware Wholesale"]
+};
 
 
 
@@ -62,12 +129,15 @@ const FormField = memo(
     let errorMessage = '';
 
     // Handle different error key formats
-    if (index !== undefined && index !== null) {
-      errorMessage = errors[`security_${name}_${index}`] || errors[`guarantor_security_${name}_${index}`];
+    if (section && index !== undefined && index !== null) {
+      // Support for multiplicity sections: guarantors_0_idNumber, nextOfKins_1_mobile, etc.
+      errorMessage = errors[`${section}_${index}_${name}`] || 
+                     errors[`security_${name}_${index}`] || 
+                     errors[`guarantor_security_${name}_${index}`];
     } else if (section) {
-      // For nested fields like spouse, guarantor, nextOfKin
+      // For single nested objects like spouse
       errorMessage = errors[`${section}${name.charAt(0).toUpperCase() + name.slice(1)}`] ||
-        errors[section]?.[name];
+                     errors[section]?.[name];
     } else {
       errorMessage = errors?.[name];
     }
@@ -82,7 +152,7 @@ const FormField = memo(
           <select
             name={name}
             value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section) : onChange}
+            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
@@ -100,7 +170,7 @@ const FormField = memo(
             name={name}
             type={type}
             value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section) : onChange}
+            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
             className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"
               }`}
             required={required}
@@ -130,7 +200,6 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
   const [completedSections, setCompletedSections] = useState(new Set());
-
   const [formData, setFormData] = useState({
     // Personal Info
     prefix: '',
@@ -162,15 +231,16 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
     landmark: '',
     hasLocalAuthorityLicense: '',
     prequalifiedAmount: '',
+    industry: '',
 
-    // Nested objects 
+    // Nested objects (Now arrays for multiplicity)
     spouse: {
       name: '',
       idNumber: '',
       mobile: '',
       economicActivity: ''
     },
-    nextOfKin: {
+    nextOfKins: [{
       Firstname: '',
       Surname: '',
       Middlename: '',
@@ -185,10 +255,10 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       salary: '',
       businessName: '',
       businessIncome: '',
-      relationshipOther: '',
-      id_no: '' // Added mapping for potential backend sync
-    },
-    guarantor: {
+      relationship_other: '',
+      id_no: ''
+    }],
+    guarantors: [{
       prefix: '',
       Firstname: '',
       Surname: '',
@@ -206,13 +276,19 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       dateOfBirth: '',
       county: '',
       cityTown: ''
-    }
+    }]
   });
+
+  const [isCustomIndustry, setIsCustomIndustry] = useState(false);
+  const [isCustomType, setIsCustomType] = useState(false);
 
 
   // Prefill from leads
   useEffect(() => {
     if (leadData) {
+      const indExists = leadData.industry && Object.keys(INDUSTRIES).includes(leadData.industry);
+      const typeExists = indExists && leadData.business_type && INDUSTRIES[leadData.industry].includes(leadData.business_type);
+
       setFormData((prev) => ({
         ...prev,
         Firstname: leadData.Firstname || "",
@@ -220,10 +296,16 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         mobile: leadData.mobile || leadData.phone || "",
         businessName: leadData.business_name || "",
         businessLocation: leadData.business_location || "",
+        businessCounty: leadData.business_location || "", // Map business_location to businessCounty
         businessType: leadData.business_type || "",
+        industry: leadData.industry || "",
       }));
+
+      if (leadData.industry && !indExists) setIsCustomIndustry(true);
+      if (leadData.business_type && !typeExists) setIsCustomType(true);
     }
   }, [leadData]);
+
 
   // Fix security items structure to match your handlers
   const [securityItems, setSecurityItems] = useState([{
@@ -245,6 +327,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   ]);
 
   const { profile } = useAuth();
+  const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
 
   // File upload state
   const [passportFile, setPassportFile] = useState(null);
@@ -253,9 +336,9 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   const [houseImageFile, setHouseImageFile] = useState(null);
   const [businessImages, setBusinessImages] = useState([]);
   const [securityItemImages, setSecurityItemImages] = useState([]);
-  const [guarantorPassportFile, setGuarantorPassportFile] = useState(null);
-  const [guarantorIdFrontFile, setGuarantorIdFrontFile] = useState(null);
-  const [guarantorIdBackFile, setGuarantorIdBackFile] = useState(null);
+  const [guarantorPassportFiles, setGuarantorPassportFiles] = useState([]);
+  const [guarantorIdFrontFiles, setGuarantorIdFrontFiles] = useState([]);
+  const [guarantorIdBackFiles, setGuarantorIdBackFiles] = useState([]);
   const [guarantorSecurityImages, setGuarantorSecurityImages] = useState([]);
   const [officerClientImage1, setOfficerClientImage1] = useState(null);
   const [officerClientImage2, setOfficerClientImage2] = useState(null);
@@ -286,7 +369,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       icon: ShieldCheckIcon,
     },
     { id: "nextOfKin", label: "Next of Kin", icon: UserGroupIcon },
-    { id: "documents", label: "Documents", icon: DocumentTextIcon },
+    ...(documentUploadEnabled ? [{ id: "documents", label: "Documents", icon: DocumentTextIcon }] : []),
   ];
 
   // Auto-geocode business address when fields change
@@ -346,7 +429,14 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
     async (e) => {
       const { name, value } = e.target;
 
-      setFormData((prev) => ({ ...prev, [name]: value }));
+      // Handle dependent location selects
+      if (name === "county") {
+        setFormData(prev => ({ ...prev, county: value, town: "" }));
+      } else if (name === "businessCounty") {
+        setFormData(prev => ({ ...prev, businessCounty: value, businessLocation: "" }));
+      } else {
+        setFormData((prev) => ({ ...prev, [name]: value }));
+      }
 
       // Clear old error
       if (errors[name]) {
@@ -472,22 +562,79 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
   // Similarly update handleNestedChange for spouse fields
   const handleNestedChange = useCallback(
-    async (e, section) => {
+    async (e, section, index = null) => {
       if (!e || !e.target) return;
       const { name, value } = e.target;
 
-      setFormData((prev) => ({
-        ...prev,
-        [section]: { ...prev[section], [name]: value },
-      }));
+      setFormData((prev) => {
+        // Sections that are arrays
+        if (["guarantors", "nextOfKins"].includes(section)) {
+          if (index === null || !Array.isArray(prev[section])) {
+            console.error(`Attempted to update ${section} as an array but index is null or state is not an array`);
+            return prev;
+          }
+          const newArray = [...prev[section]];
+          const updates = { [name]: value };
 
-      const errorKey = `${section}${name.charAt(0).toUpperCase() + name.slice(1)}`;
+          // Reset dependent location fields if county changes
+          if (name === "county") {
+            if (newArray[index].cityTown !== undefined) updates.cityTown = "";
+            if (newArray[index].town !== undefined) updates.town = "";
+          }
+
+          newArray[index] = { ...newArray[index], ...updates };
+          return { ...prev, [section]: newArray };
+        }
+
+        // Sections that are objects (like spouse)
+        return {
+          ...prev,
+          [section]: { ...prev[section], [name]: value },
+        };
+      });
+
+      const errorKey = index !== null ? `${section}_${index}_${name}` : `${section}${name.charAt(0).toUpperCase() + name.slice(1)}`;
       if (errors[errorKey]) {
         setErrors((prev) => {
           const newErrors = { ...prev };
           delete newErrors[errorKey];
           return newErrors;
         });
+      }
+
+      // --- LIVE VALIDATION FOR MULTIPLICITY SECTIONS ---
+      if (["guarantors", "nextOfKins"].includes(section) && index !== null) {
+        // 1. Mobile Validation
+        if ((name === "mobile" || name === "alternativeMobile" || name === "alternativeNumber") && value) {
+          const cleaned = value.replace(/\D/g, "");
+          if (!/^[0-9]{10,15}$/.test(cleaned)) {
+            setErrors(prev => ({ ...prev, [errorKey]: "Invalid mobile format (10-15 digits)" }));
+          } else {
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned);
+            if (!exists) {
+              setErrors(prev => ({ ...prev, [errorKey]: "Mobile number already exists" }));
+            }
+          }
+        }
+
+        // 2. ID Number Validation
+        if ((name === "idNumber" || name === "id_no") && value) {
+          if (!/^[0-9]{6,12}$/.test(value)) {
+            setErrors(prev => ({ ...prev, [errorKey]: "ID must be 6–12 digits" }));
+          } else {
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value);
+            if (!exists) {
+              setErrors(prev => ({ ...prev, [errorKey]: "ID number already exists" }));
+            }
+          }
+        }
+
+        // 3. Age Validation (Guarantors only)
+        if (section === "guarantors" && name === "dateOfBirth" && value) {
+          if (!isAtLeast18YearsOld(value)) {
+            setErrors(prev => ({ ...prev, [errorKey]: "Guarantor must be at least 18 years old" }));
+          }
+        }
       }
 
       // Live validation for spouse fields
@@ -651,7 +798,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   const addSecurityItem = () => {
     setSecurityItems([
       ...securityItems,
-      { item: "", description: "", identification: "", value: "" },
+      { type: "", description: "", identification: "", value: "", otherType: "" },
     ]);
     setSecurityItemImages([...securityItemImages, []]);
   };
@@ -659,6 +806,47 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   const removeSecurityItem = (index) => {
     setSecurityItems((prev) => prev.filter((_, i) => i !== index));
     setSecurityItemImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const addGuarantor = () => {
+    setFormData((prev) => ({
+      ...prev,
+      guarantors: [
+        ...prev.guarantors,
+        {
+          prefix: "",
+          Firstname: "",
+          Surname: "",
+          Middlename: "",
+          idNumber: "",
+          maritalStatus: "",
+          gender: "",
+          mobile: "",
+          alternativeMobile: "",
+          residenceStatus: "",
+          postalAddress: "",
+          code: "",
+          occupation: "",
+          relationship: "",
+          dateOfBirth: "",
+          county: "",
+          cityTown: "",
+        },
+      ],
+    }));
+    setGuarantorPassportFiles((prev) => [...prev, null]);
+    setGuarantorIdFrontFiles((prev) => [...prev, null]);
+    setGuarantorIdBackFiles((prev) => [...prev, null]);
+  };
+
+  const removeGuarantor = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      guarantors: prev.guarantors.filter((_, i) => i !== index),
+    }));
+    setGuarantorPassportFiles((prev) => prev.filter((_, i) => i !== index));
+    setGuarantorIdFrontFiles((prev) => prev.filter((_, i) => i !== index));
+    setGuarantorIdBackFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const addGuarantorSecurityItem = () => {
@@ -685,17 +873,24 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
   const handleGuarantorSecurityChange = (e, index) => {
     const { name, value } = e.target;
-    console.log(`Guarantor security ${index} - ${name}:`, value);
-
+    
     setGuarantorSecurityItems(prev =>
-      prev.map((item, i) =>
-        i === index ? { ...item, [name]: value } : item
-      )
+      prev.map((item, i) => {
+        if (i === index) {
+          const newItem = { ...item, [name]: value };
+          // If type changes and is not "Other (specify)", clear otherType
+          if (name === "type" && value !== "Other (specify)") {
+            newItem.otherType = "";
+          }
+          return newItem;
+        }
+        return item;
+      })
     );
   };
 
   // Fixed file upload handler
-  const handleFileUpload = async (e, setter, key) => {
+  const handleFileUpload = async (e, setter, key, index = null) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -711,14 +906,23 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       const compressedFile = await compressImage(file);
 
       // Save the file in the corresponding field
-      setter(compressedFile);
+      if (index !== null) {
+        setter((prev) => {
+          const next = [...prev];
+          next[index] = compressedFile;
+          return next;
+        });
+      } else {
+        setter(compressedFile);
+      }
 
       // Store preview with fileName and URL
+      const previewKey = index !== null ? `${key}_${index}` : key;
       setPreviews((prev) => ({
         ...prev,
-        [key]: {
+        [previewKey]: {
           url: URL.createObjectURL(compressedFile),
-          fileName: file.name
+          fileName: file.name,
         },
       }));
 
@@ -729,17 +933,20 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         return newSet;
       });
 
-      console.log(`File saved for ${key}:`, compressedFile.name);
+      console.log(`File saved for ${previewKey}:`, compressedFile.name);
     } catch (err) {
       console.error(err);
-      toast.error("Unexpected error during file selection.");
+      error("Unexpected error during file selection.");
     }
   };
 
   // Fixed file removal handler
-  const handleRemoveFile = (key, setter) => {
+  const handleRemoveFile = (key, setter, index = null) => {
+    // Get the corresponding preview key
+    const previewKey = index !== null ? `${key}_${index}` : key;
+    
     // Get the current file associated with this key
-    const file = previews[key]?.fileName;
+    const file = previews[previewKey]?.fileName;
 
     // Remove from global tracker
     if (file && uploadedFiles.has(file)) {
@@ -751,11 +958,19 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
     }
 
     // Clear the file state
-    setter(null);
+    if (index !== null) {
+      setter((prev) => {
+        const next = [...prev];
+        next[index] = null;
+        return next;
+      });
+    } else {
+      setter(null);
+    }
 
     // Revoke the object URL and clear preview
     setPreviews((prev) => {
-      const url = prev?.[key]?.url;
+      const url = prev?.[previewKey]?.url;
       if (url) {
         try {
           URL.revokeObjectURL(url);
@@ -763,7 +978,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           console.warn("Failed to revoke object URL", err);
         }
       }
-      return { ...prev, [key]: null };
+      return { ...prev, [previewKey]: null };
     });
   };
 
@@ -1006,7 +1221,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
     if (!formData.yearEstablished) {
       errorsFound.yearEstablished = "Year established is required";
-      toast.error("Year established is required", { position: "top-right", autoClose: 3000 });
+      error("Year established is required");
       hasErrors = true;
     } else {
       const establishedDate = new Date(formData.yearEstablished);
@@ -1015,36 +1230,36 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
       if (establishedDate > sixMonthsAgo) {
         errorsFound.yearEstablished = "Business must be at least 6 months old";
-        toast.error("Business must be at least 6 months old", { position: "top-right", autoClose: 3000 });
+        error("Business must be at least 6 months old");
         hasErrors = true;
       }
     }
 
     if (!formData.businessLocation?.trim()) {
       errorsFound.businessLocation = "Business location is required";
-      toast.error("Business location is required", { position: "top-right", autoClose: 3000 });
+      error("Business location is required");
       hasErrors = true;
     }
 
     if (!formData.road?.trim()) {
       errorsFound.road = "Road is required";
-      toast.error("Road is required", { position: "top-right", autoClose: 3000 });
+      error("Road is required");
       hasErrors = true;
     }
 
     if (!formData.landmark?.trim()) {
       errorsFound.landmark = "Landmark is required";
-      toast.error("Landmark is required", { position: "top-right", autoClose: 3000 });
+      error("Landmark is required");
       hasErrors = true;
     }
 
     if (!formData.daily_Sales) {
       errorsFound.daily_Sales = "Daily sales estimate is required";
-      toast.error("Daily sales estimate is required", { position: "top-right", autoClose: 3000 });
+      error("Daily sales estimate is required");
       hasErrors = true;
     } else if (parseFloat(formData.daily_Sales) <= 0) {
       errorsFound.daily_Sales = "Daily sales must be greater than 0";
-      toast.error("Daily sales must be greater than 0", { position: "top-right", autoClose: 3000 });
+      error("Daily sales must be greater than 0");
       hasErrors = true;
     }
 
@@ -1105,85 +1320,81 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   };
 
   const validateGuarantorDetails = async () => {
-    const errorsFound = { guarantor: {} };
+    const errorsFound = {};
     let hasErrors = false;
-    const { Firstname, Surname, mobile, idNumber, dateOfBirth, gender } = formData.guarantor;
 
-    if (!Firstname?.trim()) {
-      errorsFound.guarantor.Firstname = "Guarantor first name is required";
-      error("Guarantor first name is required");
-      hasErrors = true;
-    }
-    if (!Surname?.trim()) {
-      errorsFound.guarantor.Surname = "Guarantor surname is required";
-      error("Guarantor surname is required");
-      hasErrors = true;
-    }
-    if (!gender?.trim()) {
-      errorsFound.guarantor.gender = "Guarantor gender is required";
-      error("Guarantor gender is required");
-      hasErrors = true;
-    }
-    if (!mobile?.trim()) {
-      errorsFound.guarantor.mobile = "Guarantor mobile number is required";
-      error("Guarantor mobile number is required");
-      hasErrors = true;
-    }
-    if (!idNumber?.trim()) {
-      errorsFound.guarantor.idNumber = "Guarantor ID number is required";
-      error("Guarantor ID number is required");
-      hasErrors = true;
-    }
+    const uniqueChecks = [];
 
-    if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
-      errorsFound.guarantor.mobile = "Please enter a valid mobile number (10-15 digits)";
-      error("Invalid guarantor mobile number format");
-      hasErrors = true;
-    }
-    if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
-      errorsFound.guarantor.idNumber = "Please enter a valid ID number (6-12 digits)";
-      error("Invalid guarantor ID number format");
-      hasErrors = true;
-    }
+    formData.guarantors.forEach((g, index) => {
+      const { Firstname, Surname, mobile, idNumber, dateOfBirth, gender } = g;
 
-    if (dateOfBirth && !isAtLeast18YearsOld(dateOfBirth)) {
-      errorsFound.guarantor.dateOfBirth = "Guarantor must be at least 18 years old";
-      error("Guarantor must be at least 18 years old");
-      hasErrors = true;
-    }
+      if (!Firstname?.trim()) {
+        errorsFound[`guarantors_${index}_Firstname`] = `Guarantor ${index + 1}: First name is required`;
+        error(errorsFound[`guarantors_${index}_Firstname`]);
+        hasErrors = true;
+      }
+      if (!Surname?.trim()) {
+        errorsFound[`guarantors_${index}_Surname`] = `Guarantor ${index + 1}: Surname is required`;
+        error(errorsFound[`guarantors_${index}_Surname`]);
+        hasErrors = true;
+      }
+      if (!gender?.trim()) {
+        errorsFound[`guarantors_${index}_gender`] = `Guarantor ${index + 1}: Gender is required`;
+        error(errorsFound[`guarantors_${index}_gender`]);
+        hasErrors = true;
+      }
+      if (!mobile?.trim()) {
+        errorsFound[`guarantors_${index}_mobile`] = `Guarantor ${index + 1}: Mobile number is required`;
+        error(errorsFound[`guarantors_${index}_mobile`]);
+        hasErrors = true;
+      }
+      if (!idNumber?.trim()) {
+        errorsFound[`guarantors_${index}_idNumber`] = `Guarantor ${index + 1}: ID number is required`;
+        error(errorsFound[`guarantors_${index}_idNumber`]);
+        hasErrors = true;
+      }
 
-    const fieldsToCheck = [
-      { field: "mobile", value: mobile, label: "Guarantor mobile" },
-      { field: "idNumber", value: idNumber, label: "Guarantor ID number" },
-    ];
+      if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
+        errorsFound[`guarantors_${index}_mobile`] = `Guarantor ${index + 1}: Invalid mobile format`;
+        error(errorsFound[`guarantors_${index}_mobile`]);
+        hasErrors = true;
+      }
+      if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
+        errorsFound[`guarantors_${index}_idNumber`] = `Guarantor ${index + 1}: Invalid ID format`;
+        error(errorsFound[`guarantors_${index}_idNumber`]);
+        hasErrors = true;
+      }
 
-    // Parallelize uniqueness checks
-    const uniqueChecks = fieldsToCheck
-      .filter(({ value, field }) => value && !errorsFound.guarantor[field])
-      .map(async ({ field, value, label }) => {
-        try {
-          const isUnique = await checkUniqueValue(
-            ["customers", "guarantors", "next_of_kin"],
-            field === "idNumber" ? "id_number" : "mobile",
-            value
-          );
+      if (dateOfBirth && !isAtLeast18YearsOld(dateOfBirth)) {
+        errorsFound[`guarantors_${index}_dateOfBirth`] = `Guarantor ${index + 1}: Must be 18+`;
+        error(errorsFound[`guarantors_${index}_dateOfBirth`]);
+        hasErrors = true;
+      }
+
+      // Prepare uniqueness checks
+      if (mobile && !errorsFound[`guarantors_${index}_mobile`]) {
+        uniqueChecks.push((async () => {
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""));
           if (!isUnique) {
-            return { field, error: `${label} already exists in our system` };
+            errorsFound[`guarantors_${index}_mobile`] = `Guarantor ${index + 1}: Mobile already exists`;
+            error(errorsFound[`guarantors_${index}_mobile`]);
+            hasErrors = true;
           }
-        } catch (error) {
-          console.error(`Error checking uniqueness for ${label}:`, error);
-          return { field, error: `Error validating ${label}` };
-        }
-        return null;
-      });
-
-    const results = await Promise.all(uniqueChecks);
-    results.filter(Boolean).forEach(({ field, error }) => {
-      errorsFound.guarantor[field] = error;
-      error(error);
-      hasErrors = true;
+        })());
+      }
+      if (idNumber && !errorsFound[`guarantors_${index}_idNumber`]) {
+        uniqueChecks.push((async () => {
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber);
+          if (!isUnique) {
+            errorsFound[`guarantors_${index}_idNumber`] = `Guarantor ${index + 1}: ID already exists`;
+            error(errorsFound[`guarantors_${index}_idNumber`]);
+            hasErrors = true;
+          }
+        })());
+      }
     });
 
+    await Promise.all(uniqueChecks);
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
   };
@@ -1217,112 +1428,102 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
   };
 
   const validateNextOfKinDetails = async () => {
-    const errorsFound = { nextOfKin: {} };
+    const errorsFound = {};
     let hasErrors = false;
-    const { Firstname, Surname, mobile, alternativeNumber, idNumber, relationship, employmentStatus } = formData.nextOfKin;
+    const uniqueChecks = [];
 
-    if (!Firstname?.trim()) {
-      errorsFound.nextOfKin.Firstname = "Next of kin first name is required";
-      error(errorsFound.nextOfKin.Firstname);
-      hasErrors = true;
-    }
-    if (!Surname?.trim()) {
-      errorsFound.nextOfKin.Surname = "Next of kin surname is required";
-      error(errorsFound.nextOfKin.Surname);
-      hasErrors = true;
-    }
-    if (!mobile?.trim()) {
-      errorsFound.nextOfKin.mobile = "Next of kin mobile number is required";
-      error(errorsFound.nextOfKin.mobile);
-      hasErrors = true;
-    }
-    if (!idNumber?.trim()) {
-      errorsFound.nextOfKin.idNumber = "Next of kin ID number is required";
-      error(errorsFound.nextOfKin.idNumber);
-      hasErrors = true;
-    }
+    formData.nextOfKins.forEach((nok, index) => {
+      const { Firstname, Surname, mobile, alternativeNumber, idNumber, relationship, employmentStatus } = nok;
 
-    if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
-      errorsFound.nextOfKin.mobile = "Please enter a valid mobile number (10-15 digits)";
-      error(errorsFound.nextOfKin.mobile);
-      hasErrors = true;
-    }
-    if (alternativeNumber && !/^[0-9]{10,15}$/.test(alternativeNumber.replace(/\D/g, ""))) {
-      errorsFound.nextOfKin.alternativeNumber = "Please enter a valid alternative mobile number (10-15 digits)";
-      error(errorsFound.nextOfKin.alternativeNumber);
-      hasErrors = true;
-    }
-    if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
-      errorsFound.nextOfKin.idNumber = "Please enter a valid ID number (6-12 digits)";
-      error(errorsFound.nextOfKin.idNumber);
-      hasErrors = true;
-    }
+      if (!Firstname?.trim()) {
+        errorsFound[`nextOfKins_${index}_Firstname`] = `Next of Kin ${index + 1}: First name is required`;
+        error(errorsFound[`nextOfKins_${index}_Firstname`]);
+        hasErrors = true;
+      }
+      if (!Surname?.trim()) {
+        errorsFound[`nextOfKins_${index}_Surname`] = `Next of Kin ${index + 1}: Surname is required`;
+        error(errorsFound[`nextOfKins_${index}_Surname`]);
+        hasErrors = true;
+      }
+      if (!mobile?.trim()) {
+        errorsFound[`nextOfKins_${index}_mobile`] = `Next of Kin ${index + 1}: Mobile number is required`;
+        error(errorsFound[`nextOfKins_${index}_mobile`]);
+        hasErrors = true;
+      }
+      if (!idNumber?.trim()) {
+        errorsFound[`nextOfKins_${index}_idNumber`] = `Next of Kin ${index + 1}: ID number is required`;
+        error(errorsFound[`nextOfKins_${index}_idNumber`]);
+        hasErrors = true;
+      }
 
-    if (!relationship?.trim()) {
-      errorsFound.nextOfKin.relationship = "Relationship is required";
-      error(errorsFound.nextOfKin.relationship);
-      hasErrors = true;
-    }
-    if (!employmentStatus?.trim()) {
-      errorsFound.nextOfKin.employmentStatus = "Employment status is required";
-      error(errorsFound.nextOfKin.employmentStatus);
-      hasErrors = true;
-    }
+      if (mobile && !/^[0-9]{10,15}$/.test(mobile.replace(/\D/g, ""))) {
+        errorsFound[`nextOfKins_${index}_mobile`] = `Next of Kin ${index + 1}: Invalid mobile format`;
+        error(errorsFound[`nextOfKins_${index}_mobile`]);
+        hasErrors = true;
+      }
+      if (idNumber && !/^[0-9]{6,12}$/.test(idNumber)) {
+        errorsFound[`nextOfKins_${index}_idNumber`] = `Next of Kin ${index + 1}: Invalid ID format`;
+        error(errorsFound[`nextOfKins_${index}_idNumber`]);
+        hasErrors = true;
+      }
 
-    const fieldsToCheck = [
-      { field: "mobile", value: mobile, label: "Next of kin mobile" },
-      { field: "alternativeNumber", value: alternativeNumber, label: "Next of kin alternative mobile" },
-      { field: "idNumber", value: idNumber, label: "Next of kin ID number" },
-    ];
+      if (!relationship?.trim()) {
+        errorsFound[`nextOfKins_${index}_relationship`] = `Next of Kin ${index + 1}: Relationship is required`;
+        error(errorsFound[`nextOfKins_${index}_relationship`]);
+        hasErrors = true;
+      }
+      if (!employmentStatus?.trim()) {
+        errorsFound[`nextOfKins_${index}_employmentStatus`] = `Next of Kin ${index + 1}: Employment status is required`;
+        error(errorsFound[`nextOfKins_${index}_employmentStatus`]);
+        hasErrors = true;
+      }
 
-    // Parallelize uniqueness checks
-    const uniqueChecks = fieldsToCheck
-      .filter(({ value, field }) => value && !errorsFound.nextOfKin[field])
-      .map(async ({ field, value, label }) => {
-        try {
-          const isUnique = await checkUniqueValue(
-            ["customers", "guarantors", "next_of_kin"],
-            field === "idNumber" || field === "id_no" ? "id_number" : "mobile",
-            value
-          );
+      // Uniqueness checks
+      if (mobile && !errorsFound[`nextOfKins_${index}_mobile`]) {
+        uniqueChecks.push((async () => {
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""));
           if (!isUnique) {
-            return { field, error: `${label} already exists in our system` };
+            errorsFound[`nextOfKins_${index}_mobile`] = `Next of Kin ${index + 1}: Mobile already exists`;
+            error(errorsFound[`nextOfKins_${index}_mobile`]);
+            hasErrors = true;
           }
-        } catch (error) {
-          console.error(`Error checking uniqueness for ${label}:`, error);
-          return { field, error: `Error validating ${label}` };
-        }
-        return null;
-      });
-
-    const results = await Promise.all(uniqueChecks);
-    results.filter(Boolean).forEach(({ field, error }) => {
-      errorsFound.nextOfKin[field] = error;
-      error(error);
-      hasErrors = true;
+        })());
+      }
+      if (idNumber && !errorsFound[`nextOfKins_${index}_idNumber`]) {
+        uniqueChecks.push((async () => {
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber);
+          if (!isUnique) {
+            errorsFound[`nextOfKins_${index}_idNumber`] = `Next of Kin ${index + 1}: ID already exists`;
+            error(errorsFound[`nextOfKins_${index}_idNumber`]);
+            hasErrors = true;
+          }
+        })());
+      }
     });
 
+    await Promise.all(uniqueChecks);
     setErrors((prev) => ({ ...prev, ...errorsFound }));
     return !hasErrors;
   };
 
   const validateDocuments = () => {
+    if (!documentUploadEnabled) return true;
     let errorsFound = {};
     let hasErrors = false;
 
     if (!officerClientImage1) {
       errorsFound.officerClientImage1 = "First Officer and Client Image is required";
-      toast.error("First Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
+      error("First Officer and Client Image is required");
       hasErrors = true;
     }
     if (!officerClientImage2) {
       errorsFound.officerClientImage2 = "Second Officer and Client Image is required";
-      toast.error("Second Officer and Client Image is required", { position: "top-right", autoClose: 3000 });
+      error("Second Officer and Client Image is required");
       hasErrors = true;
     }
     if (!bothOfficersImage) {
       errorsFound.bothOfficersImage = "Both Officers Image is required";
-      toast.error("Both Officers Image is required", { position: "top-right", autoClose: 3000 });
+      error("Both Officers Image is required");
       hasErrors = true;
     }
 
@@ -1414,11 +1615,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       }
 
       if (!isValid) {
-        toast.error("Please fix the highlighted errors before continuing.", {
-          position: "top-right",
-          autoClose: 3000,
-          theme: "colored",
-        });
+        error("Please fix the highlighted errors before continuing.");
         return;
       }
 
@@ -1483,35 +1680,33 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       const existingCustomerId = formData?.id || null;
       const timestamp = Date.now();
 
-      // 1. PARALLEL UPLOAD ALL FILES AT ONCE (same as handleSubmit)
+      // 1. PARALLEL UPLOAD ALL FILES AT ONCE
+      const guarantorFilesPromises = (formData.guarantors || []).map(async (g, index) => {
+        const [pass, idF, idB] = await Promise.all([
+          guarantorPassportFiles[index] ? uploadFile(guarantorPassportFiles[index], `guarantor/${timestamp}_${index}_pass_${guarantorPassportFiles[index].name}`) : Promise.resolve(g.passport_url || null),
+          guarantorIdFrontFiles[index] ? uploadFile(guarantorIdFrontFiles[index], `guarantor/${timestamp}_${index}_idf_${guarantorIdFrontFiles[index].name}`) : Promise.resolve(g.id_front_url || null),
+          guarantorIdBackFiles[index] ? uploadFile(guarantorIdBackFiles[index], `guarantor/${timestamp}_${index}_idb_${guarantorIdBackFiles[index].name}`) : Promise.resolve(g.id_back_url || null),
+        ]);
+        return { passport: pass, idFront: idF, idBack: idB };
+      });
+
       const [
         passportUrl,
         idFrontUrl,
         idBackUrl,
         houseImageUrl,
-        guarantorPassportUrl,
-        guarantorIdFrontUrl,
-        guarantorIdBackUrl,
+        guarantorDocs,
         businessUrls,
         officerClientUrl1,
         officerClientUrl2,
         bothOfficersUrl
       ] = await Promise.all([
-        // Customer documents - only upload if file exists
         passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : Promise.resolve(formData.passport_url || null),
         idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : Promise.resolve(formData.id_front_url || null),
         idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : Promise.resolve(formData.id_back_url || null),
         houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : Promise.resolve(formData.house_image_url || null),
-
-        // Guarantor documents
-        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : Promise.resolve(null),
-        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : Promise.resolve(null),
-        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : Promise.resolve(null),
-
-        // Business images (batch upload if any exist)
+        Promise.all(guarantorFilesPromises),
         businessImages?.length > 0 ? uploadFilesBatch(businessImages, "business") : Promise.resolve([]),
-
-        // Officer verification images
         officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : Promise.resolve(null),
         officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : Promise.resolve(null),
         bothOfficersImage ? uploadFile(bothOfficersImage, `documents/${timestamp}_both_${bothOfficersImage.name}`) : Promise.resolve(null),
@@ -1537,6 +1732,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         county: formData.county || null,
         business_county: formData.businessCounty || null,
         business_name: formData.businessName || null,
+        industry: formData.industry || null,
         business_type: formData.businessType || null,
         daily_Sales: formData.daily_Sales ? parseFloat(formData.daily_Sales) : null,
         year_established: formData.yearEstablished || null,
@@ -1569,250 +1765,111 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           .update(customerPayload)
           .eq("id", existingCustomerId)
           .select("id")
-          .single();
+          .single()
+          .then(res => res);
       } else {
         draftResult = await supabase
           .from("customers")
           .insert([{ ...customerPayload, created_at: new Date().toISOString() }])
           .select("id")
-          .single();
+          .single()
+          .then(res => res);
       }
 
       if (draftResult.error) throw draftResult.error;
       const customerId = draftResult.data.id;
 
-      // Update lead status if this was a conversion
-      if (leadData?.id) {
-        await supabase
-          .from("leads")
-          .update({
-            converted_at: new Date().toISOString(),
-            converted_by: profile?.id,
-            status: "converted"
-          })
-          .eq("id", leadData.id);
-      }
-
       // 4. PARALLEL UPSERT: All related records at once
       const upsertPromises = [];
 
-      // Business images (delete existing and insert new if any)
+      // Business images
       if (businessUrls.length > 0) {
-        // Delete existing business images for this customer
-        upsertPromises.push(
-          supabase.from("business_images").delete().eq("customer_id", customerId)
-        );
-
+        upsertPromises.push(supabase.from("business_images").delete().eq("customer_id", customerId).then(res => res));
         const businessRecords = businessUrls.map((url) => ({
+          customer_id: customerId, image_url: url, created_by: profile?.id,
+          tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id, created_at: new Date().toISOString(),
+        }));
+        upsertPromises.push(supabase.from("business_images").insert(businessRecords).then(res => res));
+      }
+
+      // Spouse
+      if (formData.maritalStatus === "Married" && formData.spouse) {
+        upsertPromises.push(supabase.from("spouse").upsert({
           customer_id: customerId,
-          image_url: url,
+          name: formData.spouse.name || null,
+          id_number: formData.spouse.idNumber || null,
+          mobile: formData.spouse.mobile || null,
+          economic_activity: formData.spouse.economicActivity || null,
           created_by: profile?.id,
           tenant_id: profile?.tenant_id,
           branch_id: profile?.branch_id,
           region_id: profile?.region_id,
-          created_at: new Date().toISOString(),
-        }));
-
-        upsertPromises.push(
-          supabase.from("business_images").insert(businessRecords)
-        );
+          updated_at: new Date().toISOString(),
+        }, { onConflict: "customer_id" }).then(res => res));
+      } else {
+        upsertPromises.push(supabase.from("spouse").delete().eq("customer_id", customerId).then(res => res));
       }
 
-      // Spouse - only if married and spouse data exists
-      if (formData.maritalStatus === "Married" && formData.spouse) {
-        const spouseData = formData.spouse || {};
-        if (Object.values(spouseData).some(Boolean)) {
-          upsertPromises.push(
-            supabase.from("spouse").upsert(
-              {
-                customer_id: customerId,
-                name: spouseData.name || null,
-                id_number: spouseData.idNumber || null,
-                mobile: spouseData.mobile || null,
-                economic_activity: spouseData.economicActivity || null,
-                created_by: profile?.id,
-                tenant_id: profile?.tenant_id,
-                branch_id: profile?.branch_id,
-                region_id: profile?.region_id,
-              },
-              { onConflict: "customer_id" }
-            )
-          );
-        }
-      }
-
-      // Next of Kin - only if data exists
-      const nextOfKin = formData.nextOfKin || {};
-      if (Object.values(nextOfKin).some(Boolean)) {
-        upsertPromises.push(
-          supabase.from("next_of_kin").upsert(
-            {
-              customer_id: customerId,
-              Firstname: nextOfKin.Firstname || null,
-              Surname: nextOfKin.Surname || null,
-              Middlename: nextOfKin.Middlename || null,
-              id_number: nextOfKin.idNumber || null,
-              relationship: nextOfKin.relationship || null,
-              mobile: nextOfKin.mobile || null,
-              alternative_number: nextOfKin.alternativeNumber || null,
-              employment_status: nextOfKin.employmentStatus || null,
-              county: nextOfKin.county || null,
-              city_town: nextOfKin.cityTown || null,
-              company_name: nextOfKin.companyName || null,
-              salary: nextOfKin.salary ? parseFloat(nextOfKin.salary) : null,
-              business_name: nextOfKin.businessName || null,
-              business_income: nextOfKin.businessIncome ? parseFloat(nextOfKin.businessIncome) : null,
-              relationship_other: nextOfKin.relationshipOther || null,
-              created_by: profile?.id,
-              tenant_id: profile?.tenant_id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id,
-            },
-            { onConflict: "customer_id" }
-          )
-        );
-      }
-
-      // Guarantor - only if data exists
-      const guarantor = formData.guarantor || {};
-      const guarantorFilled = Object.values(guarantor).some(
-        (val) => val != null && String(val).trim() !== ""
+      // Next of Kin - sequential delete then insert to avoid race condition
+      upsertPromises.push(
+        supabase.from("next_of_kin").delete().eq("customer_id", customerId).then(() => {
+          const nokRecords = (formData.nextOfKins || []).filter(nok => nok.Firstname || nok.Surname).map(nok => ({
+            customer_id: customerId,
+            Firstname: nok.Firstname || null, Surname: nok.Surname || null, Middlename: nok.Middlename || null,
+            id_number: nok.idNumber || null, relationship: nok.relationship || null, mobile: nok.mobile || null,
+            alternative_number: nok.alternativeNumber || null, employment_status: nok.employmentStatus || null,
+            county: nok.county || null, city_town: nok.cityTown || null, company_name: nok.companyName || null,
+            salary: nok.salary ? parseFloat(nok.salary) : null, business_name: nok.businessName || null,
+            business_income: nok.businessIncome ? parseFloat(nok.businessIncome) : null, relationship_other: nok.relationshipOther || null,
+            created_by: profile?.id, tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+          if (nokRecords.length > 0) return supabase.from("next_of_kin").insert(nokRecords).then(res => res);
+        })
       );
 
-      if (guarantorFilled) {
-        upsertPromises.push(
-          supabase.from("guarantors").upsert(
-            {
-              customer_id: customerId,
-              Firstname: guarantor.Firstname || null,
-              Surname: guarantor.Surname || null,
-              Middlename: guarantor.Middlename || null,
-              id_number: guarantor.idNumber || null,
-              marital_status: guarantor.maritalStatus || null,
-              gender: guarantor.gender || null,
-              mobile: guarantor.mobile || null,
-              alternative_number: guarantor.alternativeMobile || null,
-              residence_status: guarantor.residenceStatus || null,
-              postal_address: guarantor.postalAddress || null,
-              code: guarantor.code ? parseInt(guarantor.code) : null,
-              occupation: guarantor.occupation || null,
-              relationship: guarantor.relationship || null,
-              date_of_birth: guarantor.dateOfBirth || null,
-              county: guarantor.county || null,
-              city_town: guarantor.cityTown || null,
-              passport_url: guarantorPassportUrl,
-              id_front_url: guarantorIdFrontUrl,
-              id_back_url: guarantorIdBackUrl,
-              created_by: profile?.id,
-              tenant_id: profile?.tenant_id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id,
-            },
-            { onConflict: "customer_id" }
-          )
-        );
-      }
+      // Guarantors - sequential delete then insert to avoid race condition
+      upsertPromises.push(
+        supabase.from("guarantors").delete().eq("customer_id", customerId).then(() => {
+          const guarantorRecords = (formData.guarantors || []).filter(g => g.Firstname || g.Surname).map((g, idx) => ({
+            customer_id: customerId,
+            Firstname: g.Firstname || null, Surname: g.Surname || null, Middlename: g.Middlename || null,
+            id_number: g.idNumber || null, marital_status: g.maritalStatus || null, gender: g.gender || null,
+            mobile: g.mobile || null, alternative_number: g.alternativeMobile || null, residence_status: g.residenceStatus || null,
+            postal_address: g.postalAddress || null, code: g.code ? parseInt(g.code) : null, occupation: g.occupation || null,
+            relationship: g.relationship || null, date_of_birth: g.dateOfBirth || null, county: g.county || null, city_town: g.cityTown || null,
+            passport_url: guarantorDocs[idx]?.passport || g.passport_url || null,
+            id_front_url: guarantorDocs[idx]?.idFront || g.id_front_url || null,
+            id_back_url: guarantorDocs[idx]?.idBack || g.id_back_url || null,
+            created_by: profile?.id, tenant_id: profile?.tenant_id, branch_id: profile?.branch_id, region_id: profile?.region_id,
+            created_at: new Date().toISOString()
+          }));
+          if (guarantorRecords.length > 0) return supabase.from("guarantors").insert(guarantorRecords).select("id");
+        })
+      );
 
-      // Document verification images - only if any exist
-      const documentRecords = [
-        { file: officerClientUrl1, type: "First Officer and Client Image" },
-        { file: officerClientUrl2, type: "Second Officer and Client Image" },
-        { file: bothOfficersUrl, type: "Both Officers Image" },
-      ]
-        .filter(doc => doc.file)
-        .map(doc => ({
-          customer_id: customerId,
-          document_type: doc.type,
-          document_url: doc.file,
-          created_by: profile?.id,
-          tenant_id: profile?.tenant_id,
-          branch_id: profile?.branch_id,
-          region_id: profile?.region_id,
-          created_at: new Date().toISOString(),
-        }));
-
-      if (documentRecords.length > 0) {
-        // Delete existing documents and insert new ones
-        upsertPromises.push(
-          supabase.from("documents").delete().eq("customer_id", customerId)
-        );
-        upsertPromises.push(
-          supabase.from("documents").insert(documentRecords)
-        );
-      }
-
-      // Execute all upserts in parallel
       await Promise.all(upsertPromises);
 
-      // 5. Handle security items if any exist
+      // Handle security items - link to primary guarantor
+      let primaryGuarantorId = null;
+      const { data: primaryG } = await supabase.from("guarantors").select("id").eq("customer_id", customerId).order('id', { ascending: true }).limit(1).single();
+      primaryGuarantorId = primaryG?.id;
+
       if (securityItems?.length > 0) {
-        // Delete existing security items for customer
         await supabase.from("security_items").delete().eq("customer_id", customerId).eq("is_guarantor", false);
-
-        const itemsToInsert = securityItems
-          .filter(s => s.type || s.description)
-          .map((s) => ({
-            customer_id: customerId,
-            item: s.type || s.item || null,
-            description: s.description || null,
-            identification: s.identification || null,
-            value: s.value ? parseFloat(s.value) : null,
-            is_guarantor: false,
-            created_by: profile?.id,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-          }));
-        if (itemsToInsert.length > 0) {
-          await supabase.from("security_items").insert(itemsToInsert);
-        }
+        await insertSecurityItemsOptimized(securityItems, securityItemImages, customerId, false);
       }
 
-      // Handle guarantor security items if any exist
-      if (guarantorSecurityItems?.length > 0 && guarantorFilled) {
-        const { data: guarantorData } = await supabase
-          .from("guarantors")
-          .select("id")
-          .eq("customer_id", customerId)
-          .single();
-
-        if (guarantorData?.id) {
-          await supabase.from("security_items").delete().eq("customer_id", guarantorData.id).eq("is_guarantor", true);
-
-          const guarantorItemsToInsert = guarantorSecurityItems
-            .filter(s => s.type || s.description)
-            .map((s) => ({
-              customer_id: guarantorData.id,
-              item: s.type || s.item || null,
-              description: s.description || null,
-              identification: s.identification || null,
-              value: s.value ? parseFloat(s.value) : null,
-              is_guarantor: true,
-              created_by: profile?.id,
-              tenant_id: profile?.tenant_id,
-              branch_id: profile?.branch_id,
-              region_id: profile?.region_id,
-            }));
-          if (guarantorItemsToInsert.length > 0) {
-            await supabase.from("security_items").insert(guarantorItemsToInsert);
-          }
-        }
+      if (guarantorSecurityItems?.length > 0 && primaryGuarantorId) {
+        await supabase.from("security_items").delete().eq("customer_id", primaryGuarantorId).eq("is_guarantor", true);
+        await insertSecurityItemsOptimized(guarantorSecurityItems, guarantorSecurityImages, primaryGuarantorId, true);
       }
 
-      toast.success("Draft saved successfully!", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-
-    } catch (error) {
-      console.error("Error saving draft:", error);
-      toast.error("Failed to save draft. Please try again.", {
-        position: "top-right",
-        autoClose: 3000,
-      });
-    } finally {
-      setIsSavingDraft(false);
-      navigate('/registry/customers');
+      toast.success("Draft saved successfully!");
+      navigate("/registry/customers");
+    } catch (err) {
+      console.error("Error saving draft:", err);
+      toast.error(err.message || "Something went wrong saving the draft");
     }
   };
 
@@ -1899,7 +1956,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       // 1. Validate form
       const isValid = await validateForm();
       if (!isValid) {
-        toast.error("Please fix all validation errors before submitting.");
+        error("Please fix all validation errors before submitting.");
         setIsSubmitting(false);
         return;
       }
@@ -1907,37 +1964,42 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       const timestamp = Date.now();
 
       // 2. PARALLEL UPLOAD ALL FILES AT ONCE (MAJOR SPEED BOOST)
+      const guarantorFilesPromises = (formData.guarantors || []).map(async (g, index) => {
+        const [pass, idF, idB] = await Promise.all([
+          guarantorPassportFiles[index] ? uploadFile(guarantorPassportFiles[index], `guarantor/${timestamp}_${index}_pass_${guarantorPassportFiles[index].name}`) : Promise.resolve(g.passport_url || null),
+          guarantorIdFrontFiles[index] ? uploadFile(guarantorIdFrontFiles[index], `guarantor/${timestamp}_${index}_idf_${guarantorIdFrontFiles[index].name}`) : Promise.resolve(g.id_front_url || null),
+          guarantorIdBackFiles[index] ? uploadFile(guarantorIdBackFiles[index], `guarantor/${timestamp}_${index}_idb_${guarantorIdBackFiles[index].name}`) : Promise.resolve(g.id_back_url || null),
+        ]);
+        return { passport: pass, idFront: idF, idBack: idB };
+      });
+
       const [
         passportUrl,
         idFrontUrl,
         idBackUrl,
         houseImageUrl,
-        guarantorPassportUrl,
-        guarantorIdFrontUrl,
-        guarantorIdBackUrl,
+        guarantorDocs,
         businessUrls,
         officerClientUrl1,
         officerClientUrl2,
         bothOfficersUrl
       ] = await Promise.all([
         // Customer documents
-        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : null,
-        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : null,
-        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : null,
-        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : null,
+        passportFile ? uploadFile(passportFile, `personal/${timestamp}_passport_${passportFile.name}`) : Promise.resolve(formData.passport_url || null),
+        idFrontFile ? uploadFile(idFrontFile, `personal/${timestamp}_id_front_${idFrontFile.name}`) : Promise.resolve(formData.id_front_url || null),
+        idBackFile ? uploadFile(idBackFile, `personal/${timestamp}_id_back_${idBackFile.name}`) : Promise.resolve(formData.id_back_url || null),
+        houseImageFile ? uploadFile(houseImageFile, `personal/${timestamp}_house_${houseImageFile.name}`) : Promise.resolve(formData.house_image_url || null),
 
-        // Guarantor documents
-        guarantorPassportFile ? uploadFile(guarantorPassportFile, `guarantor/${timestamp}_passport_${guarantorPassportFile.name}`) : null,
-        guarantorIdFrontFile ? uploadFile(guarantorIdFrontFile, `guarantor/${timestamp}_id_front_${guarantorIdFrontFile.name}`) : null,
-        guarantorIdBackFile ? uploadFile(guarantorIdBackFile, `guarantor/${timestamp}_id_back_${guarantorIdBackFile.name}`) : null,
+        // Guarantor documents (process all)
+        Promise.all(guarantorFilesPromises),
 
         // Business images (batch upload)
-        businessImages.length > 0 ? uploadFilesBatch(businessImages, "business") : [],
+        businessImages.length > 0 ? uploadFilesBatch(businessImages, "business") : Promise.resolve([]),
 
         // Officer verification images
-        officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : null,
-        officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : null,
-        bothOfficersImage ? uploadFile(bothOfficersImage, `documents/${timestamp}_both_${bothOfficersImage.name}`) : null,
+        officerClientImage1 ? uploadFile(officerClientImage1, `documents/${timestamp}_officer1_${officerClientImage1.name}`) : Promise.resolve(null),
+        officerClientImage2 ? uploadFile(officerClientImage2, `documents/${timestamp}_officer2_${officerClientImage2.name}`) : Promise.resolve(null),
+        bothOfficersImage ? uploadFile(bothOfficersImage, `documents/${timestamp}_both_${bothOfficersImage.name}`) : Promise.resolve(null),
       ]);
 
       // 3. Insert Customer (with all URLs ready)
@@ -1959,6 +2021,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         town: formData.town || null,
         county: formData.county || null,
         business_name: formData.businessName || null,
+        industry: formData.industry || null,
         business_type: formData.businessType || null,
         daily_Sales: Number(formData.daily_Sales) || null,
         year_established: formData.yearEstablished || null,
@@ -1988,7 +2051,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         .from("customers")
         .insert([customerPayload])
         .select("id")
-        .single();
+        .single()
+        .then(res => res);
 
       if (customerError) throw customerError;
       const customerId = customerData.id;
@@ -2019,7 +2083,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           region_id: profile?.region_id,
           created_at: new Date().toISOString(),
         }));
-        insertPromises.push(supabase.from("business_images").insert(businessRecords));
+        insertPromises.push(supabase.from("business_images").insert(businessRecords).then(res => res));
       }
 
       // Spouse
@@ -2036,76 +2100,71 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             branch_id: profile?.branch_id,
             region_id: profile?.region_id,
             created_at: new Date().toISOString(),
-          }])
+          }]).then(res => res)
         );
       }
 
-      // Next of Kin
-      const nextOfKin = formData.nextOfKin || {};
-      if (Object.values(nextOfKin).some(Boolean)) {
-        insertPromises.push(
-          supabase.from("next_of_kin").insert([{
-            customer_id: customerId,
-            Firstname: nextOfKin.Firstname || null,
-            Surname: nextOfKin.Surname || null,
-            Middlename: nextOfKin.Middlename || null,
-            id_number: nextOfKin.idNumber || null,
-            relationship: nextOfKin.relationship || null,
-            mobile: nextOfKin.mobile || null,
-            alternative_number: nextOfKin.alternativeNumber || null,
-            employment_status: nextOfKin.employmentStatus || null,
-            county: nextOfKin.county || null,
-            city_town: nextOfKin.cityTown || null,
-            company_name: nextOfKin.companyName || null,
-            salary: nextOfKin.salary ? parseFloat(nextOfKin.salary) : null,
-            business_name: nextOfKin.businessName || null,
-            business_income: nextOfKin.businessIncome ? parseFloat(nextOfKin.businessIncome) : null,
-            relationship_other: nextOfKin.relationshipOther || null,
-            created_by: profile?.id,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_at: new Date().toISOString(),
-          }])
-        );
+      // Next of Kin - Handle multiple
+      const nokRecords = formData.nextOfKins.filter(nok => Object.values(nok).some(Boolean)).map(nok => ({
+        customer_id: customerId,
+        Firstname: nok.Firstname || null,
+        Surname: nok.Surname || null,
+        Middlename: nok.Middlename || null,
+        id_number: nok.idNumber || null,
+        relationship: nok.relationship || null,
+        mobile: nok.mobile || null,
+        alternative_number: nok.alternativeNumber || null,
+        employment_status: nok.employmentStatus || null,
+        county: nok.county || null,
+        city_town: nok.cityTown || null,
+        company_name: nok.companyName || null,
+        salary: nok.salary ? parseFloat(nok.salary) : null,
+        business_name: nok.businessName || null,
+        business_income: nok.businessIncome ? parseFloat(nok.businessIncome) : null,
+        relationship_other: nok.relationshipOther || null,
+        created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
+        branch_id: profile?.branch_id,
+        region_id: profile?.region_id,
+        created_at: new Date().toISOString(),
+      }));
+
+      if (nokRecords.length > 0) {
+        insertPromises.push(supabase.from("next_of_kin").insert(nokRecords).then(res => res));
       }
 
-      // Guarantor with documents (matching old structure exactly)
-      const guarantor = formData.guarantor || {};
-      const guarantorFilled = Object.values(guarantor).some(
-        (val) => val != null && String(val).trim() !== ""
-      );
+      // Guarantor - Handle multiple
+      const guarantorRecords = formData.guarantors.filter(g => Object.values(g).some(Boolean)).map((g, idx) => ({
+        customer_id: customerId,
+        Firstname: g.Firstname || null,
+        Surname: g.Surname || null,
+        Middlename: g.Middlename || null,
+        id_number: g.idNumber || null,
+        marital_status: g.maritalStatus || null,
+        gender: g.gender || null,
+        mobile: g.mobile || null,
+        alternative_number: g.alternativeMobile || null,
+        residence_status: g.residenceStatus || null,
+        postal_address: g.postalAddress || null,
+        code: g.code ? parseInt(g.code) : null,
+        occupation: g.occupation || null,
+        relationship: g.relationship || null,
+        date_of_birth: g.dateOfBirth || null,
+        county: g.county || null,
+        city_town: g.cityTown || null,
+        // Link docs to each guarantor
+        passport_url: guarantorDocs[idx]?.passport || g.passport_url || null,
+        id_front_url: guarantorDocs[idx]?.idFront || g.id_front_url || null,
+        id_back_url: guarantorDocs[idx]?.idBack || g.id_back_url || null,
+        created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
+        branch_id: profile?.branch_id,
+        region_id: profile?.region_id,
+        created_at: new Date().toISOString(),
+      }));
 
-      if (guarantorFilled) {
-        insertPromises.push(
-          supabase.from("guarantors").insert([{
-            customer_id: customerId,
-            Firstname: guarantor.Firstname || null,
-            Surname: guarantor.Surname || null,
-            Middlename: guarantor.Middlename || null,
-            id_number: guarantor.idNumber || null,
-            marital_status: guarantor.maritalStatus || null,
-            gender: guarantor.gender || null,
-            mobile: guarantor.mobile || null,
-            alternative_number: guarantor.alternativeMobile || null,
-            residence_status: guarantor.residenceStatus || null,
-            postal_address: guarantor.postalAddress || null,
-            code: guarantor.code ? parseInt(guarantor.code) : null,
-            occupation: guarantor.occupation || null,
-            relationship: guarantor.relationship || null,
-            date_of_birth: guarantor.dateOfBirth || null,
-            county: guarantor.county || null,
-            city_town: guarantor.cityTown || null,
-            passport_url: guarantorPassportUrl,
-            id_front_url: guarantorIdFrontUrl,
-            id_back_url: guarantorIdBackUrl,
-            created_by: profile?.id,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id,
-            region_id: profile?.region_id,
-            created_at: new Date().toISOString(),
-          }]).select("id").single()
-        );
+      if (guarantorRecords.length > 0) {
+        insertPromises.push(supabase.from("guarantors").insert(guarantorRecords).then(res => res));
       }
 
       // Document verification images
@@ -2127,7 +2186,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         }));
 
       if (documentRecords.length) {
-        insertPromises.push(supabase.from("documents").insert(documentRecords));
+        insertPromises.push(supabase.from("documents").insert(documentRecords).then(res => res));
       }
 
       // Execute all inserts in parallel
@@ -2135,8 +2194,17 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
       // Get guarantor ID if inserted
       let guarantorId = null;
-      const guarantorResult = results.find(r => r.data?.id);
-      if (guarantorResult) guarantorId = guarantorResult.data.id;
+      // results is an array of responses from supabase. Find the one from the "guarantors" table
+      // In the new logic, we insert an array, so data will be an array of records
+      const guarantorResponse = results.find(r => r.data && Array.isArray(r.data) && r.data.length > 0 && r.data[0].id && !r.data[0].document_type);
+      // Wait, identifying the exact response in a parallel array is tricky. 
+      // A better way is to just fetch it if needed, or identify by key.
+      // But since we order them, we can guess.
+      // Alternatively, just fetch the first guarantor ID for the customer.
+      if (!guarantorId) {
+        const { data: gs } = await supabase.from("guarantors").select("id").eq("customer_id", customerId).limit(1);
+        if (gs && gs.length > 0) guarantorId = gs[0].id;
+      }
 
       // 5. Upload and insert security items (with images) - PARALLEL
       await Promise.all([
@@ -2219,6 +2287,40 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
         console.error(`Error inserting ${isGuarantor ? 'guarantor' : 'borrower'} security images:`, imgError);
       }
     }
+  };
+  // Multiplicity handlers
+
+  const addNextOfKin = () => {
+    setFormData((prev) => ({
+      ...prev,
+      nextOfKins: [
+        ...prev.nextOfKins,
+        {
+          Firstname: "",
+          Surname: "",
+          Middlename: "",
+          idNumber: "",
+          relationship: "",
+          mobile: "",
+          alternative_number: "", // Standardized
+          employmentStatus: "",
+          county: "",
+          cityTown: "",
+          companyName: "",
+          salary: "",
+          businessName: "",
+          businessIncome: "",
+          relationship_other: "",
+        },
+      ],
+    }));
+  };
+
+  const removeNextOfKin = (index) => {
+    setFormData((prev) => ({
+      ...prev,
+      nextOfKins: prev.nextOfKins.filter((_, i) => i !== index),
+    }));
   };
 
 
@@ -2467,99 +2569,103 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                     name="town"
                     value={formData.town}
                     onChange={handleChange}
+                    options={formData.county ? COUNTY_TOWNS[formData.county] : []}
+                    placeholder={formData.county ? `Select ${formData.county} Town` : "Select County First"}
                     handleNestedChange={handleNestedChange}
                   />
                 </div>
 
                 {/* Document Uploads - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-text mb-6">
-                    Personal Documents
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                    {[
-                      {
-                        key: "passport",
-                        label: "Passport Photo",
-                        handler: setPassportFile,
-                      },
-                      {
-                        key: "idFront",
-                        label: "ID Front",
-                        handler: setIdFrontFile,
-                      },
-                      {
-                        key: "idBack",
-                        label: "ID Back",
-                        handler: setIdBackFile,
-                      },
-                      {
-                        key: "house",
-                        label: "House Image",
-                        handler: setHouseImageFile,
-                      },
-                    ].map((file) => (
-                      <div
-                        key={file.key}
-                        className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition"
-                      >
-                        <label className="block text-sm font-medium text-brand-primary mb-3">
-                          {file.label}
-                        </label>
-
-                        <div className="flex flex-col sm:flex-row gap-3 w-full">
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
+                {imageUploadEnabled && (
+                  <div className="mt-8">
+                    <h3 className="text-lg font-semibold text-text mb-6">
+                      Personal Documents
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                      {[
+                        {
+                          key: "passport",
+                          label: "Passport Photo",
+                          handler: setPassportFile,
+                        },
+                        {
+                          key: "idFront",
+                          label: "ID Front",
+                          handler: setIdFrontFile,
+                        },
+                        {
+                          key: "idBack",
+                          label: "ID Back",
+                          handler: setIdBackFile,
+                        },
+                        {
+                          key: "house",
+                          label: "House Image",
+                          handler: setHouseImageFile,
+                        },
+                      ].map((file) => (
+                        <div
+                          key={file.key}
+                          className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition"
+                        >
+                          <label className="block text-sm font-medium text-brand-primary mb-3">
+                            {file.label}
                           </label>
 
-                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
-                            <CameraIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Camera</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture={file.key === "passport" ? "user" : "environment"}
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {previews[file.key] && (
-                          <div className="mt-4 w-full">
-                            <div className="relative">
-                              <img
-                                src={previews[file.key].url}
-                                alt={`${file.label} preview`}
-                                className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
+                          <div className="flex flex-col sm:flex-row gap-3 w-full">
+                            <label className="flex flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200 w-full sm:w-1/2">
+                              <ArrowUpTrayIcon className="w-5 h-5" />
+                              <span className="text-sm font-medium">Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleFileUpload(e, file.handler, file.key)}
+                                className="hidden"
                               />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFile(file.key, file.handler)}
-                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
-                              </button>
-                            </div>
-                            {/* Professional file name display */}
-                            <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                              <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
-                                📄 {previews[file.key].fileName}
-                              </p>
-                            </div>
+                            </label>
+
+                            <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-3 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200 w-full sm:w-1/2">
+                              <CameraIcon className="w-5 h-5" />
+                              <span className="text-sm font-medium">Camera</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture={file.key === "passport" ? "user" : "environment"}
+                                onChange={(e) => handleFileUpload(e, file.handler, file.key)}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                        )}
-                      </div>
-                    ))}
+
+                          {previews[file.key] && (
+                            <div className="mt-4 w-full">
+                              <div className="relative">
+                                <img
+                                  src={previews[file.key].url}
+                                  alt={`${file.label} preview`}
+                                  className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveFile(file.key, file.handler)}
+                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
+                                >
+                                  <XMarkIcon className="w-4 h-4" />
+                                </button>
+                              </div>
+                              {/* Professional file name display */}
+                              <div className="mt-2 p-2 bg-white rounded border border-gray-200">
+                                <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
+                                  📄 {previews[file.key].fileName}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -2583,19 +2689,70 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                     value={formData.businessName}
                     onChange={handleChange}
                     required
-                    handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
+                  <FormField
+                    label="Industry"
+                    name="industry"
+                    value={formData.industry}
+                    onChange={(e) => {
+                      if (e.target.value === "Other") {
+                        setIsCustomIndustry(true);
+                        setFormData(prev => ({ ...prev, industry: "" }));
+                      } else {
+                        setIsCustomIndustry(false);
+                        handleChange(e);
+                      }
+                      setFormData(prev => ({ ...prev, businessType: "" }));
+                      setIsCustomType(false);
+                    }}
+                    options={[...Object.keys(INDUSTRIES), "Other"]}
+                    required
+                    errors={errors}
+                  />
+
+                  {isCustomIndustry && (
+                    <FormField
+                      label="Custom Industry"
+                      name="industry"
+                      value={formData.industry}
+                      onChange={handleChange}
+                      placeholder="Enter business industry..."
+                      required
+                      errors={errors}
+                    />
+                  )}
+
                   <FormField
                     label="Business Type"
                     name="businessType"
                     value={formData.businessType}
-                    onChange={handleChange}
-                    placeholder="e.g. Retail, Wholesale"
+                    onChange={(e) => {
+                      if (e.target.value === "Other") {
+                        setIsCustomType(true);
+                        setFormData(prev => ({ ...prev, businessType: "" }));
+                      } else {
+                        setIsCustomType(false);
+                        handleChange(e);
+                      }
+                    }}
+                    options={formData.industry && INDUSTRIES[formData.industry] ? [...INDUSTRIES[formData.industry], "Other"] : ["Other"]}
+                    placeholder={formData.industry ? `Select ${formData.industry} Type` : "Select Industry First"}
                     required
-                    handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
+
+                  {isCustomType && (
+                    <FormField
+                      label="Custom Business Type"
+                      name="businessType"
+                      value={formData.businessType}
+                      onChange={handleChange}
+                      placeholder="Enter business type..."
+                      required
+                      errors={errors}
+                    />
+                  )}
                   <FormField
                     label="Year Established"
                     name="yearEstablished"
@@ -2617,22 +2774,22 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                     errors={errors}
                   />
                   <FormField
-                    label="County"
+                    label="Business County"
                     name="businessCounty"
                     value={formData.businessCounty}
                     onChange={handleChange}
                     options={KENYA_COUNTIES}
                     required
-                    handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
                   <FormField
-                    label="Business Location"
+                    label="Town/City (Business Location)"
                     name="businessLocation"
                     value={formData.businessLocation}
                     onChange={handleChange}
+                    options={formData.businessCounty ? COUNTY_TOWNS[formData.businessCounty] : []}
+                    placeholder={formData.businessCounty ? `Select ${formData.businessCounty} Town` : "Select County First"}
                     required
-                    handleNestedChange={handleNestedChange}
                     errors={errors}
                   />
                   <FormField
@@ -2675,73 +2832,75 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                 </div>
 
                 {/* Business Images - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-lg font-semibold text-text">
-                      Business Images
-                    </h3>
-                  </div>
-
-                  <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface">
-                    <label className="block text-sm font-medium mb-2 text-text">
-                      Business Images
-                    </label>
-                    <div className="flex gap-3 mb-4">
-                      <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition">
-                        <ArrowUpTrayIcon className="w-5 h-5" />
-                        Upload
-                        <input
-                          type="file"
-                          accept="image/*"
-                          multiple
-                          onChange={handleBusinessImages}
-                          className="hidden"
-                        />
-                      </label>
-
-                      <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
-                        <CameraIcon className="w-5 h-5" />
-                        Camera
-                        <input
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          multiple
-                          onChange={handleBusinessImages}
-                          className="hidden"
-                        />
-                      </label>
+                {imageUploadEnabled && (
+                  <div className="mt-8">
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-lg font-semibold text-text">
+                        Business Images
+                      </h3>
                     </div>
 
-                    {/* Display Business Images Grid */}
-                    {businessImages.length > 0 && (
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                        {businessImages.map((img, index) => (
-                          <div key={index} className="relative group">
-                            <img
-                              src={URL.createObjectURL(img)}
-                              alt={`Business Image ${index + 1}`}
-                              className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveBusinessImage(index)}
-                              className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                            >
-                              <XMarkIcon className="w-4 h-4" />
-                            </button>
-                            {/* File name display */}
-                            <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                              <p className="text-xs truncate" title={img.name}>
-                                {img.name}
-                              </p>
-                            </div>
-                          </div>
-                        ))}
+                    <div className="bg-brand-surface rounded-xl p-6 border border-brand-surface">
+                      <label className="block text-sm font-medium mb-2 text-text">
+                        Business Images
+                      </label>
+                      <div className="flex gap-3 mb-4">
+                        <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition">
+                          <ArrowUpTrayIcon className="w-5 h-5" />
+                          Upload
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={handleBusinessImages}
+                            className="hidden"
+                          />
+                        </label>
+
+                        <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition">
+                          <CameraIcon className="w-5 h-5" />
+                          Camera
+                          <input
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            multiple
+                            onChange={handleBusinessImages}
+                            className="hidden"
+                          />
+                        </label>
                       </div>
-                    )}
+
+                      {/* Display Business Images Grid */}
+                      {businessImages.length > 0 && (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                          {businessImages.map((img, index) => (
+                            <div key={index} className="relative group">
+                              <img
+                                src={URL.createObjectURL(img)}
+                                alt={`Business Image ${index + 1}`}
+                                className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveBusinessImage(index)}
+                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                              >
+                                <XMarkIcon className="w-4 h-4" />
+                              </button>
+                              {/* File name display */}
+                              <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                <p className="text-xs truncate" title={img.name}>
+                                  {img.name}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
             )}
 
@@ -2851,76 +3010,80 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                       </div>
 
                       {/* Security Images Section - USING BRAND COLORS */}
-                      <div className="mt-6">
-                        <label className="block text-sm font-medium mb-2 text-text">
-                          Security Images
-                        </label>
-                        <div className="flex gap-3 mb-3">
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 font-medium">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
-                              className="hidden"
-                            />
+                      {imageUploadEnabled && (
+                        <div className="mt-6">
+                          <label className="block text-sm font-medium mb-2 text-text">
+                            Security Images
                           </label>
+                          <div className="flex gap-3 mb-3">
+                            <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 font-medium">
+                              <ArrowUpTrayIcon className="w-5 h-5" />
+                              Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
+                                className="hidden"
+                              />
+                            </label>
 
-                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
-                            <CameraIcon className="w-5 h-5" />
-                            Camera
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {/* Display Image Grid - FIXED */}
-                        {securityItemImages[index] && securityItemImages[index].length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                            {securityItemImages[index].map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative group">
-                                <img
-                                  src={URL.createObjectURL(img)}
-                                  alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages, "borrower")}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
-                                {/* File name display */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                                  <p className="text-xs truncate" title={img.name}>
-                                    {img.name}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                            <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
+                              <CameraIcon className="w-5 h-5" />
+                              Camera
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages, "borrower")}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                        )}
-                      </div>
+
+                          {/* Display Image Grid - FIXED */}
+                          {securityItemImages[index] && securityItemImages[index].length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                              {securityItemImages[index].map((img, imgIdx) => (
+                                <div key={imgIdx} className="relative group">
+                                  <img
+                                    src={URL.createObjectURL(img)}
+                                    alt={`Security ${index + 1} - Image ${imgIdx + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages, "borrower")}
+                                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                  {/* File name display */}
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                    <p className="text-xs truncate" title={img.name}>
+                                      {img.name}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={addSecurityItem}
-                    className="flex items-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg hover:bg-brand-primary shadow-md transition-colors"
-                  >
-                    <PlusIcon className="h-5 w-5" />
-                    Add Security
-                  </button>
+                  <div className="flex justify-center mt-6">
+                    <button
+                      type="button"
+                      onClick={addSecurityItem}
+                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                      Add Security Item
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -2959,256 +3122,267 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             {/* Guarantor Details */}
             {activeSection === "guarantor" && (
               <div className="space-y-8">
-                <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
-                    Guarantor Information
-                  </h2>
-                  <p className="text-muted mt-2">
-                    Enter guarantor personal details
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FormField
-                    label="Prefix"
-                    name="prefix"
-                    value={formData.guarantor.prefix}
-                    section="guarantor"
-                    options={["Mr", "Mrs", "Ms", "Dr"]}
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="First Name"
-                    name="Firstname"
-                    value={formData.guarantor.Firstname}
-                    section="guarantor"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Middle Name"
-                    name="Middlename"
-                    value={formData.guarantor.Middlename}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="Surname"
-                    name="Surname"
-                    value={formData.guarantor.Surname}
-                    section="guarantor"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="ID Number"
-                    name="idNumber"
-                    value={formData.guarantor.idNumber}
-                    section="guarantor"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Mobile Number"
-                    name="mobile"
-                    value={formData.guarantor.mobile}
-                    section="guarantor"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Alternative Number"
-                    name="alternativeMobile"
-                    value={formData.guarantor.alternativeMobile}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="Date of Birth"
-                    name="dateOfBirth"
-                    type="date"
-                    value={formData.guarantor.dateOfBirth}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Gender"
-                    name="gender"
-                    value={formData.guarantor.gender}
-                    section="guarantor"
-                    options={["Male", "Female"]}
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Marital Status"
-                    name="maritalStatus"
-                    value={formData.guarantor.maritalStatus}
-                    section="guarantor"
-                    options={[
-                      "Single",
-                      "Married",
-                      "Separated/Divorced",
-                      "Other",
-                    ]}
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Residence Status"
-                    name="residenceStatus"
-                    value={formData.guarantor.residenceStatus}
-                    section="guarantor"
-                    options={["Own", "Rent", "Family", "Other"]}
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Occupation"
-                    name="occupation"
-                    value={formData.guarantor.occupation}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Relationship"
-                    name="relationship"
-                    value={formData.guarantor.relationship}
-                    section="guarantor"
-                    placeholder="e.g. Spouse, Friend"
-                    handleNestedChange={handleNestedChange}
-                    required
-                  />
-                  <FormField
-                    label="Postal Address"
-                    name="postalAddress"
-                    value={formData.guarantor.postalAddress}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="Postal Code"
-                    name="code"
-                    type="number"
-                    value={formData.guarantor.code}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                  />
-
-                  <FormField
-                    label="Guarantor County"
-                    name="county"
-                    value={formData.guarantor?.county || ""}
-                    section="guarantor"
-                    options={KENYA_COUNTIES}
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="City/Town"
-                    name="cityTown"
-                    value={formData.guarantor.cityTown}
-                    section="guarantor"
-                    handleNestedChange={handleNestedChange}
-                  />
-                </div>
-
-                {/* Guarantor Documents - USING BRAND COLORS */}
-                <div className="mt-8">
-                  <h3 className="text-lg font-semibold text-text mb-6">
-                    Guarantor Documents
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {[
-                      {
-                        key: "guarantorPassport",
-                        label: "Guarantor Passport",
-                        handler: setGuarantorPassportFile,
-                        icon: UserCircleIcon,
-                      },
-                      {
-                        key: "guarantorIdFront",
-                        label: "Guarantor ID Front",
-                        handler: setGuarantorIdFrontFile,
-                        icon: IdentificationIcon,
-                      },
-                      {
-                        key: "guarantorIdBack",
-                        label: "Guarantor ID Back",
-                        handler: setGuarantorIdBackFile,
-                        icon: IdentificationIcon,
-                      },
-                    ].map((file) => (
-                      <div
-                        key={file.key}
-                        className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition"
+                {Array.isArray(formData.guarantors) && formData.guarantors.map((g, index) => (
+                  <div key={index} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative">
+                    {formData.guarantors.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeGuarantor(index)}
+                        className="absolute top-4 right-4 text-red-500 hover:text-red-700 p-2"
+                        title="Remove Guarantor"
                       >
-                        <div className="flex items-center gap-2 mb-4">
-                          <file.icon className="h-6 w-6 text-brand-primary" />
-                          <h4 className="text-md font-medium text-text">
-                            {file.label}
-                          </h4>
-                        </div>
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    )}
+                    
+                    <div className="border-b border-gray-200 pb-6 mb-6">
+                      <h2 className="text-lg font-semibold text-text flex items-center">
+                        <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
+                        Guarantor {index + 1} Information
+                      </h2>
+                    </div>
 
-                        <div className="flex flex-col sm:flex-row gap-3 w-full">
-                          <label className="flex flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition-all duration-200">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Upload</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+                      <FormField
+                        label="Prefix"
+                        name="prefix"
+                        value={g.prefix}
+                        section="guarantors"
+                        index={index}
+                        options={["Mr", "Mrs", "Ms", "Dr"]}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="First Name"
+                        name="Firstname"
+                        value={g.Firstname}
+                        section="guarantors"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Middle Name"
+                        name="Middlename"
+                        value={g.Middlename}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="Surname"
+                        name="Surname"
+                        value={g.Surname}
+                        section="guarantors"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="ID Number"
+                        name="idNumber"
+                        value={g.idNumber}
+                        section="guarantors"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Mobile Number"
+                        name="mobile"
+                        value={g.mobile}
+                        section="guarantors"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Alternative Number"
+                        name="alternativeMobile"
+                        value={g.alternativeMobile}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="Date of Birth"
+                        name="dateOfBirth"
+                        type="date"
+                        value={g.dateOfBirth}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Gender"
+                        name="gender"
+                        value={g.gender}
+                        section="guarantors"
+                        index={index}
+                        options={["Male", "Female"]}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Marital Status"
+                        name="maritalStatus"
+                        value={g.maritalStatus}
+                        section="guarantors"
+                        index={index}
+                        options={[
+                          "Single",
+                          "Married",
+                          "Separated/Divorced",
+                          "Other",
+                        ]}
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Residence Status"
+                        name="residenceStatus"
+                        value={g.residenceStatus}
+                        section="guarantors"
+                        index={index}
+                        options={["Own", "Rent", "Family", "Other"]}
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Occupation"
+                        name="occupation"
+                        value={g.occupation}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Relationship"
+                        name="relationship"
+                        value={g.relationship}
+                        section="guarantors"
+                        index={index}
+                        placeholder="e.g. Spouse, Friend"
+                        handleNestedChange={handleNestedChange}
+                        required
+                      />
+                      <FormField
+                        label="Postal Address"
+                        name="postalAddress"
+                        value={g.postalAddress}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="Postal Code"
+                        name="code"
+                        type="number"
+                        value={g.code}
+                        section="guarantors"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
 
-                          <label className="flex md:hidden flex-1 items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-primary transition-all duration-200">
-                            <CameraIcon className="w-5 h-5" />
-                            <span className="text-sm font-medium">Camera</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              onChange={(e) => handleFileUpload(e, file.handler, file.key)}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
+                      <FormField
+                        label="Guarantor County"
+                        name="county"
+                        value={g?.county || ""}
+                        section="guarantors"
+                        index={index}
+                        options={KENYA_COUNTIES}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="City/Town"
+                        name="cityTown"
+                        value={g.cityTown}
+                        section="guarantors"
+                        index={index}
+                        options={g.county ? COUNTY_TOWNS[g.county] : []}
+                        placeholder={g.county ? `Select ${g.county} Town` : "Select County First"}
+                        handleNestedChange={handleNestedChange}
+                      />
+                    </div>
 
-                        {previews[file.key] && (
-                          <div className="mt-4 w-full">
-                            <div className="relative">
-                              <img
-                                src={previews[file.key].url}
-                                alt={file.label}
-                                className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
-                              />
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveFile(file.key, file.handler)}
-                                className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                              >
-                                <XMarkIcon className="w-4 h-4" />
-                              </button>
+                    {/* Guarantor Documents - Per Entry */}
+                    {imageUploadEnabled && (
+                      <div className="mt-8 pt-6 border-t border-gray-50">
+                        <h4 className="text-sm font-semibold text-brand-primary mb-4 flex items-center gap-2">
+                          <IdentificationIcon className="w-5 h-5" />
+                          Guarantor {index + 1} Documents
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                          {[
+                            { key: "passport", label: "Passport Photo", setter: setGuarantorPassportFiles, files: guarantorPassportFiles },
+                            { key: "idFront", label: "ID Front", setter: setGuarantorIdFrontFiles, files: guarantorIdFrontFiles },
+                            { key: "idBack", label: "ID Back", setter: setGuarantorIdBackFiles, files: guarantorIdBackFiles },
+                          ].map((file) => (
+                            <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
+                              <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                              <div className="flex flex-col gap-2">
+                                <label className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm font-medium">
+                                  <ArrowUpTrayIcon className="w-4 h-4" />
+                                  <span>Upload</span>
+                                  <input 
+                                    type="file" 
+                                    accept="image/*" 
+                                    onChange={(e) => handleFileUpload(e, file.setter, file.key, index)} 
+                                    className="hidden" 
+                                  />
+                                </label>
+                                <label className="flex md:hidden items-center justify-center gap-2 px-3 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium text-sm">
+                                  <CameraIcon className="w-4 h-4" />
+                                  Camera
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    capture={file.key === "passport" ? "user" : "environment"}
+                                    onChange={(e) => handleFileUpload(e, file.setter, file.key, index)}
+                                    className="hidden"
+                                  />
+                                </label>
+                              </div>
+                              {previews[`${file.key}_${index}`] && (
+                                <div className="mt-3 relative">
+                                  <img 
+                                    src={previews[`${file.key}_${index}`].url} 
+                                    alt={file.label} 
+                                    className="w-full h-24 object-cover rounded-lg border border-white" 
+                                  />
+                                  <button 
+                                    type="button" 
+                                    onClick={() => handleRemoveFile(file.key, file.setter, index)}
+                                    className="absolute -top-2 -right-2 bg-red-600 text-white rounded-full p-1 shadow-md"
+                                  >
+                                    <XMarkIcon className="w-3 h-3" />
+                                  </button>
+                                </div>
+                              )}
                             </div>
-                            {/* File name display */}
-                            <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                              <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
-                                📄 {previews[file.key].fileName}
-                              </p>
-                            </div>
-                          </div>
-                        )}
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
+                ))}
+
+                <div className="flex justify-center mt-6">
+                  <button
+                    type="button"
+                    onClick={addGuarantor}
+                    className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                    Add Another Guarantor
+                  </button>
                 </div>
               </div>
             )}
@@ -3291,6 +3465,22 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                           </select>
                         </div>
 
+                        {/* Custom Security Type for "Other" - FIX BOUNCE */}
+                        {item.type === "Other (specify)" && (
+                          <div className="mb-4">
+                            <FormField
+                              label="Specific Security Type"
+                              name="otherType"
+                              value={item.otherType}
+                              onChange={(e) => handleGuarantorSecurityChange(e, index)}
+                              placeholder="Describe the security type..."
+                              required
+                              errors={errors}
+                              index={index}
+                            />
+                          </div>
+                        )}
+
                         {/* Description */}
                         <FormField
                           label="Description"
@@ -3318,75 +3508,79 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                       </div>
 
                       {/* Images - USING BRAND COLORS */}
-                      <div className="mt-6">
-                        <label className="block text-sm font-medium mb-2 text-text">
-                          Item Images
-                        </label>
-                        <div className="flex gap-3 mb-3">
-                          <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
-                            <ArrowUpTrayIcon className="w-5 h-5" />
-                            Upload
-                            <input
-                              type="file"
-                              accept="image/*"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
-                              className="hidden"
-                            />
+                      {imageUploadEnabled && (
+                        <div className="mt-6">
+                          <label className="block text-sm font-medium mb-2 text-text">
+                            Item Images
                           </label>
+                          <div className="flex gap-3 mb-3">
+                            <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium">
+                              <ArrowUpTrayIcon className="w-5 h-5" />
+                              Upload
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
+                                className="hidden"
+                              />
+                            </label>
 
-                          <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
-                            <CameraIcon className="w-5 h-5" />
-                            Camera
-                            <input
-                              type="file"
-                              accept="image/*"
-                              capture="environment"
-                              multiple
-                              onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
-                              className="hidden"
-                            />
-                          </label>
-                        </div>
-
-                        {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
-                          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                            {guarantorSecurityImages[index].map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative group">
-                                <img
-                                  src={URL.createObjectURL(img)}
-                                  alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`}
-                                  className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages, "guarantor")}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
-                                {/* File name display */}
-                                <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
-                                  <p className="text-xs truncate" title={img.name}>
-                                    {img.name}
-                                  </p>
-                                </div>
-                              </div>
-                            ))}
+                            <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition font-medium">
+                              <CameraIcon className="w-5 h-5" />
+                              Camera
+                              <input
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                multiple
+                                onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages, "guarantor")}
+                                className="hidden"
+                              />
+                            </label>
                           </div>
-                        )}
-                      </div>
+
+                          {guarantorSecurityImages[index] && guarantorSecurityImages[index].length > 0 && (
+                            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
+                              {guarantorSecurityImages[index].map((img, imgIdx) => (
+                                <div key={imgIdx} className="relative group">
+                                  <img
+                                    src={URL.createObjectURL(img)}
+                                    alt={`Guarantor Security ${index + 1} - Image ${imgIdx + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg border border-brand-surface shadow-sm"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages, "guarantor")}
+                                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md opacity-90 group-hover:opacity-100 transition-opacity"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                  {/* File name display */}
+                                  <div className="absolute bottom-0 left-0 right-0 bg-black bg-opacity-70 text-white p-1">
+                                    <p className="text-xs truncate" title={img.name}>
+                                      {img.name}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
 
-                  <button
-                    type="button"
-                    onClick={addGuarantorSecurityItem}
-                    className="flex items-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-all shadow-md hover:shadow-lg font-medium"
-                  >
-                    <PlusIcon className="h-5 w-5" />
-                    Add Guarantor Security Item
-                  </button>
+                  <div className="flex justify-center mt-6">
+                    <button
+                      type="button"
+                      onClick={addGuarantorSecurityItem}
+                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                    >
+                      <PlusIcon className="h-5 w-5" />
+                      Add Guarantor Security Item
+                    </button>
+                  </div>
                 </div>
               </div>
             )}
@@ -3394,183 +3588,222 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             {/* Next of Kin */}
             {activeSection === "nextOfKin" && (
               <div className="space-y-8">
-                <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
-                    Next of Kin Information
-                  </h2>
-                  <p className="text-muted mt-2">Enter next of kin details</p>
-                </div>
+                {Array.isArray(formData.nextOfKins) && formData.nextOfKins.map((nok, index) => (
+                  <div key={index} className="bg-white rounded-xl p-6 border border-gray-200 shadow-sm relative">
+                    {formData.nextOfKins.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => removeNextOfKin(index)}
+                        className="absolute top-4 right-4 text-red-500 hover:text-red-700 p-2"
+                        title="Remove Next of Kin"
+                      >
+                        <TrashIcon className="h-5 w-5" />
+                      </button>
+                    )}
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <FormField
-                    label="First Name"
-                    name="Firstname"
-                    value={formData.nextOfKin.Firstname}
-                    section="nextOfKin"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Middle Name"
-                    name="Middlename"
-                    value={formData.nextOfKin.Middlename}
-                    section="nextOfKin"
-                    handleNestedChange={handleNestedChange}
-                  />
-                  <FormField
-                    label="Surname"
-                    name="Surname"
-                    value={formData.nextOfKin.Surname}
-                    section="nextOfKin"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="ID Number"
-                    name="idNumber"
-                    value={formData.nextOfKin.idNumber}
-                    section="nextOfKin"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Mobile Number"
-                    name="mobile"
-                    value={formData.nextOfKin.mobile}
-                    section="nextOfKin"
-                    required
-                    handleNestedChange={handleNestedChange}
-                    errors={errors}
-                  />
-                  <FormField
-                    label="Alternative Number"
-                    name="alternativeNumber"
-                    value={formData.nextOfKin.alternativeNumber}
-                    section="nextOfKin"
-                    handleNestedChange={handleNestedChange}
-                  />
+                    <div className="border-b border-gray-200 pb-6 mb-6">
+                      <h2 className="text-lg font-semibold text-text flex items-center">
+                        <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
+                        Next of Kin {index + 1} Information
+                      </h2>
+                    </div>
 
-                  {/* Relationship Dropdown */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-text mb-1">
-                      Relationship *
-                    </label>
-                    <select
-                      name="relationship"
-                      value={formData.nextOfKin.relationship}
-                      onChange={(e) => handleNestedChange(e, 'nextOfKin')}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-primary/20 focus:outline-none"
-                      required
-                    >
-                      <option value="">Select Relationship</option>
-                      <option value="Sister">Sister</option>
-                      <option value="Brother">Brother</option>
-                      <option value="Guardian">Guardian</option>
-                      <option value="Father">Father</option>
-                      <option value="Mother">Mother</option>
-                      <option value="Spouse">Spouse</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                      <FormField
+                        label="First Name"
+                        name="Firstname"
+                        value={nok.Firstname}
+                        section="nextOfKins"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Middle Name"
+                        name="Middlename"
+                        value={nok.Middlename}
+                        section="nextOfKins"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
+                      <FormField
+                        label="Surname"
+                        name="Surname"
+                        value={nok.Surname}
+                        section="nextOfKins"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="ID Number"
+                        name="idNumber"
+                        value={nok.idNumber}
+                        section="nextOfKins"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Mobile Number"
+                        name="mobile"
+                        value={nok.mobile}
+                        section="nextOfKins"
+                        index={index}
+                        required
+                        handleNestedChange={handleNestedChange}
+                        errors={errors}
+                      />
+                      <FormField
+                        label="Alternative Number"
+                        name="alternativeNumber"
+                        value={nok.alternativeNumber}
+                        section="nextOfKins"
+                        index={index}
+                        handleNestedChange={handleNestedChange}
+                      />
+
+                      {/* Relationship Dropdown */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-text mb-1">
+                          Relationship *
+                        </label>
+                        <select
+                          name="relationship"
+                          value={nok.relationship}
+                          onChange={(e) => handleNestedChange(e, 'nextOfKins', index)}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-primary/20 focus:outline-none"
+                          required
+                        >
+                          <option value="">Select Relationship</option>
+                          <option value="Sister">Sister</option>
+                          <option value="Brother">Brother</option>
+                          <option value="Guardian">Guardian</option>
+                          <option value="Father">Father</option>
+                          <option value="Mother">Mother</option>
+                          <option value="Spouse">Spouse</option>
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
+
+                      {/* Other Relationship Specification */}
+                      {nok.relationship === "Other" && (
+                        <FormField
+                          label="Specify Relationship"
+                          name="relationshipOther"
+                          value={nok.relationshipOther}
+                          section="nextOfKins"
+                          index={index}
+                          required
+                          handleNestedChange={handleNestedChange}
+                        />
+                      )}
+
+                      {/* Employment Status Dropdown */}
+                      <div className="mb-4">
+                        <label className="block text-sm font-medium text-text mb-1">
+                          Employment Status
+                        </label>
+                        <select
+                          name="employmentStatus"
+                          value={nok.employmentStatus}
+                          onChange={(e) => handleNestedChange(e, 'nextOfKins', index)}
+                          className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-primary/20 focus:outline-none"
+                        >
+                          <option value="">Select Employment Status</option>
+                          <option value="Employed">Employed</option>
+                          <option value="Self Employed">Self Employed</option>
+                        </select>
+                      </div>
+
+                      {/* Conditional Fields for Employed */}
+                      {nok.employmentStatus === "Employed" && (
+                        <>
+                          <FormField
+                            label="Company Name"
+                            name="companyName"
+                            value={nok.companyName}
+                            section="nextOfKins"
+                            index={index}
+                            handleNestedChange={handleNestedChange}
+                          />
+                          <FormField
+                            label="Estimated Salary (KES)"
+                            name="salary"
+                            type="number"
+                            value={nok.salary}
+                            section="nextOfKins"
+                            index={index}
+                            handleNestedChange={handleNestedChange}
+                          />
+                        </>
+                      )}
+
+                      {/* Conditional Fields for Self Employed */}
+                      {nok.employmentStatus === "Self Employed" && (
+                        <>
+                          <FormField
+                            label="Business Name"
+                            name="businessName"
+                            value={nok.businessName}
+                            section="nextOfKins"
+                            index={index}
+                            handleNestedChange={handleNestedChange}
+                          />
+                          <FormField
+                            label="Estimated Income (KES)"
+                            name="businessIncome"
+                            type="number"
+                            value={nok.businessIncome}
+                            section="nextOfKins"
+                            index={index}
+                            handleNestedChange={handleNestedChange}
+                          />
+                        </>
+                      )}
+
+                      <FormField
+                        label="Next of Kin County"
+                        name="county"
+                        value={nok.county}
+                        section="nextOfKins"
+                        index={index}
+                        options={KENYA_COUNTIES}
+                        handleNestedChange={handleNestedChange}
+                      />
+
+                      <FormField
+                        label="City/Town"
+                        name="cityTown"
+                        value={nok.cityTown}
+                        section="nextOfKins"
+                        index={index}
+                        options={nok.county ? COUNTY_TOWNS[nok.county] : []}
+                        placeholder={nok.county ? `Select ${nok.county} Town` : "Select County First"}
+                        handleNestedChange={handleNestedChange}
+                      />
+                    </div>
                   </div>
+                ))}
 
-                  {/* Other Relationship Specification */}
-                  {formData.nextOfKin.relationship === "Other" && (
-                    <FormField
-                      label="Specify Relationship"
-                      name="relationshipOther"
-                      value={formData.nextOfKin.relationshipOther}
-                      section="nextOfKin"
-                      required
-                      handleNestedChange={handleNestedChange}
-                    />
-                  )}
-
-                  {/* Employment Status Dropdown */}
-                  <div className="mb-4">
-                    <label className="block text-sm font-medium text-text mb-1">
-                      Employment Status
-                    </label>
-                    <select
-                      name="employmentStatus"
-                      value={formData.nextOfKin.employmentStatus}
-                      onChange={(e) => handleNestedChange(e, 'nextOfKin')}
-                      className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-primary/20 focus:outline-none"
-                    >
-                      <option value="">Select Employment Status</option>
-                      <option value="Employed">Employed</option>
-                      <option value="Self Employed">Self Employed</option>
-                      <option value="Unemployed">Unemployed</option>
-                    </select>
-                  </div>
-
-                  {/* Conditional Fields for Employed */}
-                  {formData.nextOfKin.employmentStatus === "Employed" && (
-                    <>
-                      <FormField
-                        label="Company Name"
-                        name="companyName"
-                        value={formData.nextOfKin.companyName}
-                        section="nextOfKin"
-                        handleNestedChange={handleNestedChange}
-                      />
-                      <FormField
-                        label="Estimated Salary (KES)"
-                        name="salary"
-                        type="number"
-                        value={formData.nextOfKin.salary}
-                        section="nextOfKin"
-                        handleNestedChange={handleNestedChange}
-                      />
-                    </>
-                  )}
-
-                  {/* Conditional Fields for Self Employed */}
-                  {formData.nextOfKin.employmentStatus === "Self Employed" && (
-                    <>
-                      <FormField
-                        label="Business Name"
-                        name="businessName"
-                        value={formData.nextOfKin.businessName}
-                        section="nextOfKin"
-                        handleNestedChange={handleNestedChange}
-                      />
-                      <FormField
-                        label="Estimated Income (KES)"
-                        name="businessIncome"
-                        type="number"
-                        value={formData.nextOfKin.businessIncome}
-                        section="nextOfKin"
-                        handleNestedChange={handleNestedChange}
-                      />
-                    </>
-                  )}
-
-                  <FormField
-                    label="Next of Kin County"
-                    name="county"
-                    value={formData.nextOfKin.county}
-                    section="nextOfKin"
-                    options={KENYA_COUNTIES}
-                    handleNestedChange={handleNestedChange}
-                  />
-
-                  <FormField
-                    label="City/Town"
-                    name="cityTown"
-                    value={formData.nextOfKin.cityTown}
-                    section="nextOfKin"
-                    handleNestedChange={handleNestedChange}
-                  />
+                <div className="flex justify-center mt-6">
+                  <button
+                    type="button"
+                    onClick={addNextOfKin}
+                    className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                  >
+                    <PlusIcon className="h-5 w-5" />
+                    Add Another Next of Kin
+                  </button>
                 </div>
               </div>
             )}
 
             {/* Documents Verification - USING BRAND COLORS */}
-            {activeSection === "documents" && (
+            {(activeSection === "documents" && documentUploadEnabled) && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
                   <h2 className="text-lg font-semibold text-text flex items-center">

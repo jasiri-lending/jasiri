@@ -35,11 +35,11 @@ const CustomerDetailsPage = () => {
   const [guarantors, setGuarantors] = useState([]);
   const [securityItems, setSecurityItems] = useState([]);
   const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([]);
-  const [loanDetails, setLoanDetails] = useState(null);
+  const [loanDetails, setLoanDetails] = useState([]);
   const [businessImages, setBusinessImages] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedImage, setSelectedImage] = useState(null);
-  const [nextOfKin, setNextOfKin] = useState(null);
+  const [nextOfKin, setNextOfKin] = useState([]);
   const [documents, setDocuments] = useState([]);
   const [existingImages, setExistingImages] = useState({});
 
@@ -65,17 +65,17 @@ const CustomerDetailsPage = () => {
 
       // Fetch related data in parallel
       const [
-        { data: nextOfKin, error: nextOfKinError },
+        { data: nextOfKinData, error: nextOfKinError },
         { data: documentsData, error: documentsError },
         { data: businessImagesData, error: businessError },
         { data: loanData, error: loanError },
         { data: guarantorsData, error: guarantorsError },
         { data: securityItemsData, error: securityError },
       ] = await Promise.all([
-        supabase.from("next_of_kin").select("*").eq("customer_id", customerId).single(),
+        supabase.from("next_of_kin").select("*").eq("customer_id", customerId),
         supabase.from("documents").select("id, document_type, document_url").eq("customer_id", customerId),
         supabase.from("business_images").select("*").eq("customer_id", customerId),
-        supabase.from("loans").select("*").eq("customer_id", customerId).single(),
+        supabase.from("loans").select("*").eq("customer_id", customerId),
         supabase.from("guarantors").select("*").eq("customer_id", customerId),
         supabase
           .from("security_items")
@@ -83,14 +83,26 @@ const CustomerDetailsPage = () => {
           .eq("customer_id", customerId),
       ]);
 
-      // Set states
-      if (!nextOfKinError) setNextOfKin(nextOfKin || null);
-      if (!documentsError) setDocuments(documentsData || []);
-      if (!businessError) setBusinessImages(businessImagesData || []);
-      if (!loanError) setLoanDetails(loanData || null);
-      if (!guarantorsError) setGuarantors(guarantorsData || []);
+      // Set states - always set data, log errors but don't suppress data
+      if (nextOfKinError) console.error("NOK fetch error:", nextOfKinError);
+      setNextOfKin(nextOfKinData || []);
 
-      if (!securityError) {
+      if (documentsError) console.error("Documents fetch error:", documentsError);
+      setDocuments(documentsData || []);
+
+      if (businessError) console.error("Business images fetch error:", businessError);
+      setBusinessImages(businessImagesData || []);
+
+      if (loanError) console.error("Loans fetch error:", loanError);
+      setLoanDetails(loanData || []);
+
+      if (guarantorsError) console.error("Guarantors fetch error:", guarantorsError);
+      setGuarantors(guarantorsData || []);
+
+      if (securityError) {
+        console.error("Security items fetch error:", securityError);
+        setSecurityItems([]);
+      } else {
         const processedSecurityItems = (securityItemsData || []).map((item) => ({
           ...item,
           images: item.security_item_images?.map((img) => img.image_url) || [],
@@ -357,35 +369,72 @@ const CustomerDetailsPage = () => {
           </div>
 
           {/* Next of Kin Section */}
-          {nextOfKin && (
-            <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
+          {nextOfKin && nextOfKin.length > 0 && nextOfKin.map((nok, index) => (
+            <div key={nok.id || index} className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
               <div className="p-8">
                 <div className="border-b border-gray-200 pb-6 mb-8">
                   <h2 className="text-lg font-bold text-slate-600 flex items-center">
                     <UserGroupIcon className="h-8 w-8 text-indigo-600 mr-3" />
-                    Next of Kin Information
+                    Next of Kin Information {nextOfKin.length > 1 ? `#${index + 1}` : ""}
                   </h2>
-
                 </div>
 
                 <div className="bg-brand-surface rounded-2xl p-8 mb-8 border border-brand-surface">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                     {/* Left column */}
                     <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
-                      <DetailRow label="First Name" value={nextOfKin.Firstname} icon={UserCircleIcon} />
-                      <DetailRow label="Middle Name" value={nextOfKin.Middlename} icon={UserCircleIcon} />
-                      <DetailRow label="Surname" value={nextOfKin.Surname} icon={UserCircleIcon} />
-                      <DetailRow label="ID Number" value={nextOfKin.id_number} icon={IdentificationIcon} />
-                      <DetailRow label="Relationship" value={nextOfKin.relationship} icon={UserGroupIcon} />
+                      <DetailRow label="First Name" value={nok.Firstname} icon={UserCircleIcon} />
+                      <DetailRow label="Middle Name" value={nok.Middlename} icon={UserCircleIcon} />
+                      <DetailRow label="Surname" value={nok.Surname} icon={UserCircleIcon} />
+                      <DetailRow label="ID Number" value={nok.id_number} icon={IdentificationIcon} />
+                      <DetailRow label="Relationship" value={nok.relationship} icon={UserGroupIcon} />
                     </div>
 
                     {/* Right column */}
                     <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
-                      <DetailRow label="Mobile Number" value={nextOfKin.mobile} icon={PhoneIcon} />
-                      <DetailRow label="Alternative Number" value={nextOfKin.alternative_mobile} icon={PhoneIcon} />
-                      <DetailRow label="Employment Status" value={nextOfKin.employment_status} icon={BriefcaseIcon} />
-                      <DetailRow label="County" value={nextOfKin.county} icon={MapPinIcon} />
-                      <DetailRow label="City/Town" value={nextOfKin.city_town} icon={MapPinIcon} />
+                      <DetailRow label="Mobile Number" value={nok.mobile} icon={PhoneIcon} />
+                      <DetailRow label="Alternative Number" value={nok.alternative_number} icon={PhoneIcon} />
+                      <DetailRow label="Employment Status" value={nok.employment_status} icon={BriefcaseIcon} />
+                      {nok.employment_status === "Employed" && (
+                        <>
+                          <DetailRow label="Company Name" value={nok.company_name} icon={BuildingOffice2Icon} />
+                          <DetailRow label="Estimated Salary" value={nok.salary ? `KES ${nok.salary.toLocaleString()}` : null} icon={CurrencyDollarIcon} />
+                        </>
+                      )}
+                      {nok.employment_status === "Self Employed" && (
+                        <>
+                          <DetailRow label="Business Name" value={nok.business_name} icon={BuildingOffice2Icon} />
+                          <DetailRow label="Estimated Income" value={nok.business_income ? `KES ${nok.business_income.toLocaleString()}` : null} icon={CurrencyDollarIcon} />
+                        </>
+                      )}
+                      <DetailRow label="County" value={nok.county} icon={MapPinIcon} />
+                      <DetailRow label="City/Town" value={nok.city_town} icon={MapPinIcon} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+
+          {/* Spouse Section */}
+          {customer?.marital_status === "Married" && customer?.spouse_name && (
+            <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
+              <div className="p-8">
+                <div className="border-b border-gray-200 pb-6 mb-8">
+                  <h2 className="text-lg font-bold text-slate-600 flex items-center">
+                    <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" />
+                    Spouse Information
+                  </h2>
+                </div>
+                <div className="bg-brand-surface rounded-2xl p-8 border border-brand-surface">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
+                      <DetailRow label="Spouse Name" value={customer.spouse_name} icon={UserCircleIcon} />
+                      <DetailRow label="Spouse ID Number" value={customer.spouse_id_number} icon={IdentificationIcon} />
+                    </div>
+                    <div className="bg-white p-6 rounded-xl shadow-sm space-y-3">
+                      <DetailRow label="Mobile" value={customer.spouse_mobile} icon={PhoneIcon} />
+                      <DetailRow label="Economic Activity" value={customer.spouse_economic_activity} icon={BriefcaseIcon} />
                     </div>
                   </div>
                 </div>
@@ -403,20 +452,30 @@ const CustomerDetailsPage = () => {
                 </h2>
               </div>
 
-              {/* Business Details */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
+                <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 mb-8">
                 <h3 className="text-lg font-semibold text-gray-600 mb-4 flex items-center gap-2">
                   <BuildingOffice2Icon className="h-6 w-6 text-brand-primary" />
                   Business Details
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <DetailRow label="Business Name" value={customer.business_name} icon={BuildingOffice2Icon} />
+                  <DetailRow label="Industry" value={customer.industry} icon={BriefcaseIcon} />
                   <DetailRow label="Business Type" value={customer.business_type} icon={BriefcaseIcon} />
-                  <DetailRow label="Location" value={customer.business_location} icon={MapPinIcon} />
                   <DetailRow label="Year Established" value={customer.year_established} icon={CalendarIcon} />
+                  <DetailRow label="Location" value={customer.business_location} icon={MapPinIcon} />
+                  <DetailRow label="Business County" value={customer.business_county} icon={MapPinIcon} />
                   <DetailRow label="Road" value={customer.road} icon={MapPinIcon} />
                   <DetailRow label="Landmark" value={customer.landmark} icon={MapPinIcon} />
-                  <DetailRow label="Daily Sales" value={customer.daily_Sales} icon={CurrencyDollarIcon} />
+                  <DetailRow
+                    label="Daily Sales"
+                    value={customer.daily_Sales ? `KES ${Number(customer.daily_Sales).toLocaleString()}` : null}
+                    icon={CurrencyDollarIcon}
+                  />
+                  <DetailRow
+                    label="Local Authority Licence"
+                    value={customer.has_local_authority_license === true ? "Yes" : customer.has_local_authority_license === false ? "No" : null}
+                    icon={DocumentTextIcon}
+                  />
                 </div>
               </div>
 
@@ -755,13 +814,13 @@ const CustomerDetailsPage = () => {
           )}
 
           {/* Loan Information */}
-          {loanDetails && (
-            <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
+          {loanDetails && loanDetails.length > 0 && loanDetails.map((loan, index) => (
+            <div key={loan.id || index} className="bg-white rounded-2xl shadow-lg border border-indigo-100 mb-8 overflow-hidden">
               <div className="p-8">
                 <div className="border-b border-gray-200 pb-6 mb-8">
                   <h2 className="text-lg  font-bold text-slate-600 flex items-center">
                     <CurrencyDollarIcon className="h-8 w-8 text-brand-primary mr-3" />
-                    Loan Information
+                    Loan Information {loanDetails.length > 1 ? `#${index + 1}` : ""}
                   </h2>
                 </div>
 
@@ -776,16 +835,16 @@ const CustomerDetailsPage = () => {
                       <div className="flex items-center justify-between mb-4">
                         <h4 className="font-semibold text-blue-900">Prequalified Amount</h4>
                         <div className="w-10 h-10 bg-brand-surface rounded-full flex items-center justify-center">
-                          <span className="text-blue-600 font-bold text-lg">ksh</span>
+                          <span className="text-blue-600 font-bold text-lg">KES</span>
                         </div>
                       </div>
                       <p className="text-3xl font-bold text-blue-700 mb-2">
-                        KES {customer.prequalifiedAmount?.toLocaleString() || '0'}
+                        KES {(loan.prequalified_amount || customer.prequalifiedAmount)?.toLocaleString() || '0'}
                       </p>
                       <p className="text-sm text-blue-600">Initial assessment amount</p>
                     </div>
 
-                    {loanDetails.scored_amount && (
+                    {loan.scored_amount && (
                       <div className="bg-gradient-to-br from-emerald-50 to-green-50 p-6 rounded-xl border border-emerald-100">
                         <div className="flex items-center justify-between mb-4">
                           <h4 className="font-semibold text-emerald-900">Final Scored Amount</h4>
@@ -794,7 +853,7 @@ const CustomerDetailsPage = () => {
                           </div>
                         </div>
                         <p className="text-3xl font-bold text-emerald-700 mb-2">
-                          KES {loanDetails.scored_amount.toLocaleString()}
+                          KES {loan.scored_amount.toLocaleString()}
                         </p>
                         <p className="text-sm text-emerald-600">Post-verification amount</p>
                       </div>
@@ -807,18 +866,23 @@ const CustomerDetailsPage = () => {
                       <div className="text-center">
                         <p className="text-sm font-medium text-amber-700">Application Date</p>
                         <p className="text-lg font-semibold text-amber-900">
-                          {new Date(loanDetails.created_at).toLocaleDateString()}
+                          {loan.created_at ? new Date(loan.created_at).toLocaleDateString() : 'N/A'}
                         </p>
                       </div>
                       <div className="text-center">
                         <p className="text-sm font-medium text-amber-700">Status</p>
-                        <p className="text-lg font-semibold text-amber-900 capitalize">{loanDetails.status}</p>
+                        <p className="text-lg font-semibold text-amber-900 capitalize">{loan.status || 'N/A'}</p>
                       </div>
-
-                      {loanDetails.term && (
+                      {loan.term && (
                         <div className="text-center">
                           <p className="text-sm font-medium text-amber-700">Term</p>
-                          <p className="text-lg font-semibold text-amber-900">{loanDetails.term} months</p>
+                          <p className="text-lg font-semibold text-amber-900">{loan.term} months</p>
+                        </div>
+                      )}
+                      {loan.repayment_state && (
+                        <div className="text-center">
+                          <p className="text-sm font-medium text-amber-700">Repayment</p>
+                          <p className="text-lg font-semibold text-amber-900 capitalize">{loan.repayment_state}</p>
                         </div>
                       )}
                     </div>
@@ -826,7 +890,7 @@ const CustomerDetailsPage = () => {
                 </div>
               </div>
             </div>
-          )}
+          ))}
 
           {/* Documents Verification Section */}
           {documentUploadEnabled && (

@@ -22,6 +22,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
 import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner.jsx";
+import { PencilIcon } from "@heroicons/react/24/outline";
 
 const AllCustomers = () => {
   const navigate = useNavigate();
@@ -44,6 +45,9 @@ const AllCustomers = () => {
 
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  const [selectedCustomerForEdit, setSelectedCustomerForEdit] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
   // Use ref to track if data has been fetched
   const hasFetchedData = useRef(false);
@@ -76,6 +80,10 @@ const AllCustomers = () => {
 
   const handleViewCustomer = (customer) => {
     navigate(`/customer/${customer.id}/details`);
+  };
+
+  const handleEditCustomer = (customer) => {
+    navigate(`/editcustomer/${customer.id}`);
   };
 
   // Helper function to get status display value - ONLY USING customer.status
@@ -849,6 +857,15 @@ const AllCustomers = () => {
                           title="View Customer Details"
                         >
                           <EyeIcon className="h-4 w-4" />
+                        </button>
+
+                        {/* Edit Customer */}
+                        <button
+                          onClick={() => handleEditCustomer(customer)}
+                          className="p-2 rounded-lg bg-gradient-to-r from-brand-surface to-blue-50 border border-brand-secondary/30 text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200 shadow-sm hover:shadow"
+                          title="Edit Customer Details"
+                        >
+                          <PencilIcon className="h-4 w-4" />
                         </button>
 
                         {/* Interactions */}
