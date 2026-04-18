@@ -2451,6 +2451,10 @@ const CustomerDraft = () => {
         <div className="max-w-md mx-auto">
           <FormField label="Pre-qualified Amount (KES)" name="prequalifiedAmount" type="number" value={formData.prequalifiedAmount} onChange={handleChange} className="text-center" required handleNestedChange={handleNestedChange} errors={errors} />
         </div>
+      </div>
+    </div>
+  );
+
   const renderGuarantorSection = () => (
     <div className="space-y-8">
       <div className="border-b border-gray-200 pb-6">
