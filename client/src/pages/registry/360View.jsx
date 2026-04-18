@@ -639,7 +639,7 @@ const Customer360View = () => {
     return (
       <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-brand-primary/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
+        <div className="bg-gray-300 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
           <div className="p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
@@ -661,7 +661,7 @@ const Customer360View = () => {
                   </div>
 
                   <div className="mt-5 w-full bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
-                    <h2 className="text-base font-black text-slate-800 text-center leading-tight">
+                    <h2 className="  text-slate-600 text-center ">
                       {customer.prefix} {customer.Firstname} {customer.Surname}
                     </h2>
 
@@ -700,11 +700,11 @@ const Customer360View = () => {
                 <div className="mb-4 bg-blue-50 border-blue-200 border rounded-2xl p-4 text-center shadow-sm flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="bg-blue-100 p-2 rounded-full">
-                      <WalletIcon className="h-6 w-6 text-blue-600" />
+                      <WalletIcon className="h-6 w-6 text-brand-primary" />
                     </div>
-                    <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">Wallet Balance</span>
+                    <span className="text-lg  text-brand-primary ">Wallet Balance</span>
                   </div>
-                  <span className="text-xl font-black text-blue-700">{formatCurrency(walletBalance || 0)}</span>
+                  <span className="text-xl font-black text-brand-primary">{formatCurrency(walletBalance || 0)}</span>
                 </div>
 
                 {allLoans?.length === 0 ? (
@@ -721,9 +721,9 @@ const Customer360View = () => {
                       return (
                         <div key={loan.id} className="bg-white/60 border rounded-2xl p-4">
                           <div className="flex justify-between items-center mb-3 border-b pb-2">
-                            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                            <h3 className="text-xs  text-600">
                               Loan {index + 1}
-                              <span className={`ml-2 inline-flex px-2 py-0.5 text-[9px] rounded-full border ${
+                              <span className={`ml-2 inline-flex px-2 py-0.5 text-xs rounded-full border ${
                                 loan.repayment_state === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 
                                 loan.status === 'disbursed' ? 'bg-accent/10 text-accent border-accent/20' :
                                 'bg-gray-50 text-gray-600 border-gray-200'
@@ -731,7 +731,7 @@ const Customer360View = () => {
                                 {loan.repayment_state === 'completed' ? 'Completed' : loan.status}
                               </span>
                             </h3>
-                            <span className="text-[10px] uppercase font-bold text-gray-400">
+                            <span className="text-xs   text-gray-800">
                               {new Date(loan.created_at).toLocaleDateString()}
                             </span>
                           </div>
@@ -762,10 +762,10 @@ const Customer360View = () => {
                     <div className="flex items-center gap-2">
                       <BuildingLibraryIcon className="h-4 w-4 text-brand-secondary" />
                       <span className="text-xs font-semibold text-brand-primary">
-                        {customer.branches?.name || "No branch assigned"}
+                        branch.{customer.branches?.name || "No branch assigned"}
                       </span>
                     </div>
-                    <div className="text-[10px] text-brand-secondary font-medium uppercase tracking-tight">
+                    <div className="text-sm text-slate-600">
                       Customer since:{" "}
                       {customer.created_at
                         ? new Date(customer.created_at).toLocaleDateString()
@@ -1391,7 +1391,7 @@ const Customer360View = () => {
                     Amount
                   </th>
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
-                    Payment Type
+                    Narration
                   </th>
 
                   <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">

@@ -880,16 +880,18 @@ const OperationsDashboard = ({ userRole }) => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard
             title="Active Loans"
-            value={dashboardData.metrics.activeLoans}
-            subValue={formatCurrency(dashboardData.metrics.portfolioOutstanding)}
+            value={` ${formatCurrency(dashboardData.metrics.portfolioOutstanding)}`}
+            subValue={`${dashboardData.metrics.activeLoans} loans`}
+            subValueClassName="text-sm font-medium text-slate-600 mt-1"
             icon={Users}
             color="brand"
             className="bg-gradient-to-br from-blue-50 to-white border-blue-100"
           />
           <MetricCard
             title="Disbursed Today"
-            value={dashboardData.metrics.disbursedTodayCount}
-            subValue={formatCurrency(dashboardData.metrics.disbursedTodayAmount)}
+            value={` ${formatCurrency(dashboardData.metrics.disbursedTodayAmount)}`}
+            subValue={`${dashboardData.metrics.disbursedTodayCount} loans`}
+            subValueClassName="text-sm font-medium text-slate-600 mt-1"
             icon={DollarSign}
             color="green"
             className="bg-gradient-to-br from-emerald-50 to-white border-emerald-100"

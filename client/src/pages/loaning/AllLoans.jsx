@@ -378,14 +378,16 @@ const AllLoans = () => {
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate("/officer/loans/applications")}
-            className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-lg hover:opacity-90 transition-all shadow-sm text-white"
-            style={{ backgroundColor: "#586ab1" }}
-          >
-            <PlusIcon className="h-4 w-4" />
-            Book Loan
-          </button>
+          {isRelationshipOfficer && (
+            <button
+              onClick={() => navigate("/officer/loans/applications")}
+              className="flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-lg hover:opacity-90 transition-all shadow-sm text-white"
+              style={{ backgroundColor: "#586ab1" }}
+            >
+              <PlusIcon className="h-4 w-4" />
+              Book Loan
+            </button>
+          )}
           <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
             <span className="font-medium text-white">{loans.length}</span> total loans
           </div>

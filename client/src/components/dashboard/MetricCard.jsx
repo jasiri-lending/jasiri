@@ -1,7 +1,7 @@
 import React from 'react';
 import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
 
-const MetricCard = ({ title, value, subValue, trend, trendValue, icon: Icon, color = 'blue', className }) => {
+const MetricCard = ({ title, value, subValue, trend, trendValue, icon: Icon, color = 'blue', className, valueClassName, subValueClassName }) => {
     const colorClasses = {
         blue: 'bg-blue-50 text-blue-600',
         green: 'bg-emerald-50 text-emerald-600',
@@ -20,15 +20,25 @@ const MetricCard = ({ title, value, subValue, trend, trendValue, icon: Icon, col
 
     const TrendIcon = trend === 'up' ? ArrowUp : trend === 'down' ? ArrowDown : Minus;
 
+    // Responsive font size logic for large figures
+    const valueLength = String(value).length;
+    const responsiveFontSize = valueLength > 15 ? 'text-lg' : valueLength > 12 ? 'text-xl' : 'text-2xl';
+
     return (
         <div className={`bg-white rounded-xl shadow-sm border border-brand-secondary/20 p-5 flex flex-col justify-between h-full transition-all hover:shadow-md ${className}`}>
-            <div className="flex justify-between items-start">
-                <div>
-                    <p className="text-sm font-medium text-gray-500">{title}</p>
-                    <h3 className="text-2xl font-bold text-gray-800 mt-1">{value}</h3>
-                    {subValue && <p className="text-sm font-semibold text-gray-600 mt-1">{subValue}</p>}
+            <div className="flex justify-between items-start gap-3">
+                <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-500 truncate">{title}</p>
+                    <h3 className={valueClassName || `${responsiveFontSize} font-bold text-gray-800 mt-1 break-all`}>
+                        {value}
+                    </h3>
+                    {subValue && (
+                        <p className={subValueClassName || "text-sm font-semibold text-gray-600 mt-1 truncate"}>
+                            {subValue}
+                        </p>
+                    )}
                 </div>
-                <div className={`p-3 rounded-lg ${colorClasses[color] || colorClasses.blue}`}>
+                <div className={`p-3 rounded-lg flex-shrink-0 ${colorClasses[color] || colorClasses.blue}`}>
                     {Icon && <Icon className="w-6 h-6" />}
                 </div>
             </div>
