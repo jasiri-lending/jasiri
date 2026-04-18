@@ -639,51 +639,57 @@ const Customer360View = () => {
     return (
       <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
+        <div className="bg-brand-primary/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
           <div className="p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
-              <div className="flex-shrink-0">
+              <div className="flex-shrink-0 w-full md:w-56">
                 <div className="flex flex-col items-center">
-                  {customer.passport_url && imageUploadEnabled ? (
-                    <img
-                      src={customer.passport_url}
-                      alt={`${customer.Firstname} ${customer.Surname}`}
-                      className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md"
-                    />
-                  ) : (
-                    <div className="w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-3xl font-bold text-white border-4 border-white shadow-md">
-                      {getInitials()}
-                    </div>
-                  )}
-                  <h2 className="text-sm font-medium text-slate-700 mt-2 text-center">
-                    {customer.prefix} {customer.Firstname} {customer.Surname}
-                  </h2>
-
-                  <div className="mt-2 space-y-1 text-slate-600 text-center">
-                    <div className="flex items-center justify-center gap-1.5">
-                      <PhoneIcon className="h-3.5 w-3.5" />
-                      <span className="text-xs">{customer.mobile}</span>
-                    </div>
-                    <div className="flex items-center justify-center gap-1.5">
-                      <IdentificationIcon className="h-3.5 w-3.5" />
-                      <span className="text-xs">ID: {customer.id_number}</span>
-                    </div>
+                  <div className="relative group">
+                    <div className="absolute inset-0 bg-brand-primary/20 rounded-full blur-md opacity-50 group-hover:opacity-100 transition-opacity"></div>
+                    {customer.passport_url && imageUploadEnabled ? (
+                      <img
+                        src={customer.passport_url}
+                        alt={`${customer.Firstname} ${customer.Surname}`}
+                        className="relative w-28 h-28 rounded-full object-cover border-4 border-white shadow-xl transform group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="relative w-28 h-28 rounded-full bg-gradient-to-br from-brand-primary/80 to-brand-secondary/80 backdrop-blur-sm flex items-center justify-center text-4xl font-black text-white border-4 border-white shadow-xl transform group-hover:scale-105 transition-transform duration-300">
+                        {getInitials()}
+                      </div>
+                    )}
                   </div>
 
-                  <div className="mt-4 flex flex-wrap gap-1 justify-center">
-                    <span
-                      className={`inline-flex px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full border ${customer.status === "approved"
-                        ? "bg-accent/10 text-accent border-accent/20"
-                        : customer.status === "bm_review"
-                          ? "bg-yellow-50 text-yellow-700 border-yellow-200"
-                          : customer.status === "rejected"
-                            ? "bg-red-50 text-red-700 border-red-200"
-                            : "bg-gray-50 text-gray-700 border-gray-200"
-                        }`}
-                    >
-                      {customer.status || "Pending"}
-                    </span>
+                  <div className="mt-5 w-full bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
+                    <h2 className="text-base font-black text-slate-800 text-center leading-tight">
+                      {customer.prefix} {customer.Firstname} {customer.Surname}
+                    </h2>
+
+                    <div className="mt-3 space-y-2 text-center">
+                      <div className="flex items-center justify-center gap-2 bg-slate-100/80 hover:bg-slate-100 py-1.5 px-3 rounded-xl transition-colors">
+                        <PhoneIcon className="h-4 w-4 text-brand-primary" />
+                        <span className="text-xs font-bold text-slate-600">{customer.mobile}</span>
+                      </div>
+                      <div className="flex items-center justify-center gap-2 bg-slate-100/80 hover:bg-slate-100 py-1.5 px-3 rounded-xl transition-colors">
+                        <IdentificationIcon className="h-4 w-4 text-brand-primary" />
+                        <span className="text-xs font-bold text-slate-600">ID: {customer.id_number}</span>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex flex-wrap gap-1 justify-center border-t border-slate-100 pt-3">
+                      <span
+                        className={`inline-flex px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl border shadow-sm ${customer.status === "approved"
+                          ? "bg-accent/10 text-accent border-accent/20"
+                          : customer.status === "bm_review"
+                            ? "bg-yellow-50 text-yellow-700 border-yellow-200"
+                            : customer.status === "rejected"
+                              ? "bg-red-50 text-red-700 border-red-200"
+                              : "bg-gray-50 text-gray-700 border-gray-200"
+                          }`}
+                      >
+                        {customer.status || "Pending"}
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
