@@ -75,7 +75,7 @@ const CustomerDetailsPage = () => {
         supabase.from("next_of_kin").select("*").eq("customer_id", customerId),
         supabase.from("documents").select("id, document_type, document_url").eq("customer_id", customerId),
         supabase.from("business_images").select("*").eq("customer_id", customerId),
-        supabase.from("loans").select("*").eq("customer_id", customerId),
+        supabase.from("loans").select("*").eq("customer_id", customerId).order("created_at", { ascending: true }),
         supabase.from("guarantors").select("*").eq("customer_id", customerId),
         supabase
           .from("security_items")
@@ -820,7 +820,7 @@ const CustomerDetailsPage = () => {
                 <div className="border-b border-gray-200 pb-6 mb-8">
                   <h2 className="text-lg  font-bold text-slate-600 flex items-center">
                     <CurrencyDollarIcon className="h-8 w-8 text-brand-primary mr-3" />
-                    Loan Information {loanDetails.length > 1 ? `#${index + 1}` : ""}
+                    Loan Information - Loan {index + 1}
                   </h2>
                 </div>
 

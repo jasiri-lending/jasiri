@@ -139,7 +139,7 @@ export default function AdminEditTenant() {
             updates.initiator_name = config.initiator_name || "";
             updates.security_credential = config.security_credential || "";
             updates.b2c_callback_url = config.callback_url || "";
-            updates.b2c_environment = config.environment || "sandbox"; // Corrected from mpesa_environment
+            updates.b2c_environment = config.environment || "sandbox";
             updates.b2c_is_active = config.is_active ?? true;
           }
         });
@@ -163,7 +163,7 @@ export default function AdminEditTenant() {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setSaving(true);
     setError("");
     setSuccess(false);
@@ -303,7 +303,7 @@ export default function AdminEditTenant() {
               <ArrowLeftIcon className="h-6 w-6" />
             </button>
             <div>
-              <h1 className="text-lg  text-slate-900 flex items-center gap-2">
+              <h1 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                 <BuildingOfficeIcon className="h-7 w-7 text-brand-primary" />
                 Edit Tenant Profile
               </h1>
@@ -334,28 +334,13 @@ export default function AdminEditTenant() {
               <CheckCircleIcon className="h-5 w-5 flex-shrink-0" />
               <p className="text-sm font-bold">All configuration saved successfully!</p>
             </div>
-            {formData.c2b_is_active && (
-              <div className="pl-8 space-y-2">
-                <p className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Safaricom Registered Endpoints:</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="bg-white/50 p-2 rounded border border-emerald-100">
-                    <p className="text-[9px] text-slate-400 font-black uppercase">Confirmation</p>
-                    <code className="text-[10px] text-slate-600 block truncate">{formData.confirmation_url || `${window.location.origin}/mpesa/c2b/confirmation`}</code>
-                  </div>
-                  <div className="bg-white/50 p-2 rounded border border-emerald-100">
-                    <p className="text-[9px] text-slate-400 font-black uppercase">Validation</p>
-                    <code className="text-[10px] text-slate-600 block truncate">{formData.validation_url || `${window.location.origin}/mpesa/c2b/validation`}</code>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
         <form onSubmit={handleSubmit} className="space-y-8 pb-20">
           {/* Section 1: Basic Information */}
           <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-200 flex items-center gap-3">
+            <div className="px-6 py-4 bg-slate-50 border-b border-slate-200 flex items-center gap-3">
               <InformationCircleIcon className="h-5 w-5 text-brand-primary" />
               <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">Organization Details</h2>
             </div>
@@ -367,7 +352,7 @@ export default function AdminEditTenant() {
                   required
                   value={formData.name}
                   onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-slate-400 text-sm"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none text-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -377,327 +362,209 @@ export default function AdminEditTenant() {
                   required
                   value={formData.company_name}
                   onChange={e => setFormData({...formData, company_name: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-slate-400 text-sm"
+                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none text-sm"
                 />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Primary Email / Support</label>
-                <input
-                  type="email"
-                  value={formData.phone_number}
-                  onChange={e => setFormData({...formData, phone_number: e.target.value})}
-                  className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-slate-400 text-sm"
-                />
-              </div>
-          
-            </div>
-          </section>
-
-          {/* Section 2: Registration & Compliance */}
-          <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-50/50 border-b border-slate-200 flex items-center gap-3">
-              <ShieldCheckIcon className="h-5 w-5 text-brand-primary" />
-              <h2 className="text-sm  text-slate-600 uppercase tracking-widest">Compliance & IDs</h2>
-            </div>
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">CR12 Number</label>
-                <input type="text" value={formData.cr12} onChange={e => setFormData({...formData, cr12: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Registration Cert</label>
-                <input type="text" value={formData.company_certificate} onChange={e => setFormData({...formData, company_certificate: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
-              </div>
-              <div className="space-y-2">
-                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Tax ID (KRA PIN)</label>
-                <input type="text" value={formData.tenant_id_number} onChange={e => setFormData({...formData, tenant_id_number: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
               </div>
             </div>
           </section>
 
-          {/* Section 3: M-Pesa Gateways */}
+          {/* M-Pesa Gateways */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* C2B Collections */}
-            <section className="bg-white rounded-2xl shadow-md border border-slate-200 flex flex-col h-full overflow-hidden">
-              <div className="px-6 py-4 bg-emerald-600 text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-white/20 rounded-lg"><CloudIcon className="h-6 w-6" /></div>
-                  <h2 className="text-sm font-black uppercase tracking-widest">C2B Collections</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="c2b_active" 
-                    checked={formData.c2b_is_active} 
-                    onChange={e => setFormData({...formData, c2b_is_active: e.target.checked})}
-                    className="h-4 w-4 rounded border-white/30 text-emerald-600 bg-white focus:ring-0" 
-                  />
-                  <label htmlFor="c2b_active" className="text-[10px] font-black uppercase tracking-widest">Active</label>
-                </div>
+            {/* C2B SECTION */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-full overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-[#586ab1] to-[#6c7dc5] text-white">
+                <h2 className="text-sm font-bold uppercase tracking-wider">C2B Configuration (Collections)</h2>
+                <p className="text-[10px] opacity-80 mt-1">Used for STK Push and customer repayments</p>
               </div>
               
-              <div className="p-6 space-y-6 flex-1">
-                <div className="flex gap-4">
-                  {['paybill', 'till'].map(type => (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => setFormData({...formData, payment_type: type})}
-                      className={`flex-1 py-3 rounded-xl border-2 font-black uppercase tracking-widest text-[10px] transition-all ${formData.payment_type === type ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-100 bg-slate-50 text-slate-400 hover:border-slate-200'}`}
-                    >
-                      {type}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Identifier</label>
-                    <input
-                      type="text"
-                      value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number}
-                      onChange={e => setFormData({...formData, [formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number']: e.target.value})}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Shortcode</label>
-                    <input
-                      type="text"
-                      value={formData.shortcode}
-                      onChange={e => setFormData({...formData, shortcode: e.target.value})}
-                      className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Environment</label>
-                  <select 
-                    value={formData.c2b_environment} 
-                    onChange={e => setFormData({...formData, c2b_environment: e.target.value})}
-                    className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-emerald-500/20 text-sm font-bold appearance-none"
+              <div className="p-6 space-y-4 flex-grow">
+                <div className="grid grid-cols-2 gap-4 text-center">
+                  <label 
+                    onClick={() => setFormData({...formData, payment_type: 'paybill'})}
+                    className={`p-3 border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'paybill' ? 'border-[#586ab1] bg-indigo-50/30 text-[#586ab1]' : 'border-gray-100 text-gray-400'}`}
                   >
-                    <option value="sandbox">Sandbox</option>
-                    <option value="production">Production</option>
-                  </select>
+                    <span className="text-xs font-bold">Paybill</span>
+                  </label>
+                  <label 
+                    onClick={() => setFormData({...formData, payment_type: 'till'})}
+                    className={`p-3 border-2 rounded-xl cursor-pointer transition-all ${formData.payment_type === 'till' ? 'border-[#586ab1] bg-indigo-50/30 text-[#586ab1]' : 'border-gray-100 text-gray-400'}`}
+                  >
+                    <span className="text-xs font-bold">Till Number</span>
+                  </label>
                 </div>
 
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Consumer Key</label>
-                    <div className="relative">
-                      <KeyIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="text" value={formData.consumer_key} onChange={e => setFormData({...formData, consumer_key: e.target.value})} className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-xs focus:ring-2 focus:ring-emerald-500/20" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Consumer Secret</label>
-                    <div className="relative">
-                      <LockClosedIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input type="password" value={formData.consumer_secret} onChange={e => setFormData({...formData, consumer_secret: e.target.value})} className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-xs focus:ring-2 focus:ring-emerald-500/20" />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Online Passkey</label>
-                    <input type="password" value={formData.passkey} onChange={e => setFormData({...formData, passkey: e.target.value})} className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-xs focus:ring-2 focus:ring-emerald-500/20" />
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-slate-100">
-                   <div className="space-y-1 uppercase tracking-widest">
-                     <label className="text-[9px] font-black text-slate-400">Confirmation URL</label>
-                     <input type="url" value={formData.confirmation_url} onChange={e => setFormData({...formData, confirmation_url: e.target.value})} className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-lg text-[11px] outline-none font-mono" />
-                   </div>
-                   <div className="space-y-1 uppercase tracking-widest">
-                     <label className="text-[9px] font-black text-slate-400">Validation URL</label>
-                     <input type="url" value={formData.validation_url} onChange={e => setFormData({...formData, validation_url: e.target.value})} className="w-full px-3 py-1.5 bg-slate-100 border-none rounded-lg text-[11px] outline-none font-mono" />
-                   </div>
-                </div>
-              </div>
-            </section>
-
-            {/* B2C Disbursements */}
-            <section className="bg-white rounded-2xl shadow-md border border-slate-200 flex flex-col h-full overflow-hidden">
-              <div className="px-6 py-4 bg-brand-primary text-white flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="p-1.5 bg-white/20 rounded-lg"><GlobeAltIcon className="h-6 w-6" /></div>
-                  <h2 className="text-sm font-black uppercase tracking-widest">B2C Disbursements</h2>
-                </div>
-                <div className="flex items-center gap-2">
-                  <input 
-                    type="checkbox" 
-                    id="b2c_active" 
-                    checked={formData.b2c_is_active} 
-                    onChange={e => setFormData({...formData, b2c_is_active: e.target.checked})}
-                    className="h-4 w-4 rounded border-white/30 text-brand-primary bg-white focus:ring-0" 
-                  />
-                  <label htmlFor="b2c_active" className="text-[10px] font-black uppercase tracking-widest">Active</label>
-                </div>
-              </div>
-              
-              <div className="p-6 space-y-6 flex-1 bg-muted/20">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Shortcode</label>
-                    <input
-                      type="text"
-                      value={formData.b2c_shortcode}
-                      onChange={e => setFormData({...formData, b2c_shortcode: e.target.value})}
-                      className="w-full px-4 py-2 bg-muted border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm"
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">{formData.payment_type === 'paybill' ? 'Paybill Number' : 'Till Number'}</label>
+                    <input 
+                      type="text" 
+                      value={formData.payment_type === 'paybill' ? formData.paybill_number : formData.till_number} 
+                      onChange={e => setFormData({...formData, [formData.payment_type === 'paybill' ? 'paybill_number' : 'till_number']: e.target.value})} 
+                      className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-[#586ab1]/20" 
+                      placeholder={formData.payment_type === 'paybill' ? "6-digit Paybill" : "Buy Goods Till"} 
                     />
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Environment</label>
-                    <select 
-                      value={formData.b2c_environment} 
-                      onChange={e => setFormData({...formData, b2c_environment: e.target.value})}
-                      className="w-full px-4 py-2 bg-muted border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm font-bold appearance-none"
-                    >
-                      <option value="sandbox">Sandbox</option>
-                      <option value="production">Production</option>
-                    </select>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Shortcode</label>
+                      <input type="text" value={formData.shortcode} onChange={e => setFormData({...formData, shortcode: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm placeholder:opacity-50" placeholder="Usually same as paybill" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Environment</label>
+                      <select value={formData.c2b_environment} onChange={e => setFormData({...formData, c2b_environment: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none">
+                        <option value="sandbox">Sandbox</option>
+                        <option value="production">Production</option>
+                      </select>
+                    </div>
                   </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Consumer Key</label>
-                    <input type="text" value={formData.b2c_consumer_key} onChange={e => setFormData({...formData, b2c_consumer_key: e.target.value})} className="w-full px-4 py-2 bg-muted border border-gray-200 rounded-xl outline-none font-mono text-xs focus:ring-2 focus:ring-brand-primary/20" />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Consumer Key</label>
+                      <input type="text" value={formData.consumer_key} onChange={e => setFormData({...formData, consumer_key: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Consumer Secret</label>
+                      <input type="password" value={formData.consumer_secret} onChange={e => setFormData({...formData, consumer_secret: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest">Consumer Secret</label>
-                    <input type="password" value={formData.b2c_consumer_secret} onChange={e => setFormData({...formData, b2c_consumer_secret: e.target.value})} className="w-full px-4 py-2 bg-muted border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20" />
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Passkey (STK Push)</label>
+                    <input type="password" value={formData.passkey} onChange={e => setFormData({...formData, passkey: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono" />
                   </div>
-                </div>
-
-                <div className="p-5 bg-muted rounded-2xl space-y-4 border border-brand-primary/20">
-                  <div className="flex items-center gap-2 mb-2">
-                    <ShieldCheckIcon className="h-4 w-4 text-brand-primary" />
-                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-primary">Security Credentials</span>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Confirmation URL</label>
+                      <input type="url" value={formData.confirmation_url} onChange={e => setFormData({...formData, confirmation_url: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[10px] font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Validation URL</label>
+                      <input type="url" value={formData.validation_url} onChange={e => setFormData({...formData, validation_url: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[10px] font-mono" />
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Initiator Name</label>
-                    <input type="text" value={formData.initiator_name} onChange={e => setFormData({...formData, initiator_name: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm" />
+                  <div className="flex items-center gap-4">
+                    <div className="flex-grow">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Callback URL (STK)</label>
+                      <input type="url" value={formData.callback_url} onChange={e => setFormData({...formData, callback_url: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[10px] font-mono" />
+                    </div>
+                    <div className="flex items-center gap-2 pt-5">
+                      <input type="checkbox" id="c2b_active" checked={formData.c2b_is_active} onChange={e => setFormData({...formData, c2b_is_active: e.target.checked})} className="h-4 w-4 text-[#586ab1] border-gray-300 rounded focus:ring-[#586ab1]" />
+                      <label htmlFor="c2b_active" className="text-xs font-medium text-gray-700">Active</label>
+                    </div>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Security Credential</label>
-                    <textarea rows="3" value={formData.security_credential} onChange={e => setFormData({...formData, security_credential: e.target.value})} className="w-full px-4 py-2 bg-white border border-slate-200 rounded-xl outline-none text-[11px] font-mono leading-relaxed" placeholder="Encrypted credential from Daraja portal" />
-                  </div>
-                </div>
-
-                <div className="space-y-1 pt-2">
-                   <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Result Callback URL</label>
-                   <input type="url" value={formData.b2c_callback_url} onChange={e => setFormData({...formData, b2c_callback_url: e.target.value})} className="w-full px-3 py-1.5 bg-brand-surface border-none rounded-lg text-[11px] outline-none font-mono" />
                 </div>
               </div>
-            </section>
+            </div>
+
+            {/* B2C SECTION */}
+            <div className="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col h-full overflow-hidden">
+              <div className="px-6 py-4 bg-gradient-to-r from-emerald-600 to-teal-500 text-white">
+                <h2 className="text-sm font-bold uppercase tracking-wider">B2C Configuration (Disbursement)</h2>
+                <p className="text-[10px] opacity-80 mt-1">Used for loan payouts and refunds</p>
+              </div>
+              
+              <div className="p-6 space-y-4 flex-grow bg-slate-50/30">
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">B2C Shortcode</label>
+                      <input type="text" value={formData.b2c_shortcode} onChange={e => setFormData({...formData, b2c_shortcode: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" placeholder="e.g., 600123" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Environment</label>
+                      <select value={formData.b2c_environment} onChange={e => setFormData({...formData, b2c_environment: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white outline-none">
+                        <option value="sandbox">Sandbox</option>
+                        <option value="production">Production</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Consumer Key</label>
+                      <input type="text" value={formData.b2c_consumer_key} onChange={e => setFormData({...formData, b2c_consumer_key: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Consumer Secret</label>
+                      <input type="password" value={formData.b2c_consumer_secret} onChange={e => setFormData({...formData, b2c_consumer_secret: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm font-mono" />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Initiator Name</label>
+                      <input type="text" value={formData.initiator_name} onChange={e => setFormData({...formData, initiator_name: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-500 mb-1">Security Credential</label>
+                    <textarea 
+                      rows="4" 
+                      value={formData.security_credential} 
+                      onChange={e => setFormData({...formData, security_credential: e.target.value})} 
+                      className="w-full px-3 py-2 border border-slate-200 rounded-xl bg-white text-[10px] font-mono outline-none focus:ring-2 focus:ring-emerald-500/20" 
+                      placeholder="Encrypted credential from Daraja portal" 
+                    />
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex-grow">
+                      <label className="block text-xs font-medium text-gray-500 mb-1">Callback URL (Results)</label>
+                      <input type="url" value={formData.b2c_callback_url || ''} onChange={e => setFormData({...formData, b2c_callback_url: e.target.value})} className="w-full px-3 py-2 border border-slate-200 rounded-lg text-[10px] font-mono" />
+                    </div>
+                    <div className="flex items-center gap-2 pt-5">
+                      <input type="checkbox" id="b2c_active" checked={formData.b2c_is_active} onChange={e => setFormData({...formData, b2c_is_active: e.target.checked})} className="h-4 w-4 text-emerald-600 border-gray-300 rounded focus:ring-emerald-500" />
+                      <label htmlFor="b2c_active" className="text-xs font-medium text-gray-700">Active</label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Section 4: SMS Gateway */}
+          {/* SMS Gateway */}
           <section className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-            <div className="px-6 py-4 bg-slate-100 text-slate-900 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <DevicePhoneMobileIcon className="h-5 w-5 text-brand-primary" />
-                <h2 className="text-sm   text-slate-900">SMS Gateway Integration</h2>
-              </div>
-              <span className="text-[10px] bg-white/10 px-2 py-1 rounded text-slate-600 ">SMS-SERVICE-V1</span>
+            <div className="px-6 py-4 bg-slate-900 text-white flex items-center gap-3">
+              <DevicePhoneMobileIcon className="h-5 w-5" />
+              <h2 className="text-sm font-black uppercase tracking-widest">SMS Gateway Integration</h2>
             </div>
-            <div className="p-8 bg-slate-50/30">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                <div className="space-y-2 md:col-span-2">
-                  <label className="text-sm text-slate-500  flex items-center gap-2">
-                    <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
-                    API Base URL
-                  </label>
-                  <input 
-                    type="url" 
-                    placeholder="https://api.gateway.com/v1"
-                    value={formData.sms_base_url} 
-                    onChange={e => setFormData({...formData, sms_base_url: e.target.value})} 
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm transition-all focus:border-brand-primary" 
-                    required={!!formData.sms_api_key}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm flex items-center gap-2">
-                    <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
-                    Partner ID
-                  </label>
-                  <input 
-                    type="text" 
-                    value={formData.sms_partner_id} 
-                    onChange={e => setFormData({...formData, sms_partner_id: e.target.value})} 
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-brand-primary/20 text-sm transition-all focus:border-brand-primary" 
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-sm flex items-center gap-2">
-                    <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
-                    Sender / Shortcode
-                  </label>
-                  <input 
-                    type="text" 
-                    value={formData.sms_shortcode} 
-                    onChange={e => setFormData({...formData, sms_shortcode: e.target.value})} 
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-bold text-center tracking-widest text-sm transition-all focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20" 
-                  />
-                </div>
-                <div className="space-y-2 md:col-span-4">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2">
-                    <div className="w-1 h-1 bg-brand-primary rounded-full"></div>
-                    API / Auth Key
-                  </label>
-                  <input 
-                    type="password" 
-                    value={formData.sms_api_key} 
-                    onChange={e => setFormData({...formData, sms_api_key: e.target.value})} 
-                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-xl outline-none font-mono text-sm transition-all focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20" 
-                  />
-                </div>
-              </div>
+            <div className="p-8 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+               <div className="space-y-2 md:col-span-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">API Base URL</label>
+                  <input type="url" value={formData.sms_base_url} onChange={e => setFormData({...formData, sms_base_url: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Partner ID</label>
+                  <input type="text" value={formData.sms_partner_id} onChange={e => setFormData({...formData, sms_partner_id: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-sm" />
+               </div>
+               <div className="space-y-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Shortcode</label>
+                  <input type="text" value={formData.sms_shortcode} onChange={e => setFormData({...formData, sms_shortcode: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-bold text-center tracking-widest" />
+               </div>
+               <div className="space-y-2 md:col-span-4">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">API Key</label>
+                  <input type="password" value={formData.sms_api_key} onChange={e => setFormData({...formData, sms_api_key: e.target.value})} className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl outline-none font-mono text-sm" />
+               </div>
             </div>
           </section>
 
-          {/* Section 5: Feature Flags */}
-          <section className="bg-slate-100 text-slate-900 rounded-3xl shadow-xl p-10 flex flex-col md:flex-row items-center gap-12 relative overflow-hidden">
-             <div className="absolute top-0 right-0 w-64 h-64 bg-brand-primary/10 blur-[100px] -z-10 rounded-full"></div>
+          {/* Feature Flags */}
+          <section className="bg-slate-100 rounded-3xl p-10 flex flex-col md:flex-row items-center gap-12 border border-slate-200">
             <div className="flex-1">
-              <h2 className="text-lg text-slate-600">System Modules</h2>
-              <p className="text-slate-600 text-sm  leading-relaxed">Customize the platform capabilities for this organization. Enabling these features will instantly grant access to relevant field officers.</p>
+              <h2 className="text-lg font-bold text-slate-900">System Modules</h2>
+              <p className="text-slate-600 text-sm leading-relaxed">Customize platform capabilities for this organization.</p>
             </div>
             <div className="flex flex-wrap gap-10">
-              <label className="flex items-center gap-5 group cursor-pointer">
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    className="peer sr-only" 
-                    checked={formData.document_upload_enabled}
-                    onChange={e => setFormData({...formData, document_upload_enabled: e.target.checked})}
-                  />
-                  <div className="w-16 h-8 bg-slate-800 rounded-full peer-checked:bg-brand-primary transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-8"></div>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 group-hover:text-brand-primary transition-colors">Documents</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Uploads active</span>
-                </div>
-              </label>
-
-              <label className="flex items-center gap-5 group cursor-pointer">
-                <div className="relative">
-                  <input 
-                    type="checkbox" 
-                    className="peer sr-only" 
-                    checked={formData.image_upload_enabled}
-                    onChange={e => setFormData({...formData, image_upload_enabled: e.target.checked})}
-                  />
-                  <div className="w-16 h-8 bg-slate-800 rounded-full peer-checked:bg-blue-500 transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-6 after:w-6 after:transition-all peer-checked:after:translate-x-8"></div>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-400 group-hover:text-blue-400 transition-colors">Media</span>
-                  <span className="text-[10px] text-slate-500 font-bold">Camera capture</span>
-                </div>
-              </label>
+               <label className="flex items-center gap-4 cursor-pointer">
+                  <div className="relative">
+                    <input type="checkbox" className="sr-only peer" checked={formData.document_upload_enabled} onChange={e => setFormData({...formData, document_upload_enabled: e.target.checked})} />
+                    <div className="w-14 h-7 bg-slate-300 rounded-full peer-checked:bg-brand-primary transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-7"></div>
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Documents</span>
+               </label>
+               <label className="flex items-center gap-4 cursor-pointer">
+                  <div className="relative">
+                    <input type="checkbox" className="sr-only peer" checked={formData.image_upload_enabled} onChange={e => setFormData({...formData, image_upload_enabled: e.target.checked})} />
+                    <div className="w-14 h-7 bg-slate-300 rounded-full peer-checked:bg-brand-primary transition-all after:content-[''] after:absolute after:top-1 after:left-1 after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:after:translate-x-7"></div>
+                  </div>
+                  <span className="text-[11px] font-black uppercase tracking-widest text-slate-500">Media</span>
+               </label>
             </div>
           </section>
         </form>

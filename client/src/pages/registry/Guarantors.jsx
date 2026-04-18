@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Search, UserPlus, Filter, AlertCircle, CheckCircle, XCircle, Loader2, Plus } from 'lucide-react';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
@@ -7,6 +8,7 @@ import Spinner from '../../components/Spinner';
 
 const Guarantors = () => {
   const { profile } = useAuth();
+  const navigate = useNavigate();
   const [guarantors, setGuarantors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -56,6 +58,13 @@ const Guarantors = () => {
         .from('guarantors')
         .select(`
         *,
+        guarantor_security(
+          *,
+          guarantor_security_images(
+            id,
+            image_url
+          )
+        ),
         customer:customers (
           id,
           Firstname,
@@ -298,82 +307,36 @@ const Guarantors = () => {
     }
 
     setConvertingId(guarantor.id);
-
     try {
-      let branch_id = guarantor.branch_id;
-      let region_id = guarantor.region_id;
+      // Fetch full security details plus images to ensure consistency (matching EditCustomerPage pattern)
+      const { data: securityData, error: securityError } = await supabase
+        .from('guarantor_security')
+        .select('*, guarantor_security_images(id, image_url)')
+        .eq('guarantor_id', guarantor.id);
 
-      // If no branch/region, get from guaranteed customer
-      if (!branch_id || !region_id) {
-        if (guarantor.guaranteed_customers && guarantor.guaranteed_customers.length > 0) {
-          const firstCustomer = guarantor.guaranteed_customers[0].customer;
-          if (firstCustomer) {
-            branch_id = firstCustomer.branch_id;
-            region_id = firstCustomer.region_id;
-          }
-        }
-      }
+      if (securityError) throw securityError;
 
-      if (!branch_id || !region_id) {
-        showNotification('error', 'Branch and Region information is required for conversion');
-        setConvertingId(null);
-        return;
-      }
+      // Attach the freshly fetched security data to the guarantor object
+      // Combine the on-demand fetched data with the original guarantor record
+      // This ensures we have both basic info and the full security/image profile
+      const fullGuarantorData = {
+        ...guarantor,
+        // Fallback to existing guarantor_security variations if the separate fetch returned nothing
+        guarantor_security: (securityData && securityData.length > 0) 
+          ? securityData 
+          : (guarantor.guarantor_security || guarantor.guarantorSecurity || guarantor.security_items || [])
+      };
 
-      // Create a new customer from guarantor data
-      const { data: newCustomer, error: customerError } = await supabase
-        .from('customers')
-        .insert({
-          prefix: guarantor.prefix,
-          Firstname: guarantor.Firstname,
-          Surname: guarantor.Surname,
-          Middlename: guarantor.Middlename,
-          marital_status: guarantor.marital_status,
-          residence_status: guarantor.residence_status,
-          mobile: guarantor.mobile,
-          id_number: guarantor.id_number,
-          postal_address: guarantor.postal_address,
-          code: guarantor.code,
-          county: guarantor.county,
-          date_of_birth: guarantor.date_of_birth,
-          gender: guarantor.gender,
-          alternative_mobile: guarantor.alternative_number,
-          passport_url: guarantor.passport_url,
-          id_front_url: guarantor.id_front_url,
-          id_back_url: guarantor.id_back_url,
-          occupation: guarantor.occupation,
-          town: guarantor.city_town,
-          branch_id: branch_id,
-          region_id: region_id,
-          created_by: guarantor.created_by,
-          tenant_id: profile?.tenant_id,
-          status: 'pending',
-          form_status: 'submitted',
-          is_new_customer: true,
-          is_guarantor: true
-        })
-        .select()
-        .single();
-
-      if (customerError) throw customerError;
-
-      // Mark the guarantor as converted (set is_guarantor to false)
-      const { error: updateError } = await supabase
-        .from('guarantors')
-        .update({
-          is_guarantor: false
-        })
-        .eq('id', guarantor.id)
-        .eq('tenant_id', profile?.tenant_id);
-
-      if (updateError) throw updateError;
-
-      showNotification('success', `Successfully converted ${guarantor.Firstname} ${guarantor.Surname} to customer`);
-
-      await fetchGuarantors();
-    } catch (error) {
-      console.error('Error converting to customer:', error);
-      showNotification('error', 'Failed to convert guarantor to customer: ' + error.message);
+      // Redirect to Customer Form with verified guarantor data pre-filled
+      navigate("/officer/customer-form", { 
+        state: { 
+          guarantorData: fullGuarantorData, 
+          fromGuarantors: true 
+        } 
+      });
+    } catch (err) {
+      console.error('❌ Error preparing conversion data:', err);
+      showNotification('error', 'Failed to prepare conversion data');
     } finally {
       setConvertingId(null);
     }

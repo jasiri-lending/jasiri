@@ -136,6 +136,7 @@ const LoanInstallmentReport = lazy(() => import("./pages/reports/LoanInstallment
 const Guarantors = lazy(() => import("./pages/registry/Guarantors.jsx"));
 const AdminCreateReportUser = lazy(() => import("./pages/admin/components/AdminCreateReportUser.jsx"));
 const AdminCreateTenant = lazy(() => import("./pages/admin/components/AdminCreateTenant.jsx"));
+const AdminTenantsList = lazy(() => import("./pages/admin/components/AdminTenantsList.jsx"));
 const AdminEditTenant = lazy(() => import("./pages/admin/components/AdminEditTenant.jsx"));
 const TenantMpesaForm = lazy(() => import("./pages/admin/components/TenantMpesa.jsx"));
 const TenantViewPage = lazy(() => import("./pages/admin/components/TenantViewPage.jsx"));
@@ -1290,6 +1291,10 @@ function MainLayout({
                       <Route
                         path="/users/report-access/admin"
                         element={<AdminCreateReportUser />}
+                      />
+                      <Route
+                        path="/users/tenants/admin"
+                        element={<AdminTenantsList />}
                       />
                       <Route
                         path="/users/create-tenant/admin"

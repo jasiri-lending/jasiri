@@ -194,6 +194,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
   // receive data from props OR from navigation state
   const leadData = propLeadData || location.state?.leadData || null;
+  const guarantorData = location.state?.guarantorData || null;
+  const fromGuarantors = location.state?.fromGuarantors || false;
   const [activeSection, setActiveSection] = useState("personal");
 
   const [errors, setErrors] = useState({});
@@ -305,6 +307,77 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       if (leadData.business_type && !typeExists) setIsCustomType(true);
     }
   }, [leadData]);
+
+  // Prefill from guarantors
+  useEffect(() => {
+    if (guarantorData) {
+      setFormData((prev) => ({
+        ...prev,
+        prefix: guarantorData.prefix || "",
+        Firstname: guarantorData.Firstname || "",
+        Surname: guarantorData.Surname || "",
+        Middlename: guarantorData.Middlename || "",
+        maritalStatus: guarantorData.marital_status || "",
+        residenceStatus: guarantorData.residence_status || "",
+        mobile: guarantorData.mobile || "",
+        alternativeMobile: guarantorData.alternative_number || "",
+        occupation: guarantorData.occupation || "",
+        dateOfBirth: guarantorData.date_of_birth || "",
+        gender: guarantorData.gender || "",
+        idNumber: guarantorData.id_number || "",
+        postalAddress: guarantorData.postal_address || "",
+        code: guarantorData.code || "",
+        town: guarantorData.city_town || "",
+        county: guarantorData.county || "",
+        passport_url: guarantorData.passport_url || "",
+        id_front_url: guarantorData.id_front_url || "",
+        id_back_url: guarantorData.id_back_url || "",
+      }));
+
+      // Map security items from guarantor_security (or alias) to securityItems (Borrower Security)
+      const rawSecurityItems = guarantorData.guarantor_security || guarantorData.guarantorSecurity || guarantorData.security_items || [];
+      
+      if (rawSecurityItems.length > 0) {
+        // Use a "Universal Mapping" that handles all DB field variations found in the project
+        const mappedSecurity = rawSecurityItems.map(gs => {
+          // Robustly find images in nested response (handles different join names)
+          const nestedImages = gs.guarantor_security_images || gs.security_images || gs.images || gs.security_item_images || [];
+          const imageUrls = Array.isArray(nestedImages) 
+            ? nestedImages.map(img => typeof img === 'string' ? img : (img.image_url || img.url)).filter(Boolean)
+            : [];
+
+          // Search for any known names for each field
+          const rawType = (gs.item || gs.type || gs.item_name || gs.security_type || "").trim();
+          const rawDescription = (gs.description || gs.item_description || "").trim();
+          const rawIdentification = (gs.identification || gs.item_identification || gs.identification_number || "").trim();
+          const rawValue = gs.estimated_market_value || gs.value || gs.item_value || gs.est_market_value || "";
+
+          const validTypes = [
+            "Household Items", "Business Equipment", "Livestock", 
+            "Motor Vehicle", "Motorbike", "Land / Property", 
+            "Title deed", "Logbook", "Salary Check-off", 
+            "Stock / Inventory", "Fixed deposit / Savings security", "Electronics"
+          ];
+          
+          // Determine if we should use the "Other" category and populate otherType
+          const isOther = rawType && !validTypes.includes(rawType);
+
+          return {
+            type: isOther ? "Other" : rawType,
+            description: rawDescription,
+            value: rawValue,
+            identification: rawIdentification,
+            otherType: isOther ? rawType : "",
+            existingImages: imageUrls
+          };
+        });
+
+        // Set state for image containers first to ensure the UI has slots for newly uploaded files
+        setSecurityItemImages(Array.from({ length: mappedSecurity.length }, () => []));
+        setSecurityItems(mappedSecurity);
+      }
+    }
+  }, [guarantorData]);
 
 
   // Fix security items structure to match your handlers
@@ -465,7 +538,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -488,7 +562,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -546,7 +621,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "id_number",
-            value
+            value,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -610,7 +686,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           if (!/^[0-9]{10,15}$/.test(cleaned)) {
             setErrors(prev => ({ ...prev, [errorKey]: "Invalid mobile format (10-15 digits)" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id);
             if (!exists) {
               setErrors(prev => ({ ...prev, [errorKey]: "Mobile number already exists" }));
             }
@@ -622,7 +698,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           if (!/^[0-9]{6,12}$/.test(value)) {
             setErrors(prev => ({ ...prev, [errorKey]: "ID must be 6–12 digits" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id);
             if (!exists) {
               setErrors(prev => ({ ...prev, [errorKey]: "ID number already exists" }));
             }
@@ -675,7 +751,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "mobile",
-              cleaned
+              cleaned,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -697,7 +774,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "id_number",
-              value
+              value,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -733,7 +811,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "mobile",
-              cleaned
+              cleaned,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -755,7 +834,8 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "id_number",
-              value
+              value,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -1172,30 +1252,39 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       { field: "idNumber", value: formData.idNumber, label: "ID number" },
     ];
 
+    // When converting a guarantor → customer, their ID/mobile already exist in
+    // the guarantors table by design. Only check `customers` and `next_of_kin`
+    // to prevent duplicate customer records while allowing the conversion.
+    const tablesToCheck = fromGuarantors
+      ? ["customers", "next_of_kin"]
+      : ["customers", "guarantors", "next_of_kin"];
+
     // Paralellize uniqueness checks
     const uniqueChecks = fieldsToCheck
       .filter(({ value, field }) => value && !newErrors[field])
       .map(async ({ field, value, label }) => {
         try {
           const isUnique = await checkUniqueValue(
-            ["customers", "guarantors", "next_of_kin"],
+            tablesToCheck,
             field === "idNumber" ? "id_number" : "mobile",
-            value
+            value,
+            profile?.tenant_id,
+            formData.id
           );
           if (!isUnique) {
             return { field, error: `${label} already exists in our system` };
           }
-        } catch (error) {
-          console.error(`Error checking uniqueness for ${label}:`, error);
+        } catch (err) {
+          console.error(`Error checking uniqueness for ${label}:`, err);
           return { field, error: `Error validating ${label}` };
         }
         return null;
       });
 
     const results = await Promise.all(uniqueChecks);
-    results.filter(Boolean).forEach(({ field, error }) => {
-      newErrors[field] = error;
-      error(error);
+    results.filter(Boolean).forEach(({ field, error: errorMsg }) => {
+      newErrors[field] = errorMsg;
+      error(errorMsg);
       hasErrors = true;
     });
 
@@ -1374,7 +1463,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       // Prepare uniqueness checks
       if (mobile && !errorsFound[`guarantors_${index}_mobile`]) {
         uniqueChecks.push((async () => {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""));
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""), profile?.tenant_id, formData.id);
           if (!isUnique) {
             errorsFound[`guarantors_${index}_mobile`] = `Guarantor ${index + 1}: Mobile already exists`;
             error(errorsFound[`guarantors_${index}_mobile`]);
@@ -1384,7 +1473,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       }
       if (idNumber && !errorsFound[`guarantors_${index}_idNumber`]) {
         uniqueChecks.push((async () => {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber, profile?.tenant_id, formData.id);
           if (!isUnique) {
             errorsFound[`guarantors_${index}_idNumber`] = `Guarantor ${index + 1}: ID already exists`;
             error(errorsFound[`guarantors_${index}_idNumber`]);
@@ -1481,7 +1570,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       // Uniqueness checks
       if (mobile && !errorsFound[`nextOfKins_${index}_mobile`]) {
         uniqueChecks.push((async () => {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""));
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", mobile.replace(/\D/g, ""), profile?.tenant_id, formData.id);
           if (!isUnique) {
             errorsFound[`nextOfKins_${index}_mobile`] = `Next of Kin ${index + 1}: Mobile already exists`;
             error(errorsFound[`nextOfKins_${index}_mobile`]);
@@ -1491,7 +1580,7 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
       }
       if (idNumber && !errorsFound[`nextOfKins_${index}_idNumber`]) {
         uniqueChecks.push((async () => {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", idNumber, profile?.tenant_id, formData.id);
           if (!isUnique) {
             errorsFound[`nextOfKins_${index}_idNumber`] = `Next of Kin ${index + 1}: ID already exists`;
             error(errorsFound[`nextOfKins_${index}_idNumber`]);
@@ -2069,6 +2158,17 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           .eq("id", leadData.id);
       }
 
+      // Update guarantor status if this was a conversion
+      if (guarantorData?.id) {
+        await supabase
+          .from("guarantors")
+          .update({
+            is_guarantor: false
+          })
+          .eq("id", guarantorData.id)
+          .eq("tenant_id", profile?.tenant_id);
+      }
+
       // 4. PARALLEL INSERT: All related records at once
       const insertPromises = [];
 
@@ -2259,9 +2359,12 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
     // 2. Upload all images for all items in PARALLEL (SPEED BOOST)
     const allImageUploads = insertedItems.flatMap((item, index) => {
-      const itemImages = images[index] || [];
-      return itemImages.map(async (file) => {
-        const filePath = `${isGuarantor ? 'guarantor_security' : 'borrower_security'}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
+      const newFiles = images[index] || [];
+      const existingUrls = items[index]?.existingImages || [];
+
+      // Promises for new uploads
+      const newUploadPromises = newFiles.map(async (file) => {
+        const filePath = `${isGuarantor ? "guarantor_security" : "borrower_security"}/${Date.now()}_${Math.random().toString(36).substr(2, 9)}_${file.name}`;
         const url = await uploadFile(file, filePath, "customers");
 
         return url ? {
@@ -2274,6 +2377,19 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
           created_at: new Date().toISOString(),
         } : null;
       });
+
+      // Promises for existing URLs (copying the reference)
+      const existingPromises = existingUrls.map(url => Promise.resolve({
+        [isGuarantor ? "guarantor_security_id" : "security_item_id"]: item.id,
+        image_url: url,
+        created_by: profile?.id,
+        tenant_id: profile?.tenant_id,
+        branch_id: profile?.branch_id,
+        region_id: profile?.region_id,
+        created_at: new Date().toISOString(),
+      }));
+
+      return [...newUploadPromises, ...existingPromises];
     });
 
     const imageRecords = (await Promise.all(allImageUploads)).filter(Boolean);
@@ -2637,26 +2753,29 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             </label>
                           </div>
 
-                          {previews[file.key] && (
+                          {/* Display logic for both new uploads AND existing remote URLs */}
+                          {(previews[file.key] || formData[`${file.key === 'idFront' ? 'id_front' : file.key === 'idBack' ? 'id_back' : file.key === 'house' ? 'house_image' : file.key}_url` || '']) && (
                             <div className="mt-4 w-full">
                               <div className="relative">
                                 <img
-                                  src={previews[file.key].url}
+                                  src={previews[file.key]?.url || formData[`${file.key === 'idFront' ? 'id_front' : file.key === 'idBack' ? 'id_back' : file.key === 'house' ? 'house_image' : file.key}_url`]}
                                   alt={`${file.label} preview`}
                                   className="w-full h-40 object-cover rounded-lg border border-brand-surface shadow-sm"
                                 />
-                                <button
-                                  type="button"
-                                  onClick={() => handleRemoveFile(file.key, file.handler)}
-                                  className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
-                                >
-                                  <XMarkIcon className="w-4 h-4" />
-                                </button>
+                                {previews[file.key] && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveFile(file.key, file.handler)}
+                                    className="absolute top-2 right-2 bg-red-600 text-white rounded-full p-1 hover:bg-red-700 shadow-md"
+                                  >
+                                    <XMarkIcon className="w-4 h-4" />
+                                  </button>
+                                )}
                               </div>
-                              {/* Professional file name display */}
+                              {/* Display filename for new uploads or generic label for existing ones */}
                               <div className="mt-2 p-2 bg-white rounded border border-gray-200">
-                                <p className="text-xs text-muted truncate" title={previews[file.key].fileName}>
-                                  📄 {previews[file.key].fileName}
+                                <p className="text-xs text-muted truncate" title={previews[file.key]?.fileName || "Existing Document"}>
+                                  {previews[file.key] ? `📄 ${previews[file.key].fileName}` : "✅ Existing Document"}
                                 </p>
                               </div>
                             </div>
@@ -3042,11 +3161,25 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
                             </label>
                           </div>
 
-                          {/* Display Image Grid - FIXED */}
-                          {securityItemImages[index] && securityItemImages[index].length > 0 && (
+                          {/* Display Image Grid - Adjusted to show existing remote URLs */}
+                          {(securityItemImages[index]?.length > 0 || item.existingImages?.length > 0) && (
                             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 mt-4">
-                              {securityItemImages[index].map((img, imgIdx) => (
-                                <div key={imgIdx} className="relative group">
+                              {/* Existing remote images */}
+                              {item.existingImages?.map((url, imgIdx) => (
+                                <div key={`existing-${imgIdx}`} className="relative group">
+                                  <img
+                                    src={url}
+                                    alt={`Security ${index + 1} - Existing ${imgIdx + 1}`}
+                                    className="w-full h-32 object-cover rounded-lg border border-brand-primary/30 shadow-sm"
+                                  />
+                                  <div className="absolute top-2 left-2 bg-green-600 text-white rounded-full p-1 shadow-md">
+                                    <CheckCircleIcon className="w-4 h-4" />
+                                  </div>
+                                </div>
+                              ))}
+                              {/* New local uploads */}
+                              {securityItemImages[index]?.map((img, imgIdx) => (
+                                <div key={`new-${imgIdx}`} className="relative group">
                                   <img
                                     src={URL.createObjectURL(img)}
                                     alt={`Security ${index + 1} - Image ${imgIdx + 1}`}

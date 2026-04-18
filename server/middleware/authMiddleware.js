@@ -154,15 +154,21 @@ export const verifySupabaseToken = async (req, res, next) => {
  */
 export const checkTenantAccess = (req, res, next) => {
     const userTenantId = req.user?.tenant_id;
+    const userRole = req.user?.role;
     const resourceTenantId = req.body?.tenant_id || req.query?.tenant_id || req.params?.tenant_id;
 
-    // Log for debugging (can be removed later)
+    // Log for debugging
     if (resourceTenantId) {
-        console.log(`🔍 [Tenant Check] User: ${userTenantId}, Resource: ${resourceTenantId}`);
+        console.log(`🔍 [Tenant Check] User: ${userTenantId}, Role: ${userRole}, Resource: ${resourceTenantId}`);
+    }
+
+    // 🚀 Superadmins can bypass tenant isolation to manage all tenants
+    if (userRole === "superadmin") {
+        return next();
     }
 
     if (resourceTenantId && userTenantId !== resourceTenantId) {
-        console.warn(`⚠️ [Tenant Violation] User ${req.user.id} tried to access tenant ${resourceTenantId}`);
+        console.warn(`⚠️ [Tenant Violation] User ${req.user.id} (Role: ${userRole}) tried to access tenant ${resourceTenantId}`);
         return res.status(403).json({
             success: false,
             error: "Access denied: Tenant mismatch",

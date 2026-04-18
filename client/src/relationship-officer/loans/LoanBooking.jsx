@@ -118,13 +118,12 @@ const LoanBookingForm = ({ customerData }) => {
     }
   }, [id]);
 
-  // Effect 1: Auto-select product type when principal or customer type changes
+  // Effect 1: Reset product type selection when principal changes so user must re-select manually
   useEffect(() => {
-    if (principalAmount > 0 && dbProductTypes.length > 0) {
-      autoSelectProductType();
-    }
+    setSelectedProductType("");
+    setRepaymentSchedule([]);
     // eslint-disable-next-line
-  }, [principalAmount, isNewCustomer, dbProductTypes.length]);
+  }, [principalAmount]);
 
   // Effect 2: Recalculate loan when product type, duration or principal changes
   useEffect(() => {
@@ -204,17 +203,14 @@ const LoanBookingForm = ({ customerData }) => {
     return dbProductTypes.filter(type => type.loan_product_id === productInfo.id);
   };
 
-  // Auto-select product type when amount changes
+  // Clear product type selection if the amount no longer matches any product
   const autoSelectProductType = () => {
     const availableTypes = getAvailableProductTypes();
-
-    if (availableTypes && availableTypes.length > 0) {
-      // Find the type that matches current duration or default to first option
-      const matchingType = availableTypes.find(type => type.duration_weeks === duration) || availableTypes[0];
-      setSelectedProductType(matchingType.product_type);
-    } else {
+    if (!availableTypes || availableTypes.length === 0) {
+      // No matching product — clear selection
       setSelectedProductType("");
     }
+    // Do NOT auto-pick — user must select manually
   };
 
   // recalc repayment schedule
@@ -328,10 +324,10 @@ const LoanBookingForm = ({ customerData }) => {
       return;
     }
 
-    // Clear error for valid input
+    // Valid input — reset product type so user must re-select, but keep amount
     setErrorMessage("");
-
-    // Valid input
+    setSelectedProductType("");
+    setRepaymentSchedule([]);
     setPrincipalAmount(num);
   };
 
@@ -503,7 +499,7 @@ const LoanBookingForm = ({ customerData }) => {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600 font-medium">Approved Amount:</span>
+                    <span className="text-gray-600 font-medium">Scored Amount:</span>
                     <span className="text-emerald-600 font-bold">
                       KES {approved_amount?.toLocaleString() || '0'}
                     </span>
@@ -526,8 +522,8 @@ const LoanBookingForm = ({ customerData }) => {
                     </span>
                   </div>
 
-                  {/* Product Type Selection */}
-                  {calculated.baseName && (
+                  {/* Product Type Selection — shown when amount matches a product */}
+                  {getProductInfo(principalAmount).id && (
                     <div className="space-y-2">
                       <label className="text-gray-600 font-medium">Product Type:</label>
                       <select

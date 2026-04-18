@@ -604,7 +604,7 @@ const EditCustomerPage = () => {
       if (!/^[0-9]{10,15}$/.test(cleaned)) {
         setErrors((prev) => ({ ...prev, mobile: "Invalid mobile format (10-15 digits)" }));
       } else {
-        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, customerId);
+        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id, customerId);
         if (!exists) {
           setErrors((prev) => ({ ...prev, mobile: "Mobile number already exists" }));
         }
@@ -616,7 +616,7 @@ const EditCustomerPage = () => {
       if (!/^[0-9]{10,15}$/.test(cleaned)) {
         setErrors((prev) => ({ ...prev, alternativeMobile: "Invalid alternative mobile format (10-15 digits)" }));
       } else {
-        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, customerId);
+        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id, customerId);
         if (!exists) {
           setErrors((prev) => ({ ...prev, alternativeMobile: "Alternative mobile already exists" }));
         }
@@ -650,7 +650,7 @@ const EditCustomerPage = () => {
       if (!/^[0-9]{6,12}$/.test(value)) {
         setErrors((prev) => ({ ...prev, idNumber: "ID must be 6–12 digits" }));
       } else {
-        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, customerId);
+        const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id, customerId);
         if (!exists) {
           setErrors((prev) => ({ ...prev, idNumber: "ID number already exists" }));
         }
@@ -690,7 +690,7 @@ const EditCustomerPage = () => {
         if (!/^[0-9]{10,15}$/.test(cleaned)) {
           setErrors(prev => ({ ...prev, [errorKey]: "Invalid mobile format (10-15 digits)" }));
         } else {
-          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, customerId);
+          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id, customerId);
           if (!exists) {
             setErrors(prev => ({ ...prev, [errorKey]: "Mobile number already exists" }));
           }
@@ -700,7 +700,7 @@ const EditCustomerPage = () => {
         if (!/^[0-9]{6,12}$/.test(value)) {
           setErrors(prev => ({ ...prev, [errorKey]: "ID must be 6–12 digits" }));
         } else {
-          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, customerId);
+          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id, customerId);
           if (!exists) {
             setErrors(prev => ({ ...prev, [errorKey]: "ID number already exists" }));
           }
@@ -718,7 +718,7 @@ const EditCustomerPage = () => {
         if (!/^[0-9]{6,12}$/.test(value)) {
           setErrors((prev) => ({ ...prev, spouseIdNumber: "Spouse ID must be 6–12 digits" }));
         } else {
-          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, customerId);
+          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id, customerId);
           if (!exists) {
             setErrors((prev) => ({ ...prev, spouseIdNumber: "Spouse ID number already exists" }));
           }
@@ -729,7 +729,7 @@ const EditCustomerPage = () => {
         if (!/^[0-9]{10,15}$/.test(cleaned)) {
           setErrors((prev) => ({ ...prev, spouseMobile: "Invalid spouse mobile format (10-15 digits)" }));
         } else {
-          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, customerId);
+          const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id, customerId);
           if (!exists) {
             setErrors((prev) => ({ ...prev, spouseMobile: "Spouse mobile number already exists" }));
           }
@@ -883,20 +883,31 @@ const EditCustomerPage = () => {
     }
   };
 
-  const handleMultipleFiles = (e, index, setter) => {
+  const handleMultipleFiles = async (e, index, setter) => {
     const files = Array.from(e.target.files);
     const validFiles = files.filter(f => {
       if (uploadedFiles.has(f.name)) { toast.error(`${f.name} has already been uploaded elsewhere.`); return false; }
       return true;
     });
     if (validFiles.length === 0) return;
-    setUploadedFiles(prev => { const s = new Set(prev); validFiles.forEach(f => s.add(f.name)); return s; });
-    setter(prev => {
-      const updated = [...prev];
-      updated[index] = [...(updated[index] || []), ...validFiles];
-      return updated;
-    });
+
+    // Reset input immediately
     e.target.value = null;
+
+    try {
+      // Compress in parallel
+      const compressedFiles = await Promise.all(validFiles.map(f => compressImage(f)));
+
+      setUploadedFiles(prev => { const s = new Set(prev); validFiles.forEach(f => s.add(f.name)); return s; });
+      setter(prev => {
+        const updated = [...prev];
+        updated[index] = [...(updated[index] || []), ...compressedFiles];
+        return updated;
+      });
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process some images.");
+    }
   };
 
   const handleRemoveMultipleFile = (sectionIndex, fileIndex, setter) => {
@@ -909,15 +920,25 @@ const EditCustomerPage = () => {
     });
   };
 
-  const handleBusinessImages = (e) => {
+  const handleBusinessImages = async (e) => {
     const files = Array.from(e.target.files);
     const validFiles = files.filter(f => !uploadedFiles.has(f.name));
     if (validFiles.length !== files.length) toast.error("Some files have already been uploaded elsewhere.");
-    if (validFiles.length > 0) {
-      setUploadedFiles(prev => { const s = new Set(prev); validFiles.forEach(f => s.add(f.name)); return s; });
-      setBusinessImages(prev => [...prev, ...validFiles]);
-    }
+    if (validFiles.length === 0) return;
+
+    // Reset input immediately
     e.target.value = null;
+
+    try {
+      // Compress in parallel
+      const compressedFiles = await Promise.all(validFiles.map(f => compressImage(f)));
+
+      setUploadedFiles(prev => { const s = new Set(prev); validFiles.forEach(f => s.add(f.name)); return s; });
+      setBusinessImages(prev => [...prev, ...compressedFiles]);
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to process business images.");
+    }
   };
 
   const handleRemoveBusinessImage = (index) => {
@@ -962,7 +983,7 @@ const EditCustomerPage = () => {
       .filter(({ value, field }) => value && !newErrors[field])
       .map(async ({ field, value, label }) => {
         try {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], (field === "idNumber" || field === "spouseIdNumber") ? "id_number" : "mobile", value, formData.id);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], (field === "idNumber" || field === "spouseIdNumber") ? "id_number" : "mobile", value, profile?.tenant_id, formData.id);
           if (!isUnique) return { field, error: `${label} already exists in our system` };
         } catch (err) {
           return { field, error: `Error validating ${label}` };
@@ -1034,13 +1055,13 @@ const EditCustomerPage = () => {
       if (g.dateOfBirth && !isAtLeast18YearsOld(g.dateOfBirth)) { newErrors[`guarantors_${index}_dateOfBirth`] = "Must be at least 18 years old"; hasLocalErrors = true; }
       if (!newErrors[`guarantors_${index}_mobile`]) {
         try {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", g.mobile, formData.id);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", g.mobile, profile?.tenant_id, formData.id);
           if (!isUnique) { newErrors[`guarantors_${index}_mobile`] = "Mobile already exists in system"; hasLocalErrors = true; }
         } catch (e) { console.error(e); }
       }
       if (!newErrors[`guarantors_${index}_idNumber`]) {
         try {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", g.idNumber, formData.id);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", g.idNumber, profile?.tenant_id, formData.id);
           if (!isUnique) { newErrors[`guarantors_${index}_idNumber`] = "ID number already exists in system"; hasLocalErrors = true; }
         } catch (e) { console.error(e); }
       }
@@ -1082,13 +1103,13 @@ const EditCustomerPage = () => {
       if (nok.idNumber && !/^[0-9]{6,12}$/.test(nok.idNumber.toString())) { newErrors[`nextOfKins_${index}_idNumber`] = "Invalid ID number (6-12 digits)"; hasLocalErrors = true; }
       if (!newErrors[`nextOfKins_${index}_mobile`]) {
         try {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", nok.mobile, formData.id);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", nok.mobile, profile?.tenant_id, formData.id);
           if (!isUnique) { newErrors[`nextOfKins_${index}_mobile`] = "Mobile already exists in system"; hasLocalErrors = true; }
         } catch (e) { console.error(e); }
       }
       if (!newErrors[`nextOfKins_${index}_idNumber`]) {
         try {
-          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", nok.idNumber, formData.id);
+          const isUnique = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", nok.idNumber, profile?.tenant_id, formData.id);
           if (!isUnique) { newErrors[`nextOfKins_${index}_idNumber`] = "ID number already exists in system"; hasLocalErrors = true; }
         } catch (e) { console.error(e); }
       }
@@ -1104,9 +1125,24 @@ const EditCustomerPage = () => {
     if (!documentUploadEnabled) return true;
     let errorsFound = {};
     let hasErrors = false;
-    if (!officerClientImage1) { errorsFound.officerClientImage1 = "First Officer and Client Image is required"; toast.error("First Officer and Client Image is required"); hasErrors = true; }
-    if (!officerClientImage2) { errorsFound.officerClientImage2 = "Second Officer and Client Image is required"; toast.error("Second Officer and Client Image is required"); hasErrors = true; }
-    if (!bothOfficersImage) { errorsFound.bothOfficersImage = "Both Officers Image is required"; toast.error("Both Officers Image is required"); hasErrors = true; }
+    
+    // Check both new uploads and existing images from database
+    if (!officerClientImage1 && !existingImages.officerClient1) { 
+      errorsFound.officerClientImage1 = "First Officer and Client Image is required"; 
+      toast.error("First Officer and Client Image is required"); 
+      hasErrors = true; 
+    }
+    if (!officerClientImage2 && !existingImages.officerClient2) { 
+      errorsFound.officerClientImage2 = "Second Officer and Client Image is required"; 
+      toast.error("Second Officer and Client Image is required"); 
+      hasErrors = true; 
+    }
+    if (!bothOfficersImage && !existingImages.bothOfficers) { 
+      errorsFound.bothOfficersImage = "Both Officers Image is required"; 
+      toast.error("Both Officers Image is required"); 
+      hasErrors = true; 
+    }
+    
     setErrors(errorsFound);
     return !hasErrors;
   };
@@ -1174,17 +1210,14 @@ const EditCustomerPage = () => {
     try { return await imageCompression(file, options); } catch { return file; }
   };
 
-  // Optimized single file upload with integrated compression and local URL construction
+  // Optimized single file upload - Compression handled during selection
   const uploadFile = async (file, path, bucket = "customers") => {
     if (!file) return null;
 
     try {
-      // Compress BEFORE upload
-      const compressedFile = await compressImage(file);
-      
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(path, compressedFile, {
+        .upload(path, file, {
           upsert: true,
           cacheControl: '3600'
         });

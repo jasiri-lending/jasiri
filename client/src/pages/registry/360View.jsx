@@ -172,6 +172,7 @@ const Customer360View = () => {
   const [customer, setCustomer] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [loading, setLoading] = useState(true);
+  const [allLoans, setAllLoans] = useState([]);
   const [loanDetails, setLoanDetails] = useState(null);
   const [loanInstallments, setLoanInstallments] = useState([]);
   const [loanPayments, setLoanPayments] = useState([]);
@@ -237,59 +238,51 @@ const Customer360View = () => {
 
       setCustomer(customerData);
 
-      // Fetch loan details with all relationships
-      const { data: loan } = await supabase
+      // Fetch ALL loan details with all relationships, ordered chronologically
+      const { data: allLoansFetched } = await supabase
         .from("loans")
-        .select(
-          `
+        .select(`
           *,
           branches (name),
           regions (name)
-        `
-        )
+        `)
         .eq("customer_id", customerId)
-        .eq("status", "disbursed")
-        .maybeSingle();
+        .order("created_at", { ascending: true });
 
-      setLoanDetails(loan);
+      const loansArray = allLoansFetched || [];
+      setAllLoans(loansArray);
 
-      if (loan) {
-        // Fetch loan installments
+      // Legacy fallback for currently active or most recent loan
+      const currentLoan = loansArray.find(l => l.status === "disbursed" && l.repayment_state !== "completed") || loansArray[loansArray.length - 1];
+      setLoanDetails(currentLoan || null);
+
+      const loanIds = loansArray.map(l => l.id);
+      let allInstallments = [];
+      let allLoanPayments = [];
+
+      if (loanIds.length > 0) {
+        // Fetch ALL loan installments
         const { data: installments } = await supabase
           .from("loan_installments")
           .select("*")
-          .eq("loan_id", loan.id)
+          .in("loan_id", loanIds)
           .order("installment_number", { ascending: true });
 
-        setLoanInstallments(installments || []);
+        allInstallments = installments || [];
+        setLoanInstallments(allInstallments);
 
-        // Fetch loan payments for the current loan tab
+        // Fetch ALL loan payments
         const { data: payments } = await supabase
-          .from("loan_payments")
-          .select("*")
-          .eq("loan_id", loan.id)
-          .order("paid_at", { ascending: false });
-
-        setLoanPayments(payments || []);
-      }
-
-      // Fetch all loans to get all loan payments for this customer
-      const { data: allLoans } = await supabase
-        .from("loans")
-        .select("id")
-        .eq("customer_id", customerId);
-
-      const loanIds = (allLoans || []).map(l => l.id);
-
-      // Fetch all loan payments for all loans
-      let allLoanPayments = [];
-      if (loanIds.length > 0) {
-        const { data: lpData } = await supabase
           .from("loan_payments")
           .select("*")
           .in("loan_id", loanIds)
           .order("paid_at", { ascending: false });
-        allLoanPayments = lpData || [];
+
+        allLoanPayments = payments || [];
+        setLoanPayments(allLoanPayments);
+      } else {
+        setLoanInstallments([]);
+        setLoanPayments([]);
       }
 
       // Fetch wallet transactions and calculate balance
@@ -328,12 +321,12 @@ const Customer360View = () => {
 
       setWalletBalance(balance);
 
-      // Fetch M-Pesa C2B transactions for all customer mobile numbers
+      // Fetch M-Pesa C2B transactions mapped to this customer or matching phone number
       const mobileNumbers = [customerData.mobile, customerData.alternative_mobile].filter(Boolean);
       const { data: mpesaC2B } = await supabase
         .from("mpesa_c2b_transactions")
         .select("*")
-        .in("phone_number", mobileNumbers)
+        .or(`customer_id.eq.${customerId}${mobileNumbers.length > 0 ? `,phone_number.in.(${mobileNumbers.join(",")})` : ''}`)
         .order("transaction_time", { ascending: false });
 
       // Consolidate M-Pesa transactions from all sources
@@ -429,11 +422,12 @@ const Customer360View = () => {
 
       setSmsLogs(smsData || []);
 
-      // Fetch Promised to Pay data if loan exists
-      if (loan) {
-        await fetchPTPs(loan.id);
-        await calculatePaymentStats(loan);
+      // Fetch Promised to Pay data if loans exist
+      if (loanIds.length > 0) {
+        await fetchPTPs(loanIds);
       }
+      // Calculate global PaymentStats
+      await calculatePaymentStats(loansArray, allInstallments);
     } catch (error) {
       console.error("Error fetching customer data:", error);
     } finally {
@@ -442,7 +436,7 @@ const Customer360View = () => {
   };
 
   // Fetch Promised to Pay records
-  const fetchPTPs = async (loanId) => {
+  const fetchPTPs = async (loanIdsArray) => {
     try {
       const { data, error } = await supabase
         .from("promise_to_pay")
@@ -463,7 +457,7 @@ const Customer360View = () => {
           )
         `)
         .eq('customer_id', customerId)
-        .eq('loan_id', loanId)
+        .in('loan_id', loanIdsArray)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -474,31 +468,32 @@ const Customer360View = () => {
   };
 
   // Calculate payment statistics
-  const calculatePaymentStats = async (loan) => {
+  const calculatePaymentStats = async (loansArray, allInstallments) => {
     try {
-      const totalPaid = loanInstallments.reduce(
+      const totalPaid = allInstallments.reduce(
         (sum, inst) => sum + (parseFloat(inst.paid_amount) || 0),
         0
       );
 
-      const totalPrincipalPaid = loanInstallments.reduce(
+      const totalPrincipalPaid = allInstallments.reduce(
         (sum, inst) => sum + (parseFloat(inst.principal_paid) || 0),
         0
       );
 
-      const totalInterestPaid = loanInstallments.reduce(
+      const totalInterestPaid = allInstallments.reduce(
         (sum, inst) => sum + (parseFloat(inst.interest_paid) || 0),
         0
       );
-
-      const outstandingBalance = (parseFloat(loan.total_payable) || 0) - totalPaid;
+      
+      const totalDue = loansArray.reduce((sum, loan) => sum + (parseFloat(loan.total_payable) || 0), 0);
+      const outstandingBalance = totalDue - totalPaid;
 
       setPaymentStats({
         totalPaid,
         totalPrincipalPaid,
         totalInterestPaid,
         outstandingBalance,
-        totalDue: parseFloat(loan.total_payable) || 0
+        totalDue
       });
     } catch (err) {
       console.error("Error calculating payment stats:", err);
@@ -560,7 +555,10 @@ const Customer360View = () => {
       });
 
       // Refresh data
-      fetchPTPs(loanDetails.id);
+      if (allLoans.length > 0) {
+        const loanIds = allLoans.map(l => l.id);
+        fetchPTPs(loanIds);
+      }
     } catch (err) {
       console.error("Error creating PTP:", err);
       alert("Failed to create Promise to Pay");
@@ -583,8 +581,9 @@ const Customer360View = () => {
       if (error) throw error;
 
       alert(`Promise marked as ${newStatus}`);
-      if (loanDetails?.id) {
-        fetchPTPs(loanDetails.id);
+      if (allLoans.length > 0) {
+        const loanIds = allLoans.map(l => l.id);
+        fetchPTPs(loanIds);
       }
     } catch (err) {
       console.error("Error updating PTP status:", err);
@@ -636,18 +635,6 @@ const Customer360View = () => {
 
   // Optimized renderOverview with reduced scrolling
   const renderOverview = () => {
-    const outstandingBalance = loanDetails
-      ? parseFloat(loanDetails.total_payable || 0) -
-      loanInstallments.reduce(
-        (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-        0
-      )
-      : 0;
-
-    const totalPaidAmount = loanInstallments.reduce(
-      (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-      0
-    );
 
     return (
       <div className="space-y-6 pr-2">
@@ -703,59 +690,65 @@ const Customer360View = () => {
 
               {/* Right: Financial Details - More Compact */}
               <div className="flex-1">
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {[
-                    {
-                      label: "Wallet Balance",
-                      value: walletBalance,
-                      icon: WalletIcon,
-                      color: "bg-blue-50 border-blue-100 text-blue-600",
-                    },
-                    {
-                      label: "Principal",
-                      value: loanDetails?.scored_amount,
-                      icon: CreditCardIcon,
-                      color: "bg-indigo-50 border-indigo-100 text-indigo-600",
-                    },
-                    {
-                      label: "Interest",
-                      value: loanDetails?.total_interest,
-                      icon: ChartBarIcon,
-                      color: "bg-amber-50 border-amber-100 text-amber-600",
-                    },
-                    {
-                      label: "Total Payable",
-                      value: loanDetails?.total_payable,
-                      icon: DocumentTextIcon,
-                      color: "bg-emerald-50 border-emerald-100 text-emerald-600",
-                    },
-                    {
-                      label: "Total Paid",
-                      value: totalPaidAmount,
-                      icon: CheckCircleIcon,
-                      color: "bg-green-50 border-green-100 text-green-600",
-                    },
-                    {
-                      label: "Outstanding",
-                      value: outstandingBalance,
-                      icon: ExclamationCircleIcon,
-                      color: "bg-rose-50 border-rose-100 text-rose-600",
-                    },
-                  ].map((item, index) => (
-                    <div
-                      key={index}
-                      className={`${item.color} border rounded-2xl p-4 text-center shadow-sm hover:shadow-md transition-all duration-300 transform hover:-translate-y-1`}
-                    >
-                      <item.icon className="h-5 w-5 mx-auto mb-2 opacity-80" />
-                      <p className="text-[10px] uppercase tracking-widest font-black mb-1 opacity-70">
-                        {item.label}
-                      </p>
-                      <p className="text-base font-black">
-                        {formatCurrency(item.value || 0)}
-                      </p>
+                {/* Global Wallet Info */}
+                <div className="mb-4 bg-blue-50 border-blue-200 border rounded-2xl p-4 text-center shadow-sm flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-blue-100 p-2 rounded-full">
+                      <WalletIcon className="h-6 w-6 text-blue-600" />
                     </div>
-                  ))}
+                    <span className="text-sm font-bold text-blue-800 uppercase tracking-wide">Wallet Balance</span>
+                  </div>
+                  <span className="text-xl font-black text-blue-700">{formatCurrency(walletBalance || 0)}</span>
                 </div>
+
+                {allLoans?.length === 0 ? (
+                  <div className="text-center py-6 bg-gray-50 border rounded-2xl text-gray-500">
+                    No loan history found.
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                    {allLoans.map((loan, index) => {
+                      const insts = loanInstallments.filter(i => i.loan_id === loan.id);
+                      const paid = insts.reduce((sum, i) => sum + parseFloat(i.paid_amount || 0), 0);
+                      const outstanding = parseFloat(loan.total_payable || 0) - paid;
+                      
+                      return (
+                        <div key={loan.id} className="bg-white/60 border rounded-2xl p-4">
+                          <div className="flex justify-between items-center mb-3 border-b pb-2">
+                            <h3 className="text-xs font-black text-slate-700 uppercase tracking-wider">
+                              Loan {index + 1}
+                              <span className={`ml-2 inline-flex px-2 py-0.5 text-[9px] rounded-full border ${
+                                loan.repayment_state === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 
+                                loan.status === 'disbursed' ? 'bg-accent/10 text-accent border-accent/20' :
+                                'bg-gray-50 text-gray-600 border-gray-200'
+                              }`}>
+                                {loan.repayment_state === 'completed' ? 'Completed' : loan.status}
+                              </span>
+                            </h3>
+                            <span className="text-[10px] uppercase font-bold text-gray-400">
+                              {new Date(loan.created_at).toLocaleDateString()}
+                            </span>
+                          </div>
+
+                          <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
+                            {[
+                              { label: "Principal", value: loan.scored_amount, icon: CreditCardIcon, color: "bg-indigo-50 border-indigo-100 text-indigo-600" },
+                              { label: "Interest", value: loan.total_interest, icon: ChartBarIcon, color: "bg-amber-50 border-amber-100 text-amber-600" },
+                              { label: "Payable", value: loan.total_payable, icon: DocumentTextIcon, color: "bg-emerald-50 border-emerald-100 text-emerald-600" },
+                              { label: "Paid", value: paid, icon: CheckCircleIcon, color: "bg-green-50 border-green-100 text-green-600" },
+                              { label: "Bal", value: outstanding, icon: ExclamationCircleIcon, color: "bg-rose-50 border-rose-100 text-rose-600" },
+                            ].map((item, idx) => (
+                              <div key={idx} className={`${item.color} border rounded-xl p-2 text-center shadow-sm`}>
+                                <p className="text-[9px] uppercase tracking-widest font-black mb-1 opacity-70 truncate">{item.label}</p>
+                                <p className="text-sm font-black truncate">{formatCurrency(item.value || 0).replace('KES ', '')}</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
 
                 {/* Branch info below financial cards */}
                 <div className="mt-4 bg-brand-surface/50 rounded-lg p-3 border border-brand-surface">
@@ -899,160 +892,144 @@ const Customer360View = () => {
 
   const renderLoanDetails = () => (
     <div className="space-y-6">
-      {loanDetails ? (
-        <>
-          <div className="bg-brand-primary/50 rounded-lg p-6 text-slate-600">
-            <h3 className="text-sm text-white mb-2">
-              Current Loan - {loanDetails.product_name || loanDetails.product}
-            </h3>
-            <p className="text-xl font-bold text-white ">
-              {formatCurrency(loanDetails.scored_amount)}
-            </p>
-            <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div>
-                <p className="text-white text-sm">Status</p>
-                <p className="font-semibold text-white capitalize">{loanDetails.status}</p>
-              </div>
-              <div>
-                <p className="text-white text-sm">Repayment State</p>
-                <p className="font-semibold text-white capitalize">
-                  {loanDetails.repayment_state || "N/A"}
+      {allLoans && allLoans.length > 0 ? (
+        allLoans.map((loan, index) => {
+          const installments = loanInstallments.filter(i => i.loan_id === loan.id);
+          return (
+            <div key={loan.id} className="bg-white/40 border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
+              <h3 className="text-xl font-black text-slate-700 uppercase tracking-tight mb-4">Loan {index + 1} - {loan.product_name || loan.product}</h3>
+              <div className="bg-brand-primary/50 rounded-lg p-6 text-slate-600 mb-6">
+                <h3 className="text-sm text-white mb-2">Facility Details</h3>
+                <p className="text-xl font-bold text-white ">
+                  {formatCurrency(loan.scored_amount)}
                 </p>
+                <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <div>
+                    <p className="text-white text-sm">Status</p>
+                    <p className="font-semibold text-white capitalize">{loan.status}</p>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm">Repayment State</p>
+                    <p className="font-semibold text-white capitalize">
+                      {loan.repayment_state || "N/A"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm">Duration</p>
+                    <p className="font-semibold text-white">
+                      {loan.duration_weeks} weeks
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-white text-sm">Product Type</p>
+                    <p className="font-semibold text-white capitalize">
+                      {loan.product_type || "N/A"}
+                    </p>
+                  </div>
+                </div>
               </div>
-              <div>
-                <p className="text-white text-sm">Duration</p>
-                <p className="font-semibold text-white">
-                  {loanDetails.duration_weeks} weeks
-                </p>
-              </div>
-              <div>
-                <p className="text-white text-sm">Product Type</p>
-                <p className="font-semibold text-white capitalize">
-                  {loanDetails.product_type || "N/A"}
-                </p>
-              </div>
-            </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white border border-gray-200 rounded-lg p-5">
-              <h4 className=" text-slate-600 mb-4">Loan Details</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Scored Amount</span>
-                  <span className="font-medium text-slate-800">
-                    {formatCurrency(loanDetails.scored_amount)}
-                  </span>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                  <h4 className=" text-slate-600 mb-4">Financial Structure</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Scored Amount</span>
+                      <span className="font-medium text-slate-800">
+                        {formatCurrency(loan.scored_amount)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Interest Rate</span>
+                      <span className="font-medium text-slate-800">
+                        {loan.interest_rate || "0"}%
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Total Interest</span>
+                      <span className="font-medium text-slate-800">
+                        {formatCurrency(loan.total_interest)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Processing Fee</span>
+                      <span className="font-medium text-slate-800">
+                        {formatCurrency(loan.processing_fee)}
+                      </span>
+                    </div>
+                    {index === 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Registration Fee</span>
+                        <span className="font-medium text-slate-800">
+                          {formatCurrency(loan.registration_fee)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex justify-between border-t pt-2">
+                      <span className="text-slate-600 ">Weekly Payment</span>
+                      <span className="font-bold text-indigo-600">
+                        {formatCurrency(loan.weekly_payment)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Interest Rate</span>
-                  <span className="font-medium text-slate-800">
-                    {loanDetails.interest_rate || "0"}%
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Total Interest</span>
-                  <span className="font-medium text-slate-800">
-                    {formatCurrency(loanDetails.total_interest)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Processing Fee</span>
-                  <span className="font-medium text-slate-800">
-                    {formatCurrency(loanDetails.processing_fee)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Registration Fee</span>
-                  <span className="font-medium text-slate-800">
-                    {formatCurrency(loanDetails.registration_fee)}
-                  </span>
-                </div>
-                <div className="flex justify-between border-t pt-2">
-                  <span className="text-slate-600 ">Weekly Payment</span>
-                  <span className="font-bold text-indigo-600">
-                    {formatCurrency(loanDetails.weekly_payment)}
-                  </span>
+
+                <div className="bg-white border border-gray-200 rounded-lg p-5">
+                  <h4 className=" text-slate-600 mb-4">Timeline</h4>
+                  <div className="space-y-3">
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Booked At</span>
+                      <span className="font-medium text-slate-800">
+                        {loan.booked_at ? new Date(loan.booked_at).toLocaleDateString() : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Approved By BM</span>
+                      <span className="font-medium text-slate-800">
+                        {loan.bm_reviewed_at ? new Date(loan.bm_reviewed_at).toLocaleDateString() : "Pending"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Approved By RM</span>
+                      <span className="font-medium text-slate-800">
+                        {loan.rm_reviewed_at ? new Date(loan.rm_reviewed_at).toLocaleDateString() : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Disbursed At</span>
+                      <span className="font-medium text-slate-800">
+                        {loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A"}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-600">Processing Fee Paid</span>
+                      <span className={`font-medium  ${loan.processing_fee_paid ? "text-green-600" : "text-red-600"}`}>
+                        {loan.processing_fee_paid ? "Yes" : "No"}
+                      </span>
+                    </div>
+                    {index === 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-600">Registration Fee Paid</span>
+                        <span className={`font-medium ${loan.registration_fee_paid ? "text-green-600" : "text-red-600"}`}>
+                          {loan.registration_fee_paid ? "Yes" : "No"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white border border-gray-200 rounded-lg p-5">
-              <h4 className=" text-slate-600 mb-4">Loan Timeline</h4>
-              <div className="space-y-3">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Booked At</span>
-                  <span className="font-medium text-slate-800">
-                    {loanDetails.booked_at
-                      ? new Date(loanDetails.booked_at).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Approved By BM</span>
-                  <span className="font-medium text-slate-800">
-                    {loanDetails.bm_reviewed_at
-                      ? new Date(
-                        loanDetails.bm_reviewed_at
-                      ).toLocaleDateString()
-                      : "Pending"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Approved By RM</span>
-                  <span className="font-medium text-slate-800">
-                    {loanDetails.rm_reviewed_at
-                      ? new Date(
-                        loanDetails.rm_reviewed_at
-                      ).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Disbursed At</span>
-                  <span className="font-medium text-slate-800">
-                    {loanDetails.disbursed_at
-                      ? new Date(loanDetails.disbursed_at).toLocaleDateString()
-                      : "N/A"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Processing Fee Paid</span>
-                  <span
-                    className={`font-medium  ${loanDetails.processing_fee_paid
-                      ? "text-green-600"
-                      : "text-red-600"
-                      }`}
-                  >
-                    {loanDetails.processing_fee_paid ? "Yes" : "No"}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Registration Fee Paid</span>
-                  <span
-                    className={`font-medium ${loanDetails.registration_fee_paid
-                      ? "text-green-600"
-                      : "text-red-600"
-                      }`}
-                  >
-                    {loanDetails.registration_fee_paid ? "Yes" : "No"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Loan Installments */}
-          {loanInstallments.length > 0 && (
-            <div className="space-y-6 pt-6 border-t border-gray-100">
+          {/* Loan Installments for this loan */}
+          {installments.length > 0 && (
+            <div className="space-y-6 pt-6 mt-6 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-base font-semibold text-slate-700">Installment Schedule</h4>
-                  <p className="text-sm text-slate-500">Payment Roadmap & Alerts</p>
+                  <p className="text-sm text-slate-500">Payment Roadmap for Loan {index + 1}</p>
                 </div>
                 <div className="flex gap-2">
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-tight border border-rose-100">
-                    Overdue: {loanInstallments.filter(i => i.status === 'overdue').length}
+                    Overdue: {installments.filter(i => i.status === 'overdue').length}
                   </span>
                 </div>
               </div>
@@ -1070,7 +1047,7 @@ const Customer360View = () => {
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {loanInstallments.map((installment) => (
+                    {installments.map((installment) => (
                       <tr
                         key={installment.id}
                         className="hover:bg-gray-50"
@@ -1119,44 +1096,40 @@ const Customer360View = () => {
               </div>
             </div>
           )}
-        </>
+          </div>
+          );
+        })
       ) : (
         <div className="text-center py-12">
           <BanknotesIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No active loan</p>
+          <p className="text-gray-500 text-lg">No loan history for this customer</p>
         </div>
       )}
     </div>
   );
 
-  const renderRepaymentHistory = () => {
-    const outstandingBalance = loanDetails
-      ? parseFloat(loanDetails.total_payable || 0) -
-      loanInstallments.reduce(
-        (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-        0
-      )
-      : 0;
+  const getLoanIndex = (loanId) => {
+    if (!allLoans || allLoans.length === 0) return '?';
+    const index = allLoans.findIndex(l => l.id === loanId);
+    return index !== -1 ? index + 1 : '?';
+  };
 
-    const totalPaidAmount = loanInstallments.reduce(
-      (sum, inst) => sum + parseFloat(inst.paid_amount || 0),
-      0
-    );
+  const renderRepaymentHistory = () => {
 
     return (
       <div className="space-y-6">
-        {/* Loan Summary Cards */}
-        {loanDetails && (
+        {/* Global Loan Summary Cards */}
+        {paymentStats && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 text-sm uppercase ">Total Payable</p>
+                <p className=" text-slate-600 text-sm uppercase ">Global Total Payable</p>
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                   <BanknotesIcon className="h-4 w-4 text-brand-primary" />
                 </div>
               </div>
               <p className="text-2xl font-semibold text-slate-600">
-                {formatCurrency(loanDetails.total_payable)}
+                {formatCurrency(paymentStats.totalDue)}
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
@@ -1168,42 +1141,42 @@ const Customer360View = () => {
 
             <div className="bg-emerald-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm">Amount Cleared</p>
+                <p className=" text-slate-600 uppercase text-sm">Global Amount Cleared</p>
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
                 </div>
               </div>
               <p className="text-2xl font-semibold text-emerald-600">
-                {formatCurrency(totalPaidAmount)}
+                {formatCurrency(paymentStats.totalPaid)}
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${Math.min(100, (totalPaidAmount / (parseFloat(loanDetails.total_payable) || 1)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (paymentStats.totalPaid / (parseFloat(paymentStats.totalDue) || 1)) * 100)}%` }}
                   />
                 </div>
                 <span className=" text-emerald-600">
-                  {((totalPaidAmount / parseFloat(loanDetails.total_payable || 1)) * 100).toFixed(1)}%
+                  {((paymentStats.totalPaid / parseFloat(paymentStats.totalDue || 1)) * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
 
             <div className="bg-amber-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm">O.L.B</p>
+                <p className=" text-slate-600 uppercase text-sm">Global O.L.B</p>
                 <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
                   <ExclamationCircleIcon className="h-4 w-4 text-rose-600" />
                 </div>
               </div>
               <p className="text-2xl font-semibold text-rose-600">
-                {formatCurrency(outstandingBalance)}
+                {formatCurrency(paymentStats.outstandingBalance)}
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-rose-500 rounded-full"
-                    style={{ width: `${Math.min(100, (outstandingBalance / (parseFloat(loanDetails.total_payable) || 1)) * 100)}%` }}
+                    style={{ width: `${Math.min(100, (paymentStats.outstandingBalance / (parseFloat(paymentStats.totalDue) || 1)) * 100)}%` }}
                   />
                 </div>
                 <span className="text-[10px] font-black text-rose-600">Pending</span>
@@ -1229,6 +1202,9 @@ const Customer360View = () => {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                      Loan #
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
                       Date
                     </th>
                     <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
@@ -1251,6 +1227,9 @@ const Customer360View = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {loanPayments.map((payment) => (
                     <tr key={payment.id} className="hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-black text-indigo-600">
+                        Loan {getLoanIndex(payment.loan_id)}
+                      </td>
                       <td className="px-4 py-3 text-sm text-gray-900">
                         {new Date(payment.paid_at).toLocaleString()}
                       </td>

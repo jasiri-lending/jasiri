@@ -653,7 +653,8 @@ const CustomerDraft = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -676,7 +677,8 @@ const CustomerDraft = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -734,7 +736,8 @@ const CustomerDraft = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "id_number",
-            value
+            value,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -813,7 +816,8 @@ const CustomerDraft = () => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "mobile",
-              cleaned
+              cleaned,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -835,7 +839,8 @@ const CustomerDraft = () => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "id_number",
-              value
+              value,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -871,7 +876,8 @@ const CustomerDraft = () => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "mobile",
-              cleaned
+              cleaned,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({
@@ -893,7 +899,8 @@ const CustomerDraft = () => {
             const exists = await checkUniqueValue(
               ["customers", "guarantors", "next_of_kin"],
               "id_number",
-              value
+              value,
+              profile?.tenant_id
             );
             if (!exists) {
               setErrors((prev) => ({

@@ -374,102 +374,63 @@ const EditCustomerForm = ({ customerId, onClose }) => {
     setIsSubmitting(true);
 
     try {
-      // 1. Update Customer
-      const { error: custError } = await supabase
-        .from("customers")
-        .update({
-          prefix: formData.prefix,
-          Firstname: formData.Firstname,
-          Middlename: formData.Middlename,
-          Surname: formData.Surname,
-          date_of_birth: formData.dateOfBirth,
-          gender: formData.gender,
-          marital_status: formData.maritalStatus,
-          residence_status: formData.residenceStatus,
-          mobile: formData.mobile,
-          id_number: parseNumber(formData.idNumber),
-          postal_address: formData.postalAddress,
-          code: parseNumber(formData.code),
-          town: formData.town,
-          county: formData.county,
-          business_name: formData.businessName,
-          industry: formData.industry,
-          business_type: formData.businessType,
-          year_established: formData.yearEstablished,
-          business_location: formData.businessLocation,
-          road: formData.road,
-          landmark: formData.landmark,
-          has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
-          daily_Sales: parseNumber(formData.daily_Sales),
-          prequalifiedAmount: parseNumber(formData.prequalifiedAmount),
-          updated_at: new Date().toISOString()
-        })
-        .eq("id", customerId);
-      if (custError) throw custError;
+      // 1. & 2. & 3. UPDATE & DELETE IN PARALLEL
+      const [custResult] = await Promise.all([
+        supabase
+          .from("customers")
+          .update({
+            prefix: formData.prefix,
+            Firstname: formData.Firstname,
+            Middlename: formData.Middlename,
+            Surname: formData.Surname,
+            date_of_birth: formData.dateOfBirth,
+            gender: formData.gender,
+            marital_status: formData.maritalStatus,
+            residence_status: formData.residenceStatus,
+            mobile: formData.mobile,
+            id_number: parseNumber(formData.idNumber),
+            postal_address: formData.postalAddress,
+            code: parseNumber(formData.code),
+            town: formData.town,
+            county: formData.county,
+            business_name: formData.businessName,
+            industry: formData.industry,
+            business_type: formData.businessType,
+            year_established: formData.yearEstablished,
+            business_location: formData.businessLocation,
+            road: formData.road,
+            landmark: formData.landmark,
+            has_local_authority_license: formData.hasLocalAuthorityLicense === "Yes",
+            daily_Sales: parseNumber(formData.daily_Sales),
+            prequalifiedAmount: parseNumber(formData.prequalifiedAmount),
+            updated_at: new Date().toISOString()
+          })
+          .eq("id", customerId),
 
-      // 2. Spouse
-      if (formData.maritalStatus === "Married") {
-        await supabase.from("spouse").upsert({
-          customer_id: customerId,
-          name: formData.spouse.name,
-          id_number: formData.spouse.idNumber,
-          mobile: formData.spouse.mobile,
-          economic_activity: formData.spouse.economicActivity,
-          tenant_id: profile?.tenant_id
-        }, { onConflict: "customer_id" });
-      }
+        formData.maritalStatus === "Married" ? 
+          supabase.from("spouse").upsert({
+            customer_id: customerId,
+            name: formData.spouse.name,
+            id_number: formData.spouse.idNumber,
+            mobile: formData.spouse.mobile,
+            economic_activity: formData.spouse.economicActivity,
+            tenant_id: profile?.tenant_id
+          }, { onConflict: "customer_id" }) : 
+          supabase.from("spouse").delete().eq("customer_id", customerId),
 
-      // 3. Delete then Insert Strategy
-      await Promise.all([
         supabase.from("guarantors").delete().eq("customer_id", customerId),
         supabase.from("next_of_kin").delete().eq("customer_id", customerId),
         supabase.from("security_items").delete().eq("customer_id", customerId)
       ]);
 
-      // Insert Guarantors
-      if (formData.guarantors.length > 0) {
-        const { data: insertedGuarantors, error: gError } = await supabase
-          .from("guarantors")
-          .insert(formData.guarantors.map(g => ({
-            customer_id: customerId,
-            prefix: g.prefix,
-            Firstname: g.Firstname,
-            Middlename: g.Middlename,
-            Surname: g.Surname,
-            id_number: parseNumber(g.idNumber),
-            marital_status: g.maritalStatus,
-            gender: g.gender,
-            date_of_birth: g.dateOfBirth,
-            mobile: g.mobile,
-            postal_address: g.postalAddress,
-            code: parseNumber(g.code),
-            occupation: g.occupation,
-            relationship: g.relationship,
-            county: g.county,
-            city_town: g.cityTown,
-            tenant_id: profile?.tenant_id,
-            branch_id: profile?.branch_id
-          })))
-          .select();
-        if (gError) throw gError;
+      if (custResult.error) throw custResult.error;
 
-        // Guarantor Security (Link to first guarantor for simplicity as per plan)
-        if (guarantorSecurityItems.length > 0 && insertedGuarantors?.[0]) {
-          await supabase.from("guarantor_security").delete().eq("guarantor_id", insertedGuarantors[0].id);
-          await supabase.from("guarantor_security").insert(guarantorSecurityItems.map(gs => ({
-            guarantor_id: insertedGuarantors[0].id,
-            item: gs.item,
-            description: gs.description,
-            identification: gs.identification,
-            estimated_market_value: parseNumber(gs.value),
-            tenant_id: profile?.tenant_id
-          })));
-        }
-      }
+      // 4. INSERT NEW DATA IN PARALLEL
+      const insertPromises = [];
 
-      // Insert Next of Kin
+      // Next of Kin
       if (formData.nextOfKins.length > 0) {
-        await supabase.from("next_of_kin").insert(formData.nextOfKins.map(nk => ({
+        insertPromises.push(supabase.from("next_of_kin").insert(formData.nextOfKins.map(nk => ({
           customer_id: customerId,
           Firstname: nk.Firstname,
           Middlename: nk.Middlename,
@@ -480,20 +441,65 @@ const EditCustomerForm = ({ customerId, onClose }) => {
           county: nk.county,
           city_town: nk.cityTown,
           tenant_id: profile?.tenant_id
-        })));
+        }))));
       }
 
-      // Insert Security Items
+      // Security Items
       if (securityItems.length > 0) {
-        await supabase.from("security_items").insert(securityItems.map(s => ({
+        insertPromises.push(supabase.from("security_items").insert(securityItems.map(s => ({
           customer_id: customerId,
           item: s.item,
           description: s.description,
           identification: s.identification,
           value: parseNumber(s.value),
           tenant_id: profile?.tenant_id
-        })));
+        }))));
       }
+
+      // Guarantors (Special Handling because we need IDs for their security)
+      if (formData.guarantors.length > 0) {
+        const guarantorAction = async () => {
+          const { data: insertedGuarantors, error: gError } = await supabase
+            .from("guarantors")
+            .insert(formData.guarantors.map(g => ({
+              customer_id: customerId,
+              prefix: g.prefix,
+              Firstname: g.Firstname,
+              Middlename: g.Middlename,
+              Surname: g.Surname,
+              id_number: parseNumber(g.idNumber),
+              marital_status: g.maritalStatus,
+              gender: g.gender,
+              date_of_birth: g.dateOfBirth,
+              mobile: g.mobile,
+              postal_address: g.postalAddress,
+              code: parseNumber(g.code),
+              occupation: g.occupation,
+              relationship: g.relationship,
+              county: g.county,
+              city_town: g.cityTown,
+              tenant_id: profile?.tenant_id,
+              branch_id: profile?.branch_id
+            })))
+            .select();
+          if (gError) throw gError;
+
+          if (guarantorSecurityItems.length > 0 && insertedGuarantors?.[0]) {
+            await supabase.from("guarantor_security").delete().eq("guarantor_id", insertedGuarantors[0].id);
+            await supabase.from("guarantor_security").insert(guarantorSecurityItems.map(gs => ({
+              guarantor_id: insertedGuarantors[0].id,
+              item: gs.item,
+              description: gs.description,
+              identification: gs.identification,
+              estimated_market_value: parseNumber(gs.value),
+              tenant_id: profile?.tenant_id
+            })));
+          }
+        };
+        insertPromises.push(guarantorAction());
+      }
+
+      await Promise.all(insertPromises);
 
       toast.success("Customer updated successfully!");
       onClose();

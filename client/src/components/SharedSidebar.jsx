@@ -208,7 +208,7 @@ const SharedSidebar = () => {
           icon: Building,
           roles: ["superadmin"],
           children: [
-            { name: "All Tenants", href: "/users/create-tenant/admin", icon: Building },
+            { name: "All Tenants", href: "/users/tenants/admin", icon: Building },
             { name: "Tenant Billing", href: "/tenant-management/billing", icon: CreditCard },
             { name: "Tenant Usage", href: "/tenant-management/usage", icon: Activity },
             { name: "Tenant Features", href: "/tenant-features/admin", icon: Sliders },

@@ -456,7 +456,8 @@ const AddCustomer = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -479,7 +480,8 @@ const AddCustomer = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
-            cleaned
+            cleaned,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -537,7 +539,8 @@ const AddCustomer = () => {
           const exists = await checkUniqueValue(
             ["customers", "guarantors", "next_of_kin"],
             "id_number",
-            value
+            value,
+            profile?.tenant_id
           );
           if (!exists) {
             setErrors((prev) => ({
@@ -592,7 +595,7 @@ const AddCustomer = () => {
           if (!/^[0-9]{10,15}$/.test(cleaned)) {
             setErrors(prev => ({ ...prev, [errorKey]: "Invalid mobile format (10-15 digits)" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id);
             if (!exists) {
               setErrors(prev => ({ ...prev, [errorKey]: "Mobile number already exists" }));
             }
@@ -604,7 +607,7 @@ const AddCustomer = () => {
           if (!/^[0-9]{6,12}$/.test(value)) {
             setErrors(prev => ({ ...prev, [errorKey]: "ID must be 6–12 digits" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id);
             if (!exists) {
               setErrors(prev => ({ ...prev, [errorKey]: "ID number already exists" }));
             }
@@ -625,7 +628,7 @@ const AddCustomer = () => {
           if (!/^[0-9]{6,12}$/.test(value)) {
             setErrors((prev) => ({ ...prev, spouseIdNumber: "Spouse ID must be 6–12 digits" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "id_number", value, profile?.tenant_id);
             if (!exists) {
               setErrors((prev) => ({ ...prev, spouseIdNumber: "Spouse ID number already exists in our system" }));
             }
@@ -636,7 +639,7 @@ const AddCustomer = () => {
           if (!/^[0-9]{10,15}$/.test(cleaned)) {
             setErrors((prev) => ({ ...prev, spouseMobile: "Invalid spouse mobile format (10-15 digits)" }));
           } else {
-            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned);
+            const exists = await checkUniqueValue(["customers", "guarantors", "next_of_kin"], "mobile", cleaned, profile?.tenant_id);
             if (!exists) {
               setErrors((prev) => ({ ...prev, spouseMobile: "Spouse mobile number already exists in our system" }));
             }
@@ -836,8 +839,8 @@ const AddCustomer = () => {
     });
   };
 
-  // Fixed multiple file handler for security items
-  const handleMultipleFiles = (e, index, setter) => {
+  // Fixed multiple file handler for security items with compression
+  const handleMultipleFiles = async (e, index, setter) => {
     const files = Array.from(e.target.files);
     const validFiles = [];
 
@@ -851,23 +854,35 @@ const AddCustomer = () => {
 
     if (validFiles.length === 0) return;
 
-    // Update global tracker
-    setUploadedFiles(prev => {
-      const newSet = new Set(prev);
-      validFiles.forEach(f => newSet.add(f.name));
-      return newSet;
-    });
-
-    // Update state for images
-    setter(prev => {
-      const updated = [...(prev[index] || []), ...validFiles];
-      const allUpdated = [...prev];
-      allUpdated[index] = updated;
-      return allUpdated;
-    });
-
-    // Reset input to allow re-uploading same file later
+    // Reset input immediately
     e.target.value = null;
+
+    try {
+      // Compress all files in parallel
+      const compressedFiles = await Promise.all(
+        validFiles.map(file => compressImage(file))
+      );
+
+      // Update global tracker
+      setUploadedFiles(prev => {
+        const newSet = new Set(prev);
+        validFiles.forEach(f => newSet.add(f.name));
+        return newSet;
+      });
+
+      // Update state for images
+      setter(prev => {
+        const updated = [...(prev[index] || []), ...compressedFiles];
+        const allUpdated = [...prev];
+        allUpdated[index] = updated;
+        return allUpdated;
+      });
+
+      console.log(`Compressed and saved ${compressedFiles.length} files for index ${index}`);
+    } catch (err) {
+      console.error("Compression error/Selection error:", err);
+      toast.error("Failed to process some images.");
+    }
   };
 
   // Fixed remove handler for multiple images
@@ -1039,6 +1054,7 @@ const AddCustomer = () => {
             ["customers", "guarantors", "next_of_kin"],
             (field === "idNumber" || field === "spouseIdNumber") ? "id_number" : "mobile",
             value,
+            profile?.tenant_id,
             formData.id
           );
           if (!isUnique) {
@@ -1244,6 +1260,7 @@ const AddCustomer = () => {
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
             g.mobile,
+            profile?.tenant_id,
             formData.id
           );
           if (!isUnique) {
@@ -1259,6 +1276,7 @@ const AddCustomer = () => {
             ["customers", "guarantors", "next_of_kin"],
             "id_number",
             g.idNumber,
+            profile?.tenant_id,
             formData.id
           );
           if (!isUnique) {
@@ -1377,6 +1395,7 @@ const AddCustomer = () => {
             ["customers", "guarantors", "next_of_kin"],
             "mobile",
             nok.mobile,
+            profile?.tenant_id,
             formData.id
           );
           if (!isUnique) {
@@ -1392,6 +1411,7 @@ const AddCustomer = () => {
             ["customers", "guarantors", "next_of_kin"],
             "id_number",
             nok.idNumber,
+            profile?.tenant_id,
             formData.id
           );
           if (!isUnique) {
@@ -1910,12 +1930,9 @@ const AddCustomer = () => {
     if (!file) return null;
 
     try {
-      // Compress BEFORE upload
-      const compressedFile = await compressImage(file);
-      
       const { data, error } = await supabase.storage
         .from(bucket)
-        .upload(path, compressedFile, {
+        .upload(path, file, {
           upsert: true,
           cacheControl: '3600'
         });

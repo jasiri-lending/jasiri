@@ -306,7 +306,8 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     // 2.5️⃣ Generate Setup Code (No more fragile Supabase sessions)
     const setupCode = Math.floor(100000 + Math.random() * 900000).toString();
-    const setupLink = `${process.env.FRONTEND_URL}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
+    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+    const setupLink = `${frontendUrl}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
     
     console.log(`📝 Generated Setup Code for ${email}`);
 
@@ -354,7 +355,6 @@ app.post("/create-user", verifySupabaseToken, async (req, res) => {
 
     // 4️⃣ Send welcome email with credentials
     try {
-      const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
       const loginUrl = `${frontendUrl}/login`;
       await transporter.sendMail({
         from: '"Jasiri" <noreply@jasirilending.software>',

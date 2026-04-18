@@ -13,6 +13,7 @@ import {
   UserPlusIcon,
   FunnelIcon,
   ChevronDownIcon,
+  AdjustmentsHorizontalIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
 import { supabase } from "../../supabaseClient";
@@ -227,11 +228,13 @@ const AllLeads = () => {
   const isBranchManager = role === "branch_manager";
   const isCustomerService = role === "customer_service_officer";
   const isRegionalManager = role === "regional_manager";
+  const isCreditAnalyst = role === "credit_analyst_officer";
   const isAdminOrSuper = role === "admin" || role === "superadmin";
 
-  const canFilterRegion = isAdminOrSuper;
-  const canFilterBranch = isBranchManager || isCustomerService || isRegionalManager || isAdminOrSuper;
-  const canFilterRO = isBranchManager || isCustomerService || isRegionalManager || isAdminOrSuper;
+  const canFilterRegion = isCreditAnalyst || isCustomerService || isAdminOrSuper;
+  const canFilterBranch = isCreditAnalyst || isCustomerService || isRegionalManager || isAdminOrSuper;
+  const canFilterRO = isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager || isAdminOrSuper;
+
 
   // Effects
   useEffect(() => { if (profile) fetchFilterOptions(); }, [profile]);
@@ -286,7 +289,7 @@ const AllLeads = () => {
       }
       // Fetch branches for name resolution and filtering
       let bQuery = supabase.from("branches").select("id, name, region_id").order("name");
-      if ((isBranchManager || isCustomerService) && profile.region_id) bQuery = bQuery.eq("region_id", profile.region_id);
+      if (isRegionalManager && profile.region_id) bQuery = bQuery.eq("region_id", profile.region_id);
       else bQuery = bQuery.eq("tenant_id", profile.tenant_id);
       const { data: bData } = await bQuery;
       setBranches(bData || []);
@@ -317,7 +320,7 @@ const AllLeads = () => {
           const derivedBranch = l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id);
           return derivedBranch === profile.branch_id;
         });
-      } else if ((isRegionalManager || isCustomerService) && profile.region_id) {
+      } else if (isRegionalManager && profile.region_id) {
         roleFiltered = roleFiltered.filter(l => {
           const derivedRegion = l.region_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.region_id : l.users?.profiles?.region_id);
           return derivedRegion === profile.region_id;
@@ -477,44 +480,178 @@ const AllLeads = () => {
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-2xl shadow-sm border p-4 mb-5">
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" placeholder="Search..." value={searchTerm} onChange={e => setSearchTerm(e.target.value)} className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white" />
-          </div>
-          <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold border transition-all ${showFilters || activeFilterCount > 0 ? "bg-brand-primary/10 border-brand-primary text-brand-primary" : "bg-gray-50 border-transparent text-gray-600 hover:bg-gray-100"}`}>
-            <FunnelIcon className="h-4 w-4" /> Filters {activeFilterCount > 0 && <span className="bg-brand-primary text-white rounded-full text-[10px] w-5 h-5 flex items-center justify-center">{activeFilterCount}</span>}
-          </button>
-        </div>
-
-        {showFilters && (
-          <div className="mt-4 pt-4 border-t grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in slide-in-from-top-2">
-            {canFilterRegion && <FilterSelect label="Region" value={filterRegion} options={regions} onChange={e => setFilterRegion(e.target.value)} />}
-            {canFilterBranch && <FilterSelect label="Branch" value={filterBranch} options={branches.filter(b => !filterRegion || b.region_id === filterRegion)} onChange={e => setFilterBranch(e.target.value)} />}
-            {canFilterRO && <FilterSelect label="Officer" value={filterRO} options={officers.filter(o => !filterBranch || o.profiles?.branch_id === filterBranch)} onChange={e => setFilterRO(e.target.value)} />}
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Status</label>
-              <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none cursor-pointer">
-                <option value="all">All Statuses</option><option value="Hot">Hot</option><option value="Warm">Warm</option><option value="Cold">Cold</option>
-              </select>
-            </div>
-            <div className="space-y-1">
-              <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">Date</label>
-              <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full bg-gray-50 rounded-xl px-3 py-2.5 text-sm outline-none">
-                <option value="">All Time</option><option value="today">Today</option><option value="week">This Week</option><option value="month">This Month</option><option value="year">This Year</option><option value="custom">Custom Range</option>
-              </select>
-            </div>
-            {filterDatePreset === "custom" && (
-              <div className="col-span-1 lg:col-span-2 grid grid-cols-2 gap-2">
-                <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="bg-gray-50 rounded-xl px-3 py-2 text-sm" />
-                <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="bg-gray-50 rounded-xl px-3 py-2 text-sm" />
+      <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-5">
+        <div className="p-5 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+            <div className="flex flex-col sm:flex-row gap-3 w-full">
+              {/* Search Bar */}
+              <div className="relative flex-1">
+                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  placeholder="Search by name, mobile, or business..."
+                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+                {searchTerm && (
+                  <button
+                    onClick={() => setSearchTerm("")}
+                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                  >
+                    <XMarkIcon className="h-3 w-3" />
+                  </button>
+                )}
               </div>
-            )}
-            {activeFilterCount > 0 && <button onClick={clearFilters} className="text-red-500 text-sm font-bold hover:underline flex items-center gap-1 sm:col-span-2 lg:col-span-4"><XMarkIcon className="h-4 w-4" /> Clear all</button>}
+
+              {/* Filter Buttons */}
+              <div className="flex items-center gap-2">
+                {activeFilterCount > 0 && (
+                  <button
+                    onClick={clearFilters}
+                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                  >
+                    <XMarkIcon className="h-3.5 w-3.5" />
+                    Clear
+                  </button>
+                )}
+                <button
+                  onClick={() => setShowFilters(!showFilters)}
+                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                >
+                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                  Filters
+                  {activeFilterCount > 0 && (
+                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
+                      {activeFilterCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
-        )}
+
+          {/* Advanced Filters Panel */}
+          {showFilters && (
+            <div className="mt-4 pt-4 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                {canFilterRegion && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Region</label>
+                    <div className="relative">
+                      <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                        <option value="" className="text-gray-400">All Regions</option>
+                        {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"><ChevronDownIcon className="h-3 w-3" /></div>
+                    </div>
+                  </div>
+                )}
+                {canFilterBranch && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Branch</label>
+                    <div className="relative">
+                      <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                        <option value="" className="text-gray-400">All Branches</option>
+                        {branches.filter(b => !filterRegion || b.region_id?.toString() === filterRegion.toString()).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"><ChevronDownIcon className="h-3 w-3" /></div>
+                    </div>
+                  </div>
+                )}
+                {canFilterRO && (
+                  <div>
+                    <label className="block text-xs text-gray-600 mb-1">Officer</label>
+                    <div className="relative">
+                      <select value={filterRO} onChange={e => setFilterRO(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                        <option value="" className="text-gray-400">All Officers</option>
+                        {officers.filter(o => {
+                          if (!filterBranch) return true;
+                          const branchId = Array.isArray(o.profiles) ? o.profiles[0]?.branch_id : o.profiles?.branch_id;
+                          return branchId?.toString() === filterBranch.toString();
+                        }).map(o => <option key={o.id} value={o.id}>{o.full_name}</option>)}
+                      </select>
+                      <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"><ChevronDownIcon className="h-3 w-3" /></div>
+                    </div>
+                  </div>
+                )}
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Status</label>
+                  <div className="relative">
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                      <option value="all" className="text-gray-400">All Statuses</option>
+                      <option value="Hot">Hot</option>
+                      <option value="Warm">Warm</option>
+                      <option value="Cold">Cold</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"><ChevronDownIcon className="h-3 w-3" /></div>
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-600 mb-1">Date Segment</label>
+                  <div className="relative">
+                    <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                      <option value="" className="text-gray-400">All Time</option>
+                      <option value="today">Today</option>
+                      <option value="week">This Week</option>
+                      <option value="month">This Month</option>
+                      <option value="year">This Year</option>
+                      <option value="custom">Custom Range</option>
+                    </select>
+                    <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-gray-700"><ChevronDownIcon className="h-3 w-3" /></div>
+                  </div>
+                </div>
+                {filterDatePreset === "custom" && (
+                  <div className="col-span-1 lg:col-span-2 grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">From</label>
+                      <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-gray-600 mb-1">To</label>
+                      <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Active Filters Pill Display */}
+              {activeFilterCount > 0 && (
+                <div className="mt-4 pt-3 border-t border-gray-200">
+                  <div className="flex items-center flex-wrap gap-2">
+                    <span className="text-xs text-gray-500 mr-2">Active filters:</span>
+                    {filterRegion && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Region: {regions.find((r) => r.id.toString() === filterRegion.toString())?.name}
+                        <button onClick={() => setFilterRegion("")} className="ml-1 text-gray-500 hover:text-gray-700"><XMarkIcon className="h-2.5 w-2.5" /></button>
+                      </span>
+                    )}
+                    {filterBranch && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Branch: {branches.find((b) => b.id.toString() === filterBranch.toString())?.name}
+                        <button onClick={() => setFilterBranch("")} className="ml-1 text-gray-500 hover:text-gray-700"><XMarkIcon className="h-2.5 w-2.5" /></button>
+                      </span>
+                    )}
+                    {filterRO && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        RO: {officers.find((ro) => ro.id.toString() === filterRO.toString())?.full_name}
+                        <button onClick={() => setFilterRO("")} className="ml-1 text-gray-500 hover:text-gray-700"><XMarkIcon className="h-2.5 w-2.5" /></button>
+                      </span>
+                    )}
+                    {filterDatePreset && (
+                      <span className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-md bg-gray-100 text-gray-700 border border-gray-300">
+                        Date: {filterDatePreset === 'custom' ? 'Custom Range' : filterDatePreset}
+                        <button onClick={() => { setFilterDatePreset(""); setFilterDateFrom(""); setFilterDateTo(""); }} className="ml-1 text-gray-500 hover:text-gray-700"><XMarkIcon className="h-2.5 w-2.5" /></button>
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
+
 
       {/* Table */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
