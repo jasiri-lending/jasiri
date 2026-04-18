@@ -9,7 +9,8 @@ import {
     User,
     CheckCircle,
     AlertCircle,
-    Hash
+    Hash,
+    Clock
 } from 'lucide-react';
 import {
     MagnifyingGlassIcon,
@@ -19,12 +20,15 @@ import {
     ArrowPathIcon
 } from "@heroicons/react/24/outline";
 import Spinner from "../../components/Spinner";
+import { apiFetch } from "../../utils/api";
+import { usePermissions } from "../../hooks/usePermissions";
 
 const ReconcileTransaction = () => {
     const { id } = useParams();
     const navigate = useNavigate();
     const { profile } = useAuth();
-    const { showToast } = useToast();
+    const toast = useToast();
+    const { hasPermission } = usePermissions();
 
     const [transaction, setTransaction] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -55,7 +59,7 @@ const ReconcileTransaction = () => {
             setTransaction(data);
         } catch (error) {
             console.error('Error fetching transaction:', error);
-            showToast('Error fetching transaction details', 'error');
+            toast.error('Error fetching transaction details');
         } finally {
             setLoading(false);
         }
@@ -100,44 +104,34 @@ const ReconcileTransaction = () => {
     const executeReconciliation = async () => {
         if (!transaction || !selectedCustomer) return;
 
+        if (!hasPermission('transaction.reconcile')) {
+            toast.error("You do not have permission to propose reconciliations.");
+            return;
+        }
+
         try {
             setIsProcessing(true);
 
-            const { error: suspenseError } = await supabase
-                .from('suspense_transactions')
-                .update({
-                    status: 'reconciled',
-                    linked_customer_id: selectedCustomer.id,
-                    reason: `Manually reconciled to ${selectedCustomer.Firstname} ${selectedCustomer.Surname}`
-                })
-                .eq('id', transaction.id)
-                .eq('tenant_id', profile.tenant_id);
-
-            if (suspenseError) throw suspenseError;
-
-            const { error: walletError } = await supabase
-                .from('customer_wallets')
-                .insert([{
-                    customer_id: selectedCustomer.id,
+            const response = await apiFetch(`/api/reconciliation/${transaction.id}/propose`, {
+                method: 'POST',
+                body: JSON.stringify({
                     tenant_id: profile.tenant_id,
-                    amount: transaction.amount,
-                    credit: transaction.amount,
-                    debit: 0,
-                    type: 'credit',
-                    transaction_type: 'mpesa',
-                    mpesa_reference: transaction.transaction_id,
-                    billref: transaction.billref || transaction.reference,
-                    narration: `Manual reconciliation: ${transaction.transaction_id}`,
-                    description: `Payment reconciled from suspense`
-                }]);
+                    proposed_customer_id: selectedCustomer.id,
+                    reason: `Manual reconciliation proposed to ${selectedCustomer.Firstname} ${selectedCustomer.Surname}`
+                })
+            });
 
-            if (walletError) throw walletError;
+            const data = await response.json();
 
-            showToast('Transaction reconciled and customer wallet credited', 'success');
-            setTimeout(() => navigate('/accounting/transactions'), 1500);
+            if (data.success) {
+                toast.success('Reconciliation submitted for approval');
+                setTimeout(() => navigate('/accounting/transactions'), 1500);
+            } else {
+                throw new Error(data.error || 'Failed to submit reconciliation');
+            }
         } catch (error) {
             console.error('Reconciliation error:', error);
-            showToast('Failed to reconcile transaction: ' + error.message, 'error');
+            toast.error('Failed to submit: ' + error.message);
         } finally {
             setIsProcessing(false);
         }
@@ -171,7 +165,7 @@ const ReconcileTransaction = () => {
     }
 
     return (
-        <div className="min-h-screen bg-stone-50 p-6 font-sans">
+        <div className="min-h-screen bg-muted p-6 font-sans">
             <div className="max-w-5xl mx-auto">
 
                 {/* Header */}
@@ -183,8 +177,8 @@ const ReconcileTransaction = () => {
                         <ArrowLeft className="w-5 h-5" />
                     </button>
                     <div>
-                        <h1 className="text-xl font-semibold text-stone-700">Manual Reconciliation</h1>
-                        <p className="text-stone-400 text-sm mt-0.5">Link suspense payment to a specific customer</p>
+                        <h1 className="text-sm text-slate-600">Manual Reconciliation</h1>
+                        <p className="text-slate-400 text-xs mt-0.5">Link suspense payment to a specific customer</p>
                     </div>
                 </div>
 
@@ -193,16 +187,16 @@ const ReconcileTransaction = () => {
                     {/* Left: Transaction Details */}
                     <div className="lg:col-span-4 space-y-4">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-stone-100">
-                            <h2 className="text-xs font-bold text-stone-400 mb-4 flex items-center gap-2 pb-3 border-b border-stone-100 uppercase tracking-widest">
-                                <Hash className="w-4 h-4 text-brand-primary/70" />
+                            <h2 className="text-xs  text-slate-600 mb-4 flex items-center gap-2 pb-3 border-b border-stone-100 uppercase tracking-widest">
+                                <Hash className="w-4 h-4 text-slate-600" />
                                 Payment Summary
                             </h2>
 
                             <div className="space-y-3">
                                 {/* M-Pesa Reference */}
                                 <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-1.5">M-Pesa Reference</p>
-                                    <p className="text-base font-semibold text-stone-700">{transaction.transaction_id}</p>
+                                    <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1.5">M-Pesa Reference</p>
+                                    <p className="text-base font-semibold text-emerald-600">{transaction.transaction_id}</p>
                                 </div>
 
                                 {/* Amount */}
@@ -215,22 +209,22 @@ const ReconcileTransaction = () => {
 
                                 {/* Details */}
                                 <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-3">Details</p>
+                                    <p className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-3">Details</p>
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-400 shrink-0">Payer</span>
+                                            <span className="text-sm text-stone-600 shrink-0">Payer</span>
                                             <span className="text-sm text-stone-700 font-medium text-right truncate">
                                                 {transaction.payer_name || 'Anonymous'}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-400 shrink-0">Phone</span>
+                                            <span className="text-sm text-stone-600 shrink-0">Account no</span>
                                             <span className="text-sm text-stone-700 font-medium text-right">
                                                 {transaction.phone_number}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-400 shrink-0">Date</span>
+                                            <span className="text-sm text-stone-600 shrink-0">Date</span>
                                             <span className="text-sm text-stone-700 font-medium text-right">
                                                 {new Date(transaction.created_at).toLocaleDateString('en-GB', {
                                                     day: '2-digit',
@@ -364,19 +358,19 @@ const ReconcileTransaction = () => {
                                             <CheckCircle className="w-28 h-28 text-white" />
                                         </div>
                                         <h3 className="text-xs font-bold text-stone-300 uppercase tracking-widest mb-4 flex items-center gap-2">
-                                            <CheckCircle className="w-3.5 h-3.5 text-brand-primary" />
-                                            Final Confirmation
+                                            <Clock className="w-3.5 h-3.5 text-brand-primary" />
+                                            Submit for Approval
                                         </h3>
                                         <p className="text-stone-300 leading-relaxed text-sm mb-6">
-                                            You are about to reconcile{' '}
+                                            You are about to propose a reconciliation for{' '}
                                             <span className="text-white font-bold">{transaction.transaction_id}</span>{' '}
                                             for{' '}
                                             <span className="text-brand-primary font-bold">
                                                 KSh {parseFloat(transaction.amount).toLocaleString()}
                                             </span>{' '}
                                             to{' '}
-                                            <span className="text-white font-bold">{selectedCustomer.Firstname}</span>
-                                            's wallet.
+                                            <span className="text-white font-bold">{selectedCustomer.Firstname}</span>.
+                                            This will need to be approved by another user.
                                         </p>
 
                                         <div className="flex items-center gap-3">
@@ -386,23 +380,23 @@ const ReconcileTransaction = () => {
                                             >
                                                 Cancel
                                             </button>
-                                            <button
-                                                onClick={executeReconciliation}
-                                                disabled={isProcessing}
-                                                className="py-2.5 px-6 bg-brand-primary text-white rounded-lg text-sm font-semibold hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30 transition-all disabled:opacity-50 inline-flex items-center gap-2 uppercase tracking-wide whitespace-nowrap"
-                                            >
-                                                {isProcessing ? (
-                                                    <>
-                                                        <ArrowPathIcon className="w-4 h-4 animate-spin" />
-                                                        Processing...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <CheckCircle className="w-4 h-4" />
-                                                        Confirm Reconciliation
-                                                    </>
-                                                )}
-                                            </button>
+                                                <button
+                                                    onClick={executeReconciliation}
+                                                    disabled={isProcessing}
+                                                    className="py-2.5 px-6 bg-brand-primary text-white rounded-lg text-sm font-semibold hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30 transition-all disabled:opacity-50 inline-flex items-center gap-2 uppercase tracking-wide whitespace-nowrap"
+                                                >
+                                                    {isProcessing ? (
+                                                        <>
+                                                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
+                                                            Submitting...
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Clock className="w-4 h-4" />
+                                                            Submit Proposal
+                                                        </>
+                                                    )}
+                                                </button>
                                         </div>
                                     </div>
                                 </div>
@@ -420,9 +414,9 @@ const ReconcileTransaction = () => {
                             <div className="absolute inset-0 border-2 border-stone-100 rounded-full"></div>
                             <div className="absolute inset-0 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
-                        <h3 className="text-base font-bold text-stone-800 mb-1.5">Updating Records</h3>
+                        <h3 className="text-base font-bold text-stone-800 mb-1.5">Submitting Proposal</h3>
                         <p className="text-stone-400 text-center text-sm">
-                            Just a moment while we credit the wallet...
+                            Just a moment while we send this for approval...
                         </p>
                     </div>
                 </div>

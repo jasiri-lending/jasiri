@@ -177,3 +177,60 @@ export const checkTenantAccess = (req, res, next) => {
 
     next();
 };
+
+/**
+ * Middleware to check if the authenticated user has a specific permission.
+ * Fetches permission from DB based on role and tenant.
+ */
+export const requirePermission = (permissionName) => {
+    return async (req, res, next) => {
+        try {
+            const { role, tenant_id } = req.user;
+
+            // 🚀 Superadmins bypass all permission checks
+            if (role === 'superadmin') {
+                return next();
+            }
+
+            // check if role has this permission
+            const { data, error } = await supabaseAdmin
+                .from("roles")
+                .select(`
+                    id,
+                    role_permissions!inner (
+                        permissions!inner (
+                            name
+                        )
+                    )
+                `)
+                .eq("name", role)
+                .eq("tenant_id", tenant_id)
+                .eq("role_permissions.permissions.name", permissionName)
+                .maybeSingle();
+
+            if (error) {
+                console.error(`❌ [Permission Check Error] ${permissionName}:`, error.message);
+                return res.status(500).json({
+                    success: false,
+                    error: "Internal server error during permission check"
+                });
+            }
+
+            if (!data) {
+                console.warn(`🚫 [Permission Denied] User ${req.user.id} (Role: ${role}) tried to access protected resource without '${permissionName}' permission.`);
+                return res.status(403).json({
+                    success: false,
+                    error: `Access denied: Missing '${permissionName}' permission`
+                });
+            }
+
+            next();
+        } catch (err) {
+            console.error("💥 requirePermission Error:", err);
+            res.status(500).json({
+                success: false,
+                error: "Permission verification failed",
+            });
+        }
+    };
+};

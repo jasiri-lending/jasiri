@@ -4,28 +4,27 @@ import { ArrowLeft, CheckCircle, XCircle, ArrowRight } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import Spinner from "../../components/Spinner";
-import { API_BASE_URL } from "../../../config";
+import { apiFetch } from "../../utils/api";
+import { usePermissions } from "../../hooks/usePermissions";
 
 function ViewJournal() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [journal, setJournal] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false);
+  // Modal State
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalAction, setModalAction] = useState(null); // 'approve' | 'reject'
+  const [actionReason, setActionReason] = useState("");
+
   const { profile } = useAuth();
   const toast = useToast();
+  const { hasPermission } = usePermissions();
 
   const fetchJournal = async () => {
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(
-        `${API_BASE_URL}/api/journals/${id}?tenant_id=${profile?.tenant_id}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${sessionToken}`,
-            'Content-Type': 'application/json'
-          }
-        }
+      const response = await apiFetch(
+        `/api/journals/${id}?tenant_id=${profile?.tenant_id}`
       );
 
       const data = await response.json();
@@ -48,51 +47,34 @@ function ViewJournal() {
     }
   }, [id, profile?.tenant_id]);
 
-  const handleAction = async (action) => {
-    let url = '';
-    let body = {};
+  const openActionModal = (action) => {
+    setModalAction(action);
+    setActionReason("");
+    setIsModalOpen(true);
+  };
 
-    // Check Permissions for Approval/Rejection
-    // Check Permissions for Approval/Rejection
-    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
-    if (!allowedRoles.includes(profile.role)) {
-      toast.error("You do not have permission to perform this action. Credit Analyst role required.");
-      return;
-    }
+  const closeActionModal = () => {
+    setIsModalOpen(false);
+    setModalAction(null);
+    setActionReason("");
+  };
 
-    switch (action) {
-      case 'approve':
-        const approvalNote = prompt("Enter approval note (optional):");
-        if (approvalNote === null) return;
-        url = `${API_BASE_URL}/api/journals/${id}/approve`;
-        body = { tenant_id: profile?.tenant_id, approval_note: approvalNote };
-        break;
-      case 'reject':
-        const rejectionReason = prompt("Enter rejection reason:");
-        if (!rejectionReason) {
-          toast.error("Rejection reason is required");
-          return;
-        }
-        url = `${API_BASE_URL}/api/journals/${id}/reject`;
-        body = { tenant_id: profile?.tenant_id, rejection_reason: rejectionReason };
-        break;
-      default:
-        return;
-    }
-
-    if (action === 'approve' && !window.confirm("Approve and Post this journal? This will update wallets and GL.")) {
+  const handleSubmitAction = async () => {
+    if (modalAction === 'reject' && !actionReason.trim()) {
+      toast.error("Rejection reason is required");
       return;
     }
 
     setActionLoading(true);
+    const endpoint = modalAction === 'approve' ? 'approve' : 'reject';
+    const body = {
+      tenant_id: profile?.tenant_id,
+      [modalAction === 'approve' ? 'approval_note' : 'rejection_reason']: actionReason
+    };
+
     try {
-      const sessionToken = localStorage.getItem('sessionToken');
-      const response = await fetch(url, {
+      const response = await apiFetch(`/api/journals/${id}/${endpoint}`, {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${sessionToken}`,
-          'Content-Type': 'application/json'
-        },
         body: JSON.stringify(body)
       });
 
@@ -101,12 +83,13 @@ function ViewJournal() {
       if (data.success) {
         toast.success(data.message);
         fetchJournal();
+        closeActionModal();
       } else {
         toast.error(`Action failed: ${data.error}`);
       }
     } catch (error) {
-      console.error(`Error ${action}ing journal:`, error);
-      toast.error(`Failed to ${action} journal`);
+      console.error(`Error ${modalAction}ing journal:`, error);
+      toast.error(`Failed to ${modalAction} journal`);
     } finally {
       setActionLoading(false);
     }
@@ -194,35 +177,29 @@ function ViewJournal() {
                 <div>
                   <h3 className="text-sm font-semibold text-gray-900">Pending Approval</h3>
                   <p className="text-xs text-gray-600 mt-1">
-                    Requires approval from a Credit Analyst to be posted to accounts.
+                    Requires approval from an authorized user to be posted to accounts.
                   </p>
                 </div>
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => handleAction('approve')}
-                    disabled={actionLoading}
-                    className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    ) : (
+                {hasPermission('journal.approve') && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => openActionModal('approve')}
+                      disabled={actionLoading}
+                      className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <CheckCircle size={12} />
-                    )}
-                    Approve & Post
-                  </button>
-                  <button
-                    onClick={() => handleAction('reject')}
-                    disabled={actionLoading}
-                    className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {actionLoading ? (
-                      <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-white"></div>
-                    ) : (
+                      Approve & Post
+                    </button>
+                    <button
+                      onClick={() => openActionModal('reject')}
+                      disabled={actionLoading}
+                      className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
                       <XCircle size={12} />
-                    )}
-                    Reject
-                  </button>
-                </div>
+                      Reject
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -453,6 +430,81 @@ function ViewJournal() {
           </button>
         </div>
       </div>
+
+      {/* ACTION MODAL */}
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+            {/* Modal Header */}
+            <div className={`px-6 py-4 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'
+              }`}>
+              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-blue-800' : 'text-red-800'
+                }`}>
+                {modalAction === 'approve' ? 'Approve Journal Entry' : 'Reject Journal Entry'}
+              </h3>
+              <button
+                onClick={closeActionModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                disabled={actionLoading}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6">
+              {actionLoading ? (
+                <div className="py-8 flex justify-center">
+                  <Spinner text={modalAction === 'approve' ? 'Approving Journal...' : 'Rejecting Journal...'} />
+                </div>
+              ) : (
+                <>
+                  <p className="text-sm text-gray-600 mb-4">
+                    {modalAction === 'approve'
+                      ? 'Are you sure you want to approve this journal? This will post the transaction to the ledger and update wallet balances.'
+                      : 'Please provide a reason for rejecting this journal entry.'
+                    }
+                  </p>
+
+                  <div className="space-y-2">
+                    <label className="block text-xs font-medium text-gray-700">
+                      {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
+                    </label>
+                    <textarea
+                      className="w-full text-xs border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-btn focus:border-transparent outline-none transition-all"
+                      rows={4}
+                      placeholder={modalAction === 'approve' ? 'Enter any notes...' : 'Enter reason for rejection...'}
+                      value={actionReason}
+                      onChange={(e) => setActionReason(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            {!actionLoading && (
+              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+                <button
+                  onClick={closeActionModal}
+                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitAction}
+                  className={`px-4 py-2 text-xs font-medium text-white rounded-md transition-colors ${modalAction === 'approve'
+                    ? 'bg-blue-600 hover:bg-blue-700'
+                    : 'bg-red-600 hover:bg-red-700'
+                    }`}
+                >
+                  {modalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

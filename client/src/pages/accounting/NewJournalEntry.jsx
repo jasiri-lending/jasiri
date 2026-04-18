@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Phone, Building, X, ArrowRight } from "lucide-react";
+import { ArrowLeft, User, Phone, Building, X, ArrowRight, IdCard } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
 import { useToast } from "../../components/Toast.jsx";
+import { usePermissions } from "../../hooks/usePermissions";
 
 function NewJournalEntry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const { addToast } = useToast();
+  const { hasPermission, loading: permsLoading } = usePermissions();
 
   // Search state for Primary Customer (Sender/Main)
   const [searchingCustomers, setSearchingCustomers] = useState(false);
@@ -31,10 +33,13 @@ function NewJournalEntry() {
     customer_id: "",
     customer_phone: "",
     customer_name: "",
+    customer_id_number: "",
     account_search: "",
     // Recipient fields
     recipient_id: "",
     recipient_name: "",
+    recipient_id_number: "",
+    recipient_phone: "",
     recipient_search: ""
   });
 
@@ -126,6 +131,7 @@ function NewJournalEntry() {
       ...prev,
       customer_id: customer.id,
       customer_phone: customer.phone,
+      customer_id_number: customer.id_number,
       customer_name: customer.display_name,
       account_name: customer.display_name,
       account_search: customer.display_name
@@ -138,6 +144,8 @@ function NewJournalEntry() {
       ...prev,
       recipient_id: customer.id,
       recipient_name: customer.display_name,
+      recipient_id_number: customer.id_number,
+      recipient_phone: customer.phone,
       recipient_search: customer.display_name
     }));
     setShowRecipientDropdown(false);
@@ -146,8 +154,7 @@ function NewJournalEntry() {
   const clearCustomerSelection = () => {
     setFormData(prev => ({
       ...prev,
-      customer_id: "",
-      customer_phone: "",
+      customer_id_number: "",
       customer_name: "",
       account_name: "",
       account_search: ""
@@ -160,6 +167,8 @@ function NewJournalEntry() {
       ...prev,
       recipient_id: "",
       recipient_name: "",
+      recipient_id_number: "",
+      recipient_phone: "",
       recipient_search: ""
     }));
     setRecipients([]);
@@ -223,14 +232,14 @@ function NewJournalEntry() {
       const data = await response.json();
 
       if (data.success) {
-        alert("Journal created successfully!");
+        addToast("Journal created successfully!", "success");
         navigate("/accounting/journals");
       } else {
-        alert(`Failed to create journal: ${data.error}`);
+        addToast(`Failed to create journal: ${data.error}`, "error");
       }
     } catch (error) {
       console.error("Error creating journal:", error);
-      alert("Failed to create journal. Please try again.");
+      addToast("Failed to create journal. Please try again.", "error");
     } finally {
       setLoading(false);
     }
@@ -261,7 +270,19 @@ function NewJournalEntry() {
         Journals / Create Journal Voucher
       </div>
 
-      <div className="bg-white rounded-lg shadow-sm">
+      {(!permsLoading && !hasPermission('journal.create')) ? (
+        <div className="bg-red-50 border border-red-200 text-red-700 p-8 rounded-lg text-center">
+          <h2 className="text-lg font-bold mb-2">Access Denied</h2>
+          <p>You do not have permission to create journal entries.</p>
+          <button 
+            onClick={() => navigate("/accounting/journals")}
+            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
+          >
+            Go Back
+          </button>
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg shadow-sm">
         <div className="border-b">
           <div className="px-6 py-3">
             <span className="inline-block px-4 py-2 bg-brand-secondary text-white text-sm rounded">
@@ -371,6 +392,12 @@ function NewJournalEntry() {
                                 <span className="text-xs text-gray-600">{customer.phone}</span>
                               </div>
                             )}
+                            {customer.id_number && (
+                              <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
+                                <IdCard size={12} className="text-gray-400" />
+                                <span className="text-xs text-gray-500">ID: {customer.id_number}</span>
+                              </div>
+                            )}
                           </div>
                         </div>
                       </div>
@@ -423,7 +450,20 @@ function NewJournalEntry() {
                             <p className="text-sm font-medium text-gray-900 truncate">
                               {customer.display_name}
                             </p>
-                            <span className="text-xs text-gray-600">{customer.phone}</span>
+                            <div className="flex flex-wrap gap-2 mt-1">
+                              {customer.phone && (
+                                <div className="flex items-center gap-1">
+                                  <Phone size={12} className="text-gray-500" />
+                                  <span className="text-xs text-gray-600">{customer.phone}</span>
+                                </div>
+                              )}
+                              {customer.id_number && (
+                                <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
+                                  <IdCard size={12} className="text-gray-400" />
+                                  <span className="text-xs text-gray-500">ID: {customer.id_number}</span>
+                                </div>
+                              )}
+                            </div>
                           </div>
                         </div>
                       </div>
@@ -479,7 +519,7 @@ function NewJournalEntry() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold">{formData.customer_name}</p>
-                      <p className="text-xs text-gray-500">{formData.customer_phone}</p>
+                      <p className="text-[10px] text-gray-500">{formData.customer_phone} {formData.customer_id_number && `| ID: ${formData.customer_id_number}`}</p>
                     </div>
                   </div>
                 )}
@@ -499,7 +539,9 @@ function NewJournalEntry() {
                     </div>
                     <div>
                       <p className="text-xs font-semibold">{formData.recipient_name}</p>
-                      <p className="text-xs text-gray-500">To Recipient</p>
+                      <p className="text-[10px] text-gray-500">
+                        {formData.recipient_phone} {formData.recipient_id_number && `| ID: ${formData.recipient_id_number}`}
+                      </p>
                     </div>
                   </div>
                 )}
@@ -534,6 +576,7 @@ function NewJournalEntry() {
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 }

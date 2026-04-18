@@ -5,6 +5,7 @@ import Spinner from "../../components/Spinner";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../utils/api";
+import { usePermissions } from "../../hooks/usePermissions";
 
 function Journals() {
   const [journals, setJournals] = useState([]);
@@ -25,6 +26,7 @@ function Journals() {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const toast = useToast();
+  const { hasPermission } = usePermissions();
 
   const fetchJournals = async () => {
     try {
@@ -73,6 +75,12 @@ function Journals() {
     }
 
     setActionLoading(true);
+    const endpoint = modalAction === 'approve' ? 'approve' : 'reject';
+    const body = {
+      tenant_id: profile?.tenant_id,
+      reason: actionReason
+    };
+
     try {
       const response = await apiFetch(`/api/journals/${selectedJournalId}/${endpoint}`, {
         method: 'POST',
@@ -166,12 +174,14 @@ function Journals() {
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
           {/* NEW ENTRY BUTTON */}
-          <button
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-btn hover:bg-brand-primary"
-            onClick={() => navigate("/journals/new")}
-          >
-            <Plus size={14} /> New Entry
-          </button>
+          {hasPermission('journal.create') && (
+            <button
+              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-btn hover:bg-brand-primary"
+              onClick={() => navigate("/journals/new")}
+            >
+              <Plus size={14} /> New Entry
+            </button>
+          )}
           <button
             className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-brand-primary border border-brand-primary hover:bg-brand-secondary/10 transition-colors ml-2"
             onClick={() => navigate("/accounting/gl-entries")}
@@ -276,7 +286,7 @@ function Journals() {
                         <Eye className="text-gray-600 hover:text-gray-900" size={16} />
                       </button>
 
-                      {j.status === 'pending' && (
+                      {j.status === 'pending' && hasPermission('journal.approve') && (
                         <>
                           <button
                             className="inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors"

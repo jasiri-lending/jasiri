@@ -1,6 +1,6 @@
 import express from "express";
 import { supabase, supabaseAdmin } from "../supabaseClient.js";
-import { verifySupabaseToken, checkTenantAccess } from "../middleware/authMiddleware.js";
+import { verifySupabaseToken, checkTenantAccess, requirePermission } from "../middleware/authMiddleware.js";
 
 const journalRouter = express.Router();
 
@@ -21,25 +21,21 @@ journalRouter.get("/search-customers", async (req, res) => {
       });
     }
 
-    // Check if search is purely numeric
     const isNumeric = /^\d+$/.test(search);
+    // Flexible Search: Names, Business Name, or Mobile
+    let orConditions = `Firstname.ilike.%${search}%,Surname.ilike.%${search}%,Middlename.ilike.%${search}%,business_name.ilike.%${search}%,mobile.ilike.%${search}%`;
 
-    let query = supabaseAdmin // Changed from supabase to supabaseAdmin
+    // Add ID Number if numeric
+    if (isNumeric) {
+      orConditions += `,id_number.eq.${search}`;
+    }
+
+    let query = supabaseAdmin
       .from("customers")
       .select("id, Firstname, Middlename, Surname, mobile, id_number, business_name")
       .eq("tenant_id", tenant_id)
+      .or(orConditions)
       .limit(10);
-
-    if (isNumeric) {
-      // Search mobile (partial) OR id_number (exact) - using raw OR syntax for mixed types if needed,
-      // but mobile is text and id_number is bigint.
-      // Safest is to use the .or() filter with explicit casting or just string matching if Supabase handles it.
-      // We will try the flexible string syntax: mobile.ilike.%search%,id_number.eq.search
-      query = query.or(`mobile.ilike.%${search}%,id_number.eq.${search}`);
-    } else {
-      // Text search: Names or Business Name
-      query = query.or(`Firstname.ilike.%${search}%,Surname.ilike.%${search}%,Middlename.ilike.%${search}%,business_name.ilike.%${search}%`);
-    }
 
     const { data: customers, error } = await query;
 
@@ -86,7 +82,7 @@ function formatCustomers(customers) {
 }
 
 // POST /api/journals - Create new pending journal
-journalRouter.post("/", async (req, res) => {
+journalRouter.post("/", requirePermission('journal.create'), async (req, res) => {
   try {
     const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
     const {
@@ -206,20 +202,11 @@ journalRouter.post("/", async (req, res) => {
 });
 
 // POST /api/journals/:id/approve
-journalRouter.post("/:id/approve", async (req, res) => {
+journalRouter.post("/:id/approve", requirePermission('journal.approve'), async (req, res) => {
   try {
     const { id } = req.params;
     const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
     const { approval_note } = req.body;
-
-    // Check Permissions
-    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Insufficient permissions. Credit Analyst role required.'
-      });
-    }
 
     // Fetch Journal
     const { data: journal, error: journalError } = await supabaseAdmin
@@ -428,19 +415,11 @@ journalRouter.post("/:id/approve", async (req, res) => {
 });
 
 // POST /api/journals/:id/reject
-journalRouter.post("/:id/reject", async (req, res) => {
+journalRouter.post("/:id/reject", requirePermission('journal.approve'), async (req, res) => {
   try {
     const { id } = req.params;
     const tenant_id = req.user.tenant_id; // Get tenant_id from authenticated user
     const { rejection_reason } = req.body;
-
-    const allowedRoles = ['admin', 'superadmin', 'credit_analyst', 'credit_analyst_officer'];
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({
-        success: false,
-        error: 'Insufficient permissions'
-      });
-    }
 
     if (!rejection_reason) {
       return res.status(400).json({
@@ -553,6 +532,7 @@ journalRouter.get("/", async (req, res) => {
         ...journal,
         customer_name: displayCustomerName,
         customer_phone: journal.customers?.mobile,
+        customer_id_number: journal.customers?.id_number,
         created_by_name: userLookup[journal.created_by] || 'Unknown',
         approved_by_name: userLookup[journal.approved_by] || '-',
         rejected_by_name: userLookup[journal.rejected_by] || '-'
