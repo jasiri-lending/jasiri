@@ -1129,7 +1129,7 @@ const Customer360View = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 text-sm uppercase ">Global Total Payable</p>
+                <p className=" text-slate-600 text-sm uppercase ">Total Payable</p>
                 <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
                   <BanknotesIcon className="h-4 w-4 text-brand-primary" />
                 </div>
@@ -1147,7 +1147,7 @@ const Customer360View = () => {
 
             <div className="bg-emerald-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm">Global Amount Cleared</p>
+                <p className=" text-slate-600 uppercase text-sm"> Amount Cleared</p>
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
                 </div>
@@ -1170,7 +1170,7 @@ const Customer360View = () => {
 
             <div className="bg-amber-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm">Global O.L.B</p>
+                <p className=" text-slate-600 uppercase text-sm"> O.L.B</p>
                 <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
                   <ExclamationCircleIcon className="h-4 w-4 text-rose-600" />
                 </div>
@@ -1411,7 +1411,7 @@ const Customer360View = () => {
                       {txn.transaction_id || "N/A"}
                     </td>
                     <td className="px-4 py-3 text-sm font-medium text-gray-900">
-                      {formatCurrency(txn.amount)}
+                      {(txn.amount)}
                     </td>
                     <td className="px-4 py-3 text-sm text-gray-600 capitalize">
                       {txn.description

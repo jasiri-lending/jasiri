@@ -131,31 +131,162 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
   );
 };
 
+// Shared Pagination Component
+const Pagination = ({ currentPage, totalPages, totalItems, pageSize, onPageChange }) => {
+  if (totalPages <= 1) return null;
+  const start = (currentPage - 1) * pageSize + 1;
+  const end = Math.min(currentPage * pageSize, totalItems);
+
+  return (
+    <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+      <p className="text-sm text-gray-500">
+        Showing <span className="font-semibold text-gray-700">{start}–{end}</span> of{' '}
+        <span className="font-semibold text-gray-700">{totalItems}</span> records
+      </p>
+      <div className="flex items-center gap-1">
+        <button
+          onClick={() => onPageChange(1)}
+          disabled={currentPage === 1}
+          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          «
+        </button>
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          ‹ Prev
+        </button>
+
+        {/* Page numbers (show up to 5 around current) */}
+        {Array.from({ length: totalPages }, (_, i) => i + 1)
+          .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 2)
+          .reduce((acc, p, idx, arr) => {
+            if (idx > 0 && p - arr[idx - 1] > 1) acc.push('...');
+            acc.push(p);
+            return acc;
+          }, [])
+          .map((item, idx) =>
+            item === '...' ? (
+              <span key={`ellipsis-${idx}`} className="px-2 text-gray-400 text-xs">…</span>
+            ) : (
+              <button
+                key={item}
+                onClick={() => onPageChange(item)}
+                className={`px-3 py-1.5 text-xs font-semibold rounded-lg border transition-colors ${
+                  item === currentPage
+                    ? 'text-white border-transparent'
+                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                }`}
+                style={item === currentPage ? { backgroundColor: '#586ab1' } : {}}
+              >
+                {item}
+              </button>
+            )
+          )}
+
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          Next ›
+        </button>
+        <button
+          onClick={() => onPageChange(totalPages)}
+          disabled={currentPage === totalPages}
+          className="px-2 py-1.5 text-xs font-semibold rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+        >
+          »
+        </button>
+      </div>
+    </div>
+  );
+};
+
+const PAGE_SIZE = 100;
+
 // Successful Transactions Component
+// Shows: mpesa_c2b_transactions (status=applied) + suspense_transactions (status=reconciled)
 const SuccessfulTransactions = ({ onViewDetails }) => {
   const { profile } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    if (profile?.tenant_id) {
-      fetchSuccessfulTransactions();
-    }
+    if (profile?.tenant_id) fetchSuccessfulTransactions();
   }, [profile?.tenant_id]);
+
+  // Reset to page 1 when search changes
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const fetchSuccessfulTransactions = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
-        .from('mpesa_c2b_transactions')
-        .select('*, customers(mobile, Firstname, Surname)')
-        .eq('status', 'applied')
-        .eq('tenant_id', profile.tenant_id)
-        .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setTransactions(data || []);
+      // Fetch both sources in parallel
+      const [c2bRes, reconciledRes] = await Promise.all([
+        supabase
+          .from('mpesa_c2b_transactions')
+          .select('*, customers(mobile, Firstname, Surname)')
+          .eq('status', 'applied')
+          .eq('tenant_id', profile.tenant_id)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('suspense_transactions')
+          .select('*, customers!linked_customer_id(Firstname, Surname, mobile)')
+          .eq('status', 'reconciled')
+          .eq('tenant_id', profile.tenant_id)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      // Normalize c2b transactions
+      const c2b = (c2bRes.data || []).map(t => {
+        const payload = t.raw_payload || {};
+        return {
+          _id: `c2b-${t.id}`,
+          _source: 'c2b',
+          id: t.id,
+          transaction_id: t.transaction_id,
+          amount: t.amount,
+          created_at: t.created_at,
+          status_label: 'Successful',
+          status_color: 'bg-green-100 text-green-800',
+          name: `${payload.Firstname || t.customers?.Firstname || ''} ${payload.SurName || t.customers?.Surname || ''}`.trim() || 'N/A',
+          mobile: t.customers?.mobile || payload.MSISDN || '',
+          bill_ref: payload.BillRefNumber || t.reference || 'N/A',
+          raw: t,
+        };
+      });
+
+      // Normalize reconciled suspense transactions
+      const reconciled = (reconciledRes.data || []).map(t => {
+        const customer = Array.isArray(t.customers) ? t.customers[0] : t.customers;
+        return {
+          _id: `rec-${t.id}`,
+          _source: 'reconciled',
+          id: t.id,
+          transaction_id: t.transaction_id,
+          amount: t.amount,
+          created_at: t.created_at,
+          status_label: 'Reconciled',
+          status_color: 'bg-blue-100 text-blue-800',
+          name: customer ? `${customer.Firstname || ''} ${customer.Surname || ''}`.trim() : (t.payer_name || 'N/A'),
+          mobile: customer?.mobile || t.phone_number || '',
+          bill_ref: t.billref || t.reference || '—',
+          raw: t,
+        };
+      });
+
+      // Merge and sort by date descending
+      const merged = [...c2b, ...reconciled].sort(
+        (a, b) => new Date(b.created_at) - new Date(a.created_at)
+      );
+
+      setTransactions(merged);
     } catch (error) {
       console.error('Error fetching successful transactions:', error);
     } finally {
@@ -163,37 +294,33 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
     }
   };
 
-  // Helper function to extract data from raw_payload
-  const getPayloadData = (transaction) => {
-    const payload = transaction.raw_payload || {};
-    return {
-      firstName: payload.Firstname || payload.FirstName || 'N/A',
-      billRef: payload.BillRefNumber || transaction.reference || 'N/A',
-      fullName: `${payload.Firstname || ''} ${payload.Middlename || ''} ${payload.SurName || ''}`.trim() || 'N/A'
-    };
-  };
+  const filtered = transactions.filter(t =>
+    t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.bill_ref?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    t.mobile?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const filteredTransactions = transactions.filter(t => {
-    const payloadData = getPayloadData(t);
-    return (
-      payloadData.firstName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      payloadData.billRef.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      t.transaction_id?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Successful Transactions</h2>
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Successful Transactions</h2>
+          <p className="text-xs text-gray-400 mt-0.5">
+            Direct payments + reconciled suspense entries · {transactions.length} total
+          </p>
+        </div>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
           <input
             type="text"
-            placeholder="Search transactions..."
+            placeholder="Search name, M-Pesa code, ref..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300"
+            className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 w-64"
           />
         </div>
       </div>
@@ -204,47 +331,46 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
           <p className="mt-4 text-gray-600">Loading transactions...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">First Name</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Bill Reference</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Amount</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">M-Pesa Code</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Status</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Created Date</th>
-                <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredTransactions.map((transaction) => {
-                const payloadData = getPayloadData(transaction);
-                return (
-                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm text-gray-800">{payloadData.firstName}</td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{payloadData.billRef}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-800">
-                      KSh {parseFloat(transaction.amount).toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{transaction.transaction_id}</td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Bill Reference</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">M-Pesa Code</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Source</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginated.map((t) => (
+                  <tr key={t._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <span className="px-3 py-1 bg-green-100 text-green-800 text-xs font-semibold rounded-full">
-                        Successful
+                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
+                      {t.mobile && <p className="text-xs text-gray-400">{t.mobile}</p>}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-800">{t.bill_ref}</td>
+                    <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                      KSh {parseFloat(t.amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-emerald-700">{t.transaction_id}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${t.status_color}`}>
+                        {t.status_label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">
-                      {new Date(transaction.created_at).toLocaleString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                      {new Date(t.created_at).toLocaleString('en-GB', {
+                        day: '2-digit', month: 'short', year: 'numeric',
+                        hour: '2-digit', minute: '2-digit'
                       })}
                     </td>
                     <td className="px-4 py-3">
                       <button
-                        onClick={() => onViewDetails(transaction)}
+                        onClick={() => onViewDetails(t.raw)}
                         className="flex items-center gap-2 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
                         style={{ backgroundColor: "#586ab1" }}
                       >
@@ -253,20 +379,28 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
                       </button>
                     </td>
                   </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {filteredTransactions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No successful transactions found
-            </div>
-          )}
-        </div>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                No transactions found
+              </div>
+            )}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
     </div>
   );
 };
+
 
 // Approval Confirmation Modal
 const ReconciliationApprovalModal = ({ transaction, onConfirm, onReject, onClose, isLoading }) => {
@@ -591,12 +725,14 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
   const { profile } = useAuth();
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    if (profile?.tenant_id) {
-      fetchSuspenseTransactions();
-    }
+    if (profile?.tenant_id) fetchSuspenseTransactions();
   }, [profile?.tenant_id]);
+
+  useEffect(() => { setCurrentPage(1); }, [searchTerm]);
 
   const fetchSuspenseTransactions = async () => {
     try {
@@ -617,13 +753,37 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
     }
   };
 
+  const filtered = transactions.filter(t =>
+    (t.payer_name || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.transaction_id || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (t.phone_number || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
+  const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
+  const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
   return (
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Suspense Transactions</h2>
-        <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full">
-          {transactions.length} Pending
-        </span>
+        <div>
+          <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Suspense Transactions</h2>
+          <p className="text-xs text-gray-400 mt-0.5">{transactions.length} unmatched payments</p>
+        </div>
+        <div className="flex items-center gap-3">
+          <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-sm font-semibold rounded-full">
+            {transactions.length} Pending
+          </span>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+            <input
+              type="text"
+              placeholder="Search..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-9 pr-4 py-1.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all w-48"
+            />
+          </div>
+        </div>
       </div>
 
       {loading ? (
@@ -632,93 +792,83 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
           <p className="mt-4 text-gray-600">Loading suspense transactions...</p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full border-collapse">
-            <thead>
-              <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-                {[
-                  "First Name",
-                  "Phone Number",
-                  "Amount",
-                  "M-Pesa Code",
-                  "Status",
-                  "Created Date",
-                  "Actions",
-                ].map((heading) => (
-                  <th
-                    key={heading}
-                    className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap"
-                  >
-                    {heading}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((transaction) => (
-                <tr
-                  key={transaction.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-                    {transaction.payer_name || "N/A"}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-                    {transaction.phone_number && transaction.phone_number.length > 20 
-                      ? (transaction.billref || "Hashed") 
-                      : (transaction.phone_number || "N/A")}
-                  </td>
-                  <td className="px-4 py-3 text-sm font-semibold text-gray-800 whitespace-nowrap">
-                    KSh {parseFloat(transaction.amount).toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
-                    {transaction.transaction_id}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
-                      Suspense
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
-                    {new Date(transaction.created_at).toLocaleString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => onReconcile(transaction)}
-                        className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                        style={{ backgroundColor: "#586ab1" }}
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Reconcile
-                      </button>
-                      <button
-                        onClick={() => onArchive(transaction)}
-                        className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-xl transition-all duration-300 hover:bg-gray-700"
-                      >
-                        <Archive className="w-4 h-4" />
-                        Archive
-                      </button>
-                    </div>
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full border-collapse">
+              <thead>
+                <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
+                  {["First Name", "Phone Number", "Amount", "M-Pesa Code", "Status", "Created Date", "Actions"].map((heading) => (
+                    <th key={heading} className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">
+                      {heading}
+                    </th>
+                  ))}
                 </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {transactions.length === 0 && (
-            <div className="text-center py-12 text-gray-500">
-              No suspense transactions found
-            </div>
-          )}
-        </div>
-
+              </thead>
+              <tbody>
+                {paginated.map((transaction) => (
+                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
+                      {transaction.payer_name || "N/A"}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-800 whitespace-nowrap">
+                      {transaction.phone_number && transaction.phone_number.length > 20
+                        ? (transaction.billref || "Hashed")
+                        : (transaction.phone_number || "N/A")}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-bold text-gray-800 whitespace-nowrap">
+                      KSh {parseFloat(transaction.amount).toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm font-mono text-emerald-700 whitespace-nowrap">
+                      {transaction.transaction_id}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="px-3 py-1 bg-yellow-100 text-yellow-800 text-xs font-semibold rounded-full">
+                        Suspense
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                      {new Date(transaction.created_at).toLocaleString("en-GB", {
+                        day: "2-digit", month: "short", year: "numeric",
+                        hour: "2-digit", minute: "2-digit",
+                      })}
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => onReconcile(transaction)}
+                          className="flex items-center gap-1 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
+                          style={{ backgroundColor: "#586ab1" }}
+                        >
+                          <CheckCircle className="w-4 h-4" />
+                          Reconcile
+                        </button>
+                        <button
+                          onClick={() => onArchive(transaction)}
+                          className="flex items-center gap-1 px-3 py-1 bg-gray-600 text-white text-sm rounded-xl transition-all duration-300 hover:bg-gray-700"
+                        >
+                          <Archive className="w-4 h-4" />
+                          Archive
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {filtered.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                No suspense transactions found
+              </div>
+            )}
+          </div>
+          <Pagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            totalItems={filtered.length}
+            pageSize={PAGE_SIZE}
+            onPageChange={setCurrentPage}
+          />
+        </>
       )}
     </div>
   );
