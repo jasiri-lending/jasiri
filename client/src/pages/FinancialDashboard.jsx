@@ -364,8 +364,8 @@ const FinancialDashboard = () => {
 
   const [filterOptions, setFilterOptions] = useState({ regions: [], branches: [] });
   const [filters, setFilters] = useState({
-    dateRange: 'all_time',
-    startDate: new Date(2000, 0, 1),
+    dateRange: 'mtd',
+    startDate: new Date(new Date().getFullYear(), new Date().getMonth(), 1), // Month to Date start
     endDate: new Date(),
     region: 'all',
     branch: 'all',

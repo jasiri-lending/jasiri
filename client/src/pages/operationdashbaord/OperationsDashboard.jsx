@@ -172,7 +172,7 @@ const OperationsDashboard = ({ userRole }) => {
   const [selectedRegion, setSelectedRegion] = useState("all");
   const [selectedBranch, setSelectedBranch] = useState("all");
   const [selectedRO, setSelectedRO] = useState("all");
-  const [dateFilter, setDateFilter] = useState("all_time");
+  const [dateFilter, setDateFilter] = useState("this_month");
   const [customStartDate, setCustomStartDate] = useState("");
   const [customEndDate, setCustomEndDate] = useState("");
   const [loading, setLoading] = useState(true);
@@ -430,71 +430,33 @@ const OperationsDashboard = ({ userRole }) => {
         return;
       }
 
-      // Fetch Loans
-      const { data: loans, error: loansError } = await supabase
-        .from('loans')
-        .select('*')
-        .eq('tenant_id', tenantId);
+      // Run independent data fetches concurrently for speed
+      const [
+        loansRes,
+        customersRes,
+        paymentsRes,
+        installmentsRes,
+        interactionsRes,
+        ptpsRes
+      ] = await Promise.allSettled([
+        supabase.from('loans').select('*').eq('tenant_id', tenantId),
+        supabase.from('customers').select('id, status, created_at').eq('tenant_id', tenantId),
+        supabase.from('loan_payments').select('*').eq('tenant_id', tenantId),
+        supabase.from('loan_installments').select('*').eq('tenant_id', tenantId),
+        supabase.from('customer_interactions').select('*').eq('tenant_id', tenantId).gte('created_at', startOfMonth),
+        supabase.from('promise_to_pay').select('*').eq('tenant_id', tenantId).gte('created_at', startOfMonth)
+      ]);
 
-      if (loansError) console.error("Error fetching loans:", loansError);
-      const loansData = loans || [];
+      if (loansRes.status === 'rejected') console.error("Error fetching loans:", loansRes.reason);
+      if (paymentsRes.status === 'rejected') console.warn('loan_payments fetch failed:', paymentsRes.reason);
+      if (installmentsRes.status === 'rejected') console.warn('loan_installments fetch failed:', installmentsRes.reason);
 
-      // Fetch Customers
-      const { data: customers } = await supabase
-        .from('customers')
-        .select('id, status, created_at')
-        .eq('tenant_id', tenantId);
-      const custData = customers || [];
-
-      // Fetch Loan Payments
-      let paymentsData = [];
-      try {
-        const { data: payments } = await supabase
-          .from('loan_payments')
-          .select('*')
-          .eq('tenant_id', tenantId);
-        paymentsData = payments || [];
-      } catch (error) {
-        console.warn('loan_payments table not available:', error);
-      }
-
-      // Fetch Installments
-      let installmentsData = [];
-      try {
-        const { data: installments } = await supabase
-          .from('loan_installments')
-          .select('*')
-          .eq('tenant_id', tenantId);
-        installmentsData = installments || [];
-      } catch (error) {
-        console.warn('loan_installments table not available:', error);
-      }
-
-      // Fetch Collections Data
-      let interactionsData = [];
-      let ptpsData = [];
-
-      try {
-        const { data: interactions } = await supabase
-          .from('customer_interactions')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', startOfMonth);
-        interactionsData = interactions || [];
-      } catch (error) {
-        console.warn('customer_interactions table not available:', error);
-      }
-
-      try {
-        const { data: ptps } = await supabase
-          .from('promise_to_pay')
-          .select('*')
-          .eq('tenant_id', tenantId)
-          .gte('created_at', startOfMonth);
-        ptpsData = ptps || [];
-      } catch (error) {
-        console.warn('promise_to_pay table not available:', error);
-      }
+      const loansData = loansRes.status === 'fulfilled' ? (loansRes.value.data || []) : [];
+      const custData = customersRes.status === 'fulfilled' ? (customersRes.value.data || []) : [];
+      const paymentsData = paymentsRes.status === 'fulfilled' ? (paymentsRes.value.data || []) : [];
+      const installmentsData = installmentsRes.status === 'fulfilled' ? (installmentsRes.value.data || []) : [];
+      const interactionsData = interactionsRes.status === 'fulfilled' ? (interactionsRes.value.data || []) : [];
+      const ptpsData = ptpsRes.status === 'fulfilled' ? (ptpsRes.value.data || []) : [];
 
       // Store Raw Data
       setRawData({
@@ -564,7 +526,7 @@ const OperationsDashboard = ({ userRole }) => {
 
       // ===== ACTIVE LOANS CALCULATION (Matching Dashboard.jsx) =====
       // Dashboard uses loans.status === 'disbursed'
-      const activeLoans = loansData.filter(l => l.status === 'disbursed');
+      const activeLoans = loansData.filter(l => l.status === 'disbursed' && l.repayment_state !== 'completed');
 
       // ===== DISBURSED TODAY CALCULATION =====
       const disbursedToday = loansData.filter(l => {
@@ -579,9 +541,11 @@ const OperationsDashboard = ({ userRole }) => {
       const collectedToday = todayPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
 
       // ===== OLB CALCULATION (Outstanding Loan Balance) =====
-      // OLB = Sum of (total_payable) - Sum of all paid_amount (for all disbursed loans)
+      // OLB = Sum of (total_payable) - Sum of all paid_amount (for all active loans)
+      const activeLoanIds = new Set(activeLoans.map(l => l.id));
+      const activeLoansPayments = filteredPayments.filter(p => activeLoanIds.has(p.loan_id));
       const totalPayable = activeLoans.reduce((sum, l) => sum + (Number(l.total_payable) || 0), 0);
-      const totalPaid = filteredPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
+      const totalPaid = activeLoansPayments.reduce((sum, p) => sum + (Number(p.paid_amount) || 0), 0);
       const olb = Math.max(0, totalPayable - totalPaid);
 
       // ===== PAR CALCULATION (Arrears / OLB) =====
@@ -662,7 +626,9 @@ const OperationsDashboard = ({ userRole }) => {
       };
 
       // ===== TASKS =====
-      const todayInstallments = filteredInstallments.filter(inst => inst.due_date === today);
+      const todayInstallments = filteredInstallments.filter(inst => 
+        inst.due_date === today && ['pending', 'partial'].includes(inst.status)
+      );
 
       const tasks = {
         approvedNotDisbursed: loansData.filter(l => l.status === 'ready_for_disbursement').length,

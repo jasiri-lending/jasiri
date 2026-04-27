@@ -945,11 +945,17 @@ const Dashboard = () => {
   }, []);
 
   const calculateCollectionMetrics = useCallback((filteredLoans) => {
-    const loanIds = filteredLoans
+    // For payments (collections), we look at all disbursed loans (even if completed now)
+    const allDisbursedLoanIds = filteredLoans
       .filter(loan => loan.status === "disbursed")
       .map(loan => loan.id);
 
-    if (loanIds.length === 0) {
+    // For expected installments (due), we strictly exclude completed loans
+    const activeLoanIds = filteredLoans
+      .filter(loan => loan.status === "disbursed" && loan.repayment_state !== "completed")
+      .map(loan => loan.id);
+
+    if (allDisbursedLoanIds.length === 0) {
       return {
         today: { collected: 0, expected: 0, rate: 0 },
         month: { collected: 0, expected: 0, rate: 0 },
@@ -962,28 +968,35 @@ const Dashboard = () => {
     const monthEnd = getMonthEndDate();
     const tomorrow = getTomorrowDate();
 
-    const filteredInstallments = allInstallments.filter(inst => loanIds.includes(inst.loan_id));
-    const filteredPayments = allPayments.filter(payment => loanIds.includes(payment.loan_id));
+    // Expected Installments come from ACTIVE loans ONLY and must be pending/partial
+    const activeInstallments = allInstallments.filter(inst => 
+      activeLoanIds.includes(inst.loan_id) && ["pending", "partial"].includes(inst.status)
+    );
 
-    const todayInstallments = filteredInstallments.filter(inst => inst.due_date === today);
-    const todayPayments = filteredPayments.filter(payment => {
+    // Payments come from ALL disbursed loans
+    const relevantPayments = allPayments.filter(payment => allDisbursedLoanIds.includes(payment.loan_id));
+
+    const todayInstallments = activeInstallments.filter(inst => inst.due_date === today);
+    const todayPayments = relevantPayments.filter(payment => {
       const paymentDate = getLocalYYYYMMDD(new Date(payment.created_at));
       return paymentDate === today;
     });
 
-    const monthInstallments = filteredInstallments.filter(inst =>
+    // Monthly expected includes ALL installments scheduled for this month (even 'paid' and for completed loans)
+    // to accurately balance against the total monthly collections.
+    const monthInstallments = allInstallments.filter(inst =>
+      allDisbursedLoanIds.includes(inst.loan_id) && 
       inst.due_date && inst.due_date >= monthStart && inst.due_date <= monthEnd
     );
-    const monthPayments = filteredPayments.filter(payment => {
+    const monthPayments = relevantPayments.filter(payment => {
       const paymentDate = getLocalYYYYMMDD(new Date(payment.created_at));
       return paymentDate >= monthStart && paymentDate <= monthEnd;
     });
 
-    const tomorrowInstallments = filteredInstallments.filter(inst => inst.due_date === tomorrow);
+    const tomorrowInstallments = activeInstallments.filter(inst => inst.due_date === tomorrow);
 
     const todayExpected = todayInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
     const todayCollected = todayPayments.reduce((sum, payment) => sum + (Number(payment.paid_amount) || 0), 0);
-    // FIXED: If both are 0, rate should be 0%
     const todayRate = todayExpected > 0 ? (todayCollected / todayExpected) * 100 : 0;
 
     const monthExpected = monthInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
@@ -992,15 +1005,12 @@ const Dashboard = () => {
 
     const tomorrowExpected = tomorrowInstallments.reduce((sum, inst) => sum + (Number(inst.due_amount) || 0), 0);
 
-    const prepaidPayments = filteredPayments.filter(payment => {
+    // Prepaid means payments made today for tomorrow's installments
+    const prepaidPayments = relevantPayments.filter(payment => {
       const paymentDate = getLocalYYYYMMDD(new Date(payment.created_at));
       return paymentDate === today;
     });
-    const prepaidInstallmentIds = new Set(
-      filteredInstallments
-        .filter(inst => inst.due_date === tomorrow)
-        .map(inst => inst.id)
-    );
+    const prepaidInstallmentIds = new Set(tomorrowInstallments.map(inst => inst.id));
     const prepaidAmount = prepaidPayments
       .filter(payment => prepaidInstallmentIds.has(payment.installment_id))
       .reduce((sum, payment) => sum + (Number(payment.paid_amount) || 0), 0);
@@ -1012,7 +1022,7 @@ const Dashboard = () => {
       month: { collected: monthCollected, expected: monthExpected, rate: monthRate },
       tomorrow: { expected: tomorrowExpected, prepaid: prepaidAmount, rate: tomorrowRate },
     };
-  }, [allInstallments, allPayments, applyFilters, allLoans]); // Added applyFilters and allLoans to dependencies for safety
+  }, [allInstallments, allPayments, applyFilters, allLoans]);
 
   const calculateCustomerMetrics = useCallback((filteredCustomers) => {
     const today = getTodayDate();
