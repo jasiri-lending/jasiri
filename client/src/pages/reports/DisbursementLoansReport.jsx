@@ -119,7 +119,7 @@ const DisbursementLoansReport = () => {
         region: "",
         officer: "",
         product: "",
-        dateFilter: "all",
+        dateFilter: "today",
         customStartDate: "",
         customEndDate: "",
       };
@@ -130,7 +130,7 @@ const DisbursementLoansReport = () => {
         region: "",
         officer: "",
         product: "",
-        dateFilter: "all",
+        dateFilter: "today",
         customStartDate: "",
         customEndDate: "",
       };
@@ -739,7 +739,7 @@ const DisbursementLoansReport = () => {
       region: "",
       officer: "",
       product: "",
-      dateFilter: "all",
+      dateFilter: "today",
       customStartDate: "",
       customEndDate: "",
     });

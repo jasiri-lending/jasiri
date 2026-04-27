@@ -44,6 +44,7 @@ const ViewLoan = () => {
   const [loading, setLoading] = useState(true);
   const [activeSection, setActiveSection] = useState('loanInformation');
   const [payments, setPayments] = useState([]);
+  const [loanPenalties, setLoanPenalties] = useState([]);
 
 
   useEffect(() => {
@@ -164,10 +165,18 @@ const ViewLoan = () => {
         console.warn("Error fetching payments:", paymentsError);
       }
 
+      // Fetch penalties from loan_penalties table (set by DB triggers/edge functions)
+      const { data: penaltiesData } = await supabase
+        .from('loan_penalties')
+        .select('*')
+        .eq('loan_id', loanId)
+        .eq('tenant_id', profile.tenant_id);
+
       setLoanDetails(loanData);
       setCustomer(loanData.customers);
       setInstallments(installmentsData || []);
       setPayments(paymentsData || []);
+      setLoanPenalties(penaltiesData || []);
 
     } catch (error) {
       console.error("Error fetching loan details:", error);
@@ -206,15 +215,14 @@ const ViewLoan = () => {
     // Calculate progress
     const progressPercentage = totalPayable > 0 ? (totalPaid / totalPayable) * 100 : 0;
 
-    // Find overdue installments
-    const today = new Date();
-    const overdueInstallments = installments.filter(installment => {
-      if (!installment.due_date || installment.status === 'paid') return false;
-      const dueDate = new Date(installment.due_date);
-      return dueDate < today && (installment.principal_paid || 0) + (installment.interest_paid || 0) < installment.due_amount;
-    });
+    // Overdue installments — use days_overdue from DB (set by trigger) as the
+    // authoritative signal. This correctly catches 'partial' installments that
+    // are past-due (days_overdue > 0) and not yet fully paid.
+    const overdueInstallments = installments.filter(installment =>
+      installment.status !== 'paid' && parseInt(installment.days_overdue || 0) > 0
+    );
 
-    // Calculate arrears
+    // Arrears: sum of unpaid amounts for overdue/defaulted installments
     let arrears = 0;
     overdueInstallments.forEach(installment => {
       const dueAmount = parseFloat(installment.due_amount || 0);
@@ -222,18 +230,30 @@ const ViewLoan = () => {
       arrears += Math.max(0, dueAmount - paidAmount);
     });
 
-    // Calculate penalties (10% of arrears)
-    const penalties = arrears * 0.1;
+    // Max days overdue — DB stores this on each installment
+    const maxDaysOverdue = overdueInstallments.reduce(
+      (max, i) => Math.max(max, parseInt(i.days_overdue || 0)), 0
+    );
 
-    // Calculate next due date from pending installments
-    const pendingInstallments = installments.filter(i =>
-      i.status === 'pending' || i.status === 'partial' || i.status === 'overdue'
-    ).sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
+    // Penalties — fetched from loan_penalties table (net = charged - waived)
+    const penalties = loanPenalties.reduce((sum, p) => {
+      const net = parseFloat(p.amount || 0) - parseFloat(p.waived_amount || 0);
+      return sum + Math.max(0, net);
+    }, 0);
+
+    const pendingPenalties = loanPenalties.filter(p => p.status === 'pending').length;
+    const waivedPenalties  = loanPenalties.filter(p => p.status === 'waived').length;
+
+    // Next due date from pending/partial/overdue installments (ordered by due_date)
+    const pendingInstallments = installments
+      .filter(i => ['pending', 'partial', 'overdue'].includes(i.status))
+      .sort((a, b) => new Date(a.due_date) - new Date(b.due_date));
 
     const nextDueDate = pendingInstallments.length > 0
       ? new Date(pendingInstallments[0].due_date)
       : null;
 
+    const today = new Date();
     const daysUntilDue = nextDueDate
       ? Math.ceil((nextDueDate - today) / (1000 * 60 * 60 * 24))
       : null;
@@ -250,6 +270,9 @@ const ViewLoan = () => {
       totalCharges,
       arrears,
       penalties,
+      pendingPenalties,
+      waivedPenalties,
+      maxDaysOverdue,
       progressPercentage,
       overdueInstallments: overdueInstallments.length,
       pendingInstallments: pendingInstallments.length,
@@ -507,7 +530,7 @@ const ViewLoan = () => {
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                <span>Overdue: {installments.filter(i => i.status === 'overdue').length}</span>
+                <span>Overdue: {installments.filter(i => i.status !== 'paid' && parseInt(i.days_overdue || 0) > 0).length}</span>
               </div>
               <div className="flex items-center gap-1">
                 <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
@@ -526,12 +549,14 @@ const ViewLoan = () => {
                   <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Interest Due</th>
                   <th className="px-6 py-3 text-right text-sm  text-gray-600 whitespace-nowrap">Paid Amount</th>
                   <th className="px-6 py-3 text-center text-sm  text-gray-600 whitespace-nowrap">Status</th>
+                  <th className="px-6 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Alerts</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {installments.map((installment) => {
                   const paidAmount = (parseFloat(installment.principal_paid || 0) + parseFloat(installment.interest_paid || 0));
-                  const isOverdue = new Date(installment.due_date) < new Date() && installment.status !== 'paid';
+                  // Use DB-managed status — triggers update this field automatically
+                  const isOverdue = installment.status === 'overdue' || installment.status === 'defaulted';
 
                   return (
                     <tr key={installment.id} className={`hover:bg-gray-50 ${isOverdue ? 'bg-red-50' : ''}`}>
@@ -582,6 +607,15 @@ const ViewLoan = () => {
                         <span className={`px-3 py-1 rounded-full text-xs font-medium ${getInstallmentStatusBadge(installment.status)}`}>
                           {installment.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {installment.days_overdue > 0 ? (
+                          <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100 whitespace-nowrap">
+                            {installment.days_overdue} Days Late
+                          </span>
+                        ) : (
+                          <span className="text-slate-300">—</span>
+                        )}
                       </td>
                     </tr>
                   );
@@ -739,11 +773,19 @@ const ViewLoan = () => {
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-gray-600 font-medium">Days Overdue:</span>
-              <span className="text-red-600 font-semibold">
-                {installments.reduce((sum, i) => sum + (i.days_overdue || 0), 0)} days
+              <span className="text-gray-600 font-medium">Max Days Overdue:</span>
+              <span className={`font-semibold ${(loanMetrics.maxDaysOverdue || 0) > 0 ? 'text-red-600' : 'text-gray-400'}`}>
+                {loanMetrics.maxDaysOverdue || 0} days
               </span>
             </div>
+            {(loanMetrics.waivedPenalties > 0) && (
+              <div className="flex justify-between items-center">
+                <span className="text-gray-600 font-medium">Waivers Applied:</span>
+                <span className="text-green-600 font-semibold">
+                  {loanMetrics.waivedPenalties} waiver(s)
+                </span>
+              </div>
+            )}
             <div className="flex justify-between items-center pt-2 border-t border-red-200">
               <span className="text-gray-600 font-medium">Total Due:</span>
               <span className="text-red-600 font-bold">
