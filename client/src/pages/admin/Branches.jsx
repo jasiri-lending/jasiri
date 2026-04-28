@@ -283,14 +283,14 @@ export default function Branches() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-brand-surface p-6 flex items-center justify-center">
+            <div className="min-h-screen bg-brand-muted p-6 flex items-center justify-center">
                 <Spinner />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-brand-surface p-6">
+        <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
                     <div className="flex justify-between items-center">
@@ -302,8 +302,8 @@ export default function Branches() {
                                 onClick={handleManualRefresh}
                                 className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
                             >
-                                <ArrowPathIcon className="h-5 w-5 mr-2" />
-                                <h3 className='text-sm text-slate-600'>Refresh</h3>
+                                <ArrowPathIcon className="h-3 w-3 mr-2" />
+                                <h3 className='text-xs text-slate-600'>Refresh</h3>
                             </button>
                         </div>
                     </div>
@@ -323,9 +323,9 @@ export default function Branches() {
                         </div>
                         <button
                             onClick={() => openModal()}
-                            className="flex items-center px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-colors"
+                            className="flex items-center px-2 py-1.5 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-colors text-xs"
                         >
-                            <BuildingOfficeIcon className="h-5 w-5 mr-2" />
+                            <BuildingOfficeIcon className="h-3 w-3 mr-2" />
                             Add Branch
                         </button>
                     </div>
@@ -395,8 +395,8 @@ export default function Branches() {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                        <h2 className="text-xl font-semibold mb-4">
+                    <div className="bg-muted rounded-lg p-6 w-full max-w-md">
+                        <h2 className="text-lg font-semibold mb-4">
                             {editingItem ? 'Edit Branch' : 'Add Branch'}
                         </h2>
                         <form onSubmit={handleSubmit}>
@@ -422,7 +422,7 @@ export default function Branches() {
                             )}
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Branch Name *
                                 </label>
                                 <input
@@ -436,7 +436,7 @@ export default function Branches() {
 
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Region *
                                 </label>
                                 <select
@@ -455,7 +455,7 @@ export default function Branches() {
                             </div>
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Address
                                 </label>
                                 <textarea
@@ -470,14 +470,14 @@ export default function Branches() {
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs"
                                     disabled={submitting}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary disabled:opacity-50"
+                                    className="px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary disabled:opacity-50 text-xs"
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Saving...' : (editingItem ? 'Update' : 'Create')}

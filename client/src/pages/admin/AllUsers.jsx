@@ -13,8 +13,12 @@ import {
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  UsersIcon
+  UsersIcon,
+  CloudArrowUpIcon,
+  XCircleIcon
 } from '@heroicons/react/24/outline';
+import * as XLSX from 'xlsx';
+import { saveAs } from 'file-saver';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
@@ -40,6 +44,11 @@ export default function AllUsers() {
   const [currentUserTenantId, setCurrentUserTenantId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isAddingUser, setIsAddingUser] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkUsers, setBulkUsers] = useState([]);
+  const [bulkProgress, setBulkProgress] = useState({ current: 0, total: 0 });
+  const [bulkProcessing, setBulkProcessing] = useState(false);
+  const [bulkResults, setBulkResults] = useState(null);
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -646,6 +655,126 @@ export default function AllUsers() {
     }
   };
 
+  const handleFileParse = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: 'binary' });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+        const data = XLSX.utils.sheet_to_json(ws);
+        
+        // Basic validation and mapping
+        const formatted = data.map(row => {
+          const regionName = row.region || row.Region || '';
+          const branchName = row.branch || row.Branch || '';
+          
+          let region_id = null;
+          let branch_id = null;
+          
+          if (regionName) {
+            const foundRegion = regions.find(r => r.name.toLowerCase() === regionName.toLowerCase());
+            if (foundRegion) region_id = foundRegion.id;
+          }
+          
+          if (branchName) {
+            const foundBranch = branches.find(b => b.name.toLowerCase() === branchName.toLowerCase());
+            if (foundBranch) branch_id = foundBranch.id;
+          }
+
+          // Flexible header mapping
+          const mapped = {
+            full_name: row.full_name || row.FullName || row.Name || row.name || '',
+            email: row.email || row.Email || '',
+            role: (row.role || row.Role || 'operation_officer').toLowerCase().replace(' ', '_'),
+            phone: row.phone || row.Phone || row.mobile || '',
+            company_phone: row.company_phone || row.CompanyPhone || '',
+            region_id,
+            branch_id,
+            region_name: regionName,
+            branch_name: branchName
+          };
+          return mapped;
+        }).filter(u => u.email && u.full_name); // Only include rows with name and email
+
+        setBulkUsers(formatted);
+        setBulkResults(null);
+      } catch (err) {
+        console.error("Parse error:", err);
+        alert("Failed to parse Excel file. Please ensure it's a valid format.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  const submitBulkUsers = async () => {
+    if (bulkUsers.length === 0) return;
+    setBulkProcessing(true);
+    setBulkResults(null);
+    
+    try {
+      const response = await apiFetch("/bulk-create-users", {
+        method: "POST",
+        body: JSON.stringify({
+          users: bulkUsers,
+          logged_in_tenant_id: currentUserTenantId
+        })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setBulkResults(data.results);
+        fetchPageData(currentPage);
+      } else {
+        alert("Bulk creation failed: " + data.error);
+      }
+    } catch (err) {
+      console.error("Bulk submission error:", err);
+      alert("An error occurred during bulk submission.");
+    } finally {
+      setBulkProcessing(false);
+    }
+  };
+
+  const downloadTemplate = () => {
+    try {
+      const templateData = [
+        {
+          full_name: "John Doe",
+          email: "john.doe@company.com",
+          role: "operation_officer",
+          phone: "254700000000",
+          company_phone: "254711111111",
+          region: "Nairobi",
+          branch: "CBD Branch"
+        }
+      ];
+      
+      const ws = XLSX.utils.json_to_sheet(templateData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Template");
+      
+      // Native Blob approach for maximum reliability
+      const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+      const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'Jasiri_User_Template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error("Download error:", err);
+      alert("Failed to download template. Please try again.");
+    }
+  };
+
   // Filter data for display
   const filteredData = useMemo(() => {
     return users.filter(user => {
@@ -684,17 +813,17 @@ export default function AllUsers() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-brand-surface p-6 flex items-center justify-center">
+      <div className="min-h-screen bg-muted p-6 flex items-center justify-center">
         <Spinner />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-brand-surface p-6">
+    <div className="min-h-screen bg-muted p-6">
       <div className="max-w-7xl mx-auto">
         {/* Header Section */}
-        <div className="bg-white rounded-lg shadow mb-6 p-6">
+        <div className="bg-gray-50 rounded-lg shadow mb-6 p-6">
           <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
             <div>
               <h1 className="text-sm font-medium text-slate-600">User Management</h1>
@@ -707,23 +836,31 @@ export default function AllUsers() {
           <div className="mt-6">
             <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
               <div className="relative flex-1 max-w-xl w-full">
-                <MagnifyingGlassIcon className="h-5 w-5 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-3 w-3 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search users by name, email, or phone..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-12 pr-4 py-3 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-primary focus:border-transparent"
+                  className="pl-12 pr-2 py-1.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                 />
               </div>
 
               <div className="flex items-center gap-3">
                 <button
+                  onClick={() => setShowBulkModal(true)}
+                  className="flex items-center gap-2 px-5 py-3 border border-gray-300 text-slate-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"
+                >
+                  <CloudArrowUpIcon className="h-3 w-3" />
+                  <span className="text-xs whitespace-nowrap">Bulk Create</span>
+                </button>
+
+                <button
                   onClick={() => openModal('user')}
                   className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
                 >
-                  <UserPlusIcon className="h-5 w-5" />
-                  <span className="font-medium whitespace-nowrap">Add User</span>
+                  <UserPlusIcon className="h-3 w-3" />
+                  <span className="text-xs whitespace-nowrap">Add User</span>
                 </button>
 
                 <button
@@ -733,8 +870,8 @@ export default function AllUsers() {
                     : 'border-gray-300 hover:bg-gray-50 text-slate-700'
                     }`}
                 >
-                  <FunnelIcon className="h-5 w-5" />
-                  <span className="font-medium">Filters</span>
+                  <FunnelIcon className="h-3 w-3" />
+                  <span className="text-xs text-slate-600 font-semibold">Filters</span>
                   {(filterRole || filterRegion || filterBranch) && (
                     <span className="bg-accent text-white text-xs px-2 py-1 rounded-full">
                       {[filterRole, filterRegion, filterBranch].filter(Boolean).length}
@@ -749,23 +886,23 @@ export default function AllUsers() {
               <div className="mt-6 p-5 bg-gray-50 rounded-lg border border-gray-200">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Role</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Role</label>
                     <div className="relative">
                       <select
                         value={filterRole}
                         onChange={(e) => setFilterRole(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary appearance-none bg-white"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary appearance-none bg-white"
                       >
-                        <option value="">All Roles</option>
+                        <option  className='text-xs' value="">All Roles</option>
                         {availableRoles.map(role => (
-                          <option key={role.value} value={role.value}>{role.label}</option>
+                          <option  className='text-xs' key={role.value} value={role.value}>{role.label}</option>
                         ))}
                       </select>
                       <ChevronUpDownIcon className="h-5 w-5 absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 pointer-events-none" />
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Region</label>
                     <div className="relative">
                       <select
                         value={filterRegion}
@@ -775,13 +912,13 @@ export default function AllUsers() {
                             setFilterBranch('');
                           }
                         }}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary appearance-none bg-white"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary appearance-none bg-white"
                       >
-                        <option value="">All Regions</option>
+                        <option  className='text-xs' value="">All Regions</option>
                         {regions
                           .filter(region => isSuperAdmin || region.tenant_id === currentUserTenantId)
                           .map(region => (
-                            <option key={region.id} value={region.id}>{region.name}</option>
+                            <option  className='text-xs' key={region.id} value={region.id}>{region.name}</option>
                           ))
                         }
                       </select>
@@ -789,14 +926,14 @@ export default function AllUsers() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-2">Branch</label>
                     <div className="relative">
                       <select
                         value={filterBranch}
                         onChange={(e) => setFilterBranch(e.target.value)}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary appearance-none bg-white"
+                        className="w-full px-2 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary appearance-none bg-white"
                       >
-                        <option value="">All Branches</option>
+                        <option   className='text-xs' value="">All Branches</option>
                         {branches
                           .filter(branch => {
                             if (!isSuperAdmin && branch.tenant_id !== currentUserTenantId) return false;
@@ -804,7 +941,7 @@ export default function AllUsers() {
                             return true;
                           })
                           .map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
+                            <option className='text-xs' key={branch.id} value={branch.id}>{branch.name}</option>
                           ))
                         }
                       </select>
@@ -815,7 +952,7 @@ export default function AllUsers() {
                 <div className="mt-5 flex justify-end">
                   <button
                     onClick={clearFilters}
-                    className="text-primary hover:text-blue-800 font-medium px-4 py-2"
+                    className="text-primary hover:text-blue-800  px-2 py-1.5 text-sm font-medium rounded-lg transition-colors flex items-center gap-1"
                   >
                     Clear all filters
                   </button>
@@ -833,7 +970,7 @@ export default function AllUsers() {
             { label: 'Managers', value: users.filter(u => u.role?.includes('manager')).length, icon: BuildingOfficeIcon, color: 'bg-cyan-500' },
             { label: 'Operations & HR', value: users.filter(u => u.role === 'operations' || u.role === 'hr').length, icon: UsersIcon, color: 'bg-violet-500' },
           ].map((stat, index) => (
-            <div key={stat.label} className="bg-white rounded-xl shadow p-6 border border-gray-100">
+            <div key={stat.label} className="bg-gray-100/50 rounded-xl shadow p-6 border border-gray-100">
               <div className="flex items-center">
                 <div className={`p-3 rounded-lg ${stat.color} bg-opacity-10`}>
                   <stat.icon className={`h-6 w-6 ${stat.color.replace('bg-', 'text-')}`} />
@@ -848,24 +985,24 @@ export default function AllUsers() {
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-xl shadow overflow-hidden">
+        <div className="bg-gray-50/50 rounded-xl shadow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">User</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Contact</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Company Phone</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Role</th>
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Branch</th>
-                  <th className="px6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Region</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">User</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Contact</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Company Phone</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Role</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Branch</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Region</th>
                   {isSuperAdmin && (
-                    <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Tenant</th>
+                    <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Tenant</th>
                   )}
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-gray-700 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600  whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-gray-50/50 divide-y divide-gray-200">
                 {filteredData.map((user) => {
                   const roleColorClass = getRoleColorClass(user.role);
                   return (
@@ -880,19 +1017,19 @@ export default function AllUsers() {
                             </div>
                           </div>
                           <div className="ml-4">
-                            <div className="text-sm font-semibold text-gray-900">{user.full_name || 'No Name'}</div>
+                            <div className="text-sm  text-gray-600">{user.full_name || 'No Name'}</div>
                             <div className="text-sm text-gray-500">{user.email}</div>
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className=" whitespace-nowrap text-sm text-gray-900">{user.phone || 'Not provided'}</div>
+                        <div className=" whitespace-nowrap text-sm text-gray-600">{user.phone || 'Not provided'}</div>
                         <div className="text-xs text-gray-500">
                           Joined {new Date(user.created_at).toLocaleDateString()}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <div className=" whitespace-nowrap text-sm text-gray-900">{user.company_phone || 'Not provided'}</div>
+                        <div className=" whitespace-nowrap text-sm text-gray-600">{user.company_phone || 'Not provided'}</div>
                       </td>
                       <td className="px-6 py-4">
                         <span className={`  whitespace-nowrap px-3 py-1.5 inline-flex text-xs font-semibold rounded-full ${roleColorClass}`}>
@@ -943,7 +1080,7 @@ export default function AllUsers() {
             {filteredData.length === 0 && (
               <div className="text-center py-16">
                 <UserCircleIcon className="mx-auto h-14 w-14 text-gray-300" />
-                <h3 className="mt-4 text-lg font-medium text-gray-900">No users found</h3>
+                <h3 className="mt-4 text-lg font-medium text-gray-600">No users found</h3>
                 <p className="mt-2 text-gray-600 max-w-md mx-auto">
                   {searchTerm || filterRole || filterRegion || filterBranch
                     ? "Try adjusting your search or filter criteria"
@@ -1025,180 +1162,407 @@ export default function AllUsers() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-5 flex justify-between items-center">
+        <div className="fixed inset-0 bg-slate-900/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0">
+              {/* Unified Header & Body - Scrollable */}
+              <div className="p-8 overflow-y-auto space-y-8 flex-1 min-h-0">
+                {/* Header Info */}
+                <div className="flex justify-between items-start">
+                  <div>
+                    <h2 className="text-lg  text-slate-600">
+                      {editingItem ? 'Edit' : 'Add'} {modalType === 'user' ? 'User' : modalType === 'branch' ? 'Branch' : 'Region'}
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1">
+                      {editingItem ? 'Update existing records ' : 'Create a new entry in the system'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    className="text-slate-400 hover:text-rose-500 transition-colors"
+                  >
+                    <XCircleIcon className="h-7 w-7" />
+                  </button>
+                </div>
+
+                {modalType === 'user' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Full Name *</label>
+                        <input
+                          type="text"
+                          value={formData.full_name || ''}
+                          onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none text-slate-700"
+                          required
+                          placeholder="John Doe"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Email *</label>
+                        <input
+                          type="email"
+                          value={formData.email || ''}
+                          onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent transition-all outline-none text-slate-700"
+                          required
+                          placeholder="john@example.com"
+                        />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Role *</label>
+                        <select
+                          value={formData.role || ''}
+                          onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary appearance-none outline-none text-slate-700"
+                          required
+                        >
+                          <option value="">Select Role</option>
+                          {availableRoles.map(role => (
+                            <option key={role.value} value={role.value}>{role.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Personal Phone</label>
+                        <input
+                          type="tel"
+                          value={formData.phone || ''}
+                          onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                          placeholder="Phone Number"
+                        />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Company Phone</label>
+                        <input
+                          type="tel"
+                          value={formData.company_phone || ''}
+                          onChange={(e) => setFormData({ ...formData, company_phone: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                          placeholder="Company Phone"
+                        />
+                      </div>
+
+                      {isSuperAdmin && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Tenant</label>
+                          <select
+                            value={formData.tenant_id || ''}
+                            onChange={handleTenantChange}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary appearance-none outline-none text-slate-700"
+                          >
+                            <option value="">Select Tenant</option>
+                            {tenants.map(tenant => (
+                              <option key={tenant.id} value={tenant.id}>
+                                {tenant.name || tenant.company_name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      )}
+
+                      {roleRequiresBranchRegion(formData.role) && (
+                        <>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Region</label>
+                            <select
+                              value={formData.region_id || ''}
+                              onChange={handleRegionChange}
+                              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary appearance-none outline-none text-slate-700"
+                            >
+                              <option value="">Select Region</option>
+                              {filteredRegions.map(region => (
+                                <option key={region.id} value={region.id}>{region.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Branch</label>
+                            <select
+                              value={formData.branch_id || ''}
+                              onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
+                              className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary appearance-none outline-none text-slate-700 disabled:opacity-50"
+                              disabled={!formData.region_id}
+                            >
+                              <option value="">Select Branch</option>
+                              {filteredBranches.map(branch => (
+                                <option key={branch.id} value={branch.id}>{branch.name}</option>
+                              ))}
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    {isAddingUser && (
+                      <div className="bg-blue-50/50 border border-blue-100 rounded-xl p-4 flex items-center gap-3">
+                        <div className="bg-blue-100 p-2 rounded-lg">
+                          <ArrowPathIcon className="h-5 w-5 text-blue-600" />
+                        </div>
+                        <p className="text-xs text-blue-700 font-medium leading-relaxed">
+                          <span className="font-bold">Password Alert:</span> A secure password will be automatically generated and sent to the user's email address.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+                
+                {modalType !== 'user' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Name *</label>
+                        <input
+                          type="text"
+                          value={formData.name || ''}
+                          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                          required
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Code *</label>
+                        <input
+                          type="text"
+                          value={formData.code || ''}
+                          onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                          required
+                        />
+                      </div>
+                    </div>
+                    {modalType === 'branch' && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Region *</label>
+                          <select
+                            value={formData.region_id || ''}
+                            onChange={(e) => setFormData({ ...formData, region_id: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                            required
+                          >
+                            <option value="">Select Region</option>
+                            {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          </select>
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">Address</label>
+                          <input
+                            type="text"
+                            value={formData.address || ''}
+                            onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                            className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-brand-primary outline-none text-slate-700"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Action Buttons - Small & Well Aligned */}
+              <div className="px-8 py-5 flex flex-row justify-end items-center gap-4 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/50 rounded-lg transition-all whitespace-nowrap"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="px-6 py-2 text-sm font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 disabled:opacity-50 shadow-md shadow-brand-primary/20 transition-all flex items-center gap-2 whitespace-nowrap"
+                >
+                  {submitting ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      <span>Processing...</span>
+                    </>
+                  ) : (
+                    <span>{editingItem ? 'Update Changes' : 'Create Record'}</span>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 bg-slate-900/20 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-8 flex justify-between items-start pb-0">
               <div>
-                <h2 className="text-xl font-bold text-gray-900">
-                  {editingItem ? 'Edit' : 'Add'} {modalType === 'user' ? 'User' : modalType === 'branch' ? 'Branch' : 'Region'}
-                </h2>
-                <p className="text-sm text-gray-600 mt-1">
-                  {editingItem ? 'Update user information' : 'Add a new user to the system'}
-                </p>
+                <h2 className="text-lg  text-slate-600">Bulk User Creation</h2>
+                <p className="text-sm text-slate-500 mt-1">Upload an Excel file to create multiple users at once.</p>
               </div>
               <button
-                onClick={closeModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-2 rounded-full hover:bg-gray-100"
+                onClick={() => { setShowBulkModal(false); setBulkUsers([]); setBulkResults(null); }}
+                className="text-slate-400 hover:text-rose-500 transition-colors"
               >
-                <XMarkIcon className="h-6 w-6" />
+                <XCircleIcon className="h-7 w-7" />
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="p-6">
-              {modalType === 'user' && (
-                <div className="space-y-6">
+            <div className="p-8 overflow-y-auto flex-1 min-h-0 space-y-6">
+              {!bulkResults ? (
+                <>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                      <input
-                        type="text"
-                        value={formData.full_name || ''}
-                        onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        required
-                        placeholder="John Doe"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
-                      <input
-                        type="email"
-                        value={formData.email || ''}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        required
-                        placeholder="john@example.com"
-                      />
-                    </div>
-                  </div>
-
-                  {isAddingUser && (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-start">
-                        <svg className="h-5 w-5 text-blue-600 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                        <div className="ml-3">
-                          <h3 className="text-sm font-medium text-blue-800">Automatic Password Generation</h3>
-                          <p className="text-sm text-blue-700 mt-1">A secure password will be automatically generated and sent to the user's email address.</p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Role *</label>
-                      <select
-                        value={formData.role || ''}
-                        onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent appearance-none"
-                        required
-                      >
-                        <option value="">Select Role</option>
-                        {availableRoles.map(role => (
-                          <option key={role.value} value={role.value}>{role.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Personal Phone</label>
-                      <input
-                        type="tel"
-                        value={formData.phone || ''}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="Phone Number"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Company Phone</label>
-                      <input
-                        type="tel"
-                        value={formData.company_phone || ''}
-                        onChange={(e) => setFormData({ ...formData, company_phone: e.target.value })}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                        placeholder="Company Phone Number"
-                      />
-                    </div>
-                  </div>
-
-                  {roleRequiresBranchRegion(formData.role) && (
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Region</label>
-                        <select
-                          value={formData.region_id || ''}
-                          onChange={handleRegionChange}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent appearance-none"
-                        >
-                          <option value="">Select Region</option>
-                          {filteredRegions.map(region => (
-                            <option key={region.id} value={region.id}>{region.name}</option>
-                          ))}
-                        </select>
+                    <div className="relative p-6 border-2 border-dashed border-slate-200 rounded-2xl hover:border-brand-primary transition-colors flex flex-col items-center justify-center text-center space-y-4">
+                      <div className="bg-brand-primary/10 p-3 rounded-full">
+                        <CloudArrowUpIcon className="h-8 w-8 text-brand-primary" />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-2">Branch</label>
-                        <select
-                          value={formData.branch_id || ''}
-                          onChange={(e) => setFormData({ ...formData, branch_id: e.target.value })}
-                          className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent appearance-none"
-                          disabled={!formData.region_id}
-                        >
-                          <option value="">Select Branch</option>
-                          {filteredBranches.map(branch => (
-                            <option key={branch.id} value={branch.id}>{branch.name}</option>
-                          ))}
-                        </select>
+                        <p className="text-sm font-bold text-slate-700">Upload Excel File</p>
+                        <p className="text-xs text-slate-500 mt-1">Drag and drop or click to browse</p>
                       </div>
-                    </div>
-                  )}
-
-                  {isSuperAdmin && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Tenant</label>
-                      <select
-                        value={formData.tenant_id || ''}
-                        onChange={handleTenantChange}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent appearance-none"
-                      >
-                        <option value="">Select Tenant</option>
-                        {tenants.map(tenant => (
-                          <option key={tenant.id} value={tenant.id}>
-                            {tenant.name || tenant.company_name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end space-x-4 pt-6 border-t border-gray-200">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="px-5 py-2.5 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors font-medium"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="px-5 py-2.5 bg-primary text-white rounded-lg hover:bg-blue-800 disabled:opacity-50 transition-colors font-medium"
-                    >
-                      {submitting ? (
-                        <>
-                          <ArrowPathIcon className="h-4 w-4 inline animate-spin mr-2" />
-                          {isAddingUser ? 'Creating...' : 'Updating...'}
-                        </>
-                      ) : (
-                        editingItem ? 'Update User' : 'Create User'
+                      <input
+                        type="file"
+                        accept=".xlsx, .xls, .csv"
+                        onChange={handleFileParse}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        style={{ display: bulkUsers.length > 0 ? 'none' : 'block' }}
+                      />
+                      {bulkUsers.length > 0 && (
+                        <button 
+                          onClick={() => setBulkUsers([])}
+                          className="text-xs text-rose-600 font-bold hover:underline"
+                        >
+                          Clear selection
+                        </button>
                       )}
-                    </button>
+                    </div>
+
+                    <div className="p-6 bg-slate-50 rounded-2xl space-y-4">
+                      <h3 className="text-sm font-bold text-slate-800">Instructions</h3>
+                      <ul className="text-xs text-slate-600 space-y-2 list-disc pl-4">
+                        <li>Ensure the file has headers: <b>full_name, email, role, phone</b></li>
+                        <li>Optional columns: <b>region, branch</b> (use the exact names as they appear in the system)</li>
+                        <li>Roles must be one of: admin, operation_officer, branch_manager, operations, hr</li>
+                        <li>Emails must be unique and valid.</li>
+                        <li>Duplicate emails will be skipped or updated.</li>
+                      </ul>
+                      <button
+                        type="button"
+                        onClick={downloadTemplate}
+                        className="flex items-center gap-2 text-xs font-bold text-brand-primary hover:underline mt-4"
+                      >
+                        <ArrowPathIcon className="h-4 w-4" />
+                        Download Template
+                      </button>
+                    </div>
                   </div>
+
+                  {bulkUsers.length > 0 && (
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-center">
+                        <h3 className="text-sm font-bold text-slate-800">Preview ({bulkUsers.length} users)</h3>
+                      </div>
+                      <div className="border border-slate-200 rounded-xl overflow-hidden">
+                        <table className="min-w-full divide-y divide-slate-200">
+                          <thead className="bg-slate-50">
+                            <tr>
+                              <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase">Name</th>
+                              <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase">Email</th>
+                              <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase">Role</th>
+                              <th className="px-4 py-2 text-left text-xs font-bold text-slate-500 uppercase">Region/Branch</th>
+                            </tr>
+                          </thead>
+                          <tbody className="bg-white divide-y divide-slate-100">
+                            {bulkUsers.slice(0, 10).map((user, idx) => (
+                              <tr key={idx}>
+                                <td className="px-4 py-2 text-xs text-slate-700">{user.full_name}</td>
+                                <td className="px-4 py-2 text-xs text-slate-600">{user.email}</td>
+                                <td className="px-4 py-2 text-xs text-slate-600">{user.role}</td>
+                                <td className="px-4 py-2 text-xs text-slate-500">
+                                  {user.region_name || '-'} {user.branch_name ? `/ ${user.branch_name}` : ''}
+                                  {(user.region_name && !user.region_id) && <span className="text-rose-500 ml-1" title="Region not found">⚠️</span>}
+                                  {(user.branch_name && !user.branch_id) && <span className="text-rose-500 ml-1" title="Branch not found">⚠️</span>}
+                                </td>
+                              </tr>
+                            ))}
+                            {bulkUsers.length > 10 && (
+                              <tr>
+                                <td colSpan="3" className="px-4 py-2 text-xs text-slate-400 text-center bg-slate-50">
+                                  ... and {bulkUsers.length - 10} more users
+                                </td>
+                              </tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="space-y-6 text-center py-10">
+                  <div className={`mx-auto h-16 w-16 rounded-full flex items-center justify-center ${bulkResults.failed === 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-amber-100 text-amber-600'}`}>
+                    {bulkResults.failed === 0 ? <UserPlusIcon className="h-8 w-8" /> : <XMarkIcon className="h-8 w-8" />}
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-800">Processing Complete</h3>
+                    <p className="text-slate-500 mt-2">
+                      Successfully created <b>{bulkResults.success}</b> users.
+                      {bulkResults.failed > 0 && <span> <b>{bulkResults.failed}</b> failed to process.</span>}
+                    </p>
+                  </div>
+
+                  {bulkResults.failed > 0 && (
+                    <div className="max-w-md mx-auto bg-rose-50 border border-rose-100 rounded-xl p-4 text-left">
+                      <p className="text-xs font-bold text-rose-800 mb-2">Error Details:</p>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {bulkResults.details.filter(d => d.status === 'failed').map((d, i) => (
+                          <div key={i} className="text-xs text-rose-700 flex justify-between">
+                            <span>{d.email}</span>
+                            <span className="italic">{d.error}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    onClick={() => { setShowBulkModal(false); setBulkUsers([]); setBulkResults(null); }}
+                    className="px-8 py-3 bg-slate-800 text-white rounded-xl font-bold text-sm hover:bg-slate-900 transition-colors"
+                  >
+                    Close & Refresh
+                  </button>
                 </div>
               )}
-            </form>
+            </div>
+
+            {!bulkResults && (
+              <div className="px-8 py-5 flex justify-end items-center gap-4">
+                <button
+                  type="button"
+                  onClick={() => { setShowBulkModal(false); setBulkUsers([]); }}
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-200/50 rounded-lg transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={submitBulkUsers}
+                  disabled={bulkUsers.length === 0 || bulkProcessing}
+                  className="px-8 py-2 text-sm font-bold bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 disabled:opacity-50 shadow-md transition-all flex items-center gap-2"
+                >
+                  {bulkProcessing ? (
+                    <>
+                      <ArrowPathIcon className="h-4 w-4 animate-spin" />
+                      <span>Creating {bulkUsers.length} Users...</span>
+                    </>
+                  ) : (
+                    <span>Create {bulkUsers.length} Users</span>
+                  )}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

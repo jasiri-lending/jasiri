@@ -377,7 +377,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-lg overflow-hidden grid grid-cols-1 md:grid-cols-2">
+      <div className="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-2">
         {/* LEFT SIDE - Desktop Only */}
         <div
           className="hidden md:flex flex-col justify-center items-center p-8 lg:p-10 text-white relative overflow-hidden"
@@ -392,7 +392,6 @@ export default function Login() {
             <div className="rounded-2xl flex items-center justify-center overflow-hidden mb-6">
               <img src="jasiri-white.png" alt="Jasiri Logo" className="object-contain w-48 h-48 lg:w-56 lg:h-56" />
             </div>
-            <h1 className="text-2xl lg:text-3xl font-bold text-center">Welcome Back</h1>
           </div>
 
           <div className="absolute bottom-4 left-4 text-blue-200 text-xs">Automation Moraans</div>
@@ -402,8 +401,10 @@ export default function Login() {
         {/* RIGHT SIDE */}
         <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-center">
           {/* Mobile Logo - Shows only on mobile */}
-          <div className="flex justify-center mb-6 md:hidden">
-            <img src="jasiri-white.png" alt="Jasiri Logo" className="h-20 w-20 object-contain" />
+          <div className="flex justify-center mb-8 md:hidden">
+            <div className="rounded-2xl p-4 flex items-center justify-center shadow-lg bg-gradient-to-br from-[#02880b] to-[#0214d7]">
+              <img src="/jasiri-white.png" alt="Jasiri Logo" className="h-28 w-28 sm:h-32 sm:w-32 object-contain" />
+            </div>
           </div>
 
           <div className="text-center mb-6 sm:mb-8">

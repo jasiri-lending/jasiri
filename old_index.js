@@ -1,4 +1,4 @@
-import "dotenv/config";
+﻿import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import helmet from "helmet";
@@ -37,7 +37,7 @@ import { mpesaRequest } from "./services/mpesa.js";
 // Initialize Express app
 const app = express();
 
-// ✅ CORS Configuration - MUST be first (before Helmet) to handle preflight OPTIONS requests
+// Γ£à CORS Configuration - MUST be first (before Helmet) to handle preflight OPTIONS requests
 app.use(cors({
   origin: [
     "https://jasirilending.software",
@@ -54,15 +54,15 @@ app.use(cors({
   allowedHeaders: ["Content-Type", "Authorization"]
 }));
 
-// ✅ Security Headers (Helmet) - after CORS so preflight isn't blocked
+// Γ£à Security Headers (Helmet) - after CORS so preflight isn't blocked
 app.use(helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" }
 }));
 
-// ✅ Global Rate Limiting
+// Γ£à Global Rate Limiting
 app.use(globalLimiter);
 
-// ✅ Password generation utility
+// Γ£à Password generation utility
 function generateSecurePassword(length = 12) {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   const lowercase = 'abcdefghijklmnopqrstuvwxyz';
@@ -92,7 +92,7 @@ app.get("/health", (req, res) => {
   });
 });
 
-// ✅ FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
+// Γ£à FINAL DIAGNOSTIC: Force Register M-Pesa URLs (Bypasses all routers/auth)
 app.get("/diagnostic-mpesa-sync", async (req, res) => {
   console.log("-----------------------------------------");
   console.log("[DIAGNOSTIC] STARTING SYNC...");
@@ -145,7 +145,7 @@ app.get("/diagnostic-mpesa-sync", async (req, res) => {
   }
 });
 
-// ✅ Global M-Pesa Request Logger (High-visibility for debugging connectivity)
+// Γ£à Global M-Pesa Request Logger (High-visibility for debugging connectivity)
 import { logger } from "./utils/logger.js";
 app.use((req, res, next) => {
   if (req.method === "POST") {
@@ -169,12 +169,12 @@ app.use((req, res, next) => {
   next();
 });
 
-// ✅ JSON Parser (with limit increased for M-Pesa protection)
+// Γ£à JSON Parser (with limit increased for M-Pesa protection)
 app.use(express.json({ limit: '100kb' }));
 
-// ✅ Register routes - ORDER MATTERS (Public routes first)
+// Γ£à Register routes - ORDER MATTERS (Public routes first)
 app.use("/api", Authrouter); // Contains /login, /verify-code, /forgot-password (Public)
-// ✅ Register M-Pesa Callback Routes (Directly on root for Safaricom)
+// Γ£à Register M-Pesa Callback Routes (Directly on root for Safaricom)
 app.use("/mpesa/c2b", c2b);
 app.use("/mpesa/b2c", b2c);
 app.use("/api/c2b", c2b); // Non-MPESA alias for Sandbox (User requested /api/)
@@ -204,188 +204,203 @@ app.use("/api/reconciliation", ReconciliationRouter);
 // import "./cron/loanInstallmentCron.js"; // 
 
 // Create user endpoint - SECURED
-// Helper function for user creation logic to be used by single and bulk endpoints
-async function processUserCreation(userData, requester, logged_in_tenant_id) {
-  const {
-    email,
-    full_name,
-    role,
-    phone,
-    company_phone,
-    branch_id,
-    region_id,
-  } = userData;
-
-  // Validation
-  if (!email || !full_name || !role) {
-    throw new Error("email, full_name and role are required");
-  }
-
-  if (!logged_in_tenant_id) {
-    throw new Error("Tenant ID is required");
-  }
-
-  // Generate secure password
-  const generatedPassword = generateSecurePassword(12);
-
-  // 2️⃣ Create Supabase Auth user using ADMIN client (service role)
-  const { data: authData, error: authError } =
-    await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: generatedPassword,
-      email_confirm: false,
-      user_metadata: {
-        full_name,
-        role,
-        phone,
-        branch_id,
-        region_id,
-        tenant_id: logged_in_tenant_id,
-      },
-    });
-
-  if (authError) {
-    throw new Error(authError.message);
-  }
-
-  const userId = authData.user.id;
-  const setupCode = Math.floor(100000 + Math.random() * 900000).toString();
-  const frontendUrl = "https://jasirilending.software";
-  const setupLink = `${frontendUrl}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
-
-  // 3️⃣ Upsert into users table
-  const { error: usersError } = await supabaseAdmin
-    .from("users")
-    .upsert(
-      {
-        id: userId,
-        auth_id: userId,
-        full_name,
-        email,
-        role,
-        phone: phone || null,
-        company_phone: company_phone || null,
-        tenant_id: logged_in_tenant_id,
-        must_change_password: false,
-        verification_code: setupCode,
-        verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
-      },
-      { onConflict: "id" }
-    );
-
-  if (usersError) {
-    await supabaseAdmin.auth.admin.deleteUser(userId);
-    throw new Error(usersError.message);
-  }
-
-  // 4️⃣ Send welcome email
-  try {
-    await transporter.sendMail({
-      from: '"Jasiri" <noreply@jasirilending.software>',
-      to: email,
-      subject: "Welcome to Jasiri - Complete Your Account Setup",
-      html: baseEmailTemplate("Welcome to Jasiri!", `
-        <p>Hello ${full_name},</p>
-        <p>Your account has been created successfully. To complete your setup and access the Jasiri portal, please set your password by clicking the button below.</p>
-        <div style="text-align: center; margin: 30px 0;">
-          <a href="${setupLink}" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Set Up Your Password</a>
-        </div>
-        <p>After setting your password, you will be redirected to the dashboard.</p>
-        <p>If you have any questions or need assistance, please contact your internal administrator.</p>
-      `)
-    });
-  } catch (emailError) {
-    console.error(`Failed to send email to ${email}:`, emailError);
-    // Don't throw error here, user is already created
-  }
-
-  return { id: userId, email, full_name, role };
-}
-
-// Create user endpoint - SECURED
 app.post("/create-user", verifySupabaseToken, async (req, res) => {
   const requester = req.user;
-  const logged_in_tenant_id = req.body.logged_in_tenant_id;
-
   try {
-    // RBAC: Only admin or superadmin
+    const {
+      email,
+      full_name,
+      role,
+      phone,
+      branch_id,
+      region_id,
+      logged_in_tenant_id,
+    } = req.body;
+
+    // Generate secure password
+    const generatedPassword = generateSecurePassword(12);
+
+    console.log("=== Create User Request ===", {
+      email,
+      role,
+      logged_in_tenant_id,
+      requester: requester.email
+    });
+
+    // 0∩╕ÅΓâú RBAC: Only admin or superadmin
     if (requester.role !== "superadmin" && requester.role !== "admin") {
       return res.status(403).json({ success: false, error: "Unauthorized. Admin role required." });
     }
 
-    // Tenant Isolation
+    // 0.5∩╕ÅΓâú Tenant Isolation: Admin can only create users for their own tenant
     if (requester.role === "admin" && requester.tenant_id !== logged_in_tenant_id) {
       return res.status(403).json({ success: false, error: "Access denied. Cannot create user for another tenant." });
     }
 
-    const user = await processUserCreation(req.body, requester, logged_in_tenant_id);
+    // 1∩╕ÅΓâú Validation
+    if (!email || !full_name || !role) {
+      return res.status(400).json({
+        success: false,
+        error: "email, full_name and role are required",
+      });
+    }
 
+    if (!logged_in_tenant_id) {
+      return res.status(400).json({
+        success: false,
+        error: "Tenant ID is required",
+      });
+    }
+
+    // 1.5∩╕ÅΓâú Domain Enforcement - Partially disabled for testing
+    const userDomain = email.split('@')[1]?.toLowerCase();
+
+    // Check for common personal email providers (block list)
+    /*
+    const personalProviders = ["gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "icloud.com", "live.com", "aol.com", "protonmail.com"];
+
+    if (personalProviders.includes(userDomain)) {
+      return res.status(400).json({
+        success: false,
+        error: `Personal email addresses (${userDomain}) are not allowed. Please use your company/business email domain.`,
+      });
+    }
+    */
+
+    // Optional: If tenant has a preferred domain, you can log it but not enforce it
+    const { data: tenant } = await supabase
+      .from("tenants")
+      .select("email_domain")
+      .eq("id", logged_in_tenant_id)
+      .single();
+
+    if (tenant?.email_domain) {
+      console.log(`Γä╣∩╕Å Tenant prefers domain @${tenant.email_domain}, but user provided @${userDomain}`);
+    }
+
+    console.log(`≡ƒöÉ Generated password for ${email}: ${generatedPassword}`);
+
+    // 2∩╕ÅΓâú Create Supabase Auth user using ADMIN client (service role)
+    const { data: authData, error: authError } =
+      await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: generatedPassword,
+        email_confirm: false, // Set to false to allow setup link to confirm it
+        user_metadata: {
+          full_name,
+          role,
+          phone,
+          branch_id,
+          region_id,
+          tenant_id: logged_in_tenant_id,
+        },
+      });
+
+    if (authError) {
+      console.error("Auth error:", authError);
+      return res.status(400).json({
+        success: false,
+        error: authError.message,
+      });
+    }
+
+    const userId = authData.user.id;
+
+    // 2.5∩╕ÅΓâú Generate Setup Code (No more fragile Supabase sessions)
+    const setupCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const frontendUrl = process.env.FRONTEND_URL || "https://jasirilending.software";
+    const setupLink = `${frontendUrl}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
+    
+    console.log(`≡ƒô¥ Generated Setup Code for ${email}`);
+
+    // 3∩╕ÅΓâú Upsert into users table
+    const { error: usersError } = await supabaseAdmin
+      .from("users")
+      .upsert(
+        {
+          id: userId,
+          auth_id: userId,
+          full_name,
+          email,
+          role,
+          phone: phone || null,
+          company_phone: req.body.company_phone || null,
+          tenant_id: logged_in_tenant_id,
+          must_change_password: false, // Default to false as per user request
+          verification_code: setupCode,
+          verification_expires_at: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString() // 24 hours
+        },
+        { onConflict: "id" }
+      );
+
+    if (usersError) {
+      console.error("Users table error:", usersError);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+
+      return res.status(400).json({
+        success: false,
+        error: usersError.message,
+      });
+    }
+
+
+
+    if (usersError) {
+      console.error("Users table error:", usersError);
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+
+      return res.status(400).json({
+        success: false,
+        error: usersError.message,
+      });
+    }
+
+    // 4∩╕ÅΓâú Send welcome email with credentials
+    try {
+      const loginUrl = `${frontendUrl}/login`;
+      await transporter.sendMail({
+        from: '"Jasiri" <noreply@jasirilending.software>',
+        to: email,
+        subject: "Welcome to Jasiri - Complete Your Account Setup",
+        html: baseEmailTemplate("Welcome to Jasiri!", `
+          <p>Hello ${full_name},</p>
+          <p>Your account has been created successfully. To complete your setup and access the Jasiri portal, please set your password by clicking the button below.</p>
+          
+          <div style="text-align: center; margin: 30px 0;">
+            <a href="${setupLink}" style="background-color: #586ab1; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">Set Up Your Password</a>
+          </div>
+
+          <div style="background-color: #f8fafc; padding: 20px; border-radius: 8px; margin: 20px 0; border: 1px solid #e2e8f0;">
+             <p style="margin: 5px 0;"><strong>Access Email:</strong> ${email}</p>
+             <p style="margin: 5px 0;"><strong>Platform Link:</strong> <a href="${loginUrl}" style="color: #586ab1;">${loginUrl}</a></p>
+          </div>
+
+          <p>After setting your password, you will be redirected to the dashboard.</p>
+          
+          <p>If you have any questions or need assistance, please contact your internal administrator.</p>
+        `)
+      });
+      console.log(`Γ£à Welcome email sent to ${email}`);
+    } catch (emailError) {
+      console.error("Failed to send welcome email:", emailError);
+      // Don't fail user creation if email fails
+    }
+
+    // Γ£à Success
     return res.status(201).json({
       success: true,
       message: "User created successfully. Login credentials have been sent to their email.",
-      user
+      user: {
+        id: userId,
+        email,
+        full_name,
+        role,
+      },
     });
 
   } catch (err) {
     console.error("Create user crash:", err);
-    return res.status(400).json({
-      success: false,
-      error: err.message || "Internal server error",
-    });
-  }
-});
 
-// Bulk create users endpoint - SECURED
-app.post("/bulk-create-users", verifySupabaseToken, async (req, res) => {
-  const requester = req.user;
-  const { users, logged_in_tenant_id } = req.body;
-
-  if (!Array.isArray(users)) {
-    return res.status(400).json({ success: false, error: "Users must be an array" });
-  }
-
-  try {
-    // RBAC: Only admin or superadmin
-    if (requester.role !== "superadmin" && requester.role !== "admin") {
-      return res.status(403).json({ success: false, error: "Unauthorized. Admin role required." });
-    }
-
-    // Tenant Isolation
-    if (requester.role === "admin" && requester.tenant_id !== logged_in_tenant_id) {
-      return res.status(403).json({ success: false, error: "Access denied. Cannot create users for another tenant." });
-    }
-
-    const results = {
-      total: users.length,
-      success: 0,
-      failed: 0,
-      details: []
-    };
-
-    // Process users sequentially to avoid hitting Supabase/Email rate limits too hard
-    for (const userData of users) {
-      try {
-        await processUserCreation(userData, requester, logged_in_tenant_id);
-        results.success++;
-        results.details.push({ email: userData.email, status: 'success' });
-      } catch (err) {
-        results.failed++;
-        results.details.push({ 
-          email: userData.email || 'Unknown', 
-          status: 'failed', 
-          error: err.message 
-        });
-      }
-    }
-
-    return res.json({
-      success: true,
-      message: `Bulk processing complete. ${results.success} created, ${results.failed} failed.`,
-      results
-    });
-
-  } catch (err) {
-    console.error("Bulk create crash:", err);
     return res.status(500).json({
       success: false,
       error: err.message || "Internal server error",
@@ -393,9 +408,9 @@ app.post("/bulk-create-users", verifySupabaseToken, async (req, res) => {
   }
 });
 
-// ✅ 404 Handler (for unmatched routes)
+// Γ£à 404 Handler (for unmatched routes)
 app.use((req, res) => {
-  console.log(`❌ 404: ${req.method} ${req.path}`);
+  console.log(`Γ¥î 404: ${req.method} ${req.path}`);
   res.status(404).json({
     success: false,
     error: "Route not found",
@@ -403,7 +418,7 @@ app.use((req, res) => {
   });
 });
 
-// ✅ Error handling middleware (must be last)
+// Γ£à Error handling middleware (must be last)
 app.use((err, req, res, next) => {
   console.error("Express error handler:", err);
 
@@ -418,7 +433,7 @@ app.use((err, req, res, next) => {
 // Start server
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, "0.0.0.0", () => {
-  console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
-  console.log(`📍 Health check: http://0.0.0.0:${PORT}/health`);
-  console.log(`📍 Report users: http://localhost:${PORT}/api/report-users/create`);
+  console.log(`Γ£à Server running on http://0.0.0.0:${PORT}`);
+  console.log(`≡ƒôì Health check: http://0.0.0.0:${PORT}/health`);
+  console.log(`≡ƒôì Report users: http://localhost:${PORT}/api/report-users/create`);
 });

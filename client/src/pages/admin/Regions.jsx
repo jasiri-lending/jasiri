@@ -262,14 +262,14 @@ export default function Regions() {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-brand-surface p-6 flex items-center justify-center">
+            <div className="min-h-screen bg-muted p-6 flex items-center justify-center">
                 <Spinner />
             </div>
         );
     }
 
     return (
-        <div className="min-h-screen bg-brand-surface p-6">
+        <div className="min-h-screen bg-muted p-6">
             <div className="max-w-7xl mx-auto">
                 <div className="mb-8">
                     <div className="flex justify-between items-center">
@@ -281,8 +281,8 @@ export default function Regions() {
                                 onClick={handleManualRefresh}
                                 className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
                             >
-                                <ArrowPathIcon className="h-5 w-5 mr-2" />
-                                <h3 className='text-sm text-slate-600'>Refresh</h3>
+                                <ArrowPathIcon className="h-3 w-3 mr-2" />
+                                <h3 className='text-xs text-slate-600'>Refresh</h3>
                             </button>
                         </div>
                     </div>
@@ -302,9 +302,9 @@ export default function Regions() {
                         </div>
                         <button
                             onClick={() => openModal()}
-                            className="flex items-center px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-colors"
+                            className="flex items-center px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-colors text-xs"
                         >
-                            <MapPinIcon className="h-5 w-5 mr-2" />
+                            <MapPinIcon className="h-3 w-3 mr-2" />
                             Add Region
                         </button>
                     </div>
@@ -366,14 +366,14 @@ export default function Regions() {
             {/* Modal */}
             {showModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-                        <h2 className="text-xl font-semibold mb-4">
+                    <div className="bg-muted rounded-lg p-6 w-full max-w-md">
+                        <h2 className="text-lg font-semibold mb-4">
                             {editingItem ? 'Edit Region' : 'Add Region'}
                         </h2>
                         <form onSubmit={handleSubmit}>
                             {isSuperAdmin && (
                                 <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                                    <label className="block text-xs font-medium text-gray-700 mb-2">
                                         Tenant *
                                     </label>
                                     <select
@@ -393,7 +393,7 @@ export default function Regions() {
                             )}
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Region Name *
                                 </label>
                                 <input
@@ -406,7 +406,7 @@ export default function Regions() {
                             </div>
 
                             <div className="mb-4">
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
+                                <label className="block text-xs font-medium text-gray-700 mb-2">
                                     Code *
                                 </label>
                                 <input
@@ -422,14 +422,14 @@ export default function Regions() {
                                 <button
                                     type="button"
                                     onClick={closeModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
+                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs"
                                     disabled={submitting}
                                 >
                                     Cancel
                                 </button>
                                 <button
                                     type="submit"
-                                    className="px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary disabled:opacity-50"
+                                    className="px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary text-xs disabled:opacity-50"
                                     disabled={submitting}
                                 >
                                     {submitting ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
