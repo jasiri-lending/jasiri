@@ -390,7 +390,7 @@ export default function Login() {
 
           <div className="relative z-10 flex flex-col items-center">
             <div className="rounded-2xl flex items-center justify-center overflow-hidden mb-6">
-              <img src="jasiri-white.png" alt="Jasiri Logo" className="object-contain w-48 h-48 lg:w-56 lg:h-56" />
+              <img src="jasiri-white.png" alt="Jasiri Logo" className="object-contain w-64 h-64 lg:w-72 lg:h-72" />
             </div>
           </div>
 
@@ -401,20 +401,18 @@ export default function Login() {
         {/* RIGHT SIDE */}
         <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-center">
           {/* Mobile Logo - Shows only on mobile */}
-          <div className="flex justify-center mb-8 md:hidden">
-            <div className="rounded-2xl p-4 flex items-center justify-center shadow-lg bg-gradient-to-br from-[#02880b] to-[#0214d7]">
-              <img src="/jasiri-white.png" alt="Jasiri Logo" className="h-28 w-28 sm:h-32 sm:w-32 object-contain" />
-            </div>
+          <div className="flex justify-center mb-6 md:hidden">
+            <img src="/jasirif.png" alt="Jasiri Logo" className="h-24 w-auto object-contain" />
           </div>
 
           <div className="text-center mb-6 sm:mb-8">
-            <h2 className="text-2xl sm:text-3xl font-bold text-gray-800 mb-2">
+            <h2 className="text-lg sm:text-xl  text-gray-600 mb-2">
               {step === 1 && "Welcome Back"}
               {step === 2 && "Verify Your Identity"}
               {step === 3 && "Reset Password"}
               {step === 4 && "Enter Reset Code"}
             </h2>
-            <p className="text-sm sm:text-base text-gray-600">
+            <p className="text-xs sm:text-base text-gray-600">
               {step === 1 && "Sign in to continue to your dashboard"}
               {step === 2 && "Enter the 6-digit code sent to your email"}
               {step === 3 && "Enter your email to receive a reset code"}
@@ -432,10 +430,10 @@ export default function Login() {
             {step === 1 ? (
               <div className="space-y-5">
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Email Address</label>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">Email Address</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                       </svg>
                     </div>
@@ -445,15 +443,15 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                      className="w-full pl-[36px] pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Password</label>
+                  <label className="block text-sm font-semibold text-gray-600 mb-2">Password</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                       </svg>
                     </div>
@@ -463,7 +461,7 @@ export default function Login() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
-                      className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                      className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                     />
                     <button
                       type="button"
@@ -527,7 +525,7 @@ export default function Login() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 12a4 4 0 10-8 0 4 4 0 008 0zm0 0v1.5a2.5 2.5 0 005 0V12a9 9 0 10-9 9m4.5-1.206a8.959 8.959 0 01-4.5 1.207" />
                       </svg>
                     </div>
@@ -537,7 +535,7 @@ export default function Login() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       required
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                      className="w-full pl-[36px] pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                     />
                   </div>
                 </div>
@@ -572,7 +570,7 @@ export default function Login() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
                         </div>
@@ -582,7 +580,7 @@ export default function Login() {
                           value={newPassword}
                           onChange={(e) => setNewPassword(e.target.value)}
                           required
-                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                          className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                         />
                         <button
                           type="button"
@@ -610,7 +608,7 @@ export default function Login() {
                       <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
                       <div className="relative">
                         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                          <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
                         </div>
@@ -620,7 +618,7 @@ export default function Login() {
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
                           required
-                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent"
+                          className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                         />
                         <button
                           type="button"
@@ -650,7 +648,7 @@ export default function Login() {
                 type="submit"
                 disabled={loading}
                 style={{ backgroundColor: "#586ab1" }}
-                className="w-full text-white py-3 rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
+                className="w-full text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
               >
                 {loading ? (
                   <span className="flex items-center justify-center">

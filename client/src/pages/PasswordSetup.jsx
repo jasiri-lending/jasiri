@@ -136,10 +136,8 @@ export default function PasswordSetup() {
                 {/* RIGHT SIDE */}
                 <div className="p-6 sm:p-8 lg:p-10 flex flex-col justify-center">
                     {/* Mobile Logo */}
-                    <div className="flex justify-center mb-8 md:hidden">
-                        <div className="rounded-2xl p-4 flex items-center justify-center shadow-lg bg-gradient-to-br from-[#02880b] to-[#0214d7]">
-                            <img src="/jasiri-white.png" alt="Jasiri Logo" className="h-28 w-28 sm:h-32 sm:w-32 object-contain" />
-                        </div>
+                    <div className="flex justify-center mb-6 md:hidden">
+                        <img src="/jasirif.png" alt="Jasiri Logo" className="h-24 w-auto object-contain" />
                     </div>
 
                     <div className="text-center mb-8">
@@ -169,7 +167,7 @@ export default function PasswordSetup() {
                             <label className="block text-sm font-medium text-gray-600 mb-2">New Password</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                     </svg>
                                 </div>
@@ -178,7 +176,7 @@ export default function PasswordSetup() {
                                     required
                                     value={newPassword}
                                     onChange={(e) => setNewPassword(e.target.value)}
-                                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-all"
+                                    className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-all text-sm"
                                     placeholder="Enter your new password"
                                 />
                                 <button
@@ -199,7 +197,7 @@ export default function PasswordSetup() {
                             <label className="block text-sm font-medium text-gray-600 mb-2">Confirm New Password</label>
                             <div className="relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <svg className="h-[18px] w-[18px] text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                     </svg>
                                 </div>
@@ -208,7 +206,7 @@ export default function PasswordSetup() {
                                     required
                                     value={confirmPassword}
                                     onChange={(e) => setConfirmPassword(e.target.value)}
-                                    className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-all"
+                                    className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent transition-all text-sm"
                                     placeholder="Confirm your password"
                                 />
                                 <button
@@ -230,7 +228,7 @@ export default function PasswordSetup() {
                                 type="submit"
                                 disabled={loading || success || verifying}
                                 style={{ backgroundColor: "#586ab1" }}
-                                className="w-full text-white py-3 rounded-lg font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
+                                className="w-full text-white py-2.5 rounded-lg text-sm font-medium disabled:opacity-50 hover:shadow-lg transition-all duration-200 transform hover:-translate-y-0.5"
                             >
                                 {loading ? (
                                     <span className="flex items-center justify-center">
