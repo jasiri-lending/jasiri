@@ -121,6 +121,7 @@ export default function Login() {
   const [code, setCode] = useState("");
   const [resetCode, setResetCode] = useState("");
   const [userId, setUserId] = useState(null);
+  const [inlineError, setInlineError] = useState("");
   const [step, setStep] = useState(1); // 1 = login, 2 = verify code, 3 = forgot password, 4 = reset password
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -147,7 +148,15 @@ export default function Login() {
         body: JSON.stringify({ email: cleanEmail, password }),
       });
       const data = await res.json();
-      if (!data.success) throw new Error(data.error);
+      
+      if (!data.success) {
+        if (data.isLocked) {
+          setInlineError("Account locked. Contact your admin.");
+          return;
+        }
+        throw new Error(data.error);
+      }
+      setInlineError("");
 
       setUserId(data.userId);
       setStep(2);
@@ -441,7 +450,7 @@ export default function Login() {
                       type="email"
                       placeholder="you@example.com"
                       value={email}
-                      onChange={(e) => setEmail(e.target.value)}
+                      onChange={(e) => { setEmail(e.target.value); setInlineError(""); }}
                       required
                       className="w-full pl-[36px] pr-4 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                     />
@@ -459,7 +468,7 @@ export default function Login() {
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => { setPassword(e.target.value); setInlineError(""); }}
                       required
                       className="w-full pl-[36px] pr-10 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#586ab1] focus:border-transparent text-sm"
                     />
@@ -644,6 +653,22 @@ export default function Login() {
             )}
 
             <div className="pt-4 space-y-3">
+              {inlineError && (
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4 animate-pulse">
+                  <div className="flex items-center">
+                    <div className="flex-shrink-0">
+                      <svg className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                      </svg>
+                    </div>
+                    <div className="ml-3">
+                      <p className="text-sm font-bold text-red-700">
+                        {inlineError}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
               <button
                 type="submit"
                 disabled={loading}

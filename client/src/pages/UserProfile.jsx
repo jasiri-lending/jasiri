@@ -1,4 +1,4 @@
-// src/pages/UserProfile.jsx - REDESIGNED PREMIUM VERSION
+// src/pages/UserProfile.jsx - HIGH-FIDELITY BRANDED VERSION
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import {
@@ -67,10 +67,10 @@ const CircularCodeInput = ({ length = 6, value, onChange, disabled = false }) =>
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
           disabled={disabled}
-          className="w-12 h-12 text-center text-xl font-semibold rounded-2xl
-            border-2 border-slate-200 focus:border-[#586ab1]
-            focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10
-            bg-white shadow-sm transition-all duration-200"
+          className="w-12 h-14 text-center text-xl font-medium rounded-2xl
+            border border-slate-200 focus:border-primary
+            focus:outline-none focus:ring-4 focus:ring-primary/5
+            bg-neutral transition-all duration-200"
         />
       ))}
     </div>
@@ -100,10 +100,10 @@ const CountdownTimer = ({ seconds, onResend, disabled = false }) => {
   return (
     <div className="text-center mt-6">
       {timeLeft > 0 ? (
-        <div className="flex items-center justify-center gap-2 text-sm text-slate-500">
-          <Clock className="h-4 w-4" />
+        <div className="flex items-center justify-center gap-2 text-[13px] text-slate-500 font-medium">
+          <Clock className="h-4 w-4" strokeWidth={1.5} />
           <span>
-            Code expires in <span className="font-bold text-slate-700">{formatTime(timeLeft)}</span>
+            Code expires in <span className="text-primary">{formatTime(timeLeft)}</span>
           </span>
         </div>
       ) : (
@@ -113,10 +113,10 @@ const CountdownTimer = ({ seconds, onResend, disabled = false }) => {
             setTimeLeft(seconds);
           }}
           disabled={disabled}
-          className="text-sm text-[#586ab1] hover:text-[#4a5a96] font-bold
+          className="text-[13px] text-primary hover:text-brand-btn font-medium
             disabled:opacity-50 flex items-center gap-2 mx-auto transition-colors"
         >
-          <RefreshCw className="h-4 w-4" />
+          <RefreshCw className="h-4 w-4" strokeWidth={1.5} />
           Resend verification code
         </button>
       )}
@@ -239,6 +239,7 @@ export default function UserProfile() {
         method: "POST",
         body: JSON.stringify({
           userId: profile.id,
+          email: profile.email,
           code: passwordCode,
           newPassword: newPassword,
         }),
@@ -283,401 +284,352 @@ export default function UserProfile() {
 
   if (!profile) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F8FAFC]">
-        <Spinner message="Synchronizing your account profile..." />
+      <div className="min-h-screen flex items-center justify-center bg-white">
+        <Spinner message="Syncing secure profile..." />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-muted">
-      {/* Header Section */}
-      <div className="bg-muted border-b border-slate-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="py-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
-            <div className="flex items-center gap-5">
+      {/* High-Fidelity Branded Header */}
+      <div className="bg-primary pt-16 pb-32 px-6 relative overflow-hidden">
+        {/* Background Decorative Pattern */}
+        <div className="absolute inset-0 opacity-5 pointer-events-none">
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-white rounded-full -mr-64 -mt-64 blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-80 h-80 bg-accent rounded-full -ml-40 -mb-40 blur-3xl"></div>
+        </div>
+
+        <div className="max-w-6xl mx-auto relative z-10">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+            <div className="flex items-center gap-6">
               <button
                 onClick={() => navigate(-1)}
-                className="p-3 rounded-lg bg-slate-50 text-slate-500 hover:bg-slate-100 hover:text-slate-700 transition-all border border-slate-200"
+                className="w-9 h-19 flex items-center justify-center rounded-2xl bg-white/10 text-white hover:bg-white/20 transition-all backdrop-blur-md border border-white/10"
               >
-                <ArrowLeft className="h-3 w-3" />
+                <ArrowLeft className="h-3 w-3" strokeWidth={1.5} />
               </button>
               <div>
-                <h1 className="text-sm text-slate-600 ">Account Settings</h1>
-                <p className="text-slate-500 text-xs mt-0.5">Manage your personal information and security</p>
+                <h1 className="text-lg font-semibold text-center text-white">Profile</h1>
               </div>
             </div>
-
-            <div className="flex items-center gap-3">
-              <div className="px-4 py-2 rounded-xl bg-[#586ab1]/5 border border-[#586ab1]/10 flex items-center gap-2">
-                <Shield className="h-4 w-4 text-[#586ab1]" />
-                <span className="text-sm font-semibold text-[#586ab1]">
-                  {getRoleDisplayName(profile.role)}
-                </span>
-              </div>
-              <div className="px-4 py-2 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center gap-2">
-                <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                <span className="text-sm  text-emerald-700">Account Active</span>
-              </div>
+            
+            <div className="flex items-center gap-4 bg-white/5 p-2 pr-4 rounded-2xl border border-white/10 backdrop-blur-sm">
+               <div className="w-10 h-10 rounded-xl overflow-hidden border border-white/10">
+                  {previewUrl ? (
+                    <img src={previewUrl} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full bg-white/10 flex items-center justify-center">
+                       <UserCircle className="w-6 h-6 text-white/40" strokeWidth={1.5} />
+                    </div>
+                  )}
+               </div>
+               <div className="flex flex-col">
+                  <span className="text-[13px] text-white font-medium leading-none">{profile.full_name}</span>
+                  <span className="text-[11px] text-white/40 mt-1 uppercase tracking-wider">{getRoleDisplayName(profile.role)}</span>
+               </div>
             </div>
-          </div>
-
-          {/* Tab Navigation */}
-          <div className="flex gap-8">
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`pb-4 text-sm font-semibold transition-all relative ${activeTab === 'profile'
-                  ? 'text-[#586ab1]'
-                  : 'text-slate-500 hover:text-slate-700'
-                }`}
-            >
-              <div className="flex items-center gap-2 px-1">
-                <Users className="h-4 w-4" />
-                Profile Details
-              </div>
-              {activeTab === 'profile' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#586ab1] rounded-full" />
-              )}
-            </button>
-            <button
-              onClick={() => setActiveTab('security')}
-              className={`pb-4 text-sm font-semibold transition-all relative ${activeTab === 'security'
-                  ? 'text-[#586ab1]'
-                  : 'text-slate-500 hover:text-slate-700'
-                }`}
-            >
-              <div className="flex items-center gap-2 px-1">
-                <Lock className="h-4 w-4" />
-                Security & Password
-              </div>
-              {activeTab === 'security' && (
-                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-[#586ab1] rounded-full" />
-              )}
-            </button>
           </div>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Avatar & Summary Sidebar */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
-              <div className="h-24 bg-gradient-to-r from-[#586ab1] to-[#4a5a96]"></div>
-              <div className="px-6 pb-8">
-                <div className="-mt-12 flex justify-center">
-                  <div className="relative group">
-                    <div className="w-32 h-32 rounded-full border-4 border-white overflow-hidden bg-slate-100 shadow-md">
-                      {previewUrl ? (
-                        <img
-                          key={avatarKey}
-                          src={previewUrl}
-                          alt={profile.full_name}
-                          className="w-full h-full object-cover transition-transform group-hover:scale-105"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            const parent = e.target.parentElement;
-                            parent.innerHTML = `<div class="w-full h-full flex items-center justify-center bg-slate-50"><UserCircle class="h-16 w-16 text-slate-300" /></div>`;
-                          }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center bg-slate-50">
-                          <UserCircle className="h-16 w-16 text-slate-300" />
-                        </div>
-                      )}
-                    </div>
-                    <label className="absolute inset-0 flex flex-col items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 rounded-full cursor-pointer transition-all duration-300 backdrop-blur-[2px]">
-                      <Camera className="h-6 w-6 text-white mb-1" />
-                      <span className="text-[10px]  text-white uppercase tracking-wider">Change Photo</span>
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleAvatarUpload}
-                        className="hidden"
-                        disabled={uploading}
-                      />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="mt-5 text-center">
-                  <h2 className="text-xl  text-slate-600">{profile.full_name}</h2>
-                  <p className="text-slate-500 text-sm">{profile.email}</p>
-                  
-                  <div className="mt-4 flex flex-wrap justify-center gap-2">
-                    <span className="px-3 py-1 rounded-full bg-slate-100 text-slate-600 text-xs font-medium border border-slate-200">
-                      ID: {profile.id?.slice(0, 8)}
-                    </span>
-                  </div>
-                </div>
-
-                <div className="mt-8 pt-6 border-t border-slate-100 space-y-3">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-[#586ab1] text-white rounded-xl hover:bg-[#4a5a96] transition-all font-semibold text-sm disabled:opacity-50 shadow-sm"
-                  >
-                    {uploading ? (
-                      <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                    ) : (
-                      <Upload className="h-4 w-4" />
-                    )}
-                    {uploading ? 'Uploading...' : 'Update Photo'}
-                  </button>
-                  {previewUrl && (
-                    <button
-                      onClick={handleRemoveAvatar}
-                      className="w-full flex items-center justify-center gap-2 px-4 py-2.5 border border-red-200 text-red-600 rounded-xl hover:bg-red-50 transition-all font-semibold text-sm"
-                    >
-                      <X className="h-4 w-4" />
-                      Remove Photo
-                    </button>
-                  )}
-                </div>
-              </div>
+      {/* Main Content Area */}
+      <div className="max-w-6xl mx-auto px-6 -mt-16 relative z-20 pb-20">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Navigation & Summary Sidebar */}
+          <div className="lg:col-span-3 space-y-6">
+            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-primary/5 p-2">
+               <button
+                onClick={() => setActiveTab('profile')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all duration-300 ${
+                  activeTab === 'profile'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20 font-medium'
+                    : 'text-slate-500 hover:bg-brand-surface hover:text-primary font-medium'
+                }`}
+              >
+                <Users className="h-4 w-4" strokeWidth={1.5} />
+                Profile & Status
+              </button>
+              <button
+                onClick={() => setActiveTab('security')}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] transition-all duration-300 mt-1 ${
+                  activeTab === 'security'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20 font-medium'
+                    : 'text-slate-500 hover:bg-brand-surface hover:text-primary font-medium'
+                }`}
+              >
+                <Shield className="h-4 w-4" strokeWidth={1.5} />
+                Authentication
+              </button>
             </div>
 
+            <div className="bg-white rounded-2xl border border-slate-200/60 shadow-xl shadow-primary/5 p-6 text-center">
+               <button 
+                 onClick={() => fileInputRef.current?.click()}
+                 className="relative inline-block mb-4 group cursor-pointer"
+               >
+                  <div className="w-20 h-20 rounded-full border-2 border-brand-surface p-1 group-hover:border-primary transition-all duration-300">
+                    <div className="w-full h-full rounded-full overflow-hidden bg-slate-50 relative">
+                      {previewUrl ? <img src={previewUrl} className="w-full h-full object-cover" /> : <UserCircle className="w-full h-full text-slate-200" />}
+                      <div className="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                         <Camera className="h-5 w-5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  {uploading && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-white/50 rounded-full">
+                       <div className="h-5 w-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+               </button>
+               <h3 className="text-[15px] font-medium text-primary">{profile.full_name}</h3>
+               <p className="text-[13px] text-slate-400 mt-1">{getRoleDisplayName(profile.role)}</p>
+            </div>
           </div>
 
-          {/* Main Content Area */}
-          <div className="lg:col-span-8">
+          {/* Detailed Section Content */}
+          <div className="lg:col-span-9">
             {activeTab === 'profile' ? (
-              <div className="space-y-6">
-                {/* Personal Information */}
-                <div className="bg-green-50 rounded-2xl border border-slate-200 p-8 shadow-sm">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="p-2.5 rounded-xl bg-slate-50 text-[#586ab1]">
-                      <Users className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg  text-slate-600">Personal Information</h3>
-                      <p className="text-slate-500 text-sm">Your identity and contact details</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Full Name</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 ">
-                        {profile.full_name}
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Personal Section Card */}
+                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-xl shadow-primary/5 overflow-hidden">
+                   <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between bg-slate-50/30">
+                      <div className="flex items-center gap-4">
+                         <div className="w-10 h-10 rounded-xl bg-brand-surface flex items-center justify-center text-primary">
+                            <UserCircle className="h-5 w-5" strokeWidth={1.5} />
+                         </div>
+                         <div>
+                            <h2 className="text-[16px] font-medium text-primary">Personal Credentials</h2>
+                            <p className="text-[12px] text-slate-400">Master identity and contact details</p>
+                         </div>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Email Address</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 ">
-                        {profile.email}
+                      <div className="flex items-center gap-4">
+                        {previewUrl && (
+                          <button 
+                            onClick={handleRemoveAvatar}
+                            disabled={loading}
+                            className="text-[12px] text-red-500 font-medium hover:underline flex items-center gap-1.5 disabled:opacity-50"
+                          >
+                             <X className="h-3.5 w-3.5" />
+                             Remove Photo
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => fileInputRef.current?.click()}
+                          className="text-[12px] text-brand-btn font-medium hover:underline flex items-center gap-1.5"
+                        >
+                           <Camera className="h-3.5 w-3.5" />
+                           {previewUrl ? 'Change Photo' : 'Upload Photo'}
+                        </button>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Primary Phone</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 ">
-                        {profile.phone || 'Not Shared'}
+                      <input type="file" ref={fileInputRef} onChange={handleAvatarUpload} className="hidden" accept="image/*" />
+                   </div>
+                   <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-x-12 gap-y-8">
+                      <div className="space-y-1.5">
+                         <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">Legal Full Name</label>
+                         <p className="text-[15px] text-primary font-medium">{profile.full_name}</p>
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Company Contact</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 ">
-                        {profile.company_phone || '--'}
+                      <div className="space-y-1.5">
+                         <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">Primary Email</label>
+                         <div className="flex items-center gap-2">
+                            <p className="text-[15px] text-primary font-medium">{profile.email}</p>
+                            <Mail className="h-3.5 w-3.5 text-accent" strokeWidth={1.5} />
+                         </div>
                       </div>
-                    </div>
-                  </div>
+                      <div className="space-y-1.5">
+                         <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">Primary Contact</label>
+                         <p className="text-[15px] text-primary font-medium">{profile.phone || 'Registry not shared'}</p>
+                      </div>
+                      <div className="space-y-1.5">
+                         <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">Work Reference</label>
+                         <p className="text-[15px] text-primary font-medium">{profile.company_phone || '--'}</p>
+                      </div>
+                   </div>
                 </div>
 
-                {/* Work Information */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="p-2.5 rounded-xl bg-slate-50 text-emerald-600">
-                      <Building className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg  text-slate-600">Work & Organization</h3>
-                      <p className="text-slate-500 text-sm">Your professional placement</p>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Region</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 font-italic">
-                        {profile.region || 'Assigned Globally'}
+                {/* Work Section Card */}
+                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-xl shadow-primary/5 overflow-hidden">
+                   <div className="px-8 py-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/30">
+                      <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center text-accent">
+                         <Building className="h-5 w-5" strokeWidth={1.5} />
                       </div>
-                    </div>
-                    <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 uppercase tracking-wider">Branch</label>
-                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-slate-600 font-italic">
-                        {profile.branch || 'Headquarters'}
+                      <div>
+                         <h2 className="text-[16px] font-medium text-primary">Professional Placement</h2>
+                         <p className="text-[12px] text-slate-400">Organizational hierarchy and role</p>
                       </div>
-                    </div>
-                  </div>
+                   </div>
+                   <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div className="flex gap-4">
+                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shrink-0">
+                            <MapPin className="h-4 w-4" strokeWidth={1.5} />
+                         </div>
+                         <div className="space-y-0.5">
+                            <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Assigned Region</span>
+                            <p className="text-[14px] text-primary font-medium">{profile.region || 'Global Operations'}</p>
+                         </div>
+                      </div>
+                      <div className="flex gap-4">
+                         <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 border border-slate-100 shrink-0">
+                            <Building className="h-4 w-4" strokeWidth={1.5} />
+                         </div>
+                         <div className="space-y-0.5">
+                            <span className="text-[11px] font-medium text-slate-400 uppercase tracking-wider">Branch Office</span>
+                            <p className="text-[14px] text-primary font-medium">{profile.branch || 'Corporate Headquarters'}</p>
+                         </div>
+                      </div>
+                   </div>
                 </div>
 
-                {/* Account Activity */}
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                  <h3 className="text-sm  text-slate-600 ">Recent Activity</h3>
-                  <div className="space-y-5">
-                    <div className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                          <Calendar className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm  text-slate-600">Account Created</p>
-                          <p className="text-xs text-slate-500">System onboarding date</p>
-                        </div>
+                {/* Activity Log Card */}
+                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-xl shadow-primary/5 p-8">
+                   <div className="flex items-center justify-between mb-8">
+                      <h2 className="text-[15px] font-medium text-primary flex items-center gap-3">
+                         <Clock className="h-4 w-4 text-slate-400" strokeWidth={1.5} />
+                         System Lifecycle
+                      </h2>
+                   </div>
+                   <div className="space-y-6">
+                      <div className="flex items-center justify-between group">
+                         <div className="flex items-center gap-4">
+                            <div className="h-1.5 w-1.5 rounded-full bg-primary group-hover:scale-150 transition-transform"></div>
+                            <span className="text-[13px] text-slate-500 font-medium">Registry Created</span>
+                         </div>
+                         <span className="text-[13px] text-primary font-medium">{formatDate(profile.created_at)}</span>
                       </div>
-                      <span className="text-sm font-semibold text-slate-600">{formatDate(profile.created_at)}</span>
-                    </div>
-                    <div className="flex items-center justify-between py-1">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-emerald-50 flex items-center justify-center text-emerald-600">
-                          <Clock className="h-5 w-5" />
-                        </div>
-                        <div>
-                          <p className="text-sm  text-slate-600">Last Login</p>
-                          <p className="text-xs text-slate-500">Most recent session active</p>
-                        </div>
+                      <div className="flex items-center justify-between group">
+                         <div className="flex items-center gap-4">
+                            <div className="h-1.5 w-1.5 rounded-full bg-accent group-hover:scale-150 transition-transform"></div>
+                            <span className="text-[13px] text-slate-500 font-medium">Last Authentication</span>
+                         </div>
+                         <span className="text-[13px] text-primary font-medium">{profile.last_login ? formatDate(profile.last_login) : 'None Recorded'}</span>
                       </div>
-                      <span className="text-sm font-semibold text-slate-600">{profile.last_login ? formatDate(profile.last_login) : 'Never'}</span>
-                    </div>
-                  </div>
+                   </div>
                 </div>
               </div>
             ) : (
-              <div className="space-y-6">
-                <div className="bg-white rounded-2xl border border-slate-200 p-8 shadow-sm">
-                  <div className="flex items-center gap-3 mb-8">
-                    <div className="p-2.5 rounded-xl bg-slate-50 text-[#586ab1]">
-                      <Shield className="h-5 w-5" />
-                    </div>
-                    <div>
-                      <h3 className="text-lg  text-slate-600">Security & Password</h3>
-                      <p className="text-slate-500 text-sm">Update your authentication credentials</p>
-                    </div>
-                  </div>
-
-                  {passwordFlow === 'initial' ? (
-                    <div className="text-center py-10 bg-slate-50 rounded-2xl border border-slate-100">
-                      <div className="h-20 w-20 rounded-full bg-white flex items-center justify-center mx-auto mb-6 shadow-sm">
-                        <Lock className="h-10 w-10 text-[#586ab1]" />
+              <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                {/* Security Content */}
+                <div className="bg-white rounded-3xl border border-slate-200/60 shadow-xl shadow-primary/5 overflow-hidden">
+                   <div className="px-8 py-6 border-b border-slate-50 flex items-center gap-4 bg-slate-50/30">
+                      <div className="w-10 h-10 rounded-xl bg-highlight/10 flex items-center justify-center text-highlight">
+                         <Key className="h-5 w-5" strokeWidth={1.5} />
                       </div>
-                      <h4 className="text-lg  text-slate-600 mb-2">Change your password</h4>
-                      <p className="text-slate-500 text-sm mb-8 max-w-sm mx-auto">
-                        We'll send a 6-digit verification code to your registered email to confirm this request.
-                      </p>
-                      <button
-                        onClick={requestPasswordChangeCode}
-                        disabled={changingPassword}
-                        className="px-8 py-3 bg-[#586ab1] text-white rounded-xl hover:bg-[#4a5a96] transition-all font-bold shadow-md shadow-[#586ab1]/20 disabled:opacity-50"
-                      >
-                        {changingPassword ? 'Initiating...' : 'Request Verification Code'}
-                      </button>
-                    </div>
-                  ) : (
-                    <form onSubmit={verifyCodeAndChangePassword} className="space-y-8">
-                      <div className="p-6 bg-slate-50 rounded-2xl border border-slate-200">
-                        <div className="flex items-center gap-4 mb-6">
-                          <div className="h-10 w-10 rounded-full bg-white flex items-center justify-center text-emerald-600 shadow-sm">
-                            <Check className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">Step 1: Verify Code</p>
-                            <p className="text-sm  text-slate-600">Check your email at {profile.email}</p>
-                          </div>
-                        </div>
-
-                        <div className="space-y-4">
-                          <CircularCodeInput
-                            length={6}
-                            value={passwordCode}
-                            onChange={setPasswordCode}
-                            disabled={changingPassword}
-                          />
-                          <CountdownTimer
-                            seconds={600}
-                            onResend={resendPasswordChangeCode}
-                            disabled={changingPassword}
-                          />
-                        </div>
+                      <div>
+                         <h2 className="text-[16px] font-medium text-primary">Login & Access Security</h2>
+                         <p className="text-[12px] text-slate-400">Update credentials and secure your account</p>
                       </div>
-
-                      <div className="space-y-6">
-                        <div className="space-y-2">
-                          <label className="text-xs  text-slate-600 ">New Password</label>
-                          <div className="relative">
-                            <input
-                              type={showNewPassword ? "text" : "password"}
-                              value={newPassword}
-                              onChange={(e) => setNewPassword(e.target.value)}
-                              required
-                              className="w-full pl-5 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#586ab1]/20 focus:border-[#586ab1] outline-none transition-all font-semibold"
-                              placeholder="Create strong password"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowNewPassword(!showNewPassword)}
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                              {showNewPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                          </div>
-                          <div className="bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-                             <p className="text-sm text-emerald-600  flex items-center gap-2">
-                               <AlertCircle className="h-3 w-3" />
-                               Password must be 8+ chars with uppercase, lowercase, numbers & symbols.
-                             </p>
-                          </div>
+                   </div>
+                   
+                   <div className="p-8">
+                      {passwordFlow === 'initial' ? (
+                        <div className="py-10 flex flex-col items-center justify-center">
+                           <div className="w-16 h-16 rounded-full bg-brand-surface flex items-center justify-center mb-6">
+                              <Shield className="h-8 w-8 text-primary" strokeWidth={1} />
+                           </div>
+                           <h3 className="text-[17px] font-medium text-primary">Credentials Management</h3>
+                           <p className="text-[13px] text-slate-500 mt-2 text-center max-w-sm font-medium">
+                              For your security, we will send a unique 6-digit verification code to your email to authorize this credential change.
+                           </p>
+                           <button
+                             onClick={requestPasswordChangeCode}
+                             disabled={changingPassword}
+                             className="mt-8 px-8 py-3 bg-brand-btn text-white rounded-2xl text-[14px] font-medium hover:bg-primary transition-all shadow-lg shadow-brand-btn/20 disabled:opacity-50"
+                           >
+                             {changingPassword ? 'Synchronizing...' : 'Request Verification Code'}
+                           </button>
                         </div>
+                      ) : (
+                        <form onSubmit={verifyCodeAndChangePassword} className="space-y-10 max-w-xl mx-auto">
+                           <div className="text-center space-y-2">
+                              <div className="inline-flex h-10 w-10 rounded-full bg-accent/10 text-accent items-center justify-center mb-2">
+                                 <Mail className="h-5 w-5" strokeWidth={1.5} />
+                              </div>
+                              <h4 className="text-[15px] font-medium text-primary">Verify Identity</h4>
+                              <p className="text-[12px] text-slate-400 font-medium">Check your inbox for the code sent to {profile.email}</p>
+                           </div>
 
-                        <div className="space-y-2">
-                          <label className="text-xs  text-slate-600 ">Confirm New Password</label>
-                          <div className="relative">
-                            <input
-                              type={showConfirmPassword ? "text" : "password"}
-                              value={confirmPassword}
-                              onChange={(e) => setConfirmPassword(e.target.value)}
-                              required
-                              className="w-full pl-5 pr-12 py-3.5 bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-[#586ab1]/20 focus:border-[#586ab1] outline-none transition-all font-semibold"
-                              placeholder="Repeat new password"
-                            />
-                            <button
-                              type="button"
-                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                              className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                            >
-                              {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                            </button>
-                          </div>
-                        </div>
-                      </div>
+                           <div className="space-y-6">
+                              <CircularCodeInput
+                                length={6}
+                                value={passwordCode}
+                                onChange={setPasswordCode}
+                                disabled={changingPassword}
+                              />
+                              <CountdownTimer
+                                seconds={600}
+                                onResend={resendPasswordChangeCode}
+                                disabled={changingPassword}
+                              />
+                           </div>
 
-                      <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                        <button
-                          type="submit"
-                          disabled={changingPassword || passwordCode.length !== 6}
-                          className="flex-1 py-4 bg-[#586ab1] text-white rounded-xl hover:bg-[#4a5a96] transition-all font-bold shadow-lg shadow-[#586ab1]/20 disabled:opacity-50 flex items-center justify-center gap-2"
-                        >
-                          {changingPassword ? (
-                            <div className="h-5 w-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
-                          ) : (
-                            <Save className="h-5 w-5" />
-                          )}
-                          Update Security Credentials
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setPasswordFlow('initial');
-                            setPasswordCode("");
-                            setNewPassword("");
-                            setConfirmPassword("");
-                          }}
-                          className="px-8 py-4 bg-slate-100 text-slate-600 rounded-xl hover:bg-slate-200 transition-all font-bold"
-                        >
-                          Cancel
-                        </button>
-                      </div>
-                    </form>
-                  )}
+                           <div className="space-y-5 pt-4 border-t border-slate-50">
+                              <div className="space-y-2">
+                                 <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">New Secure Password</label>
+                                 <div className="relative">
+                                    <input
+                                      type={showNewPassword ? "text" : "password"}
+                                      value={newPassword}
+                                      onChange={(e) => setNewPassword(e.target.value)}
+                                      required
+                                      className="w-full px-5 py-3 bg-neutral/30 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand-surface focus:border-brand-secondary outline-none transition-all text-[14px] font-medium text-primary"
+                                      placeholder="••••••••"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowNewPassword(!showNewPassword)}
+                                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                    >
+                                      {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                 </div>
+                              </div>
+                              <div className="space-y-2">
+                                 <label className="text-[11px] font-medium text-slate-400 uppercase tracking-widest">Repeat Password</label>
+                                 <div className="relative">
+                                    <input
+                                      type={showConfirmPassword ? "text" : "password"}
+                                      value={confirmPassword}
+                                      onChange={(e) => setConfirmPassword(e.target.value)}
+                                      required
+                                      className="w-full px-5 py-3 bg-neutral/30 border border-slate-200 rounded-2xl focus:ring-4 focus:ring-brand-surface focus:border-brand-secondary outline-none transition-all text-[14px] font-medium text-primary"
+                                      placeholder="••••••••"
+                                    />
+                                    <button
+                                      type="button"
+                                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors"
+                                    >
+                                      {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                                    </button>
+                                 </div>
+                              </div>
+                           </div>
+
+                           <div className="flex items-center justify-end gap-4 pt-6">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setPasswordFlow('initial');
+                                  setPasswordCode("");
+                                  setNewPassword("");
+                                  setConfirmPassword("");
+                                }}
+                                className="px-6 py-3 text-slate-500 text-[14px] font-medium hover:text-primary transition-colors"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="submit"
+                                disabled={changingPassword || passwordCode.length !== 6}
+                                className="px-10 py-3 bg-primary text-white rounded-2xl text-[14px] font-medium hover:bg-brand-btn transition-all shadow-lg shadow-primary/20 disabled:opacity-50 flex items-center gap-2"
+                              >
+                                {changingPassword ? <div className="h-4 w-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="h-4 w-4" strokeWidth={1.5} />}
+                                Secure Account
+                              </button>
+                           </div>
+                        </form>
+                      )}
+                   </div>
                 </div>
               </div>
             )}

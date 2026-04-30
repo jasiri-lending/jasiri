@@ -161,6 +161,7 @@ const ReviewEditRequest = lazy(() => import("./pages/registry/ReviewEditRequest.
 const TransferReviewPage = lazy(() => import("./pages/registry/TransferReviewPage.jsx"));
 const PasswordSetup = lazy(() => import("./pages/PasswordSetup.jsx"));
 const RefundApprovals = lazy(() => import("./pages/admin/RefundApprovals.jsx"));
+const LockUserPage = lazy(() => import("./pages/admin/LockUserPage.jsx"));
 
 // ReportWrapper component for permission-based report access
 const ReportWrapper = ({ component: Component, permission, userRole, ...rest }) => {
@@ -1340,6 +1341,7 @@ function MainLayout({
                       <Route path="/workflow-statuses/admin" element={<WorkflowStatuses />} />
                       <Route path="/roles/admin" element={<RolePermissionManager />} />
                       <Route path="/tenant-features/admin" element={<TenantFeatureManager />} />
+                      <Route path="/admin/users/:userId/lock" element={<ProtectedRoute><LockUserPage /></ProtectedRoute>} />
                     </>
                   )}
 

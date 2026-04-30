@@ -185,6 +185,33 @@ function GeneralLedgerEntries() {
         }
     };
 
+    const downloadTemplate = () => {
+        const templateData = [
+            {
+                Date: new Date().toISOString().split('T')[0],
+                Reference: 'JE-001',
+                Description: 'Sample Entry - Office Supplies',
+                AccountCode: '1001',
+                Debit: 500.00,
+                Credit: 0.00
+            },
+            {
+                Date: new Date().toISOString().split('T')[0],
+                Reference: 'JE-001',
+                Description: 'Sample Entry - Cash',
+                AccountCode: '1002',
+                Debit: 0.00,
+                Credit: 500.00
+            }
+        ];
+
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "GL Template");
+        XLSX.writeFile(wb, "GL_Entry_Template.xlsx");
+        toast.success("Template downloaded!");
+    };
+
     if (loading) {
         return (
             <div className="flex justify-center items-center min-h-screen">
@@ -211,15 +238,37 @@ function GeneralLedgerEntries() {
                         </div>
                         <div className="flex gap-2">
                             <button
+                                onClick={downloadTemplate}
+                                className="px-3 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2"
+                            >
+                                <FileSpreadsheet size={16} /> Download Template
+                            </button>
+                            <button
                                 onClick={() => setUploadMode(!uploadMode)}
                                 className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors flex items-center gap-2 ${uploadMode
                                         ? 'bg-brand-secondary text-white border-transparent'
                                         : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
                                     }`}
                             >
-                                {uploadMode ? <FileSpreadsheet size={16} /> : <Upload size={16} />}
+                                {uploadMode ? <Plus size={16} /> : <Upload size={16} />}
                                 {uploadMode ? 'Switch to Manual Entry' : 'Import from Excel'}
                             </button>
+                        </div>
+                    </div>
+
+                    {/* How to use Guide */}
+                    <div className="px-6 py-4 bg-blue-50/50 border-b border-gray-100">
+                        <div className="flex items-start gap-4">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+                                <FileSpreadsheet size={18} />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-blue-900 mb-1">General Ledger Guide</h3>
+                                <p className="text-xs text-blue-700 leading-relaxed max-w-4xl">
+                                    Use this module to log manual journal entries or bulk import ledger transactions. Ensure your entries **balance** (Total Debits = Total Credits). 
+                                    For Excel imports, download the template below to ensure columns like <span className="font-bold">AccountCode</span>, <span className="font-bold">Debit</span>, and <span className="font-bold">Credit</span> are correctly formatted.
+                                </p>
+                            </div>
                         </div>
                     </div>
 

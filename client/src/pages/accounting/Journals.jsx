@@ -287,25 +287,14 @@ function Journals() {
                       </button>
 
                       {j.status === 'pending' && hasPermission('journal.approve') && (
-                        <>
-                          <button
-                            className="inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors"
-                            onClick={() => openActionModal('approve', j.id)}
-                            aria-label="Approve journal"
-                            title="Approve"
-                          >
-                            <CheckCircle className="text-blue-600 hover:text-blue-800" size={16} />
-                          </button>
-
-                          <button
-                            className="inline-flex items-center justify-center p-1 rounded hover:bg-red-100 transition-colors"
-                            onClick={() => openActionModal('reject', j.id)}
-                            aria-label="Reject journal"
-                            title="Reject"
-                          >
-                            <XCircle className="text-red-600 hover:text-red-800" size={16} />
-                          </button>
-                        </>
+                        <button
+                          className="inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors text-blue-600 hover:text-blue-800"
+                          onClick={() => navigate(`/journals/${j.id}`)}
+                          aria-label="Approve journal"
+                          title="Review & Approve"
+                        >
+                          <CheckCircle size={16} />
+                        </button>
                       )}
                     </div>
                   </td>

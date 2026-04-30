@@ -41,7 +41,37 @@ journalRouter.get("/search-customers", async (req, res) => {
 
     if (error) throw error;
 
-    const formattedCustomers = formatCustomers(customers || []);
+    const formattedCustomers = await Promise.all((customers || []).map(async (customer) => {
+      // Construct full name
+      const fname = customer.Firstname || '';
+      const mname = customer.Middlename || '';
+      const sname = customer.Surname || '';
+      const fullName = `${fname} ${mname} ${sname}`.trim();
+
+      // Display Name priority: Full Name > Business Name > Customer ID
+      const displayName = fullName || customer.business_name || `Customer ${customer.id}`;
+
+      // Calculate Wallet Balance
+      const { data: walletData } = await supabaseAdmin
+        .from("customer_wallets")
+        .select("credit, debit")
+        .eq("customer_id", customer.id)
+        .eq("tenant_id", tenant_id);
+      
+      const balance = (walletData || []).reduce((acc, row) => acc + (row.credit || 0) - (row.debit || 0), 0);
+
+      return {
+        id: customer.id,
+        display_name: displayName,
+        phone: customer.mobile,
+        id_number: customer.id_number,
+        business_name: customer.business_name,
+        first_name: customer.Firstname,
+        surname: customer.Surname,
+        wallet_balance: balance
+      };
+    }));
+
     return res.json({
       success: true,
       customers: formattedCustomers
@@ -56,30 +86,6 @@ journalRouter.get("/search-customers", async (req, res) => {
     });
   }
 });
-
-// Helper function to format customers
-function formatCustomers(customers) {
-  return customers.map(customer => {
-    // Construct full name
-    const fname = customer.Firstname || '';
-    const mname = customer.Middlename || '';
-    const sname = customer.Surname || '';
-    const fullName = `${fname} ${mname} ${sname}`.trim();
-
-    // Display Name priority: Full Name > Business Name > Customer ID
-    const displayName = fullName || customer.business_name || `Customer ${customer.id}`;
-
-    return {
-      id: customer.id,
-      display_name: displayName,
-      phone: customer.mobile,
-      id_number: customer.id_number,
-      business_name: customer.business_name,
-      first_name: customer.Firstname,
-      surname: customer.Surname
-    };
-  });
-}
 
 // POST /api/journals - Create new pending journal
 journalRouter.post("/", requirePermission('journal.create'), async (req, res) => {

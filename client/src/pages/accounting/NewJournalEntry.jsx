@@ -9,8 +9,10 @@ import { usePermissions } from "../../hooks/usePermissions";
 function NewJournalEntry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const { addToast } = useToast();
+  const toast = useToast();
   const { hasPermission, loading: permsLoading } = usePermissions();
+  const [amountError, setAmountError] = useState("");
+  const [descriptionError, setDescriptionError] = useState("");
 
   // Search state for Primary Customer (Sender/Main)
   const [searchingCustomers, setSearchingCustomers] = useState(false);
@@ -40,7 +42,8 @@ function NewJournalEntry() {
     recipient_name: "",
     recipient_id_number: "",
     recipient_phone: "",
-    recipient_search: ""
+    recipient_search: "",
+    customer_wallet_balance: 0
   });
 
   const { profile } = useAuth();
@@ -107,11 +110,11 @@ function NewJournalEntry() {
           setShowRecipientDropdown(true);
         }
       } else {
-        addToast("Error searching customers: " + data.error, "error");
+        toast.error("Error searching customers: " + data.error);
       }
     } catch (error) {
       console.error("Error searching customers:", error);
-      addToast("Failed to search customers. Please try again.", "error");
+      toast.error("Failed to search customers. Please try again.");
     } finally {
       if (type === 'primary') setSearchingCustomers(false);
       else setSearchingRecipients(false);
@@ -124,6 +127,28 @@ function NewJournalEntry() {
       ...prev,
       [name]: value
     }));
+
+    // Clear description error when typing
+    if (name === 'description' && value.trim()) {
+      setDescriptionError("");
+    }
+
+    // Live Validation for Amount
+    if (name === 'amount' || name === 'journal_type') {
+      const amount = name === 'amount' ? parseFloat(value) : parseFloat(formData.amount);
+      const type = name === 'journal_type' ? value : formData.journal_type;
+      const balance = parseFloat(formData.customer_wallet_balance);
+
+      if (amount && (type === 'transfer' || type === 'debit')) {
+        if (amount > balance) {
+          setAmountError(`Amount exceeds wallet balance (KES ${balance.toLocaleString()})`);
+        } else {
+          setAmountError("");
+        }
+      } else {
+        setAmountError("");
+      }
+    }
   };
 
   const selectCustomer = (customer) => {
@@ -134,9 +159,13 @@ function NewJournalEntry() {
       customer_id_number: customer.id_number,
       customer_name: customer.display_name,
       account_name: customer.display_name,
-      account_search: customer.display_name
+      account_search: customer.display_name,
+      customer_wallet_balance: customer.wallet_balance || 0
     }));
     setShowAccountDropdown(false);
+    
+    // Clear amount error when customer changes
+    setAmountError("");
   };
 
   const selectRecipient = (customer) => {
@@ -173,41 +202,77 @@ function NewJournalEntry() {
     }));
     setRecipients([]);
   };
+  
+  const resetForm = () => {
+    setFormData({
+      journal_type: "",
+      account_type: "",
+      account_name: "",
+      amount: "",
+      description: "",
+      customer_id: "",
+      customer_phone: "",
+      customer_name: "",
+      customer_id_number: "",
+      account_search: "",
+      recipient_id: "",
+      recipient_name: "",
+      recipient_id_number: "",
+      recipient_phone: "",
+      recipient_search: "",
+      customer_wallet_balance: 0
+    });
+    setAmountError("");
+    setDescriptionError("");
+    setCustomers([]);
+    setRecipients([]);
+  };
 
   const createJournal = async () => {
     if (!formData.journal_type) {
-      addToast("Please select a journal type.", "error");
+      toast.error("Please select a journal type.");
       return;
     }
 
     if (!formData.account_type) {
-      addToast("Please select an account type.", "error");
+      toast.error("Please select an account type.");
       return;
     }
 
     if (!formData.amount || parseFloat(formData.amount) <= 0) {
-      addToast("Please enter a valid amount greater than 0.", "error");
+      toast.error("Please enter a valid amount greater than 0.");
       return;
     }
 
     if (!formData.customer_id) {
-      addToast("Please select a primary customer.", "error");
+      toast.error("Please select a primary customer.");
       return;
     }
 
     if (formData.journal_type === 'transfer') {
       if (!formData.recipient_id) {
-        addToast("Please select a recipient for the transfer.", "error");
+        toast.error("Please select a recipient for the transfer.");
         return;
       }
       if (formData.customer_id === formData.recipient_id) {
-        addToast("Sender and Recipient cannot be the same.", "error");
+        toast.error("Sender and Recipient cannot be the same.");
         return;
       }
     }
 
-    if (!formData.description) {
-      addToast("Please enter a description.", "error");
+    // Wallet Balance Validation for Transfer and Debit
+    if (formData.journal_type === 'transfer' || formData.journal_type === 'debit') {
+      const amount = parseFloat(formData.amount);
+      const balance = parseFloat(formData.customer_wallet_balance);
+      if (amount > balance) {
+        toast.error(`Insufficient funds. Customer wallet balance is KES ${balance.toLocaleString()}.`);
+        return;
+      }
+    }
+
+    if (!formData.description || !formData.description.trim()) {
+      setDescriptionError("Description is required.");
+      toast.error("Please enter a description.");
       return;
     }
 
@@ -232,14 +297,16 @@ function NewJournalEntry() {
       const data = await response.json();
 
       if (data.success) {
-        addToast("Journal created successfully!", "success");
+        toast.success("Journal created successfully!");
+        // Use a slight delay or direct path to ensure navigation
         navigate("/accounting/journals");
+        return;
       } else {
-        addToast(`Failed to create journal: ${data.error}`, "error");
+        toast.error(`Failed to create journal: ${data.error}`);
       }
     } catch (error) {
       console.error("Error creating journal:", error);
-      addToast("Failed to create journal. Please try again.", "error");
+      toast.error("Failed to create journal. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -490,6 +557,9 @@ function NewJournalEntry() {
                 value={formData.amount}
                 onChange={handleInputChange}
               />
+              {amountError && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{amountError}</p>
+              )}
             </div>
 
             <div>
@@ -504,6 +574,9 @@ function NewJournalEntry() {
                 value={formData.description}
                 onChange={handleInputChange}
               />
+              {descriptionError && (
+                <p className="mt-1 text-xs text-red-500 font-medium">{descriptionError}</p>
+              )}
             </div>
           </div>
 
@@ -520,6 +593,7 @@ function NewJournalEntry() {
                     <div>
                       <p className="text-xs font-semibold">{formData.customer_name}</p>
                       <p className="text-[10px] text-gray-500">{formData.customer_phone} {formData.customer_id_number && `| ID: ${formData.customer_id_number}`}</p>
+                      <p className="text-[10px] text-brand-primary font-semibold mt-1">Wallet Balance: KES {formData.customer_wallet_balance.toLocaleString()}</p>
                     </div>
                   </div>
                 )}
@@ -562,8 +636,8 @@ function NewJournalEntry() {
           <div className="flex gap-3">
             <button
               onClick={createJournal}
-              disabled={loading}
-              className={`px-6 py-2 rounded text-sm font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] transition-colors ${loading ? 'opacity-70 cursor-not-allowed' : ''}`}
+              disabled={loading || !!amountError}
+              className={`px-6 py-2 rounded text-sm font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] transition-colors ${loading || amountError ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>

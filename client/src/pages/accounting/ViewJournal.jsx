@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, CheckCircle, XCircle, ArrowRight } from "lucide-react";
+import { ArrowLeft, CheckCircle, XCircle, ArrowRight, AlertCircle, X, Info } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import Spinner from "../../components/Spinner";
@@ -16,6 +16,7 @@ function ViewJournal() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalAction, setModalAction] = useState(null); // 'approve' | 'reject'
   const [actionReason, setActionReason] = useState("");
+  const [actionLoading, setActionLoading] = useState(false);
 
   const { profile } = useAuth();
   const toast = useToast();
@@ -170,36 +171,17 @@ function ViewJournal() {
         </div>
 
         <div className="p-6">
-          {/* Action Buttons for Pending Journals */}
+          {/* Pending Notice (No Buttons here) */}
           {journal.status === 'pending' && (
-            <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-md">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-sm font-semibold text-gray-900">Pending Approval</h3>
-                  <p className="text-xs text-gray-600 mt-1">
-                    Requires approval from an authorized user to be posted to accounts.
-                  </p>
-                </div>
-                {hasPermission('journal.approve') && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openActionModal('approve')}
-                      disabled={actionLoading}
-                      className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <CheckCircle size={12} />
-                      Approve & Post
-                    </button>
-                    <button
-                      onClick={() => openActionModal('reject')}
-                      disabled={actionLoading}
-                      className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white bg-red-600 hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      <XCircle size={12} />
-                      Reject
-                    </button>
-                  </div>
-                )}
+            <div className="mb-8 p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-4">
+              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="text-amber-600 h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-amber-900">Pending Review</h3>
+                <p className="text-xs text-amber-700 mt-0.5">
+                  This journal entry is currently awaiting authorization. Please review the details below before taking action.
+                </p>
               </div>
             </div>
           )}
@@ -421,33 +403,60 @@ function ViewJournal() {
         </div>
 
         {/* Footer */}
-        <div className="border-t border-gray-200 px-6 py-4 bg-gray-50">
+        <div className="border-t border-gray-200 px-8 py-6 bg-gray-50 flex justify-between items-center rounded-b-lg">
           <button
             onClick={() => navigate("/accounting/journals")}
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-900 transition-all shadow-sm"
           >
-            <ArrowLeft size={14} /> Back to Journals
+            <ArrowLeft size={16} /> Back to Journals
           </button>
+
+          {journal.status === 'pending' && hasPermission('journal.approve') && (
+            <div className="flex gap-3">
+              <button
+                onClick={() => openActionModal('reject')}
+                disabled={actionLoading}
+                className="px-5 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-all shadow-md shadow-red-100 hover:shadow-red-200 active:scale-95 disabled:opacity-50 disabled:scale-100"
+              >
+                <XCircle size={16} />
+                Reject Entry
+              </button>
+              <button
+                onClick={() => openActionModal('approve')}
+                disabled={actionLoading}
+                className="px-6 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold text-white bg-brand-primary hover:bg-[#1E3A8A] transition-all shadow-md shadow-brand-primary/20 hover:shadow-brand-primary/40 active:scale-95 disabled:opacity-50 disabled:scale-100"
+              >
+                <CheckCircle size={16} />
+                Approve & Post
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
       {/* ACTION MODAL */}
       {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
             {/* Modal Header */}
-            <div className={`px-6 py-4 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'
+            <div className={`px-6 py-5 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-brand-surface/30' : 'bg-red-50'
               }`}>
-              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-blue-800' : 'text-red-800'
-                }`}>
-                {modalAction === 'approve' ? 'Approve Journal Entry' : 'Reject Journal Entry'}
-              </h3>
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${modalAction === 'approve' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-red-100 text-red-600'
+                  }`}>
+                  {modalAction === 'approve' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+                </div>
+                <h3 className={`text-sm font-bold ${modalAction === 'approve' ? 'text-brand-primary' : 'text-red-800'
+                  }`}>
+                  {modalAction === 'approve' ? 'Approve & Post Journal' : 'Reject Journal Entry'}
+                </h3>
+              </div>
               <button
                 onClick={closeActionModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-full"
                 disabled={actionLoading}
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
@@ -459,21 +468,43 @@ function ViewJournal() {
                 </div>
               ) : (
                 <>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {modalAction === 'approve'
-                      ? 'Are you sure you want to approve this journal? This will post the transaction to the ledger and update wallet balances.'
-                      : 'Please provide a reason for rejecting this journal entry.'
-                    }
-                  </p>
+                  <div className="mb-6 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-inner">
+                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                      <h4 className="text-[10px] uppercase tracking-widest font-black text-slate-500">Transaction Summary</h4>
+                    </div>
+                    <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+                      <div className="flex flex-col">
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Type</span>
+                        <span className="text-xs font-bold text-slate-700 capitalize">{journal?.journal_type}</span>
+                      </div>
+                      <div className="flex flex-col text-right">
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total Amount</span>
+                        <span className="text-xs font-black text-brand-primary">KES {parseFloat(journal?.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      </div>
+                      <div className="col-span-2 flex flex-col pt-3 border-t border-slate-100">
+                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Primary Customer</span>
+                        <span className="text-xs font-semibold text-slate-800">{journal?.customer_name}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mb-6 flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                    <p className="text-[11px] leading-relaxed text-blue-800">
+                      {modalAction === 'approve'
+                        ? 'Confirming this action will finalize the journal entry, post it to the General Ledger, and update relevant customer wallet balances.'
+                        : 'Please state the reason for rejecting this entry. This will be recorded in the audit logs.'
+                      }
+                    </p>
+                  </div>
 
                   <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-700">
+                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">
                       {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
                     </label>
                     <textarea
-                      className="w-full text-xs border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-btn focus:border-transparent outline-none transition-all"
-                      rows={4}
-                      placeholder={modalAction === 'approve' ? 'Enter any notes...' : 'Enter reason for rejection...'}
+                      className="w-full text-xs border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-gray-300 min-h-[100px]"
+                      placeholder={modalAction === 'approve' ? 'Add a brief note about this approval...' : 'Provide specific reasons for this rejection...'}
                       value={actionReason}
                       onChange={(e) => setActionReason(e.target.value)}
                     />
@@ -487,18 +518,18 @@ function ViewJournal() {
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   onClick={closeActionModal}
-                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  className="px-4 py-2 text-xs font-bold text-slate-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-slate-700 transition-all active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitAction}
-                  className={`px-4 py-2 text-xs font-medium text-white rounded-md transition-colors ${modalAction === 'approve'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-red-600 hover:bg-red-700'
+                  className={`px-6 py-2 text-xs font-bold text-white rounded-lg transition-all shadow-md active:scale-95 ${modalAction === 'approve'
+                    ? 'bg-brand-primary hover:bg-[#1E3A8A] shadow-brand-primary/20'
+                    : 'bg-red-600 hover:bg-red-700 shadow-red-100'
                     }`}
                 >
-                  {modalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
+                  {modalAction === 'approve' ? 'Post to Ledger' : 'Confirm Rejection'}
                 </button>
               </div>
             )}

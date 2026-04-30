@@ -28,6 +28,7 @@ import AccountRouter from "./routes/accounts.js";
 import scoringRouter from "./routes/scoring.js";
 import RefundRouter from "./routes/refunds.js";
 import ReconciliationRouter from "./routes/reconciliation.js";
+import userAdminRouter from "./routes/userAdmin.js";
 import { mpesaRequest } from "./services/mpesa.js";
 
 // import "./cron/loanInstallmentCron.js"; // 
@@ -200,6 +201,7 @@ app.use("/api/scoring", scoringRouter);
 app.use("/api/refunds", RefundRouter);
 app.use("/mpesa/refunds", RefundRouter);
 app.use("/api/reconciliation", ReconciliationRouter);
+app.use("/api/user-admin", userAdminRouter);
 
 // import "./cron/loanInstallmentCron.js"; // 
 

@@ -127,13 +127,24 @@ Authrouter.post("/login", async (req, res) => {
     // 1️⃣ Verify user existence in our database (and get the CANONICAL email)
     const { data: user, error: userError } = await supabaseAdmin
       .from("users")
-      .select("id, auth_id, email, role, tenant_id")
+      .select("id, auth_id, email, role, tenant_id, status, locked_reason")
       .ilike("email", cleanEmail)
       .single();
     
     if (userError || !user) {
       console.error(`[LOGIN] ❌ User [${cleanEmail}] NOT found in users table. Error:`, userError?.message || "No match");
       return res.status(401).json({ success: false, error: "Invalid credentials" });
+    }
+
+    // CHECK IF LOCKED
+    if (user.status === 'LOCKED') {
+      console.warn(`[LOGIN] 🚫 Rejected login for LOCKED user [${cleanEmail}]. Reason: ${user.locked_reason}`);
+      return res.status(403).json({ 
+        success: false, 
+        error: "Your account is locked", 
+        reason: user.locked_reason || "No reason provided",
+        isLocked: true 
+      });
     }
 
     const canonicalEmail = user.email || cleanEmail;
@@ -266,6 +277,10 @@ Authrouter.post("/verify-code", async (req, res) => {
     if (error || !user) {
       console.error("Verify code user error:", error);
       return res.status(400).json({ success: false, error: "User not found" });
+    }
+
+    if (user.status === 'LOCKED') {
+      return res.status(403).json({ success: false, error: "Your account is locked" });
     }
 
     if (!user.verification_code || user.verification_code !== code) {
@@ -561,7 +576,7 @@ Authrouter.get("/profile/:userId", verifySupabaseToken, async (req, res) => {
 
 // POST /api/request-password-change-code - Send password change verification code
 Authrouter.post("/request-password-change-code", verifySupabaseToken, async (req, res) => {
-  const { email } = req.body;
+  const { userId, email } = req.body;
 
   try {
     // Generate verification code
@@ -570,11 +585,26 @@ Authrouter.post("/request-password-change-code", verifySupabaseToken, async (req
 
  
 
-    // Save code in DB
-    await supabaseAdmin.from("users").update({
-      password_change_code: verificationCode,
-      password_change_expires_at: verificationExpiresAt
-    }).eq("email", email);
+    // Save code in DB - prioritize userId for precision
+    let query = supabaseAdmin.from("users").update({
+      reset_code: verificationCode,
+      reset_code_expires_at: verificationExpiresAt
+    });
+
+    if (userId) {
+      query = query.eq("id", userId);
+    } else if (email) {
+      query = query.ilike("email", email.trim());
+    } else {
+      return res.status(400).json({ success: false, error: "Identification required" });
+    }
+
+    const { error: updateError, data } = await query.select();
+
+    if (updateError || !data || data.length === 0) {
+      console.error("[PWD-CHANGE] Update failed:", updateError);
+      return res.status(400).json({ success: false, error: "User record not found or update failed" });
+    }
 
     // Send code via email
     await transporter.sendMail({
@@ -611,8 +641,8 @@ Authrouter.post("/resend-password-change-code", verifySupabaseToken, async (req,
 
     // Update user with new code
     await supabaseAdmin.from("users").update({
-      password_change_code: verificationCode,
-      password_change_expires_at: verificationExpiresAt
+      reset_code: verificationCode,
+      reset_code_expires_at: verificationExpiresAt
     }).eq("email", email);
 
     // Send new code via email
@@ -680,29 +710,36 @@ Authrouter.post("/verify-password-change-code", verifySupabaseToken, async (req,
     }
 
     // Verify code
-    if (user.password_change_code !== code) {
+    if (user.reset_code !== code) {
       return res.status(400).json({ success: false, error: "Invalid verification code" });
     }
 
     // Check if code expired
-    if (isExpired(user.password_change_expires_at)) {
+    if (isExpired(user.reset_code_expires_at)) {
       return res.status(400).json({ success: false, error: "Verification code expired" });
     }
 
-    // Update password using admin API
+    // Update password using admin API - ensure we have a valid auth UUID
+    const targetAuthId = user.auth_id || user.id;
+    
+    if (!targetAuthId) {
+      return res.status(400).json({ success: false, error: "Unable to verify security credentials. Please contact support." });
+    }
+
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-      user.auth_id,
+      targetAuthId,
       { password: newPassword }
     );
 
     if (updateError) {
-      return res.status(500).json({ success: false, error: "Failed to update password" });
+      console.error("[PWD-UPDATE] Auth Admin Error:", updateError);
+      return res.status(500).json({ success: false, error: "Failed to update security credentials. Please try again later." });
     }
 
-    // Clear password change code
+    // Clear reset code
     await supabaseAdmin.from("users").update({
-      password_change_code: null,
-      password_change_expires_at: null,
+      reset_code: null,
+      reset_code_expires_at: null,
       must_change_password: false
     }).eq("id", user.id);
 

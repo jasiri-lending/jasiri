@@ -103,7 +103,7 @@ export const verifySupabaseToken = async (req, res, next) => {
         // This ensures the session hasn't been revoked/expired in our DB even if the JWT is still valid.
         const { data: userData, error: dbError } = await supabaseAdmin
             .from("users")
-            .select("id, email, role, tenant_id, session_expires_at")
+            .select("id, email, role, tenant_id, session_expires_at, status, locked_reason")
             .or(`id.eq.${authUserId},auth_id.eq.${authUserId}`)
             .single();
 
@@ -113,6 +113,16 @@ export const verifySupabaseToken = async (req, res, next) => {
                 success: false,
                 error: "User account verification failed",
                 code: "USER_NOT_FOUND"
+            });
+        }
+
+        // 🔒 ACCOUNT LOCKING: Check if user is locked
+        if (userData.status === 'LOCKED') {
+            console.warn(`🔒 [AUTH] Locked user attempt: ${authUserId}. Reason: ${userData.locked_reason}`);
+            return res.status(403).json({
+                success: false,
+                error: `Your account has been locked. Reason: ${userData.locked_reason || 'Administrative action'}`,
+                code: "ACCOUNT_LOCKED"
             });
         }
         

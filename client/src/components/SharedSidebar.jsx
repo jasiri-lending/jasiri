@@ -411,7 +411,7 @@ const SharedSidebar = () => {
           </div>
 
           <nav className="flex-1 overflow-y-auto px-2 py-4 space-y-1.5 custom-scrollbar">
-            {navigation.map((item) => {
+            {navigation.map((item, index) => {
               const isParentActive = item.children?.some(
                 (child) => location.pathname === child.href || location.pathname.startsWith(child.href + "/")
               );
@@ -419,34 +419,34 @@ const SharedSidebar = () => {
               return (
                 <div key={item.name}>
                   {item.children ? (
-                    <div>
-                      <div
+                    <div className="mb-1">
+                      <button
                         onClick={() => toggleItem(item.name)}
-                        className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 border-l-[3px] ${
-                          isParentActive
-                            ? "border-transparent text-brand-primary font-bold bg-transparent"
-                            : expandedItems[item.name]
-                            ? "border-transparent text-brand-primary font-bold bg-transparent"
-                            : "border-transparent text-slate-600 hover:bg-black/5 hover:border-black/10"
+                        className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                          isParentActive || expandedItems[item.name]
+                            ? "text-brand-primary"
+                            : "text-slate-700 hover:bg-black/5"
                         }`}
                       >
                         <div className="flex items-center">
-                          <item.icon className={`h-4 w-4 mr-3 shrink-0 transition-colors ${
+                          <item.icon className={`h-5 w-5 mr-3 shrink-0 transition-colors ${
                             (isParentActive || expandedItems[item.name]) ? "text-brand-primary" : "text-slate-500"
                           }`} />
-                          <span className={`text-sm tracking-tight truncate ${(isParentActive || expandedItems[item.name]) ? 'font-bold' : 'font-semibold'}`}>{item.name}</span>
+                          <span className="text-[13px] tracking-tight truncate font-semibold">
+                            {item.name}
+                          </span>
                         </div>
-                        <div className="transition-transform duration-200">
+                        <div className="transition-transform duration-300">
                           {expandedItems[item.name] ? (
-                            <ChevronDown className="h-3.5 w-3.5 text-brand-primary" />
+                            <ChevronDown className="h-4 w-4 text-brand-primary opacity-70" />
                           ) : (
-                            <ChevronRight className={`h-3.5 w-3.5 ${isParentActive ? 'text-brand-primary opacity-100' : 'opacity-40 group-hover:opacity-100'}`} />
+                            <ChevronRight className={`h-4 w-4 ${isParentActive ? 'text-brand-primary opacity-70' : 'text-slate-400 opacity-60 group-hover:opacity-100'}`} />
                           )}
                         </div>
-                      </div>
+                      </button>
 
                       {expandedItems[item.name] && (
-                        <div className="ml-4 pl-3 mt-1.5 space-y-1 border-l-2 border-slate-200 animate-in slide-in-from-top-1 duration-200">
+                        <div className="ml-5 pl-4 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
                           {item.children.map((child) => {
                             const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
                             return (
@@ -454,14 +454,14 @@ const SharedSidebar = () => {
                                 key={child.name}
                                 to={child.href}
                                 onClick={handleNavClick}
-                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] ${
+                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[12px] ${
                                   isChildActive
-                                    ? "text-brand-primary bg-brand-primary/10 font-bold shadow-sm ring-1 ring-brand-primary/20"
-                                    : "text-slate-500 hover:text-slate-900 hover:bg-black/5 font-medium"
+                                    ? "text-brand-primary bg-brand-primary/10 font-semibold"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-black/5 font-medium"
                                 }`}
                               >
-                                <child.icon className={`h-3.5 w-3.5 mr-2.5 shrink-0 transition-opacity duration-200 ${
-                                  isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-400 opacity-70 group-hover:opacity-100 group-hover:text-slate-600'
+                                <child.icon className={`h-4 w-4 mr-2.5 shrink-0 transition-opacity duration-300 ${
+                                  isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-500 opacity-70 group-hover:opacity-100'
                                 }`} />
                                 <span className="truncate">{child.name}</span>
                               </NavLink>
@@ -471,24 +471,32 @@ const SharedSidebar = () => {
                       )}
                     </div>
                   ) : (
-                    <NavLink
-                      to={item.href}
-                      onClick={handleNavClick}
-                      className={({ isActive }) =>
-                        `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 whitespace-nowrap border-l-[3px] ${
-                          isActive 
-                            ? "border-transparent text-brand-primary font-bold bg-transparent" 
-                            : "border-transparent text-slate-600 hover:bg-black/5 hover:border-black/10 font-semibold"
-                        }`
-                      }
-                    >
-                      {({ isActive }) => (
-                        <>
-                          <item.icon className={`h-4 w-4 mr-3 shrink-0 transition-colors ${isActive ? "text-brand-primary" : "text-slate-500"}`} />
-                          <span className="truncate">{item.name}</span>
-                        </>
-                      )}
-                    </NavLink>
+                    <div className="mb-1">
+                      <NavLink
+                        to={item.href}
+                        onClick={handleNavClick}
+                        className={({ isActive }) =>
+                          `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                            isActive 
+                              ? "text-brand-primary font-semibold" 
+                              : "text-slate-700 hover:bg-black/5 font-semibold"
+                          }`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <div className="flex items-center justify-center shrink-0 mr-3">
+                              <item.icon className={`h-5 w-5 transition-colors ${isActive ? "text-brand-primary" : "text-slate-500"}`} />
+                            </div>
+                            <span className="text-[13px] tracking-tight truncate">{item.name}</span>
+                          </>
+                        )}
+                      </NavLink>
+                    </div>
+                  )}
+                  {/* Horizontal Separator Line - Visible only between modules */}
+                  {index < navigation.length - 1 && (
+                    <div className="mx-4 my-1.5 border-b border-slate-300/80" />
                   )}
                 </div>
               );
@@ -515,97 +523,105 @@ const SharedSidebar = () => {
 
         <button
           onClick={toggleSidebar}
-          className={`p-1.5 rounded-lg border border-slate-200 transition-all duration-200 bg-white shadow-sm text-slate-400 hover:text-brand-primary ${isCollapsed ? "absolute left-1/2 -translate-x-1/2" : "absolute right-4"}`}
+          className={`p-1.5  transition-all duration-200   text-primary hover:text-brand-primary ${isCollapsed ? "absolute left-1/2 -translate-x-1/2" : "absolute right-4"}`}
         >
-          {isCollapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+          {isCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1.5 custom-scrollbar">
-        {navigation.map((item) => {
-          const isParentActive = item.children?.some(
-            (child) => location.pathname === child.href || location.pathname.startsWith(child.href + "/")
-          );
-          
-          return (
-            <div key={item.name}>
-              {item.children ? (
-                <div>
-                  <div
-                    onClick={() => !isCollapsed && toggleItem(item.name)}
-                    className={`group flex items-center justify-between px-3 py-2.5 rounded-lg cursor-pointer transition-all duration-200 border-l-[3px] ${
-                      isParentActive && !isCollapsed
-                        ? "border-transparent text-brand-primary font-bold bg-transparent"
-                        : expandedItems[item.name] && !isCollapsed
-                        ? "border-transparent text-brand-primary font-bold bg-transparent"
-                        : "border-transparent text-slate-600 hover:bg-black/5 hover:border-black/10"
-                    } ${isCollapsed ? "justify-center border-l-0" : ""}`}
-                  >
-                    <div className="flex items-center">
-                      <item.icon className={`h-4 w-4 shrink-0 transition-colors ${isCollapsed ? "mr-0" : "mr-3"} ${
-                        (isParentActive || expandedItems[item.name]) ? "text-brand-primary" : "text-slate-500"
-                      }`} />
-                      {!isCollapsed && <span className={`text-sm tracking-tight truncate ${(isParentActive || expandedItems[item.name]) ? 'font-bold' : 'font-semibold'}`}>{item.name}</span>}
-                    </div>
-                    {!isCollapsed && (
-                      <div className="transition-transform duration-200">
-                        {expandedItems[item.name] ? (
-                          <ChevronDown className="h-3.5 w-3.5 text-brand-primary" />
-                        ) : (
-                          <ChevronRight className={`h-3.5 w-3.5 ${isParentActive ? 'text-brand-primary opacity-100' : 'opacity-40 group-hover:opacity-100'}`} />
-                        )}
-                      </div>
-                    )}
-                  </div>
+      <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1.5 custom-scrollbar">            {navigation.map((item, index) => {
+              const isParentActive = item.children?.some(
+                (child) => location.pathname === child.href || location.pathname.startsWith(child.href + "/")
+              );
 
-                  {!isCollapsed && expandedItems[item.name] && (
-                    <div className="ml-4 pl-3 mt-1.5 space-y-1 border-l-2 border-slate-200 animate-in slide-in-from-top-1 duration-200">
-                      {item.children.map((child) => {
-                        const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
-                        return (
-                          <NavLink
-                            key={child.name}
-                            to={child.href}
-                            className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[13px] ${
-                              isChildActive
-                                ? "text-brand-primary bg-brand-primary/10 font-bold shadow-sm ring-1 ring-brand-primary/20"
-                                : "text-slate-500 hover:text-slate-900 hover:bg-black/5 font-medium"
-                            }`}
-                          >
-                            <child.icon className={`h-3.5 w-3.5 mr-2.5 shrink-0 transition-opacity duration-200 ${
-                              isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-400 opacity-70 group-hover:opacity-100 group-hover:text-slate-600'
-                            }`} />
-                            <span className="truncate">{child.name}</span>
-                          </NavLink>
-                        );
-                      })}
+              return (
+                <div key={item.name} className="relative">
+                  {item.children ? (
+                    <div className="mb-1">
+                      <button
+                        onClick={() => !isCollapsed && toggleItem(item.name)}
+                        className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                          (isParentActive || expandedItems[item.name]) && !isCollapsed
+                            ? "text-brand-primary"
+                            : "text-slate-700 hover:bg-black/5"
+                        } ${isCollapsed ? "justify-center" : ""}`}
+                      >
+                        <div className="flex items-center">
+                          <item.icon className={`h-5 w-5 shrink-0 transition-colors ${isCollapsed ? "mr-0" : "mr-3"} ${
+                            (isParentActive || expandedItems[item.name]) ? "text-brand-primary" : "text-slate-500"
+                          }`} />
+                          {!isCollapsed && (
+                            <span className="text-[13px] tracking-tight truncate font-semibold">
+                              {item.name}
+                            </span>
+                          )}
+                        </div>
+                        {!isCollapsed && (
+                          <div className="transition-transform duration-300">
+                            {expandedItems[item.name] ? (
+                              <ChevronDown className="h-4 w-4 text-brand-primary opacity-70" />
+                            ) : (
+                              <ChevronRight className={`h-4 w-4 ${isParentActive ? 'text-brand-primary opacity-70' : 'text-slate-400 opacity-60 group-hover:opacity-100'}`} />
+                            )}
+                          </div>
+                        )}
+                      </button>
+
+                      {!isCollapsed && expandedItems[item.name] && (
+                        <div className="ml-5 pl-4 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
+                          {item.children.map((child) => {
+                            const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
+                            return (
+                              <NavLink
+                                key={child.name}
+                                to={child.href}
+                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[12px] ${
+                                  isChildActive
+                                    ? "text-brand-primary bg-brand-primary/10 font-semibold"
+                                    : "text-slate-600 hover:text-slate-900 hover:bg-black/5 font-medium"
+                                }`}
+                              >
+                                <child.icon className={`h-4 w-4 mr-2.5 shrink-0 transition-opacity duration-300 ${
+                                  isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-500 opacity-70 group-hover:opacity-100'
+                                }`} />
+                                <span className="truncate">{child.name}</span>
+                              </NavLink>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
+                  ) : (
+                    <div className="mb-1">
+                      <NavLink
+                        to={item.href}
+                        className={({ isActive }) =>
+                          `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
+                            isActive 
+                              ? "text-brand-primary font-semibold" 
+                              : "text-slate-700 hover:bg-black/5 font-semibold"
+                          } ${isCollapsed ? "justify-center" : ""}`
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <div className={`flex items-center justify-center shrink-0 ${isCollapsed ? "mr-0" : "mr-3"}`}>
+                              <item.icon className={`h-5 w-5 transition-colors ${isActive ? "text-brand-primary" : "text-slate-500"}`} />
+                            </div>
+                            {!isCollapsed && <span className="text-[13px] tracking-tight truncate">{item.name}</span>}
+                          </>
+                        )}
+                      </NavLink>
+                    </div>
+                  )}
+                  {/* Horizontal Separator Line - Visible only between modules */}
+                  {index < navigation.length - 1 && !isCollapsed && (
+                    <div className="mx-4 my-1.5 border-b border-slate-300/80" />
                   )}
                 </div>
-              ) : (
-                <NavLink
-                  to={item.href}
-                  className={({ isActive }) =>
-                    `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 border-l-[3px] ${
-                      isActive 
-                        ? "border-transparent text-brand-primary font-bold bg-transparent" 
-                        : "border-transparent text-slate-600 hover:bg-black/5 hover:border-black/10 font-semibold"
-                    } ${isCollapsed ? "justify-center border-l-0" : ""}`
-                  }
-                >
-                  {({ isActive }) => (
-                    <>
-                      <div className={`flex items-center justify-center shrink-0 ${isCollapsed ? "mr-0" : "mr-3"}`}>
-                        <item.icon className={`h-4 w-4 transition-colors ${isActive ? "text-brand-primary" : "text-slate-500"}`} />
-                      </div>
-                      {!isCollapsed && <span className="text-sm tracking-tight truncate">{item.name}</span>}
-                    </>
-                  )}
-                </NavLink>
-              )}
-            </div>
-          );
-        })}
+              );
+            })}
+
       </nav>
 
       <style>{`

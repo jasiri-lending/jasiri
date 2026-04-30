@@ -40,12 +40,12 @@ const formatCurrency = (amount) => {
 const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
   <div className="relative">
     <div className="absolute left-3 top-1/2 -translate-y-1/2">
-      <Icon className="w-4 h-4 text-brand-primary" strokeWidth={2.4} />
+      <Icon className="w-4 h-4 text-primary" strokeWidth={2.4} />
     </div>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-white appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
+      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-gray-50 appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -63,7 +63,7 @@ const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
 
 // Custom Date Range Filter Component
 const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange, onApply }) => (
-  <div className="bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+  <div className="bg-gray-100 p-3 rounded-xl border border-gray-100 shadow-sm">
     <div className="flex items-center gap-2">
       <div className="flex-1">
         <label className="text-xs text-gray-500 mb-1 block">Start Date</label>
@@ -85,7 +85,7 @@ const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange,
       </div>
       <button
         onClick={onApply}
-        className="mt-5 px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-colors"
+        className="mt-5 px-2 py-1.5 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-colors"
       >
         Apply
       </button>
@@ -774,14 +774,11 @@ const OperationsDashboard = ({ userRole }) => {
         <div className="flex flex-col gap-4 border-b border-gray-200 pb-4">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-lg font-bold text-gray-600 tracking-tight">Operations Dashboard</h1>
-              <p className="text-sm text-gray-500 mt-1">Real-time overview of lending operations</p>
+              <h1 className="text-lg text-gray-600 tracking-tight">Operations Dashboard</h1>
+              <p className="text-xs text-gray-500 mt-1">Real-time overview of lending operations</p>
             </div>
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-2 text-xs font-medium text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100 shadow-sm mr-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                Live
-              </div>
+             
               <button
                 onClick={fetchRealData}
                 className="p-2 text-gray-500 hover:text-brand-primary hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200"
@@ -792,7 +789,7 @@ const OperationsDashboard = ({ userRole }) => {
           </div>
 
           {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-white p-3 rounded-xl border border-gray-100 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-gray-200 p-3 rounded-xl border border-gray-100 shadow-sm">
             <FilterSelectCompact
               icon={Home}
               value={selectedRegion}

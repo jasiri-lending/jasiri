@@ -32,7 +32,7 @@ import {
   Cell,
 } from "recharts";
 
-const COLORS = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
+const COLORS = ["#1E3A8A", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#ec4899"];
 
 const LeadInsights = () => {
   const [allLeads, setAllLeads] = useState([]);
@@ -205,7 +205,7 @@ const LeadInsights = () => {
       else counts[l.status]++;
     });
     return [
-      { name: "Cold", value: counts.Cold + counts.Warm + counts.Hot + counts.Converted, fill: "#2E5E99" }, // brand-primary (Blue)
+      { name: "Cold", value: counts.Cold + counts.Warm + counts.Hot + counts.Converted, fill: "#1E3A8A" }, // brand-primary (Blue)
       { name: "Warm", value: counts.Warm + counts.Hot + counts.Converted, fill: "#FACC15" }, // highlight (Yellow/Gold)
       { name: "Hot", value: counts.Hot + counts.Converted, fill: "#F97316" }, // Orange
       { name: "Converted", value: counts.Converted, fill: "#10B981" }, // accent (Green)
@@ -410,7 +410,7 @@ const LeadInsights = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* ── Conversion Funnel ── */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <FunnelIcon className="h-5 w-5 text-brand-primary" />
             <h3 className=" text-gray-600  text-sm ">Pipeline Funnel</h3>
@@ -433,7 +433,7 @@ const LeadInsights = () => {
         </div>
 
         {/* ── RO Leaderboard ── */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <TrophyIcon className="h-5 w-5 text-brand-primary" />
             <h3 className=" text-gray-600  text-sm ">Top Officers (Conv. Rate)</h3>
@@ -452,7 +452,7 @@ const LeadInsights = () => {
                   <div className="w-full h-2 bg-brand-surface rounded-full overflow-hidden">
                     <div className="bg-brand-primary h-full rounded-full transition-all duration-1000" style={{ width: `${ro.rate}%` }} />
                   </div>
-                  <div className="text-[10px] text-muted mt-1 uppercase tracking-tight font-semibold">{ro.converted} converted / {ro.total} total</div>
+                  <div className="text-xs text-slate-600 mt-1   font-semibold">{ro.converted} converted / {ro.total} total</div>
                 </div>
               </div>
             ))}
@@ -460,7 +460,7 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Lead Sources ── */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <GlobeAltIcon className="h-5 w-5 text-brand-primary" />
             <h3 className=" text-gray-600  text-sm">Source Distribution</h3>
@@ -481,7 +481,7 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Industry Distribution ── */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <GlobeAltIcon className="h-5 w-5 text-brand-primary" />
             <h3 className=" text-gray-600  text-sm ">Industry Distribution</h3>
@@ -504,7 +504,7 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Status Aging Heatmap (Simplified) ── */}
-        <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm">
+        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
           <div className="flex items-center gap-2 mb-6">
             <ClockIcon className="h-5 w-5 text-brand-primary" />
             <h3 className="font-semibold text-gray-600  text-sm ">Aging Tiers (Counts)</h3>
