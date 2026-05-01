@@ -5,22 +5,22 @@ import {
   PencilIcon,
   TrashIcon,
   FunnelIcon,
-  XMarkIcon,
-  UserCircleIcon,
-  BuildingOfficeIcon,
-  MapPinIcon,
   UserPlusIcon,
-  ChevronUpDownIcon,
   ArrowPathIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
-  UsersIcon,
   CloudArrowUpIcon,
   XCircleIcon,
   LockClosedIcon,
-  LockOpenIcon
+  LockOpenIcon,
+  ArrowDownTrayIcon,
+  ChevronDownIcon,
 } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import { Document, Packer, Paragraph, TextRun, Table, TableRow, TableCell, WidthType, AlignmentType } from 'docx';
+import { saveAs } from 'file-saver';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
@@ -523,7 +523,121 @@ export default function AllUsers() {
 
   const getRoleLabel = (roleValue) => {
     const role = availableRoles.find(r => r.value === roleValue) || defaultRoles.find(r => r.value === roleValue);
-    return role?.label || roleValue.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    return role?.label || (roleValue || '').split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+  };
+
+  // ── Export helpers ────────────────────────────────────────
+  const [showExportMenu, setShowExportMenu] = useState(false);
+
+  const getTenant = () => {
+    try { return JSON.parse(localStorage.getItem('tenant')) || {}; } catch { return {}; }
+  };
+
+  // Converts company name to a URL-safe slug, e.g. "Fanikisha Ltd" → "fanikisha"
+  const getTenantSlug = () => {
+    const tenant = getTenant();
+    const name = tenant.company_name || tenant.name || 'company';
+    return name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')  // replace non-alphanumeric runs with -
+      .replace(/^-+|-+$/g, '');     // trim leading/trailing dashes
+  };
+
+  const buildExportRows = () =>
+    filteredData.map(u => ({
+      'Full Name':   u.full_name || '',
+      'Email':       u.email || '',
+      'Phone':       u.phone || '',
+      'Role':        getRoleLabel(u.role),
+      'Branch':      u.branches?.name || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
+      'Region':      u.regions?.name  || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
+      'Status':      u.status || 'ACTIVE',
+      'Joined':      u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
+    }));
+
+  const exportCSV = () => {
+    const rows = buildExportRows();
+    if (!rows.length) return alert('No data to export');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Users');
+    XLSX.writeFile(wb, `${getTenantSlug()}-users.csv`);
+    setShowExportMenu(false);
+  };
+
+  const exportExcel = () => {
+    const tenant = getTenant();
+    const rows = buildExportRows();
+    if (!rows.length) return alert('No data to export');
+    const ws = XLSX.utils.json_to_sheet(rows);
+    // Company header
+    XLSX.utils.sheet_add_aoa(ws, [[tenant.company_name || 'User Report'], [`Generated: ${new Date().toLocaleString()}`]], { origin: 'A1' });
+    XLSX.utils.sheet_add_json(ws, rows, { origin: 'A4', skipHeader: false });
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Users');
+    XLSX.writeFile(wb, `${getTenantSlug()}-users.xlsx`);
+    setShowExportMenu(false);
+  };
+
+  const exportPDF = () => {
+    const tenant = getTenant();
+    const rows = buildExportRows();
+    if (!rows.length) return alert('No data to export');
+    const doc = new jsPDF({ orientation: 'landscape' });
+    doc.setFontSize(13);
+    doc.text(`${tenant.company_name || 'Company'} — User Management Report`, 14, 15);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString('en-KE', { dateStyle: 'medium', timeStyle: 'short' })}  |  Total: ${rows.length} users`, 14, 22);
+    autoTable(doc, {
+      startY: 27,
+      head: [Object.keys(rows[0])],
+      body: rows.map(r => Object.values(r)),
+      styles: { fontSize: 7, cellPadding: 2 },
+      headStyles: { fillColor: [37, 99, 235], fontSize: 7, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248, 250, 252] },
+    });
+    doc.save(`${getTenantSlug()}-users.pdf`);
+    setShowExportMenu(false);
+  };
+
+  const exportWord = async () => {
+    const tenant = getTenant();
+    const rows = buildExportRows();
+    if (!rows.length) return alert('No data to export');
+    const headers = Object.keys(rows[0]);
+    const docx = new Document({
+      sections: [{
+        children: [
+          new Paragraph({
+            children: [new TextRun({ text: tenant.company_name || 'User Report', bold: true, size: 28 })],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({
+            children: [new TextRun({ text: `Generated: ${new Date().toLocaleString()}  |  Total: ${rows.length} users`, size: 18, color: '666666' })],
+            alignment: AlignmentType.CENTER,
+          }),
+          new Paragraph({ text: '' }),
+          new Table({
+            width: { size: 100, type: WidthType.PERCENTAGE },
+            rows: [
+              new TableRow({
+                children: headers.map(h => new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 16 })] })],
+                })),
+              }),
+              ...rows.map(row => new TableRow({
+                children: headers.map(h => new TableCell({
+                  children: [new Paragraph({ children: [new TextRun({ text: String(row[h] ?? ''), size: 16 })] })],
+                })),
+              })),
+            ],
+          }),
+        ],
+      }],
+    });
+    const blob = await Packer.toBlob(docx);
+    saveAs(blob, `${getTenantSlug()}-users.docx`);
+    setShowExportMenu(false);
   };
 
   if (loading) {
@@ -551,6 +665,24 @@ export default function AllUsers() {
                 <button onClick={() => setShowBulkModal(true)} className="flex items-center gap-2 px-5 py-3 border border-gray-300 text-slate-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CloudArrowUpIcon className="h-3 w-3" /><span className="text-xs whitespace-nowrap">Bulk Create</span></button>
                 <button onClick={() => openModal('user')} className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"><UserPlusIcon className="h-3 w-3" /><span className="text-xs whitespace-nowrap">Add User</span></button>
                 <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${showFilters || filterRole || filterRegion || filterBranch ? 'bg-accent/10 border-accent text-accent' : 'border-gray-300 hover:bg-gray-50 text-slate-700'}`}><FunnelIcon className="h-3 w-3" /><span className="text-xs text-slate-600 font-semibold">Filters</span></button>
+                {/* Export dropdown */}
+                <div className="relative">
+                  <button
+                    onClick={() => setShowExportMenu(v => !v)}
+                    className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-slate-700 transition-colors"
+                  >
+                    <ArrowDownTrayIcon className="h-3 w-3" />
+                    <span className="text-xs font-semibold whitespace-nowrap">Export</span>
+                    <ChevronDownIcon className="h-3 w-3" />
+                  </button>
+                  {showExportMenu && (
+                    <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-100 rounded-xl shadow-lg z-30 py-1">
+                      {[['CSV', exportCSV], ['Excel (.xlsx)', exportExcel], ['PDF', exportPDF], ['Word (.docx)', exportWord]].map(([label, fn]) => (
+                        <button key={label} onClick={fn} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors">{label}</button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
             {showFilters && (
@@ -589,35 +721,79 @@ export default function AllUsers() {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">User</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Contact</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Role</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Branch/Region</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Email</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Phone</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Role</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Branch</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Region</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody className="bg-gray-50/50 divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {filteredData.map((user) => (
                   <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center">
-                        <div className="h-10 w-10 flex-shrink-0"><div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center"><span className="text-primary font-semibold text-sm">{user.full_name?.charAt(0)?.toUpperCase()}</span></div></div>
-                        <div className="ml-4"><div className="text-sm text-gray-600 font-bold">{user.full_name}</div><div className="text-sm text-gray-500">{user.email}</div></div>
+                    {/* Name */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-8 w-8 flex-shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
+                          <span className="text-primary font-semibold text-xs">{user.full_name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                        </div>
+                        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">{user.full_name || '—'}</span>
                       </div>
                     </td>
-                    <td className="px-6 py-4"><div className="text-sm text-gray-600">{user.phone || 'N/A'}</div></td>
-                    <td className="px-6 py-4"><span className={`px-3 py-1.5 inline-flex text-xs font-semibold rounded-full ${getRoleColorClass(user.role)}`}>{getRoleLabel(user.role)}</span></td>
-                    <td className="px-6 py-4 text-sm text-gray-700">{roleRequiresBranchRegion(user.role) ? `${user.branches?.name || 'N/A'} / ${user.regions?.name || 'N/A'}` : 'All Access'}</td>
-                    <td className="px-6 py-4"><span className={`px-2.5 py-1 inline-flex text-[10px] font-bold uppercase rounded-md ${user.status === 'LOCKED' ? 'bg-red-100 text-red-700' : 'bg-emerald-100 text-emerald-700'}`}>{user.status || 'ACTIVE'}</span></td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center space-x-3">
-                        <button onClick={() => openModal('user', user)} className="text-primary hover:text-blue-800 p-1.5 rounded hover:bg-blue-50" title="Edit"><PencilIcon className="h-5 w-5" /></button>
-                        <button onClick={() => handleDelete('user', user.id)} className="text-rose-600 hover:text-rose-800 p-1.5 rounded hover:bg-rose-50" title="Delete"><TrashIcon className="h-5 w-5" /></button>
+                    {/* Email */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500">{user.email || '—'}</span>
+                    </td>
+                    {/* Phone */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">{user.phone || '—'}</span>
+                    </td>
+                    {/* Role */}
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 inline-flex text-[10px] font-semibold rounded-full whitespace-nowrap ${getRoleColorClass(user.role)}`}>
+                        {getRoleLabel(user.role)}
+                      </span>
+                    </td>
+                    {/* Branch */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {roleRequiresBranchRegion(user.role) ? (user.branches?.name || '—') : <span className="text-gray-300">All</span>}
+                      </span>
+                    </td>
+                    {/* Region */}
+                    <td className="px-4 py-3">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        {roleRequiresBranchRegion(user.role) ? (user.regions?.name || '—') : <span className="text-gray-300">All</span>}
+                      </span>
+                    </td>
+                    {/* Status */}
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wide rounded-md whitespace-nowrap ${
+                        user.status === 'LOCKED'   ? 'bg-red-50 text-red-600 border border-red-100' :
+                        user.status === 'DISABLED' ? 'bg-gray-100 text-gray-500 border border-gray-200' :
+                        'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                      }`}>{user.status || 'ACTIVE'}</span>
+                    </td>
+                    {/* Actions */}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1.5">
+                        <button onClick={() => openModal('user', user)} className="text-primary hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors" title="Edit">
+                          <PencilIcon className="h-4 w-4" />
+                        </button>
+                        <button onClick={() => handleDelete('user', user.id)} className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition-colors" title="Delete">
+                          <TrashIcon className="h-4 w-4" />
+                        </button>
                         {user.status === 'LOCKED' ? (
-                          <button onClick={() => handleUnlock(user)} className="text-emerald-600 hover:text-emerald-800 p-1.5 rounded hover:bg-emerald-50" title="Unlock"><LockOpenIcon className="h-5 w-5" /></button>
+                          <button onClick={() => handleUnlock(user)} className="text-emerald-600 hover:text-emerald-800 p-1 rounded hover:bg-emerald-50 transition-colors" title="Unlock account">
+                            <LockOpenIcon className="h-4 w-4" />
+                          </button>
                         ) : (
-                          <button onClick={() => navigate(`/admin/users/${user.id}/lock`)} className="text-amber-600 hover:text-amber-800 p-1.5 rounded hover:bg-amber-50" title="Lock & Transfer"><LockClosedIcon className="h-5 w-5" /></button>
+                          <button onClick={() => navigate(`/admin/users/${user.id}/lock`)} className="text-amber-500 hover:text-amber-700 p-1 rounded hover:bg-amber-50 transition-colors" title="Lock & Transfer">
+                            <LockClosedIcon className="h-4 w-4" />
+                          </button>
                         )}
                       </div>
                     </td>
@@ -625,7 +801,9 @@ export default function AllUsers() {
                 ))}
               </tbody>
             </table>
-            {filteredData.length === 0 && <div className="text-center py-16 text-gray-500">No users found</div>}
+            {filteredData.length === 0 && (
+              <div className="text-center py-16 text-gray-400 text-sm">No users found</div>
+            )}
           </div>
         </div>
       </div>
