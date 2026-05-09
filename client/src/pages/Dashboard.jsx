@@ -466,7 +466,7 @@ const CustomerStatBox = ({
   bgClassName = "bg-white/80",
 }) => (
   <div
-    className={`p-5 rounded-2xl ${bgClassName} backdrop-blur-sm border border-slate-200 relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 group`}
+    className={`p-5 rounded-2xl ${bgClassName} backdrop-blur-sm border border-slate-300 relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 group`}
   >
     <div className="absolute inset-0 opacity-[0.10] group-hover:opacity-[0.05] transition-opacity">
       <WavesPattern />
