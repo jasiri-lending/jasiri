@@ -299,26 +299,26 @@ const StatCard = ({
   bgColor = COLORS.surface,
 }) => (
   <div
-    className="p-5 rounded-xl shadow-sm relative overflow-hidden group bg-white border border-slate-200"
+    className="p-4 rounded-xl shadow-sm relative overflow-hidden group bg-white border border-slate-200"
   >
     <FinancialGridPattern />
-    <div className="relative z-10 space-y-3">
-      <div className="flex items-center gap-3">
+    <div className="relative z-10 space-y-2">
+      <div className="flex items-center gap-2.5">
         {Icon && (
-          <div className="p-2 transition-transform group-hover:scale-110" style={{ color }}>
-            <Icon size={20} />
+          <div className="p-1.5 transition-transform group-hover:scale-110" style={{ color }}>
+            <Icon size={18} />
           </div>
         )}
-        <div className="text-xs font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">{label}</div>
+        <div className="text-[11px] font-bold text-slate-600 group-hover:text-slate-800 transition-colors">{label}</div>
       </div>
 
       <div className="h-px bg-slate-100 w-full" />
 
       <div className="flex flex-col">
         {subtext && (
-          <div className="text-2xl font-black tracking-tight" style={{ color: COLORS.authority }}>{subtext}</div>
+          <div className="text-xl font-black tracking-tight" style={{ color: COLORS.authority }}>{subtext}</div>
         )}
-        <div className="text-sm font-bold opacity-60 mt-1" style={{ color }}>
+        <div className="text-xs font-bold opacity-60 mt-0.5" style={{ color }}>
           {value}
         </div>
       </div>
@@ -490,7 +490,7 @@ const PendingActionCard = ({
 }) => (
   <div
     onClick={onClick}
-    className={`group p-6 rounded-3xl cursor-pointer ${bgClassName} border border-slate-300 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center justify-between gap-4`}
+    className={`group p-6 rounded-3xl cursor-pointer ${bgClassName} border border-slate-200 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center justify-between gap-4`}
   >
     <div className="relative z-10 flex-grow">
       <div className="flex items-center gap-4 mb-4">
@@ -498,11 +498,11 @@ const PendingActionCard = ({
           style={{ backgroundColor: `${color}20`, color }}>
           <Icon className="w-4 h-4" />
         </div>
-        <div className="text-2xl font-semibold font-mono " style={{ color }}>
+        <div className="text-2xl font-black font-mono " style={{ color }}>
           {value}
         </div>
       </div>
-      <div className="text-[10px]  text-slate-500 group-hover:text-slate-700 transition-colors">
+      <div className="text-[10px] font-semibold text-slate-500 group-hover:text-slate-700 transition-colors">
         {label}
       </div>
     </div>
@@ -1674,29 +1674,29 @@ const Dashboard = () => {
                 <StatCard
                   icon={Database}
                   label="Total Loans"
-                  value={dashboardData.disbursements.total.toLocaleString()}
+                  value={`${dashboardData.disbursements.total.toLocaleString()} Loans`}
                   subtext={formatCurrency(dashboardData.disbursements.totalAmount)}
                   color={COLORS.authority}
                 />
                 <StatCard
                   icon={Calendar}
                   label="Today"
-                  value={dashboardData.disbursements.today.toLocaleString()}
+                  value={`${dashboardData.disbursements.today.toLocaleString()} Loans`}
                   subtext={formatCurrency(dashboardData.disbursements.todayAmount)}
                   color={COLORS.success}
                 />
                 <StatCard
                   icon={CalendarCheck}
                   label="This Month"
-                  value={dashboardData.disbursements.thisMonth.toLocaleString()}
+                  value={`${dashboardData.disbursements.thisMonth.toLocaleString()} Loans`}
                   subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
                   color={COLORS.primary}
                 />
                 <StatCard
                   icon={TrendingUp}
                   label="MTD Disbursement"
-                  value={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
-                  subtext={`${dashboardData.disbursements.thisMonth}`}
+                  value={`${dashboardData.disbursements.thisMonth} Loans`}
+                  subtext={formatCurrency(dashboardData.disbursements.thisMonthAmount)}
                   color={COLORS.secondary}
                 />
                 <StatCard
@@ -1711,7 +1711,7 @@ const Dashboard = () => {
                 <StatCard
                   icon={Briefcase}
                   label="YTD Disbursement"
-                  value={dashboardData.disbursements.ytd.toLocaleString()}
+                  value={`${dashboardData.disbursements.ytd.toLocaleString()} Loans`}
                   subtext={formatCurrency(dashboardData.disbursements.ytdAmount)}
                   color={COLORS.secondary}
                 />
@@ -1815,13 +1815,13 @@ const Dashboard = () => {
                   <CustomerStatBox
                     value={dashboardData.customers.newToday.toLocaleString()}
                     label="New Customers Today"
-                    color="#1D4ED8"
+                    color="#1E3A8A"
                     bgClassName="bg-blue-50/80"
                   />
                   <CustomerStatBox
                     value={dashboardData.customers.newMonth.toLocaleString()}
                     label="New This Month"
-                    color="#7C3AED"
+                    color="#2E5E99"
                     bgClassName="bg-violet-50/80"
                   />
                 </div>
@@ -1829,71 +1829,71 @@ const Dashboard = () => {
             </div>
           </div>
         </section>
+
+        {/* Section 6: Pending Actions */}
+        <section className="relative">
+          <SectionHeader icon={Clock} title="Critical Tasks & Alerts" />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 relative z-10">
+            {loading ? (
+              <>
+                {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
+              </>
+            ) : (
+              <>
+                <PendingActionCard
+                  icon={FileCheck}
+                  value={dashboardData.pending.disbursement}
+                  label="Pending Disbursement"
+                  color="#0D9488"
+                  bgClassName="bg-teal-50/50"
+                  onClick={() => navigate("/loaning/pending-disbursement")}
+                />
+                <PendingActionCard
+                  icon={ThumbsUp}
+                  value={dashboardData.pending.loanBM}
+                  label="BM Loan Approvals"
+                  color="#B45309"
+                  bgClassName="bg-amber-50/50"
+                  onClick={() => navigate("/loaning/pending-branch-manager")}
+                />
+                <PendingActionCard
+                  icon={ThumbsUp}
+                  value={dashboardData.pending.loanRM}
+                  label="RM Loan Approvals"
+                  color="#4338CA"
+                  bgClassName="bg-indigo-50/50"
+                  onClick={() => navigate("/loaning/pending-regional-manager")}
+                />
+                <PendingActionCard
+                  icon={PhoneCall}
+                  value={dashboardData.pending.customerCallbacks}
+                  label="Pending Callbacks"
+                  color="#15803D"
+                  bgClassName="bg-emerald-50/50"
+                  onClick={() => navigate("/registry/callbacks-pending")}
+                />
+                <PendingActionCard
+                  icon={UserCog}
+                  value={dashboardData.pending.customerBM}
+                  label="BM Reg. Approvals"
+                  color="#C2410C"
+                  bgClassName="bg-orange-50/50"
+                  onClick={() => navigate("/registry/bm-pending")}
+                />
+                <PendingActionCard
+                  icon={Building}
+                  value={dashboardData.pending.customerHQ}
+                  label="HQ Review Queue"
+                  color="#B91C1C"
+                  bgClassName="bg-rose-50/50"
+                  onClick={() => navigate("/registry/hq-pending")}
+                />
+              </>
+            )}
+          </div>
+        </section>
       </div>
-
-      {/* Section 6: Pending Actions */}
-      <section className="relative">
-        <SectionHeader icon={Clock} title="Critical Tasks & Alerts" />
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 relative z-10">
-          {loading ? (
-            <>
-              {[...Array(6)].map((_, i) => <SkeletonCard key={i} />)}
-            </>
-          ) : (
-            <>
-              <PendingActionCard
-                icon={FileCheck}
-                value={dashboardData.pending.disbursement}
-                label="Pending Disbursement"
-                color="#0D9488"
-                bgClassName="bg-teal-50/50"
-                onClick={() => navigate("/loaning/pending-disbursement")}
-              />
-              <PendingActionCard
-                icon={ThumbsUp}
-                value={dashboardData.pending.loanBM}
-                label="BM Loan Approvals"
-                color="#B45309"
-                bgClassName="bg-amber-50/50"
-                onClick={() => navigate("/loaning/pending-branch-manager")}
-              />
-              <PendingActionCard
-                icon={ThumbsUp}
-                value={dashboardData.pending.loanRM}
-                label="RM Loan Approvals"
-                color="#4338CA"
-                bgClassName="bg-indigo-50/50"
-                onClick={() => navigate("/loaning/pending-regional-manager")}
-              />
-              <PendingActionCard
-                icon={PhoneCall}
-                value={dashboardData.pending.customerCallbacks}
-                label="Pending Callbacks"
-                color="#15803D"
-                bgClassName="bg-emerald-50/50"
-                onClick={() => navigate("/registry/callbacks-pending")}
-              />
-              <PendingActionCard
-                icon={UserCog}
-                value={dashboardData.pending.customerBM}
-                label="BM Reg. Approvals"
-                color="#C2410C"
-                bgClassName="bg-orange-50/50"
-                onClick={() => navigate("/registry/bm-pending")}
-              />
-              <PendingActionCard
-                icon={Building}
-                value={dashboardData.pending.customerHQ}
-                label="HQ Review Queue"
-                color="#B91C1C"
-                bgClassName="bg-rose-50/50"
-                onClick={() => navigate("/registry/hq-pending")}
-              />
-            </>
-          )}
-        </div>
-      </section>
 
       {/* Footer */}
       <div className="mt-8 pt-6 border-t border-gray-200">
@@ -1901,18 +1901,18 @@ const Dashboard = () => {
           <div className="flex items-center gap-3 mb-4 md:mb-0">
             <div className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span className="text-sm text-gray-600">System Status: Operational</span>
+              <span className="text-xs text-gray-600">System Status: Operational</span>
             </div>
             <div className="h-4 w-px bg-gray-300"></div>
             <button
               onClick={fetchAllData}
-              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-700 transition-colors"
+              className="flex items-center gap-2 text-xs text-brand-primary hover:text-brand-secondary transition-colors"
             >
               <RefreshCw size={14} />
               Refresh Data
             </button>
           </div>
-          <div className="text-sm text-gray-500">
+          <div className="text-xs text-gray-500">
             Data as of {lastUpdated.toLocaleDateString('en-KE', {
               weekday: 'long',
               year: 'numeric',
