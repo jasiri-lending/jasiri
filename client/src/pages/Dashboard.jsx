@@ -490,13 +490,13 @@ const PendingActionCard = ({
 }) => (
   <div
     onClick={onClick}
-    className={`group p-6 rounded-3xl cursor-pointer ${bgClassName} border border-slate-200 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center justify-between gap-4`}
+    className={`group p-6 rounded-3xl cursor-pointer ${bgClassName} border border-slate-300 relative overflow-hidden transition-all duration-300 hover:shadow-lg hover:-translate-y-1 flex items-center justify-between gap-4`}
   >
     <div className="relative z-10 flex-grow">
       <div className="flex items-center gap-4 mb-4">
-        <div className="w-12 h-12 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm"
+        <div className="w-6 h-6 rounded-2xl flex items-center justify-center transition-all group-hover:scale-110 shadow-sm"
           style={{ backgroundColor: `${color}20`, color }}>
-          <Icon className="w-6 h-6" />
+          <Icon className="w-4 h-4" />
         </div>
         <div className="text-2xl font-semibold font-mono " style={{ color }}>
           {value}
