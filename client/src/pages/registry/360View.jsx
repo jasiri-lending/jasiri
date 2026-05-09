@@ -69,6 +69,33 @@ const Skeleton360 = () => (
   </div>
 );
 
+// ─── Pagination ──────────────────────────────────────────────────────────────
+const PAGE_SIZE = 50;
+
+const PaginationBar = ({ currentPage, totalPages, onPageChange, totalItems }) => {
+  if (totalPages <= 1) return null;
+  const start = (currentPage - 1) * PAGE_SIZE + 1;
+  const end = Math.min(currentPage * PAGE_SIZE, totalItems);
+  return (
+    <div className="flex items-center justify-between pt-3 mt-3 border-t border-gray-100">
+      <span className="text-xs text-gray-500">Showing {start}–{end} of {totalItems}</span>
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => onPageChange(currentPage - 1)}
+          disabled={currentPage === 1}
+          className="px-3 py-1 text-xs font-semibold bg-brand-primary text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+        >← Prev</button>
+        <span className="text-xs text-gray-500 font-medium">{currentPage} / {totalPages}</span>
+        <button
+          onClick={() => onPageChange(currentPage + 1)}
+          disabled={currentPage === totalPages}
+          className="px-3 py-1 text-xs font-semibold bg-brand-primary text-white rounded-lg disabled:opacity-40 disabled:cursor-not-allowed hover:opacity-90 transition-opacity"
+        >Next →</button>
+      </div>
+    </div>
+  );
+};
+
 // ─── Tenant SMS Config Cache ───────────────────────────────────────────────
 const _smsConfigCache = new Map();
 
@@ -197,6 +224,16 @@ const Customer360View = () => {
   
   // Refund states
   const [showRefundModal, setShowRefundModal] = useState(false);
+
+  // SMS compose form toggle
+  const [showSmsForm, setShowSmsForm] = useState(false);
+
+  // Pagination states (50 items per page)
+  const [repayPage, setRepayPage] = useState(1);
+  const [walletPage, setWalletPage] = useState(1);
+  const [mpesaPage, setMpesaPage] = useState(1);
+  const [interactionPage, setInteractionPage] = useState(1);
+  const [ptpPage, setPtpPage] = useState(1);
 
   // Promised to Pay states
   const [ptps, setPtps] = useState([]);
@@ -639,8 +676,34 @@ const Customer360View = () => {
     return (
       <div className="space-y-6 pr-2">
         {/* Compact Customer Profile Card */}
-        <div className="bg-gray-300 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
-          <div className="p-6">
+        <div className="relative bg-white backdrop-blur-sm border border-white/20 rounded-sm shadow-sm overflow-hidden">
+          {/* Decorative SVG pattern background */}
+          <svg
+            className="absolute inset-0 w-full h-full opacity-[0.045] pointer-events-none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-hidden="true"
+          >
+            <defs>
+              <pattern id="money-pattern" x="0" y="0" width="80" height="80" patternUnits="userSpaceOnUse">
+                {/* Wavy line */}
+                <path d="M0 40 Q10 30 20 40 Q30 50 40 40 Q50 30 60 40 Q70 50 80 40" stroke="#1e3a5f" strokeWidth="1.2" fill="none" />
+                <path d="M0 60 Q10 50 20 60 Q30 70 40 60 Q50 50 60 60 Q70 70 80 60" stroke="#1e3a5f" strokeWidth="1.2" fill="none" />
+                <path d="M0 20 Q10 10 20 20 Q30 30 40 20 Q50 10 60 20 Q70 30 80 20" stroke="#1e3a5f" strokeWidth="1.2" fill="none" />
+                {/* Dollar sign */}
+                <text x="6" y="18" fontFamily="serif" fontSize="11" fill="#1e3a5f">$</text>
+                {/* Percent */}
+                <text x="46" y="38" fontFamily="serif" fontSize="10" fill="#1e3a5f">%</text>
+                {/* KES symbol */}
+                <text x="26" y="58" fontFamily="serif" fontSize="9" fill="#1e3a5f">₭</text>
+                {/* Coin circle */}
+                <circle cx="68" cy="14" r="5" stroke="#1e3a5f" strokeWidth="1" fill="none" />
+                <text x="65" y="18" fontFamily="serif" fontSize="7" fill="#1e3a5f">¢</text>
+              </pattern>
+            </defs>
+            <rect width="100%" height="100%" fill="url(#money-pattern)" />
+          </svg>
+
+          <div className="relative p-6">
             <div className="flex items-start gap-6">
               {/* Left: Passport Photo and Basic Info */}
               <div className="flex-shrink-0 w-full md:w-56">
@@ -660,26 +723,26 @@ const Customer360View = () => {
                     )}
                   </div>
 
-                  <div className="mt-5 w-full bg-white/80 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
-                    <h2 className="  text-slate-600 text-center ">
+                  <div className="mt-5 w-full bg-muted/50 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
+                    <h2 className="  text-slate-600 text-sm text-center ">
                       {customer.prefix} {customer.Firstname} {customer.Surname}
                     </h2>
 
                     <div className="mt-3 space-y-2 text-center">
                       <div className="flex items-center justify-center gap-2 bg-slate-100/80 hover:bg-slate-100 py-1.5 px-3 rounded-xl transition-colors">
                         <PhoneIcon className="h-4 w-4 text-brand-primary" />
-                        <span className="text-xs font-bold text-slate-600">{customer.mobile}</span>
+                        <span className="text-xs font-semibold text-slate-600">{customer.mobile}</span>
                       </div>
                       <div className="flex items-center justify-center gap-2 bg-slate-100/80 hover:bg-slate-100 py-1.5 px-3 rounded-xl transition-colors">
                         <IdentificationIcon className="h-4 w-4 text-brand-primary" />
-                        <span className="text-xs font-bold text-slate-600">ID: {customer.id_number}</span>
+                        <span className="text-xs font-semibold text-slate-600">ID: {customer.id_number}</span>
                       </div>
                     </div>
 
                     <div className="mt-4 flex flex-wrap gap-1 justify-center border-t border-slate-100 pt-3">
                       <span
-                        className={`inline-flex px-3 py-1.5 text-[10px] font-black uppercase tracking-widest rounded-xl border shadow-sm ${customer.status === "approved"
-                          ? "bg-accent/10 text-accent border-accent/20"
+                        className={`inline-flex px-3 py-1.5 text-[8px] font-black  rounded-xl border shadow-sm ${customer.status === "approved"
+                          ? "bg-accent/10 text-green-600 border-accent/20"
                           : customer.status === "bm_review"
                             ? "bg-yellow-50 text-yellow-700 border-yellow-200"
                             : customer.status === "rejected"
@@ -697,14 +760,14 @@ const Customer360View = () => {
               {/* Right: Financial Details - More Compact */}
               <div className="flex-1">
                 {/* Global Wallet Info */}
-                <div className="mb-4 bg-blue-50 border-blue-200 border rounded-2xl p-4 text-center shadow-sm flex items-center justify-between">
+                <div className="mb-4 bg-transparent border-slate-200 border rounded-2xl p-4 text-center shadow-sm flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="bg-blue-100 p-2 rounded-full">
-                      <WalletIcon className="h-6 w-6 text-brand-primary" />
+                    <div className="bg-transparent p-2 rounded-full">
+                      <WalletIcon className="h-3 w-3 text-slate-600" />
                     </div>
-                    <span className="text-lg  text-brand-primary ">Wallet Balance</span>
+                    <span className="text-sm  text-slate-600 ">Wallet Balance</span>
                   </div>
-                  <span className="text-xl font-black text-brand-primary">{formatCurrency(walletBalance || 0)}</span>
+                  <span className="text-lg font-semibold text-green-600">{formatCurrency(walletBalance || 0)}</span>
                 </div>
 
                 {allLoans?.length === 0 ? (
@@ -721,7 +784,7 @@ const Customer360View = () => {
                       return (
                         <div key={loan.id} className="bg-white/60 border rounded-2xl p-4">
                           <div className="flex justify-between items-center mb-3 border-b pb-2">
-                            <h3 className="text-xs  text-600">
+                            <div className="text-xs  text-600">
                               Loan {index + 1}
                               <span className={`ml-2 inline-flex px-2 py-0.5 text-xs rounded-full border ${
                                 loan.repayment_state === 'completed' ? 'bg-green-50 text-green-700 border-green-200' : 
@@ -730,23 +793,23 @@ const Customer360View = () => {
                               }`}>
                                 {loan.repayment_state === 'completed' ? 'Completed' : loan.status}
                               </span>
-                            </h3>
-                            <span className="text-xs   text-gray-800">
+                            </div>
+                            <span className="text-xs   text-gray-600">
                               {new Date(loan.created_at).toLocaleDateString()}
                             </span>
                           </div>
 
                           <div className="grid grid-cols-2 lg:grid-cols-5 gap-2">
                             {[
-                              { label: "Principal", value: loan.scored_amount, icon: CreditCardIcon, color: "bg-indigo-50 border-indigo-100 text-indigo-600" },
-                              { label: "Interest", value: loan.total_interest, icon: ChartBarIcon, color: "bg-amber-50 border-amber-100 text-amber-600" },
-                              { label: "Payable", value: loan.total_payable, icon: DocumentTextIcon, color: "bg-emerald-50 border-emerald-100 text-emerald-600" },
-                              { label: "Paid", value: paid, icon: CheckCircleIcon, color: "bg-green-50 border-green-100 text-green-600" },
-                              { label: "Bal", value: outstanding, icon: ExclamationCircleIcon, color: "bg-rose-50 border-rose-100 text-rose-600" },
+                              { label: "Principal", value: loan.scored_amount, icon: CreditCardIcon, color: "bg-transparent border-indigo-100 text-indigo-600" },
+                              { label: "Interest", value: loan.total_interest, icon: ChartBarIcon, color: "bg-transparent border-amber-100 text-amber-600" },
+                              { label: "Payable", value: loan.total_payable, icon: DocumentTextIcon, color: "bg-transparent border-emerald-100 text-emerald-600" },
+                              { label: "Paid", value: paid, icon: CheckCircleIcon, color: "bg-transparent border-green-100 text-green-600" },
+                              { label: "Bal", value: outstanding, icon: ExclamationCircleIcon, color: "bg-transparent border-rose-100 text-rose-600" },
                             ].map((item, idx) => (
                               <div key={idx} className={`${item.color} border rounded-xl p-2 text-center shadow-sm`}>
-                                <p className="text-[9px] uppercase tracking-widest font-black mb-1 opacity-70 truncate">{item.label}</p>
-                                <p className="text-sm font-black truncate">{formatCurrency(item.value || 0).replace('KES ', '')}</p>
+                                <p className="text-[10px]  mb-1 opacity-70 truncate">{item.label}</p>
+                                <p className="text-sm font-semibold truncate">{formatCurrency(item.value || 0).replace('KES ', '')}</p>
                               </div>
                             ))}
                           </div>
@@ -761,7 +824,7 @@ const Customer360View = () => {
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                       <BuildingLibraryIcon className="h-4 w-4 text-brand-secondary" />
-                      <span className="text-xs font-semibold text-brand-primary">
+                      <span className="text-xs  text-brand-primary">
                         branch.{customer.branches?.name || "No branch assigned"}
                       </span>
                     </div>
@@ -782,38 +845,38 @@ const Customer360View = () => {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Personal Information - More Compact */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-base font-semibold text-slate-700 mb-3 flex items-center">
-              <IdentificationIcon className="h-4 w-4 mr-2 text-blue-600" />
+            <div className="text-sm font-semibold text-slate-600 mb-3 flex items-center">
+              <IdentificationIcon className="h-4 w-4 mr-2 text-brand-primary" />
               Personal Information
-            </h3>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Mobile</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-600">
                   {customer.mobile || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Alt Mobile</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-600">
                   {customer.alternative_mobile || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Gender</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-600">
                   {customer.gender || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Marital Status</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-600">
                   {customer.marital_status || "N/A"}
                 </p>
               </div>
               <div className="col-span-2">
                 <p className="text-xs text-gray-500 mb-1">Occupation</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-600">
                   {customer.occupation || "N/A"}
                 </p>
               </div>
@@ -822,32 +885,32 @@ const Customer360View = () => {
 
           {/* Address Information - More Compact */}
           <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-base font-semibold text-slate-700 mb-3 flex items-center">
-              <MapPinIcon className="h-4 w-4 mr-2 text-blue-600" />
+            <div className=" font-semibold text-slate-600 text-sm mb-3 flex items-center">
+              <MapPinIcon className="h-4 w-4 mr-2 text-brand-primary" />
               Address & Location
-            </h3>
+            </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-xs text-gray-500 mb-1">County</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.county || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Town</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.town || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Residence Status</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.residence_status || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Road</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.road || "N/A"}
                 </p>
               </div>
@@ -857,34 +920,34 @@ const Customer360View = () => {
 
         {/* Business Information - Conditional and Compact */}
         {customer.business_name && (
-          <div className="bg-white border border-gray-200 rounded-lg p-4">
-            <h3 className="text-base font-semibold text-slate-700 mb-3 flex items-center">
-              <BriefcaseIcon className="h-4 w-4 mr-2 text-blue-600" />
+          <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+            <div className="text-sm text-slate-600 mb-3 flex items-center">
+              <BriefcaseIcon className="h-4 w-4 mr-2 text-brand-primary" />
               Business Information
-            </h3>
+            </div>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               <div>
                 <p className="text-xs text-gray-500 mb-1">Business Name</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.business_name}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Business Type</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.business_type || "N/A"}
                 </p>
               </div>
               <div>
                 <p className="text-xs text-gray-500 mb-1">Location</p>
-                <p className="text-sm font-medium text-slate-700">
+                <p className="text-xs font-medium text-slate-700">
                   {customer.business_location || "N/A"}
                 </p>
               </div>
               {customer.daily_Sales && (
                 <div>
                   <p className="text-xs text-gray-500 mb-1">Daily Sales</p>
-                  <p className="text-sm font-medium text-slate-700">
+                  <p className="text-xs font-medium text-slate-700">
                     {formatCurrency(customer.daily_Sales)}
                   </p>
                 </div>
@@ -903,32 +966,32 @@ const Customer360View = () => {
           const installments = loanInstallments.filter(i => i.loan_id === loan.id);
           return (
             <div key={loan.id} className="bg-white/40 border border-gray-200 rounded-2xl p-6 shadow-sm mb-6">
-              <h3 className="text-xl font-black text-slate-700 uppercase tracking-tight mb-4">Loan {index + 1} - {loan.product_name || loan.product}</h3>
-              <div className="bg-brand-primary/50 rounded-lg p-6 text-slate-600 mb-6">
-                <h3 className="text-sm text-white mb-2">Facility Details</h3>
-                <p className="text-xl font-bold text-white ">
+              <h3 className="text-xs text-slate-600  mb-4">Loan {index + 1} - {loan.product_name || loan.product}</h3>
+              <div className="bg-brand-primary rounded-lg p-6 text-slate-600 mb-6">
+                <div className="text-xs text-white mb-2">Facility Details</div>
+                <p className="text-xl font-semibold text-white ">
                   {formatCurrency(loan.scored_amount)}
                 </p>
                 <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div>
-                    <p className="text-white text-sm">Status</p>
-                    <p className="font-semibold text-white capitalize">{loan.status}</p>
+                    <p className="text-white text-xs">Status</p>
+                    <p className="font-semibold  text-sm text-white capitalize">{loan.status}</p>
                   </div>
                   <div>
-                    <p className="text-white text-sm">Repayment State</p>
-                    <p className="font-semibold text-white capitalize">
+                    <p className="text-white text-xs">Repayment State</p>
+                    <p className="font-semibold text-sm text-white capitalize">
                       {loan.repayment_state || "N/A"}
                     </p>
                   </div>
                   <div>
-                    <p className="text-white text-sm">Duration</p>
-                    <p className="font-semibold text-white">
+                    <p className="text-white text-xs">Duration</p>
+                    <p className="font-semibold  text-sm text-white">
                       {loan.duration_weeks} weeks
                     </p>
                   </div>
                   <div>
-                    <p className="text-white text-sm">Product Type</p>
-                    <p className="font-semibold text-white capitalize">
+                    <p className="text-white text-xs">Product Type</p>
+                    <p className="font-semibold text-sm text-white capitalize">
                       {loan.product_type || "N/A"}
                     </p>
                   </div>
@@ -937,43 +1000,43 @@ const Customer360View = () => {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="bg-white border border-gray-200 rounded-lg p-5">
-                  <h4 className=" text-slate-600 mb-4">Financial Structure</h4>
+                  <div className=" text-slate-600 font-semibold text-xs mb-4">Financial Structure</div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Scored Amount</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Scored Amount</span>
+                      <span className="font-medium text-sm text-slate-700">
                         {formatCurrency(loan.scored_amount)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Interest Rate</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Interest Rate</span>
+                      <span className="font-medium text-sm text-slate-700">
                         {loan.interest_rate || "0"}%
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Total Interest</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Total Interest</span>
+                      <span className="font-medium text-sm text-slate-700">
                         {formatCurrency(loan.total_interest)}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Processing Fee</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Processing Fee</span>
+                      <span className="font-medium text-sm text-slate-700">
                         {formatCurrency(loan.processing_fee)}
                       </span>
                     </div>
                     {index === 0 && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Registration Fee</span>
-                        <span className="font-medium text-slate-800">
+                        <span className="text-gray-500 text-xs">Registration Fee</span>
+                        <span className="font-medium text-sm text-slate-700">
                           {formatCurrency(loan.registration_fee)}
                         </span>
                       </div>
                     )}
                     <div className="flex justify-between border-t pt-2">
-                      <span className="text-slate-600 ">Weekly Payment</span>
-                      <span className="font-bold text-indigo-600">
+                      <span className="text-slate-500 text-xs">Weekly Payment</span>
+                      <span className="font-bold text-brand-primary text-sm">
                         {formatCurrency(loan.weekly_payment)}
                       </span>
                     </div>
@@ -981,42 +1044,42 @@ const Customer360View = () => {
                 </div>
 
                 <div className="bg-white border border-gray-200 rounded-lg p-5">
-                  <h4 className=" text-slate-600 mb-4">Timeline</h4>
+                  <div className=" text-slate-600 font-semibold text-sm  mb-4">Timeline</div>
                   <div className="space-y-3">
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Booked At</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Booked At</span>
+                      <span className="font-medium text-slate-700 text-sm">
                         {loan.booked_at ? new Date(loan.booked_at).toLocaleDateString() : "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Approved By BM</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Approved By BM</span>
+                      <span className="font-medium text-slate-700 text-sm">
                         {loan.bm_reviewed_at ? new Date(loan.bm_reviewed_at).toLocaleDateString() : "Pending"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Approved By RM</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Approved By RM</span>
+                      <span className="font-medium text-slate-700 text-sm">
                         {loan.rm_reviewed_at ? new Date(loan.rm_reviewed_at).toLocaleDateString() : "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Disbursed At</span>
-                      <span className="font-medium text-slate-800">
+                      <span className="text-gray-500 text-xs">Disbursed At</span>
+                      <span className="font-medium text-slate-700 text-sm">
                         {loan.disbursed_at ? new Date(loan.disbursed_at).toLocaleDateString() : "N/A"}
                       </span>
                     </div>
                     <div className="flex justify-between">
-                      <span className="text-gray-600">Processing Fee Paid</span>
-                      <span className={`font-medium  ${loan.processing_fee_paid ? "text-green-600" : "text-red-600"}`}>
+                      <span className="text-gray-500 text-xs">Processing Fee Paid</span>
+                      <span className={`font-medium text-sm  ${loan.processing_fee_paid ? "text-green-600" : "text-red-600"}`}>
                         {loan.processing_fee_paid ? "Yes" : "No"}
                       </span>
                     </div>
                     {index === 0 && (
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Registration Fee Paid</span>
-                        <span className={`font-medium ${loan.registration_fee_paid ? "text-green-600" : "text-red-600"}`}>
+                        <span className="text-gray-500 text-xs">Registration Fee Paid</span>
+                        <span className={`font-medium text-sm ${loan.registration_fee_paid ? "text-green-600" : "text-red-600"}`}>
                           {loan.registration_fee_paid ? "Yes" : "No"}
                         </span>
                       </div>
@@ -1030,8 +1093,7 @@ const Customer360View = () => {
             <div className="space-y-6 pt-6 mt-6 border-t border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <h4 className="text-base font-semibold text-slate-700">Installment Schedule</h4>
-                  <p className="text-sm text-slate-500">Payment Roadmap for Loan {index + 1}</p>
+                  <p className="text-sm text-slate-600">Payment Roadmap for Loan {index + 1}</p>
                 </div>
                 <div className="flex gap-2">
                   <span className="flex items-center gap-1.5 px-3 py-1 bg-rose-50 text-rose-600 rounded-full text-[10px] font-black uppercase tracking-tight border border-rose-100">
@@ -1044,12 +1106,12 @@ const Customer360View = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount Due</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Alerts</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Due Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Amount Due</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Paid</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Alerts</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1058,21 +1120,21 @@ const Customer360View = () => {
                         key={installment.id}
                         className="hover:bg-gray-50"
                       >
-                        <td className="px-4 py-3 text-sm text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600">
                           {installment.installment_number}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600">
                           {new Date(installment.due_date).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600">
                           {formatCurrency(installment.due_amount)}
                         </td>
-                        <td className="px-4 py-3 text-sm font-semibold">
+                        <td className="px-4 py-3 text-xs font-semibold">
                           <span className={parseFloat(installment.paid_amount) > 0 ? 'text-emerald-600' : 'text-slate-400'}>
                             {formatCurrency(installment.paid_amount || 0)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
                           <span
                             className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${installment.status === "paid"
                               ? "bg-emerald-50 text-emerald-600 border-emerald-100"
@@ -1121,149 +1183,160 @@ const Customer360View = () => {
   };
 
   const renderRepaymentHistory = () => {
+    // Only show repayments for disbursed loans — you cannot repay what hasn't been disbursed
+    const disbursedLoans = allLoans.filter(l => l.status === 'disbursed');
+    const disbursedLoanIds = new Set(disbursedLoans.map(l => l.id));
+    const disbursedPayments = loanPayments.filter(p => disbursedLoanIds.has(p.loan_id));
+
+    // Compute stats only from disbursed loans and their installments
+    const disbursedInstallments = loanInstallments.filter(i => disbursedLoanIds.has(i.loan_id));
+    const disbursedTotalDue = disbursedLoans.reduce((sum, l) => sum + (parseFloat(l.total_payable) || 0), 0);
+    const disbursedTotalPaid = disbursedInstallments.reduce((sum, i) => sum + (parseFloat(i.paid_amount) || 0), 0);
+    const disbursedOLB = disbursedTotalDue - disbursedTotalPaid;
 
     return (
       <div className="space-y-6">
-        {/* Global Loan Summary Cards */}
-        {paymentStats && (
+        {/* Summary Cards — disbursed loans only */}
+        {disbursedLoans.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 text-sm uppercase ">Total Payable</p>
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                <p className=" text-slate-600 text-sm ">Total Payable</p>
+                <div className="w-8 h-8 rounded-lg  flex items-center justify-center">
                   <BanknotesIcon className="h-4 w-4 text-brand-primary" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-slate-600">
-                {formatCurrency(paymentStats.totalDue)}
+              <p className="text-lg font-semibold text-slate-600">
+                {formatCurrency(disbursedTotalDue)}
               </p>
               <div className="mt-4 flex items-center gap-2">
                 <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
                   <div className="h-full bg-brand-primary rounded-full" style={{ width: '100%' }} />
                 </div>
-                <span className="text-[10px] font-black text-brand-primary">100%</span>
+                <span className="text-[8px] font-black text-brand-primary">100%</span>
               </div>
             </div>
 
             <div className="bg-emerald-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm"> Amount Cleared</p>
+                <p className=" text-slate-600  text-sm"> Amount Cleared</p>
                 <div className="w-8 h-8 rounded-lg bg-emerald-50 flex items-center justify-center">
                   <CheckCircleIcon className="h-4 w-4 text-emerald-600" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-emerald-600">
-                {formatCurrency(paymentStats.totalPaid)}
+              <p className="text-lg font-semibold text-emerald-600">
+                {formatCurrency(disbursedTotalPaid)}
               </p>
               <div className="mt-4 flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${Math.min(100, (paymentStats.totalPaid / (parseFloat(paymentStats.totalDue) || 1)) * 100)}%` }}
+                    className="h-1.5 bg-emerald-500 rounded-full "
+                    style={{ width: `${Math.min(100, (disbursedTotalPaid / (disbursedTotalDue || 1)) * 100)}%` }}
                   />
                 </div>
-                <span className=" text-emerald-600">
-                  {((paymentStats.totalPaid / parseFloat(paymentStats.totalDue || 1)) * 100).toFixed(1)}%
+                <span className=" text-emerald-600 text-[8px]">
+                  {((disbursedTotalPaid / (disbursedTotalDue || 1)) * 100).toFixed(1)}%
                 </span>
               </div>
             </div>
 
             <div className="bg-amber-50 backdrop-blur-sm border border-white/20 rounded-3xl p-6 shadow-sm group hover:bg-white/60 transition-all">
               <div className="flex items-center justify-between mb-4">
-                <p className=" text-slate-600 uppercase text-sm"> O.L.B</p>
+                <p className=" text-slate-600  text-sm"> O.L.B</p>
                 <div className="w-8 h-8 rounded-lg bg-rose-50 flex items-center justify-center">
                   <ExclamationCircleIcon className="h-4 w-4 text-rose-600" />
                 </div>
               </div>
-              <p className="text-2xl font-semibold text-rose-600">
-                {formatCurrency(paymentStats.outstandingBalance)}
+              <p className="text-lg font-semibold text-rose-600">
+                {formatCurrency(disbursedOLB)}
               </p>
               <div className="mt-4 flex items-center gap-2">
-                <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-rose-500 rounded-full"
-                    style={{ width: `${Math.min(100, (paymentStats.outstandingBalance / (parseFloat(paymentStats.totalDue) || 1)) * 100)}%` }}
+                    className="h-1.5 bg-rose-500 rounded-full"
+                    style={{ width: `${Math.min(100, (disbursedOLB / (disbursedTotalDue || 1)) * 100)}%` }}
                   />
                 </div>
-                <span className="text-[10px] font-black text-rose-600">Pending</span>
+                <span className="text-[8px] font-black text-rose-600">Pending</span>
               </div>
             </div>
           </div>
         )}
 
-        {/* Payment History Table */}
-        {loanPayments.length > 0 ? (
+        {/* Payment History Table — only disbursed loans */}
+        {disbursedPayments.length > 0 ? (
           <div className="bg-white/40 backdrop-blur-sm border border-white/20 rounded-3xl shadow-sm overflow-hidden">
             <div className="px-8 py-6 border-b border-white/20 flex items-center justify-between">
               <div>
-                <h3 className="text-base font-black text-slate-700 uppercase tracking-tight">Payment Ledger</h3>
-                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-0.5">Verified Collections History</p>
+                <h3 className="text-slate-600 text-sm">Payment Ledger</h3>
               </div>
-              <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center">
-                <ClockIcon className="h-5 w-5 text-slate-400" />
-              </div>
+             
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Loan #
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Date
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Amount Paid
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Payment Method
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Payment Type
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       M-Pesa Receipt
                     </th>
-                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                    <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 whitespace-nowrap">
                       Balance After
                     </th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {loanPayments.map((payment) => (
+                  {disbursedPayments.slice((repayPage - 1) * PAGE_SIZE, repayPage * PAGE_SIZE).map((payment) => (
                     <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-sm font-black text-indigo-600">
+                      <td className="px-4 py-3 text-xs  text-brand-primary">
                         Loan {getLoanIndex(payment.loan_id)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-900">
+                      <td className="px-4 py-3 text-xs text-gray-600">
                         {new Date(payment.paid_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-green-600">
+                      <td className="px-4 py-3 text-xs font-medium text-green-600">
                         {formatCurrency(payment.paid_amount)}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                      <td className="px-4 py-3 text-xs text-gray-600 capitalize">
                         {payment.payment_method?.replace("_", " ") || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-xs text-gray-600">
                         {payment.payment_type || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm text-gray-600">
+                      <td className="px-4 py-3 text-xs text-gray-600">
                         {payment.mpesa_receipt || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                      <td className="px-4 py-3 text-xs font-medium text-gray-600">
                         {formatCurrency(payment.balance_after)}
                       </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
+              <div className="px-6 py-3">
+                <PaginationBar currentPage={repayPage} totalPages={Math.ceil(disbursedPayments.length / PAGE_SIZE)} onPageChange={setRepayPage} totalItems={disbursedPayments.length} />
+              </div>
             </div>
           </div>
         ) : (
           <div className="text-center py-12 bg-white border border-gray-200 rounded-lg">
             <ClockIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-            <p className="text-gray-500 text-lg">No payment history</p>
+            <p className="text-gray-500 text-lg">No repayment history</p>
+            <p className="text-sm text-gray-400 mt-1">Repayments only appear for disbursed loans</p>
           </div>
         )}
       </div>
@@ -1272,20 +1345,20 @@ const Customer360View = () => {
 
   const renderWallet = () => (
     <div className="space-y-6">
-      <div className="relative overflow-hidden bg-brand-primary/50 rounded-3xl p-8 text-white ">
+      <div className="relative overflow-hidden bg-brand-primary rounded-sm p-8 text-white ">
         <div className="relative z-10">
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-emerald-50 mb-2">Verified Liquid Assets</p>
+          <p className="text-[8px]  text-emerald-50 mb-2">Verified Liquid Assets</p>
           <div className="flex items-end justify-between">
             <div>
-              <h3 className="text-3xl font-black tracking-tight">{formatCurrency(walletBalance)}</h3>
-              <p className="text-xs text-emerald-50 mt-2 font-medium">Available Wallet Balance</p>
+              <h1 className="text-lg font-semibold ">{formatCurrency(walletBalance)}</h1>
+              <p className="text-xs text-emerald-50 mt-2 ">Available Wallet Balance</p>
             </div>
-            <div className="p-4 bg-white/20 backdrop-blur-md rounded-2xl border border-white/10 flex flex-col items-center gap-2">
-              <WalletIcon className="h-8 w-8 text-white" />
+            <div className="p-4 bg-white/20 backdrop-blur-md rounded-xs border border-white flex flex-col items-center gap-2">
+              <WalletIcon className="h-4 w-4 text-white" />
               {hasPermission("refund.initiate") && (
                 <button
                   onClick={() => setShowRefundModal(true)}
-                  className="px-4 py-2 bg-white text-emerald-600 rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg hover:bg-emerald-50 transition-colors"
+                  className="px-4 py-2 bg-white text-emerald-600 rounded-sm text-[8px]  shadow-lg hover:bg-emerald-50 transition-colors"
                 >
                   Refund
                 </button>
@@ -1301,43 +1374,43 @@ const Customer360View = () => {
       <table className="min-w-full divide-y divide-gray-200">
         <thead className="bg-gray-50">
           <tr>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
               Date
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
               Narration
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
               Type
             </th>
-            <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
               MPESA Ref
             </th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 whitespace-nowrap">
               Credit
             </th>
-            <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+            <th className="px-4 py-3 text-right text-xs font-medium text-gray-600 whitespace-nowrap">
               Debit
             </th>
           </tr>
         </thead>
 
         <tbody className="bg-white divide-y divide-gray-200">
-          {walletTransactions.map((txn, index) => (
+          {walletTransactions.slice((walletPage - 1) * PAGE_SIZE, walletPage * PAGE_SIZE).map((txn, index) => (
             <tr key={index} className="hover:bg-gray-50">
-              <td className="px-4 py-3 text-sm text-slate-600">
+              <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                 {new Date(txn.created_at).toLocaleString()}
               </td>
 
               <td className="px-4 py-3 text-sm text-slate-600">
-                <div className="max-w-xs overflow-hidden text-ellipsis whitespace-nowrap" title={txn.narration || txn.description}>
+                <div className="max-w-xs overflow-hidden text-ellipsis text-xs whitespace-nowrap" title={txn.narration || txn.description}>
                   {txn.narration || txn.description || "—"}
                 </div>
               </td>
 
               <td className="px-4 py-3 text-sm whitespace-nowrap">
                 <span
-                  className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${parseFloat(txn.credit || 0) > 0 || txn.type === "credit" || txn.transaction_type === "credit"
+                  className={`inline-flex px-2 py-1 text-xs  rounded-full ${parseFloat(txn.credit || 0) > 0 || txn.type === "credit" || txn.transaction_type === "credit"
                     ? "text-green-600"
                     : " text-red-600"
                     }`}
@@ -1346,33 +1419,32 @@ const Customer360View = () => {
                 </span>
               </td>
 
-              <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+              <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                 {txn.mpesa_reference || "—"}
               </td>
 
-              <td className="px-4 py-3 text-sm font-medium text-right text-green-600  whitespace-nowrap">
+              <td className="px-4 py-3 text-xs font-medium text-right text-green-600  whitespace-nowrap">
                 {parseFloat(txn.credit || 0) > 0 ? formatCurrency(txn.credit) : "—"}
               </td>
 
-              <td className="px-4 py-3 text-sm font-medium text-right text-red-600 whitespace-nowrap">
+              <td className="px-4 py-3 text-xs  text-right text-red-600 whitespace-nowrap">
                 {parseFloat(txn.debit || 0) > 0 ? formatCurrency(txn.debit) : "—"}
               </td>
             </tr>
           ))}
         </tbody>
       </table>
+      <PaginationBar currentPage={walletPage} totalPages={Math.ceil(walletTransactions.length / PAGE_SIZE)} onPageChange={setWalletPage} totalItems={walletTransactions.length} />
     </div>
   );
 
   const renderStatements = () => (
     <div className="space-y-4">
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h4 className="font-semibold text-brand-primary mb-2">
+      <div className="bg-brand-primary border border-slate-400 rounded-sm p-4">
+        <h4 className="font-semibold text-sm text-white mb-2">
           M-Pesa C2B Transactions
         </h4>
-        <p className="text-sm text-brand-primary">
-          All M-Pesa payments received from this customer's phone number
-        </p>
+        
       </div>
 
       {mpesaTransactions.length > 0 ? (
@@ -1381,39 +1453,39 @@ const Customer360View = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
                     Date
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
                     Transaction ID
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
                     Amount
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
                     Narration
                   </th>
 
-                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">
                     Status
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {mpesaTransactions.map((txn) => (
+                {mpesaTransactions.slice((mpesaPage - 1) * PAGE_SIZE, mpesaPage * PAGE_SIZE).map((txn) => (
                   <tr key={txn.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm text-gray-900">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-gray-600">
                       {txn.transaction_time
                         ? new Date(txn.transaction_time).toLocaleString()
                         : new Date(txn.created_at).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm font-mono text-gray-600">
+                    <td className="px-4 py-3 text-xs font-mono text-gray-600">
                       {txn.transaction_id || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                    <td className="px-4 py-3 text-xs font-medium text-gray-600">
                       {(txn.amount)}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                    <td className="px-4 py-3 text-xs text-gray-600 capitalize">
                       {txn.description
                         ? txn.description.includes("Credited to wallet - no active loan")
                           ? "Credited to wallet"
@@ -1427,7 +1499,7 @@ const Customer360View = () => {
 
                     <td className="px-4 py-3 text-sm">
                       <span
-                        className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${txn.status === "applied"
+                        className={`inline-flex px-2 py-1 text-xs  rounded-sm ${txn.status === "applied"
                           ? "bg-green-100 text-green-800"
                           : txn.status === "pending"
                             ? " text-yellow-800"
@@ -1441,6 +1513,9 @@ const Customer360View = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+          <div className="px-4 py-2">
+            <PaginationBar currentPage={mpesaPage} totalPages={Math.ceil(mpesaTransactions.length / PAGE_SIZE)} onPageChange={setMpesaPage} totalItems={mpesaTransactions.length} />
           </div>
         </div>
       ) : (
@@ -1464,7 +1539,7 @@ const Customer360View = () => {
       try {
         setSavingInteraction(true);
 
-        // ✅ Use existing profile from useAuth
+        //  Use existing profile from useAuth
         if (!profile) {
           console.error("No profile found in auth hook");
           alert("Could not find logged in user profile.");
@@ -1522,13 +1597,13 @@ const Customer360View = () => {
         <div className="flex justify-between items-center">
           <div>
 
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-xs font-semibold text-gray-600 mt-1">
               Track all customer communication and touchpoints
             </p>
           </div>
           <button
             onClick={() => setShowInteractionForm(!showInteractionForm)}
-            className="flex items-center gap-2 px-4 py-2 bg-[#586ab1] text-white rounded-lg hover:bg-[#4a5c9d] transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
+            className="flex items-center gap-1.5 px-2 py-1 bg-brand-primary text-white rounded-sm hover:bg-[#4a5c9d] transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
           >
             {showInteractionForm ? (
               <>
@@ -1570,10 +1645,10 @@ const Customer360View = () => {
 
         {/* Interaction Form */}
         {showInteractionForm && (
-          <div className="bg-gradient-to-br from-gray-50 to-blue-50 border border-gray-200 rounded-xl p-5 shadow-sm">
-            <h4 className="text-lg font-semibold text-slate-600 mb-4 flex items-center">
+          <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+            <h4 className="text-xs  text-slate-600 mb-4 flex items-center">
               <svg
-                className="h-5 w-5 mr-2 text-[#586ab1]"
+                className="h-5 w-5 mr-2 text-slate-600"
                 fill="none"
                 viewBox="0 0 24 24"
                 stroke="currentColor"
@@ -1591,7 +1666,7 @@ const Customer360View = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Interaction Type */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="text-xs  text-gray-600 mb-1">
                     Interaction Type <span className="text-red-500">*</span>
                   </label>
                   <select
@@ -1602,7 +1677,7 @@ const Customer360View = () => {
                         interaction_type: e.target.value,
                       })
                     }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1] transition text-sm"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-600 focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition text-sm"
                     required
                   >
                     <option value="">Select Type</option>
@@ -1617,7 +1692,7 @@ const Customer360View = () => {
 
                 {/* Subject */}
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className=" text-xs  text-gray-600 mb-1">
                     Subject
                   </label>
                   <input
@@ -1629,7 +1704,7 @@ const Customer360View = () => {
                         subject: e.target.value,
                       })
                     }
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1] transition text-sm"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-600 focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition text-sm"
                     placeholder="Brief subject or title..."
                   />
                 </div>
@@ -1637,7 +1712,7 @@ const Customer360View = () => {
 
               {/* Notes */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className=" text-xs  text-gray-600 mb-1">
                   Notes / Details <span className="text-red-500">*</span>
                 </label>
                 <textarea
@@ -1648,7 +1723,7 @@ const Customer360View = () => {
                       notes: e.target.value,
                     })
                   }
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1] resize-none transition text-sm"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-600 focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition text-sm"
                   rows="4"
                   placeholder="Enter detailed notes about this interaction..."
                   required
@@ -1660,7 +1735,7 @@ const Customer360View = () => {
                 <button
                   type="submit"
                   disabled={savingInteraction}
-                  className="flex items-center gap-2 px-4 py-2 bg-[#586ab1] text-white rounded-lg hover:bg-[#4a5c9d] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md font-medium text-sm"
+                  className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-[#4a5c9d] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md font-medium text-xs"
                 >
                   {savingInteraction ? (
                     <>
@@ -1726,8 +1801,9 @@ const Customer360View = () => {
 
         {/* Interactions List */}
         {interactions.length > 0 ? (
-          <div className="space-y-3">
-            {interactions.map((interaction, index) => (
+          <>
+            <div className="space-y-3">
+              {interactions.slice((interactionPage - 1) * PAGE_SIZE, interactionPage * PAGE_SIZE).map((interaction, index) => (
               <div
                 key={index}
                 className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden"
@@ -1806,10 +1882,10 @@ const Customer360View = () => {
                   {/* Subject */}
                   {interaction.subject && (
                     <div className="mb-3">
-                      <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 block">
+                      <label className="text-xs  text-gray-500  mb-1 block">
                         Subject
                       </label>
-                      <h4 className="text-sm font-semibold text-gray-900">
+                      <h4 className="text-sm text-gray-600">
                         {interaction.subject}
                       </h4>
                     </div>
@@ -1817,7 +1893,7 @@ const Customer360View = () => {
 
                   {/* Message/Notes */}
                   <div className="mb-4">
-                    <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1 block">
+                    <label className="text-xs  text-gray-500  mb-1 block">
                       {interaction.subject ? "Details" : "Notes"}
                     </label>
                     <div className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-md p-3 border border-gray-100">
@@ -1892,6 +1968,8 @@ const Customer360View = () => {
               </div>
             ))}
           </div>
+          <PaginationBar currentPage={interactionPage} totalPages={Math.ceil(interactions.length / PAGE_SIZE)} onPageChange={setInteractionPage} totalItems={interactions.length} />
+          </>
         ) : (
           <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
             <svg
@@ -1919,9 +1997,10 @@ const Customer360View = () => {
     );
   };
 
+
+
   const renderSmsTab = () => {
 
-    // Load SMS logs on component mount
     const loadSmsLogs = async () => {
       console.log("=== LOADING SMS LOGS ===");
 
@@ -2103,170 +2182,217 @@ const Customer360View = () => {
     };
 
     return (
-      <div className="space-y-6 pr-2">
+      <div className="space-y-6">
 
-        {/* Debug render */}
-        {console.log("=== RENDER: smsLogs state ===", smsLogs)}
+        {/* Header with Send Button — matches interactions pattern */}
+        <div className="flex justify-between items-center">
+          <div>
+            <p className="text-xs font-semibold text-gray-600 mt-1">
+              Track all SMS messages sent to this customer
+            </p>
+          </div>
+          {profile?.role !== "relationship_officer" && (
+            <button
+              onClick={() => setShowSmsForm(!showSmsForm)}
+              className="flex items-center gap-1.5 px-2 py-1 bg-brand-primary text-white rounded-sm hover:bg-[#4a5c9d] transition-all duration-200 shadow-sm hover:shadow-md font-medium text-sm"
+            >
+              {showSmsForm ? (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                  Cancel
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                  </svg>
+                  Send SMS
+                </>
+              )}
+            </button>
+          )}
+        </div>
 
-        {/* SMS COMPOSE - Only for non-RO users */}
-        {profile?.role !== "relationship_officer" && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-100 rounded-xl p-5">
-            <h3 className="text-base text-slate-600 mb-4 flex items-center">
-              <ChatBubbleLeftRightIcon className="h-4 w-4 mr-2 text-blue-600" />
-              Send SMS to Customer
-            </h3>
-
-            <div className="space-y-4">
-
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Recipient
-                </label>
-                <div className="flex items-center bg-white p-3 rounded-lg border border-gray-200">
-                  <PhoneIcon className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm font-medium text-gray-900">
-                    {customer?.Firstname && customer?.mobile
-                      ? `${customer.Firstname} - ${customer.mobile}`
-                      : customer?.mobile || "No mobile number"}
-                  </span>
+        {/* Compose form — shown only when showSmsForm is true */}
+        {showSmsForm && profile?.role !== "relationship_officer" && (
+          <div className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+            <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                  <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 mr-1.5" />
+                  New Message
+                </span>
+                <div className="flex items-center text-xs text-gray-500">
+                  <PhoneIcon className="h-3.5 w-3.5 mr-1" />
+                  {customer?.Firstname && customer?.mobile
+                    ? `${customer.Firstname} — ${customer.mobile}`
+                    : customer?.mobile || "No mobile number"}
                 </div>
               </div>
+            </div>
 
+            <div className="p-5 space-y-4">
+              {/* Message textarea */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Message (2 SMS per customer per day)
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Message <span className="text-red-500">*</span>
+                  <span className="ml-2 text-xs font-normal text-gray-400">(max 160 chars · 2 per customer/day)</span>
                 </label>
                 <textarea
                   value={smsMessage}
                   onChange={(e) => setSmsMessage(e.target.value)}
-                  className="w-full h-32 p-3 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-gray-900 focus:ring-1 focus:ring-[#586ab1] focus:border-[#586ab1] resize-none transition text-sm"
+                  rows="4"
                   maxLength={160}
                   placeholder="Type your message here..."
+                  required
                 />
                 <div className="flex justify-between mt-1">
-                  <span className="text-xs text-gray-500">
-                    {smsMessage.length}/160 characters
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    Max 160 characters                  </span>
+                  <span className="text-xs text-gray-400">{smsMessage.length}/160 characters</span>
+                  {profile && (
+                    <span className="text-xs text-gray-400">
+                      Sending as: <span className="font-medium text-slate-600">{profile.full_name}</span>
+                    </span>
+                  )}
                 </div>
               </div>
 
-              {/* Current logged-in user display */}
-              {profile && (
-                <div className="text-xs text-gray-600 bg-gray-50 p-2 rounded">
-                  Sending as: <span className="font-medium">{profile.full_name}</span>
-                </div>
-              )}
-
+              {/* Status feedback */}
               {smsStatus && (
-                <div
-                  className={`p-3 text-sm rounded-lg flex items-center ${smsStatus.includes("successfully")
+                <div className={`p-3 text-sm rounded-lg flex items-center ${
+                  smsStatus.includes("successfully")
                     ? "bg-green-50 text-green-800 border border-green-200"
                     : "bg-red-50 text-red-800 border border-red-200"
-                    }`}
-                >
-                  {smsStatus.includes("successfully") ? (
-                    <CheckCircleIcon className="h-4 w-4 mr-2" />
-                  ) : (
-                    <ExclamationCircleIcon className="h-4 w-4 mr-2" />
-                  )}
+                }`}>
+                  {smsStatus.includes("successfully")
+                    ? <CheckCircleIcon className="h-4 w-4 mr-2" />
+                    : <ExclamationCircleIcon className="h-4 w-4 mr-2" />}
                   {smsStatus}
                 </div>
               )}
 
-              <div className="flex justify-end pt-4 border-t border-gray-200">
+              {/* Action buttons */}
+              <div className="flex gap-2 pt-3">
                 <button
                   onClick={handleSendSms}
                   disabled={sendingSms || !smsMessage.trim() || !profile?.id}
-                  className="px-4 py-2 text-xs font-medium text-white bg-primary hover:bg-brand-primary/80 rounded-lg disabled:opacity-50 flex items-center"
+                  className="flex items-center gap-2 px-4 py-2 bg-[#586ab1] text-white rounded-lg hover:bg-[#4a5c9d] transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed shadow-sm hover:shadow-md font-medium text-sm"
                 >
-                  {sendingSms ? "Sending..." : "Send SMS"}
+                  {sendingSms ? (
+                    <>
+                      <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <ChatBubbleLeftRightIcon className="h-4 w-4" />
+                      Send Message
+                    </>
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowSmsForm(false);
+                    setSmsMessage("");
+                    setSmsStatus("");
+                  }}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all duration-200 font-medium text-sm"
+                >
+                  Cancel
                 </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* SMS HISTORY */}
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 flex justify-between items-center">
-            <h3 className="text-base text-slate-600">SMS History</h3>
-            <button
-              onClick={() => {
-                loadSmsLogs();
-                checkOrphanedLogs();
-              }}
-              className="px-3 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded text-gray-700"
-            >
-              Debug Logs
-            </button>
+        {/* SMS History List */}
+        {smsLogs.length > 0 ? (
+          <div className="space-y-3">
+            {smsLogs.map((sms) => {
+              const isSystem = !sms.sent_by;
+              const senderDisplay = sms.users?.full_name || (isSystem ? "SYSTEM" : "Unknown User");
+              return (
+                <div key={sms.id} className="bg-white border border-gray-200 rounded-lg shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                  <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center space-x-3">
+                        <span className="inline-flex items-center px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800">
+                          <ChatBubbleLeftRightIcon className="h-3.5 w-3.5 mr-1.5" />
+                          SMS
+                        </span>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <ClockIcon className="h-3.5 w-3.5 mr-1" />
+                          {new Date(sms.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          {" "}at{" "}
+                          {new Date(sms.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true })}
+                        </div>
+                      </div>
+                      <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
+                        sms.status === "sent"
+                          ? "bg-accent/10 text-accent border-accent/20"
+                          : "bg-red-50 text-red-600 border-red-100"
+                      }`}>
+                        {sms.status}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="px-5 py-4">
+                    <div className="mb-4">
+                      <label className="text-xs text-gray-500 mb-1 block">Message</label>
+                      <div className="text-sm text-gray-700 leading-relaxed bg-gray-50 rounded-md p-3 border border-gray-100 whitespace-pre-wrap break-words">
+                        {sms.message}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                      <div className="flex items-center space-x-2">
+                        <div className={`flex items-center justify-center h-7 w-7 rounded-full ${
+                          isSystem ? "bg-gray-100" : "bg-[#586ab1] bg-opacity-10"
+                        }`}>
+                          <svg className={`h-4 w-4 ${isSystem ? "text-gray-400" : "text-[#586ab1]"}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                          </svg>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Sent by</p>
+                          <p className={`text-sm font-medium ${isSystem ? "text-brand-secondary" : "text-gray-900"}`}>
+                            {senderDisplay}
+                          </p>
+                        </div>
+                      </div>
+                      {sms.error_message && (
+                        <span className="text-xs text-red-500 italic">{sms.error_message}</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          {smsLogs.length > 0 ? (
-            <div className="overflow-x-auto max-h-[400px] overflow-y-auto">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50 sticky top-0">
-                  <tr>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Date & Time</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Message</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Sent By</th>
-                    <th className="px-6 py-3 text-xs font-semibold text-gray-700 text-left">Status</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y">
-                  {smsLogs.map((sms) => {
-                    const isSystem = !sms.sent_by;
-                    const senderDisplay = sms.users?.full_name || (isSystem ? "SYSTEM" : "Unknown User");
-
-                    return (
-                      <tr key={sms.id} className="hover:bg-brand-surface transition-colors">
-                        <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap align-top">
-                          <div className="flex flex-col">
-                            <span>{new Date(sms.created_at).toLocaleDateString()}</span>
-                            <span className="text-xs text-slate-400">{new Date(sms.created_at).toLocaleTimeString()}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-gray-700 max-w-md">
-                          <div className="whitespace-pre-wrap break-words leading-relaxed">
-                            {sms.message}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-sm align-top">
-                          <div className="flex flex-col">
-                            <span className={`font-medium ${isSystem ? "text-brand-secondary" : "text-brand-primary"}`}>
-                              {senderDisplay}
-                            </span>
-                            {!sms.users && sms.sent_by && (
-                              <span className="text-[10px] text-red-400 italic mt-0.5">
-                                (ID: {sms.sent_by.substring(0, 8)}...)
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 align-top">
-                          <span className={`inline-flex px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full ${sms.status === "sent"
-                            ? "bg-accent/10 text-accent border border-accent/20"
-                            : "bg-red-50 text-red-600 border border-red-100"
-                            }`}>
-                            {sms.status}
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <div className="text-center py-12 text-gray-500">
-              No SMS messages sent yet
-            </div>
-          )}
-        </div>
+        ) : (
+          <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
+            <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
+            <p className="text-gray-600 font-medium">No SMS messages sent yet</p>
+            <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+              Click "Send SMS" to compose your first message
+            </p>
+          </div>
+        )}
       </div>
     );
   };
+
+
+
+
+
 
 
   const renderPromisedToPay = () => {
@@ -2287,30 +2413,30 @@ const Customer360View = () => {
       <div className="space-y-6 pr-2">
         {/* Customer & Loan Info Card */}
         {loanDetails && (
-          <div className="bg-muted border border-blue-200 rounded-xl p-5">
-            <h3 className="text-base font-semibold text-slate-600 mb-4">
+          <div className="bg-white border border-blue-200 rounded-xl p-5">
+            <h3 className="text-xs font-semibold text-slate-600 mb-4">
               Loan Information
             </h3>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Loan Info */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-white/60">
+              <div className="bg-muted backdrop-blur-sm rounded-lg p-3 border border-gray-500">
                 <p className="text-xs text-gray-500 mb-1">Loan Amount</p>
                 <p className="text-sm font-bold text-slate-600">
                   {formatCurrency(loanDetails.scored_amount)}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   ID: #{loanDetails.id}
                 </p>
               </div>
 
               {/* Total Paid */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-white/60">
+              <div className="bg-green-100 backdrop-blur-sm rounded-lg p-3 border border-green-500">
                 <p className="text-xs text-gray-500 mb-1">Total Paid</p>
                 <p className="text-sm font-bold text-green-600">
                   {formatCurrency(totalPaidAmount)}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   {loanDetails.total_payable > 0
                     ? `${((totalPaidAmount / parseFloat(loanDetails.total_payable)) * 100).toFixed(1)}% Complete`
                     : "0% Complete"}
@@ -2318,23 +2444,23 @@ const Customer360View = () => {
               </div>
 
               {/* Outstanding Balance */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-white/60">
+              <div className="bg-rose-100 backdrop-blur-sm rounded-lg p-3 border border-rose-500">
                 <p className="text-xs text-gray-500 mb-1">Outstanding</p>
                 <p className="text-sm font-bold text-red-600">
                   {formatCurrency(outstandingBalance)}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   Total Due: {formatCurrency(loanDetails.total_payable)}
                 </p>
               </div>
 
               {/* Customer Info */}
-              <div className="bg-white/80 backdrop-blur-sm rounded-lg p-3 border border-white/60">
+              <div className="bg-muted backdrop-blur-sm rounded-lg p-3 border border-gray-500">
                 <p className="text-xs text-gray-500 mb-1">Customer</p>
                 <p className="text-sm font-medium text-slate-600 truncate">
                   {customer?.Firstname} {customer?.Surname}
                 </p>
-                <p className="text-xs text-gray-400 mt-0.5">
+                <p className="text-xs text-gray-600 mt-0.5">
                   {customer?.mobile || "N/A"}
                 </p>
               </div>
@@ -2348,14 +2474,12 @@ const Customer360View = () => {
           <div className="px-6 py-4 border-b border-gray-200">
             <div className="flex justify-between items-center">
               <div>
-                <h3 className="text-base font-semibold text-slate-600">Promise History</h3>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Track all promises to pay made by the customer
-                </p>
+                <h3 className="text-xs text-slate-600">Promise History</h3>
+               
               </div>
               <button
                 onClick={() => setShowPTPForm(!showPTPForm)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition shadow-md hover:shadow-lg"
+                className="flex items-center gap-2 px-2 py-1.5 bg-brand-primary text-white text-sm rounded-lg hover:bg-brand-secondary transition shadow-md hover:shadow-lg"
               >
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -2367,16 +2491,16 @@ const Customer360View = () => {
 
           {/* Create PTP Form */}
           {showPTPForm && (
-            <div className="px-6 py-5 border-b border-gray-200 bg-muted">
-              <h4 className="text-sm font-semibold text-slate-600 mb-4 flex items-center gap-2">
-                <CalendarIcon className="h-4 w-4 text-indigo-600" />
+            <div className="px-6 py-5 border-b border-gray-200 bg-white">
+              <h4 className="text-sm  text-slate-600 mb-4 flex items-center gap-2">
+                <CalendarIcon className="h-4 w-4 text-brand-primary" />
                 Record New Promise to Pay
               </h4>
               <form onSubmit={handleCreatePTP} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* Interaction Type */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                    <label className="block text-xs  text-gray-600 mb-2">
                       Interaction Type <span className="text-red-500">*</span>
                     </label>
                     <select
@@ -2387,7 +2511,7 @@ const Customer360View = () => {
                           interaction_type: e.target.value,
                         })
                       }
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-900 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 transition"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm text-gray-600 focus:ring-1 focus:ring-gary-500 focus:border-gray-500 transition"
                       required
                     >
                       <option value="">Select Type</option>
@@ -2417,7 +2541,7 @@ const Customer360View = () => {
 
                   {/* Promised Date */}
                   <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                    <label className="block text-xs  text-slate-600 mb-2">
                       Promised Date <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -2432,7 +2556,7 @@ const Customer360View = () => {
 
                   {/* Remarks */}
                   <div className="md:col-span-2">
-                    <label className="block text-xs font-medium text-gray-700 mb-2">
+                    <label className="block text-xs  text-slate-600 mb-2">
                       Remarks/Notes
                     </label>
                     <textarea
@@ -2450,7 +2574,7 @@ const Customer360View = () => {
                   <button
                     type="submit"
                     disabled={savingPTP}
-                    className="px-3 py-1.5 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg"
+                    className="px-3 py-1.5 bg-brand-primary text-white text-sm rounded-lg hover:bg-brand-secondary transition disabled:opacity-50 disabled:cursor-not-allowed font-medium shadow-md hover:shadow-lg"
                   >
                     {savingPTP ? "Saving..." : "Save Promise"}
                   </button>
@@ -2477,51 +2601,52 @@ const Customer360View = () => {
                 </p>
               </div>
             ) : (
+              <>
               <table className="min-w-full divide-y divide-gray-200 table-fixed">
                 <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-24 text-left text-xs  text-slate-600 whitespace-nowrap">
                       Promised Date
                     </th>
-                    <th className="px-3 py-3 w-20 text-left text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-20 text-left text-xs  text-slate-600 whitespace-nowrap">
                       Amount
                     </th>
-                    <th className="px-3 py-3 w-28 text-left text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-28 text-left text-xs  text-slate-600 whitespace-nowrap">
                       Created
                     </th>
-                    <th className="px-3 py-3 w-24 text-left text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-24 text-left text-xs  text-slate-600 whitespace-nowrap">
                       Type
                     </th>
 
                     {/* Remarks takes more space */}
-                    <th className="px-3 py-3 w-[35%] text-left text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-[35%] text-left text-xs  text-slate-600 whitespace-nowrap">
                       Remarks
                     </th>
 
-                    <th className="px-3 py-3 w-20 text-center text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-20 text-center text-xs  text-gray-600 whitespace-nowrap">
                       Status
                     </th>
-                    <th className="px-3 py-3 w-24 text-center text-xs  text-gray-700 uppercase">
+                    <th className="px-3 py-3 w-24 text-center text-xs  text-gray-600 whitespace-nowrap">
                       Actions
                     </th>
                   </tr>
                 </thead>
 
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {ptps.map((ptp) => (
+                  {ptps.slice((ptpPage - 1) * PAGE_SIZE, ptpPage * PAGE_SIZE).map((ptp) => (
                     <tr key={ptp.id} className="hover:bg-gray-50 transition">
                       <td className="px-3 py-3 text-sm text-slate-600">
                         <div className="flex items-center gap-2">
-                          <CalendarIcon className="h-4 w-4 text-indigo-500" />
+                          <CalendarIcon className="h-4 w-4 text-brand-primary" />
                           {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 text-sm  text-slate-600">
+                      <td className="px-3 py-3 text-xs  text-slate-600 whitespace-nowrap">
                         {formatCurrency(ptp.promised_amount)}
                       </td>
 
-                      <td className="px-3 py-3 text-sm text-slate-600">
+                      <td className="px-3 py-3 text-xs whitespace-nowrap text-slate-600">
                         <div className="leading-tight">
                           <div className="font-medium">{ptp.users?.full_name || "Unknown"}</div>
                           <div className="text-xs text-gray-500">
@@ -2530,13 +2655,13 @@ const Customer360View = () => {
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 text-sm text-gray-700">
+                      <td className="px-3 py-3 text-xs whitespace-nowrap text-gray-600">
                         {ptp.interaction_type || "N/A"}
                       </td>
 
                       {/* ✅ Improved Remarks Cell */}
                       <td className="px-3 py-3 align-top">
-                        <div className="text-sm text-gray-700 whitespace-normal break-words leading-relaxed">
+                        <div className="text-sm text-gray-600 whitespace-normal break-words leading-relaxed">
                           {ptp.remarks || "-"}
                         </div>
                       </td>
@@ -2569,7 +2694,8 @@ const Customer360View = () => {
                   ))}
                 </tbody>
               </table>
-
+              <PaginationBar currentPage={ptpPage} totalPages={Math.ceil(ptps.length / PAGE_SIZE)} onPageChange={setPtpPage} totalItems={ptps.length} />
+              </>
             )}
           </div>
 
@@ -2622,28 +2748,28 @@ const Customer360View = () => {
   return (
     <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-muted">
       {/* Header with Back Button */}
-      <div className="mb-4 flex-shrink-0">
+      {/* <div className="mb-2 flex-shrink-0">
         <button
           onClick={handleBack}
-          className="flex items-center gap-2 px-4 py-2 text-xs font-bold  tracking-widest text-brand-secondary hover:text-brand-primary transition-all duration-200 bg-white rounded-xl border border-brand-surface shadow-sm hover:shadow-md group"
+          className="flex items-center gap-2 px-4 py-2 text-xs  text-slate-600 hover:text-gray-100 transition-all duration-200 "
         >
-          <ArrowLeftIcon className="h-4 w-4 transition-transform group-hover:-translate-x-1" />
+          <ArrowLeftIcon className="h-3 w-3 transition-transform group-hover:-translate-x-1" />
           Back to Customers
         </button>
-      </div>
+      </div> */}
 
       {/* Tabs */}
-      <div className="border-b border-gray-200 mb-6 flex-shrink-0 bg-white rounded-t-xl overflow-x-auto no-scrollbar">
+      <div className="border-b border-gray-200 mb-6 flex-shrink-0 bg-white rounded-t-sm overflow-x-auto no-scrollbar">
         <nav className="flex flex-nowrap w-full p-1" aria-label="Tabs">
           {tabs.map((tab) => {
             return (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center px-4 py-2 text-[10px] font-black uppercase tracking-widest border-b-2 whitespace-nowrap transition-all duration-300 rounded-lg ${activeTab === tab.id
-                  ? "border-brand-primary text-brand-primary bg-brand-surface/30 shadow-sm"
-                  : "border-transparent text-black hover:bg-slate-50 hover:text-brand-secondary"
-                  }`}
+               className={`flex-1 flex items-center justify-center px-4 py-2 text-[10px] whitespace-nowrap transition-all duration-300 rounded-sm ${activeTab === tab.id
+  ? "text-white bg-brand-primary shadow-sm"
+  : "text-black hover:bg-slate-100 hover:text-slate-600"
+  }`}
               >
                 {tab.name}
               </button>

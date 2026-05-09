@@ -508,20 +508,20 @@ const PromiseToPay = () => {
           ) : (
             <div className="overflow-x-auto rounded-lg border border-gray-200 shadow-sm">
               <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gradient-to-r from-gray-50 to-gray-100">
+                <thead className="bg-gray-50">
                   <tr>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Promised Date</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Amount</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Created By</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Interaction Type</th>
-                    <th className="px-6 py-4 text-left text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap min-w-[300px]">Remarks</th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Status</th>
-                    <th className="px-6 py-4 text-center text-xs font-bold text-gray-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">Promised Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">Amount</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">Created By</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">Interaction Type</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap min-w-[300px]">Remarks</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">Status</th>
+                    <th className="px-6 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
                   {ptps.map((ptp) => (
-                    <tr key={ptp.id} className="hover:bg-gray-50 transition">
+                    <tr key={ptp.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center gap-2">
                           <Calendar className="h-4 w-4 text-indigo-500" />

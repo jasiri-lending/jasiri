@@ -92,17 +92,7 @@ const ApprovedTransfersList = ({ onExecute, currentUser }) => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-muted">
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text="Loading 360 view..." />
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   if (transfers.length === 0) {
     return (
@@ -216,17 +206,17 @@ const ApprovedTransfersList = ({ onExecute, currentUser }) => {
 
                 <div className="bg-white rounded-lg border overflow-hidden">
                   <div className="max-h-60 overflow-y-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm divide-y divide-gray-200">
                       <thead className="bg-gray-50 sticky top-0">
                         <tr>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer Name</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Number</th>
-                          <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Current Branch</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Customer Name</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">ID Number</th>
+                          <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Current Branch</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-gray-200">
                         {transfer.transfer_items?.map((item, index) => (
-                          <tr key={item.id || index} className="hover:bg-gray-50">
+                          <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-3">
                               <div>
                                 <p className="font-medium text-gray-900">

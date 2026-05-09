@@ -373,7 +373,7 @@ const LoanBookingForm = ({ customerData }) => {
 
       const initialStatus = "bm_review";
 
-      const { error } = await supabase.from("loans").insert([
+      const { data, error } = await supabase.from("loans").insert([
         {
           customer_id: id,
           product: calculated.product,
@@ -396,9 +396,26 @@ const LoanBookingForm = ({ customerData }) => {
           region_id: profile?.region_id,
           tenant_id: profile?.tenant_id,
         },
-      ]);
+      ]).select("id");
 
       if (error) throw error;
+
+      const newLoan = data?.[0];
+      if (newLoan) {
+        // Initiate workflow for the new loan
+        try {
+          await apiFetch('/api/workflows/start', {
+            method: 'POST',
+            body: JSON.stringify({
+              entity_id: newLoan.id,
+              entity_type: 'loan',
+              tenant_id: profile?.tenant_id
+            })
+          });
+        } catch (wfError) {
+          console.error("Failed to start workflow for loan:", wfError);
+        }
+      }
 
       toast.success("Loan successfully booked!");
       navigate(-1);

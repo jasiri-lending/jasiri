@@ -28,6 +28,7 @@ export default function RolePermissionManager() {
     const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
     const [newRoleName, setNewRoleName] = useState("");
     const [addingRole, setAddingRole] = useState(false);
+    const [selectedResource, setSelectedResource] = useState(null);
 
     const RESOURCE_TITLES = {
         'loan': 'Loan Operations',
@@ -40,7 +41,8 @@ export default function RolePermissionManager() {
         'transfers': 'Customer Transfers',
         'refunds': 'Refund Operations',
         'journal': 'Journal Operations',
-        'reconciliation': 'Transaction Reconciliation'
+        'reconciliation': 'Transaction Reconciliation',
+        'loan_workflow': 'Workflow Configuration'
     };
 
     const mountedRef = useRef(true);
@@ -49,10 +51,21 @@ export default function RolePermissionManager() {
         'loan': [
             'loan.create',
             'loan.view',
+            'loan.edit',
+            'loan.delete',
+            'loan.submit',
+            'loan.review',
             'loan.approve',
-            'loan.disburse',
             'loan.reject',
-            'loan_limit_adjustment'
+            'loan.send_back',
+            'loan.disburse',
+            'loan.cancel_disbursement',
+            'loan_limit_adjustment',
+            'loan.adjust_limit',
+            'loan.override',
+            'loan.reschedule',
+            'loan.audit',
+            'loan.escalate'
         ],
         'user': [
             'user.create',
@@ -113,6 +126,9 @@ export default function RolePermissionManager() {
         'reconciliation': [
             'transaction.reconcile',
             'transaction.approve'
+        ],
+        'loan_workflow': [
+            'loan_workflow.configure'
         ]
     };
 
@@ -191,6 +207,7 @@ export default function RolePermissionManager() {
     useEffect(() => {
         if (!selectedRole) {
             setRolePermissions({});
+            setSelectedResource(null);
             return;
         }
 
@@ -205,6 +222,14 @@ export default function RolePermissionManager() {
 
                 const permIds = data?.map((p) => p.permission_id) || [];
                 setRolePermissions(Object.fromEntries(permIds.map((id) => [id, true])));
+                
+                // Auto-select first resource if none selected
+                if (!selectedResource && permissions.length > 0) {
+                    const firstRes = Object.keys(permissionsByResource).sort((a, b) => 
+                        (RESOURCE_TITLES[a] || a).localeCompare(RESOURCE_TITLES[b] || b)
+                    )[0];
+                    setSelectedResource(firstRes);
+                }
             } catch (err) {
                 console.error("Error fetching role perms:", err);
                 toastError("Failed to load role permissions.");
@@ -212,7 +237,7 @@ export default function RolePermissionManager() {
         };
 
         fetchRolePerms();
-    }, [selectedRole]);
+    }, [selectedRole, permissions]);
 
     const syncPermissions = async () => {
         try {
@@ -596,45 +621,69 @@ export default function RolePermissionManager() {
                                         </span>
                                     </div>
 
-                                    <div className="divide-y divide-slate-100">
+                                    <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto no-scrollbar">
                                         {Object.keys(permissionsByResource)
                                             .sort((a, b) => (RESOURCE_TITLES[a] || a).localeCompare(RESOURCE_TITLES[b] || b))
-                                            .map((resource) => {
-                                                const perms = permissionsByResource[resource]
-                                                    .sort((a, b) => a.description.localeCompare(b.description));
+                                            .map((resource) => (
+                                                <button
+                                                    key={resource}
+                                                    onClick={() => setSelectedResource(resource)}
+                                                    className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
+                                                        selectedResource === resource
+                                                            ? "border-brand-primary text-brand-primary bg-white"
+                                                            : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-100/50"
+                                                    }`}
+                                                >
+                                                    {RESOURCE_TITLES[resource] || resource}
+                                                </button>
+                                            ))}
+                                    </div>
 
-                                                return (
-                                                    <div key={resource} className="p-6">
-                                                        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4 border-b pb-2 border-slate-50">
-                                                            {RESOURCE_TITLES[resource] || resource}
-                                                        </h4>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                                            {perms.map((perm) => (
-                                                                <label
-                                                                    key={perm.id}
-                                                                    className={`flex items-start gap-3 p-3 rounded-lg border transition-all cursor-pointer ${rolePermissions[perm.id]
-                                                                        ? "bg-brand-primary/5 border-brand-primary/30"
-                                                                        : "bg-white border-slate-200 hover:border-slate-300"
-                                                                        }`}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={!!rolePermissions[perm.id]}
-                                                                        onChange={() => togglePermission(perm.id)}
-                                                                        className="mt-1 h-4 w-4 rounded border-slate-300 text-brand-primary focus:ring-brand-primary"
-                                                                    />
-                                                                    <div>
-                                                                        <p className={`text-sm font-medium ${rolePermissions[perm.id] ? "text-brand-primary" : "text-slate-700"
-                                                                            }`}>
-                                                                            {perm.description}
-                                                                        </p>
-                                                                    </div>
-                                                                </label>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                )
-                                            })}
+                                    <div className="p-6 bg-white min-h-[400px]">
+                                        {selectedResource && permissionsByResource[selectedResource] ? (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                                {permissionsByResource[selectedResource]
+                                                    .sort((a, b) => a.description.localeCompare(b.description))
+                                                    .map((perm) => (
+                                                        <label
+                                                            key={perm.id}
+                                                            className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer group ${
+                                                                rolePermissions[perm.id]
+                                                                    ? "bg-brand-primary/5 border-brand-primary/20 shadow-sm"
+                                                                    : "bg-white border-slate-100 hover:border-slate-200"
+                                                            }`}
+                                                        >
+                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
+                                                                rolePermissions[perm.id]
+                                                                    ? "bg-brand-primary border-brand-primary"
+                                                                    : "bg-white border-slate-300 group-hover:border-brand-primary/50"
+                                                            }`}>
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={!!rolePermissions[perm.id]}
+                                                                    onChange={() => togglePermission(perm.id)}
+                                                                    className="hidden"
+                                                                />
+                                                                {rolePermissions[perm.id] && (
+                                                                    <CheckCircle className="h-3 w-3 text-white" />
+                                                                )}
+                                                            </div>
+                                                            <div className="flex-1 overflow-hidden">
+                                                                <p className={`text-[10px] font-semibold leading-tight truncate ${
+                                                                    rolePermissions[perm.id] ? "text-brand-primary" : "text-slate-600"
+                                                                }`} title={perm.description}>
+                                                                    {perm.description}
+                                                                </p>
+                                                            </div>
+                                                        </label>
+                                                    ))}
+                                            </div>
+                                        ) : (
+                                            <div className="flex flex-col items-center justify-center h-full py-12 text-slate-400">
+                                                <AlertCircle className="h-8 w-8 mb-2 opacity-20" />
+                                                <p className="text-[10px] font-medium">Select a category from the tabs above</p>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                             </div>

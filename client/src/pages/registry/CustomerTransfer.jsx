@@ -358,10 +358,15 @@ const CustomerTransfer = () => {
     <div className="min-h-screen bg-muted p-4">
       <div className="h-full flex flex-col">
         {/* Header Section */}
-        <div className="mb-4">
-          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
-            Registry / Customer Transfer Requests
-          </h1>
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+              Registry / Customer Transfer Requests
+            </h1>
+          </div>
+          <div className="text-xs text-brand-primary ">
+            <span className="font-medium text-brand-primary">{transfers.length}</span> transfer requests
+          </div>
         </div>
 
         {/* Search and Action Bar */}
@@ -371,7 +376,7 @@ const CustomerTransfer = () => {
             {hasPermission('transfers.initiate') && (
               <button
                 onClick={() => navigate('/transfer')}
-                className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
+                className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -387,7 +392,7 @@ const CustomerTransfer = () => {
                 placeholder="Search by branch, officer, or manager..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
+                className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
               />
               <svg
                 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
@@ -406,39 +411,38 @@ const CustomerTransfer = () => {
           <div className="h-full overflow-auto">
             <table className="w-full">
               <thead className="sticky top-0 bg-white z-10">
-                <tr className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Transfer ID
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    From Branch/Officer
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    To Branch/Officer
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Customers
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Status
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Initiated By
-                  </th>
-                  <th className="px-4 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Created Date
-                  </th>
-                  <th className="px-4 py-3 text-center text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
-                    Actions
-                  </th>
+                <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Transfer ID
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  From Branch/Officer
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  To Branch/Officer
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Customers
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Status
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Initiated By
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Created Date
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
+                  Actions
+                </th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-200">
+              <tbody className="bg-white divide-y divide-gray-200">
                 {loading ? (
                   <tr>
                     <td colSpan="8" className="px-4 py-8 text-center">
                       <div className="flex flex-col items-center justify-center gap-2">
-                        <div className="animate-spin rounded-full h-8 w-8 border-4 border-blue-600 border-t-transparent"></div>
                         <p className="text-gray-500 text-sm">Loading transfers...</p>
                       </div>
                     </td>

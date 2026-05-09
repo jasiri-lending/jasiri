@@ -57,33 +57,39 @@ const getMonthEndDate = () => {
 
 // FULL currency formatting (no K/M/B)
 // SVG Background Pattern (Topography)
-const TopographyPattern = () => (
-  <svg className="absolute inset-0 w-full h-full opacity-[0.06] pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" preserveAspectRatio="none">
-    <path d="M0,20 Q25,10 50,20 T100,20 T150,15 T200,20" fill="none" stroke="currentColor" strokeWidth="0.6" />
-    <path d="M0,40 Q30,30 60,40 T120,35 T180,42 T200,38" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <path d="M0,55 Q40,48 80,55 T160,50 T200,56" fill="none" stroke="currentColor" strokeWidth="0.6" />
-    <path d="M0,70 Q35,62 70,70 T140,65 T200,72" fill="none" stroke="currentColor" strokeWidth="0.4" />
-    <path d="M0,85 Q25,78 50,85 T100,80 T150,87 T200,83" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <path d="M0,100 Q50,92 100,100 T200,98" fill="none" stroke="currentColor" strokeWidth="0.6" />
-    <path d="M0,115 Q30,108 60,115 T120,110 T180,117 T200,113" fill="none" stroke="currentColor" strokeWidth="0.4" />
-    <path d="M0,130 Q40,122 80,130 T160,125 T200,132" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <path d="M0,148 Q25,140 50,148 T100,143 T150,150 T200,146" fill="none" stroke="currentColor" strokeWidth="0.6" />
-    <path d="M0,165 Q35,158 70,165 T140,160 T200,167" fill="none" stroke="currentColor" strokeWidth="0.4" />
-    <path d="M0,180 Q50,172 100,180 T200,178" fill="none" stroke="currentColor" strokeWidth="0.5" />
-    <ellipse cx="60" cy="75" rx="30" ry="15" fill="none" stroke="currentColor" strokeWidth="0.4" />
-    <ellipse cx="150" cy="120" rx="25" ry="12" fill="none" stroke="currentColor" strokeWidth="0.4" />
-    <ellipse cx="100" cy="160" rx="35" ry="18" fill="none" stroke="currentColor" strokeWidth="0.3" />
+const FinancialGridPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.08] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <path d="M 40 0 L 0 0 0 40" fill="none" stroke="currentColor" strokeWidth="1"/>
+      </pattern>
+      <pattern id="innerGrid" width="8" height="8" patternUnits="userSpaceOnUse">
+        <path d="M 8 0 L 0 0 0 8" fill="none" stroke="currentColor" strokeWidth="0.5"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#innerGrid)" />
+    <rect width="100%" height="100%" fill="url(#grid)" />
   </svg>
 );
 
-const GraphPattern = () => (
-  <svg className="absolute bottom-0 right-0 w-32 h-24 opacity-[0.03] pointer-events-none transform -rotate-12 translate-x-4 translate-y-4" viewBox="0 0 100 100" preserveAspectRatio="none">
-    <path d="M0,80 L20,70 L40,75 L60,50 L80,60 L100,30" fill="none" stroke="currentColor" strokeWidth="2" />
-    <circle cx="20" cy="70" r="2" fill="currentColor" />
-    <circle cx="40" cy="75" r="2" fill="currentColor" />
-    <circle cx="60" cy="50" r="2" fill="currentColor" />
-    <circle cx="80" cy="60" r="2" fill="currentColor" />
-    <circle cx="100" cy="30" r="2" fill="currentColor" />
+const DotsPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.10] pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <pattern id="dots" width="16" height="16" patternUnits="userSpaceOnUse">
+        <circle cx="1.5" cy="1.5" r="1" fill="currentColor" />
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#dots)" />
+  </svg>
+);
+
+const WavesPattern = () => (
+  <svg className="absolute inset-0 w-full h-full opacity-[0.08] pointer-events-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" preserveAspectRatio="none">
+    <path d="M0,30 Q25,25 50,30 T100,30" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,50 Q25,45 50,50 T100,50" fill="none" stroke="currentColor" strokeWidth="0.4" />
+    <path d="M0,70 Q25,65 50,70 T100,70" fill="none" stroke="currentColor" strokeWidth="0.5" />
+    <path d="M0,40 Q25,35 50,40 T100,40" fill="none" stroke="currentColor" strokeWidth="0.2" />
+    <path d="M0,60 Q25,55 50,60 T100,60" fill="none" stroke="currentColor" strokeWidth="0.2" />
   </svg>
 );
 
@@ -99,7 +105,7 @@ const formatCurrency = (amount) => {
 // ========== UI COMPONENTS ==========
 const SectionHeader = ({ icon: Icon, title }) => (
   <div className="flex items-center gap-0 mb-6 w-full group">
-    <div className="flex items-center bg-[#2E5E99] text-white px-4 py-1.5 rounded-l-md shadow-sm whitespace-nowrap min-w-[120px] justify-center font-bold text-[11px] uppercase tracking-wider">
+    <div className="flex items-center bg-brand-primary text-white px-4 py-1.5 rounded-l-md shadow-sm whitespace-nowrap min-w-[120px] justify-center font-semibold text-[11px] ">
       {title}
     </div>
     <div className="flex-grow h-[1px] bg-[#2E5E99] opacity-20 ml-0 shadow-sm" />
@@ -119,13 +125,12 @@ const SkeletonCard = () => (
 
 const CircularProgress = ({
   percentage,
-  size = 140,
-  strokeWidth = 14,
-  activeStrokeWidth = 18,
+  size = 110,
+  strokeWidth = 10,
+  activeStrokeWidth = 14,
   label,
   collected,
   expected,
-  shortfall,
   isParMetric = false
 }) => {
   const radius = (size - activeStrokeWidth) / 2;
@@ -145,8 +150,8 @@ const CircularProgress = ({
   };
 
   return (
-    <div className="flex items-center gap-8 w-full">
-      <div className="relative" style={{ width: size, height: size }}>
+    <div className="flex items-center gap-6 w-full overflow-hidden">
+      <div className="relative flex-shrink-0" style={{ width: size, height: size }}>
         <svg width={size} height={size} className="-rotate-90">
           <circle
             cx={size / 2}
@@ -172,8 +177,8 @@ const CircularProgress = ({
 
         <div className="absolute inset-0 flex items-center justify-center">
           <div className="text-center">
-            <div className="text-xs font-black text-slate-400 uppercase tracking-tighter mb-1">{label}</div>
-            <div className="text-2xl font-black tracking-tighter" style={{ color: getColor() }}>
+            <div className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</div>
+            <div className="text-xl font-black tracking-tighter" style={{ color: getColor() }}>
               {percentage.toFixed(1)}%
             </div>
           </div>
@@ -181,14 +186,14 @@ const CircularProgress = ({
       </div>
 
       {collected !== undefined && (
-        <div className="flex-grow space-y-4 py-2 border-l border-slate-200/50 pl-6">
+        <div className="flex-grow space-y-3 py-1 border-l-2 border-slate-200/80 pl-5 ml-1 min-w-0">
           <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">Collected</span>
-            <span className="text-lg font-black leading-none" style={{ color: "#10B981" }}>{formatCurrency(collected)}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1 leading-none">Collected</span>
+            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "#10B981" }}>{formatCurrency(collected)}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-[10px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1">Expected</span>
-            <span className="text-lg font-black leading-none" style={{ color: "#1E3A8A" }}>{formatCurrency(expected)}</span>
+            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1 leading-none">Expected</span>
+            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "#1E3A8A" }}>{formatCurrency(expected)}</span>
           </div>
         </div>
       )}
@@ -264,16 +269,13 @@ const SemiCircleProgress = ({
 };
 
 const FilterSelectCompact = ({ label, icon: Icon, value, onChange, options }) => (
-  <div className="flex items-center bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden flex-1 min-w-[120px]">
-    <div className="bg-[#2E5E99] text-white px-2 py-1.5 flex items-center gap-1.5 min-w-[70px] justify-center font-bold text-[11px] uppercase tracking-tight">
-      <Icon className="w-3 h-3" />
-      {label}
-    </div>
+  <div className="flex items-center bg-gray-50 rounded-md shadow-sm border border-slate-200 overflow-hidden flex-1 min-w-[120px]">
+    
     <div className="relative flex-grow">
       <select
         value={value || ""}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-2 pr-6 py-1.5 appearance-none cursor-pointer outline-none bg-transparent text-[11px] font-bold text-slate-700"
+        className="w-full pl-2 pr-6 py-1.5 appearance-none cursor-pointer outline-none bg-transparent text-[11px]  text-slate-600"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -299,7 +301,7 @@ const StatCard = ({
   <div
     className="p-5 rounded-xl shadow-sm relative overflow-hidden group bg-white border border-slate-200"
   >
-    <GraphPattern />
+    <FinancialGridPattern />
     <div className="relative z-10 space-y-3">
       <div className="flex items-center gap-3">
         {Icon && (
@@ -333,35 +335,35 @@ const PortfolioStatCard = ({
   pattern: Pattern,
 }) => (
   <div
-    className={`p-8 rounded-lg ${bgClassName} border-2 border-white shadow-[0_10px_30px_rgba(0,0,0,0.03)] relative overflow-hidden group min-h-[220px] flex flex-col justify-center transition-all hover:shadow-[0_20px_40px_rgba(0,0,0,0.06)] hover:-translate-y-1`}
+    className={`p-6 rounded-2xl ${bgClassName} border border-white/60 shadow-[0_4px_12px_rgba(0,0,0,0.01)] relative overflow-hidden group min-h-[140px] flex flex-col justify-center transition-all hover:shadow-[0_15px_30px_rgba(0,0,0,0.05)] hover:-translate-y-1 backdrop-blur-sm`}
   >
     {Pattern && (
-      <div className="absolute inset-0 opacity-[0.15] group-hover:opacity-[0.22] transition-opacity" style={{ color }}>
+      <div className="absolute inset-0 group-hover:scale-110 transition-transform duration-700" style={{ color }}>
         <Pattern />
       </div>
     )}
     <div className="relative z-10">
       <div
-        className="text-[10px] font-black uppercase tracking-[0.25em] mb-4 opacity-70"
+        className="text-[11px]  mb-3 "
         style={{ color }}
       >
         {label}
       </div>
       <div
-        className="text-4xl sm:text-5xl font-black mb-6 tracking-tighter leading-none"
+        className="text-3xl sm:text-4xl font-black mb-4 tracking-tighter leading-none"
         style={{ color }}
       >
         {amount}
       </div>
       <div className="flex items-center gap-3">
-        <div className="h-[2px] w-8 rounded-full" style={{ backgroundColor: color, opacity: 0.2 }} />
-        <div className="text-sm font-bold tracking-tight" style={{ color, opacity: 0.8 }}>
+        <div className="h-[3px] w-6 rounded-full" style={{ backgroundColor: color }} />
+        <div className="text-[11px] font-black tracking-tight" style={{ color }}>
           {details}
         </div>
       </div>
     </div>
     <div
-      className="absolute top-0 right-0 w-32 h-32 blur-3xl rounded-full -mr-16 -mt-16 opacity-10 group-hover:opacity-20 transition-opacity"
+      className="absolute bottom-0 right-0 w-32 h-32 blur-[80px] rounded-full -mr-16 -mb-16 opacity-10 group-hover:opacity-20 transition-opacity pointer-events-none"
       style={{ backgroundColor: color }}
     />
   </div>
@@ -378,19 +380,19 @@ const CollectionCard = ({
   pattern: Pattern,
 }) => (
   <div
-    className={`p-6 rounded-3xl ${bgClassName} shadow-sm border border-slate-200 group transition-all hover:shadow-md h-full flex flex-col relative overflow-hidden`}
+    className={`p-6 rounded-2xl ${bgClassName} border border-white/60 shadow-[0_4px_12px_rgba(0,0,0,0.01)] relative overflow-hidden group min-h-[160px] flex flex-col justify-center transition-all hover:shadow-[0_15px_30px_rgba(0,0,0,0.05)] hover:-translate-y-1 backdrop-blur-sm`}
   >
     {Pattern && (
-      <div className="absolute inset-0 opacity-[0.05] group-hover:opacity-[0.08] transition-opacity">
+      <div className="absolute inset-0 group-hover:scale-110 transition-transform duration-700 opacity-30" style={{ color: '#94A3B8' }}>
         <Pattern />
       </div>
     )}
-    <div className="relative z-10 flex flex-col h-full">
-      <div className="flex items-center justify-center bg-white/60 backdrop-blur-sm text-[#1E3A8A] px-4 py-1.5 rounded-lg mb-8 w-fit mx-auto font-black text-[10px] uppercase tracking-widest border border-slate-200/50">
+    <div className="relative z-10 flex flex-col h-full w-full">
+      <div className="flex items-center justify-center bg-white backdrop-blur-sm text-brand-primary px-4 py-1 rounded-lg mb-6 w-fit mx-auto font-black text-[9px]  border border-brand-primary">
         {title}
       </div>
 
-      <div className="flex-grow flex items-center">
+      <div className="flex-grow flex items-center w-full">
         <CircularProgress
           percentage={percentage}
           label={label}
@@ -399,6 +401,9 @@ const CollectionCard = ({
         />
       </div>
     </div>
+    <div
+      className="absolute bottom-0 right-0 w-32 h-32 blur-[80px] rounded-full -mr-16 -mb-16 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none bg-brand-primary"
+    />
   </div>
 );
 
@@ -413,15 +418,15 @@ const RiskMetricCard = ({
     className={`p-5 rounded-2xl ${bgClassName} transition-all duration-200 hover:shadow-md relative overflow-hidden border border-slate-200 group`}
   >
     <div className="absolute inset-0 opacity-[0.05]">
-      <GraphPattern />
+      <DotsPattern />
     </div>
     <div className="relative z-10">
-      <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2 group-hover:text-slate-700">{label}</div>
-      <div className="text-2xl font-black font-mono tracking-tight mb-2" style={{ color }}>
+      <div className="text-[10px] font-semibold text-slate-600 mb-2 group-hover:text-slate-700">{label}</div>
+      <div className="text-2xl font-semibold font-mono tracking-tight mb-2" style={{ color }}>
         {amount}
       </div>
       {details && (
-        <div className="text-[11px] font-bold text-slate-500 bg-black/5 px-2 py-0.5 rounded-full inline-block">
+        <div className="text-[11px] font-semibold text-slate-500 bg-black/5 px-2 py-0.5 rounded-full inline-block">
           {details}
         </div>
       )}
@@ -439,7 +444,7 @@ const LeadConversionCard = ({
   <div
     className="p-6 rounded-3xl bg-white shadow-[0_8px_30px_rgba(0,0,0,0.02)] border border-slate-100 flex flex-col items-center group transition-all hover:shadow-[0_15px_40px_rgba(0,0,0,0.04)]"
   >
-    <h4 className="text-[10px] sm:text-[11px] font-black uppercase tracking-wider text-slate-400 mb-6 group-hover:text-slate-600 transition-colors whitespace-nowrap">
+    <h4 className="text-[10px] sm:text-[11px]   text-slate-600 mb-6 group-hover:text-slate-600 transition-colors whitespace-nowrap">
       {title}
     </h4>
     <div className="mb-4">
@@ -448,7 +453,7 @@ const LeadConversionCard = ({
         label={label}
       />
     </div>
-    <div className="mt-2 text-[11px] font-bold text-slate-400 bg-slate-50 px-3 py-1 rounded-full uppercase tracking-tight">
+    <div className="mt-2 text-[11px]  text-slate-600 bg-slate-50 px-3 py-1 rounded-full ">
       {leadsText}
     </div>
   </div>
@@ -463,14 +468,14 @@ const CustomerStatBox = ({
   <div
     className={`p-5 rounded-2xl ${bgClassName} backdrop-blur-sm border border-slate-200 relative overflow-hidden transition-all hover:shadow-md hover:-translate-y-0.5 group`}
   >
-    <div className="absolute inset-0 opacity-[0.03] group-hover:opacity-[0.05] transition-opacity">
-      <TopographyPattern />
+    <div className="absolute inset-0 opacity-[0.10] group-hover:opacity-[0.05] transition-opacity">
+      <WavesPattern />
     </div>
     <div className="pl-2 relative z-10">
-      <div className="text-2xl font-black font-mono tracking-tight leading-none mb-2" style={{ color }}>
+      <div className="text-2xl font-semibold font-mono  leading-none mb-2" style={{ color }}>
         {value}
       </div>
-      <div className="text-[9px] font-bold uppercase tracking-[0.15em] text-slate-500 group-hover:text-slate-700">{label}</div>
+      <div className="text-[10px]  text-slate-600 group-hover:text-slate-700">{label}</div>
     </div>
   </div>
 );
@@ -493,11 +498,11 @@ const PendingActionCard = ({
           style={{ backgroundColor: `${color}20`, color }}>
           <Icon className="w-6 h-6" />
         </div>
-        <div className="text-5xl font-black font-mono tracking-tighter" style={{ color }}>
+        <div className="text-2xl font-semibold font-mono " style={{ color }}>
           {value}
         </div>
       </div>
-      <div className="text-[10px] font-black uppercase tracking-widest text-slate-500 group-hover:text-slate-700 transition-colors">
+      <div className="text-[10px]  text-slate-500 group-hover:text-slate-700 transition-colors">
         {label}
       </div>
     </div>
@@ -1415,7 +1420,7 @@ const Dashboard = () => {
 
   if (authInitializing) {
     return (
-      <div className="min-h-screen" style={{ backgroundColor: COLORS.background }}>
+      <div className="min-h-screen bg-muted" >
         <div className="flex items-center justify-center h-screen">
           <div className="animate-pulse space-y-4">
             <div className="w-16 h-16 bg-slate-200 rounded-full mx-auto" />
@@ -1442,11 +1447,10 @@ const Dashboard = () => {
 
   return (
     <div
-      className="min-h-screen p-3 sm:p-4 md:p-6"
-      style={{ backgroundColor: "#d9e2e8" }}
+      className="min-h-screen p-3 sm:p-4 md:p-6 bg-muted"
     >
       {/* Filters Bar */}
-      <div className="mb-8 px-4 py-4 bg-white/50 rounded-2xl border border-white/60 shadow-sm relative z-50 overflow-visible">
+      <div className="mb-8 ">
         <div className="flex flex-wrap gap-4 items-end">
           {/* Region Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "regional_manager"].includes(userProfile?.role) && (
@@ -1510,7 +1514,7 @@ const Dashboard = () => {
               setSelectedBranch("all");
               setSelectedRO("all");
             }}
-            className="px-3 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] text-white font-black text-[9px] uppercase tracking-widest rounded-md shadow-md transition-all active:scale-95 whitespace-nowrap"
+            className="px-2 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] text-white font-black text-[9px] uppercase tracking-widest rounded-md shadow-md transition-all active:scale-95 whitespace-nowrap"
           >
             Clear
           </button>
@@ -1519,14 +1523,14 @@ const Dashboard = () => {
           <div className="flex-grow min-w-[250px]">
             <div className="relative group" ref={searchContainerRef}>
               <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                <Search className="w-4 h-4 text-[#2E5E99]" strokeWidth={2.5} />
+                <Search className="w-4 h-4 text-brand-primary" strokeWidth={2.5} />
               </div>
               <input
                 type="text"
                 placeholder="Search name, phone, ID…"
                 value={quickSearchTerm}
                 onChange={(e) => setQuickSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 rounded-lg text-[11px] font-bold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                className="w-full pl-10 pr-10 py-2 rounded-lg text-[8px] font-semibold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 style={{
                   color: COLORS.authority,
                 }}
@@ -1539,7 +1543,7 @@ const Dashboard = () => {
                   }}
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full transition-colors z-10"
                 >
-                  <XMarkIcon className="w-3.5 h-3.5 text-slate-400 hover:text-slate-600" />
+                  <XMarkIcon className="w-3.5 h-3 text-slate-400 hover:text-slate-600" />
                 </button>
               )}
 
@@ -1588,24 +1592,24 @@ const Dashboard = () => {
                   amount={formatCurrency(dashboardData.portfolio.outstandingBalance)}
                   details={`${dashboardData.portfolio.totalLoans.toLocaleString()} Active Loans`}
                   color="#1E3A8A"
-                  bgClassName="bg-blue-50/50"
-                  pattern={GraphPattern}
+                  bgClassName="bg-white"
+                  pattern={FinancialGridPattern}
                 />
                 <PortfolioStatCard
                   label="Clean Book"
                   amount={formatCurrency(dashboardData.portfolio.cleanBook)}
                   details={`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
                   color="#10B981"
-                  bgClassName="bg-emerald-50/50"
-                  pattern={TopographyPattern}
+                  bgClassName="bg-white"
+                  pattern={DotsPattern}
                 />
                 <PortfolioStatCard
                   label="Total Customers"
                   amount={dashboardData.customers.total.toLocaleString()}
                   details={`${dashboardData.customers.newYTD.toLocaleString()} YTD New`}
-                  color="#7C3AED"
-                  bgClassName="bg-violet-50/50"
-                  pattern={TopographyPattern}
+                  color="#586ab1"
+                  bgClassName="bg-white"
+                  pattern={WavesPattern}
                 />
               </>
             )}
@@ -1630,8 +1634,8 @@ const Dashboard = () => {
                   label="Rate"
                   collected={dashboardData.collections.today.collected}
                   expected={dashboardData.collections.today.expected}
-                  bgClassName="bg-emerald-50/50"
-                  pattern={TopographyPattern}
+                  bgClassName="bg-stone-300/50"
+                  pattern={DotsPattern}
                 />
                 <CollectionCard
                   title="Monthly Collection"
@@ -1639,8 +1643,8 @@ const Dashboard = () => {
                   label="Rate"
                   collected={dashboardData.collections.month.collected}
                   expected={dashboardData.collections.month.expected}
-                  bgClassName="bg-blue-50/50"
-                  pattern={GraphPattern}
+                  bgClassName="bg-stone-300/50"
+                  pattern={FinancialGridPattern}
                 />
                 <CollectionCard
                   title="Tomorrow's Collection"
@@ -1648,8 +1652,8 @@ const Dashboard = () => {
                   label="Prepaid"
                   collected={dashboardData.collections.tomorrow.prepaid}
                   expected={dashboardData.collections.tomorrow.expected}
-                  bgClassName="bg-violet-50/50"
-                  pattern={TopographyPattern}
+                  bgClassName="bg-stone-300/50"
+                  pattern={DotsPattern}
                 />
               </>
             )}
@@ -1721,25 +1725,25 @@ const Dashboard = () => {
 
           <div className="bg-slate-50 p-8 rounded-3xl border border-slate-200 relative z-10 overflow-hidden group">
             <div className="absolute inset-0 opacity-[0.08] group-hover:opacity-[0.12] transition-opacity">
-              <GraphPattern />
+              <FinancialGridPattern />
             </div>
             <div className="flex flex-col lg:flex-row items-center gap-12 relative z-20">
-              <div className="flex items-center gap-6 bg-white/40 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm">
+              <div className="flex items-center gap-6 bg-stone-300/50 backdrop-blur-sm p-6 rounded-2xl border border-white/50 shadow-sm">
                 <CircularProgress
                   percentage={dashboardData.risk.par}
                   label="PAR Ratio"
                   isParMetric={true}
                   size={180}
                 />
-                <div className="hidden sm:flex flex-col border-l border-slate-200 pl-6 space-y-2">
+                <div className="hidden sm:flex flex-col border-l-2 border-stone-400 pl-6 space-y-2">
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold text-slate-500">Arrears</span>
-                    <span className="text-sm font-black text-[#EF4444]">{formatCurrency(dashboardData.risk.totalArrears)}</span>
+                    <span className="text-xs  text-slate-500">Arrears</span>
+                    <span className="text-sm font-semibold text-[#EF4444]">{formatCurrency(dashboardData.risk.totalArrears)}</span>
                   </div>
                   <div className="h-px bg-slate-200 w-12" />
                   <div className="flex flex-col">
-                    <span className="text-xs font-bold text-slate-500">OLB</span>
-                    <span className="text-sm font-black text-[#1E3A8A]">{formatCurrency(dashboardData.risk.outstandingBalance)}</span>
+                    <span className="text-xs  text-slate-500">OLB</span>
+                    <span className="text-sm font-semibold text-brand-primary">{formatCurrency(dashboardData.risk.outstandingBalance)}</span>
                   </div>
                 </div>
               </div>
@@ -1768,12 +1772,12 @@ const Dashboard = () => {
           <SectionHeader icon={Users} title="Customer Analytics" />
 
           <div className="bg-slate-50/50 p-6 rounded-3xl border border-slate-200 relative z-10 overflow-hidden">
-            <TopographyPattern />
+            <WavesPattern />
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-20">
               {/* Row 1: Active/Inactive (Left) & Leads Today (Right) */}
               <div className="flex flex-col md:flex-row gap-6 items-center">
-                <div className="grid grid-cols-1 gap-4 w-full md:w-1/2">
+                <div className="grid grid-cols-1 gap-4 w-full md:w-1/2 ">
                   <CustomerStatBox
                     value={dashboardData.customers.active.toLocaleString()}
                     label="Active Customers"

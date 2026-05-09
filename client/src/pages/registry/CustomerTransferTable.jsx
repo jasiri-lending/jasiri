@@ -194,58 +194,58 @@ const CustomerTransferTable = () => {
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Registry</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Branch</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Current Officer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Branch</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">New Officer</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created By</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Created Date</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Registry</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Current Branch</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Current Officer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">New Branch</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">New Officer</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Status</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Created By</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Created Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Action</th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {loading ? (
-                  <tr>
-                    <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
-                      Loading...
-                    </td>
-                  </tr>
-                ) : transfers.length === 0 ? (
-                  <tr>
-                    <td colSpan="9" className="px-6 py-4 text-center text-gray-500">
-                      No records to display
-                    </td>
-                  </tr>
-                ) : (
-                  transfers.map((transfer, index) => (
-                    <tr key={transfer.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {loading ? (
+                    <tr>
+                      <td colSpan="9" className="px-4 py-3 text-center text-gray-500">
+                        Loading...
+                      </td>
+                    </tr>
+                  ) : transfers.length === 0 ? (
+                    <tr>
+                      <td colSpan="9" className="px-4 py-3 text-center text-gray-500">
+                        No records to display
+                      </td>
+                    </tr>
+                  ) : (
+                    transfers.map((transfer, index) => (
+                      <tr key={transfer.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {index + 1}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transfer.current_branch?.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transfer.current_officer?.Firstname} {transfer.current_officer?.Surname}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transfer.new_branch?.name}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transfer.new_officer?.Firstname} {transfer.new_officer?.Surname}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm">
                         {getStatusBadge(transfer.status)}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
                         {transfer.created_by_user?.Firstname} {transfer.created_by_user?.Surname}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
                         {new Date(transfer.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
                         <button
                           className="text-blue-600 hover:text-blue-800 font-medium"
                         >
@@ -508,24 +508,24 @@ const CustomerTransferForm = ({ currentUser, onClose, onSuccess }) => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Select</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Customer Name</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone Number</th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Branch</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Select</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Customer Name</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">ID Number</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Phone Number</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Branch</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredCustomers.length === 0 ? (
                       <tr>
-                        <td colSpan="5" className="px-6 py-4 text-center text-gray-500">
+                        <td colSpan="5" className="px-4 py-3 text-center text-gray-500">
                           No customers found
                         </td>
                       </tr>
                     ) : (
                       filteredCustomers.map(customer => (
-                        <tr key={customer.id} className="hover:bg-gray-50">
-                          <td className="px-6 py-4">
+                        <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-4 py-3">
                             <input
                               type="checkbox"
                               checked={selectedCustomers.includes(customer.id)}
@@ -533,15 +533,15 @@ const CustomerTransferForm = ({ currentUser, onClose, onSuccess }) => {
                               className="h-4 w-4 text-blue-600 rounded"
                             />
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-sm text-gray-900">
                             {customer.Firstname} {customer.Middlename} {customer.Surname}
                           </td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{customer.id_number}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{customer.mobile}</td>
-                          <td className="px-6 py-4 text-sm text-gray-900">{customer.branch?.name}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{customer.id_number}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{customer.mobile}</td>
+                          <td className="px-4 py-3 text-sm text-gray-900">{customer.branch?.name}</td>
                         </tr>
                       ))
-                    )}
+                    ) }
                   </tbody>
                 </table>
               </div>

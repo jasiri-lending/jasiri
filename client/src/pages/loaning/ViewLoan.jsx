@@ -27,6 +27,7 @@ import {
   ArrowTrendingDownIcon,
 } from "@heroicons/react/24/outline";
 import Spinner from "../../components/Spinner";
+import WorkflowActionPanel from '../../components/workflow/WorkflowActionPanel';
 
 
 const ViewLoan = () => {
@@ -1006,6 +1007,15 @@ const ViewLoan = () => {
               <span className="font-semibold">{formatStatus(loanDetails.status)}</span>
             </div>
           </div>
+        </div>
+
+        {/* Workflow Actions */}
+        <div className="mb-8">
+          <WorkflowActionPanel 
+            entityId={loanId} 
+            entityType="loan" 
+            onActionComplete={fetchLoanDetails}
+          />
         </div>
 
         <div className="space-y-8">

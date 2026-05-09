@@ -20,6 +20,7 @@ import {
 import { useToast } from "../../components/Toast";
 import { useAuth } from "../../hooks/userAuth"; 
 import Spinner from '../../components/Spinner';
+import WorkflowActionPanel from '../../components/workflow/WorkflowActionPanel';
 
 
 const ApproveLoan = ({ loan, onComplete }) => {
@@ -27,64 +28,13 @@ const ApproveLoan = ({ loan, onComplete }) => {
   const { success, error: toastError, info, warning } = useToast();
   const [loanDetails, setLoanDetails] = useState(null);
   const [customer, setCustomer] = useState(null);
-  const [comment, setComment] = useState('');
-  const [bookedByUser, setBookedByUser] = useState(null);
-  const [repaymentSchedule, setRepaymentSchedule] = useState([]);
-  const [bmDecision, setBmDecision] = useState(null);
-  const [walletInfo, setWalletInfo] = useState({
-    balance: 0,
-    registration_fee_paid: false,
-    processing_fee_paid: false,
-  });
 const [loadingApprove, setLoadingApprove] = useState(false);
 const [loadingReject, setLoadingReject] = useState(false);
 
-const handleApprovalDecision = async (approved) => {
-  if (!comment.trim()) {
-    toastError("Please provide a comment for your decision");
-    return;
-  }
-
-  if (!profile?.id) {
-    toastError("User profile ID not found. Please log in again.");
-    return;
-  }
-
-  // Only check fees for approval
-  if (approved && !areFeesFullyPaid()) {
-    toastError(getFeePaymentMessage());
-    return;
-  }
-
-  // Set the correct loading state
-  approved ? setLoadingApprove(true) : setLoadingReject(true);
-
-  try {
-    if (isBranchManager) {
-      await approveLoanBM(loan.id, approved, comment, profile);
-    } else if (isRegionalManager) {
-      await approveLoanRM(loan.id, approved, comment, profile);
-    }
-
-    const successMessage = approved
-      ? `Loan approved & forwarded to ${getNextStage(approved)}`
-      : "Loan rejected successfully!";
-
-    success(successMessage);
-    onComplete?.();
-  } catch (err) {
-    console.error("Error updating loan:", err);
-    toastError("Error processing loan decision. Please try again.");
-  } finally {
-    // Reset the correct loading state
-    approved ? setLoadingApprove(false) : setLoadingReject(false);
-  }
-};
+// Legacy handlers removed - handled by WorkflowActionPanel
 
 
-  // Check user roles
-  const isBranchManager = profile?.role === "branch_manager";
-  const isRegionalManager = profile?.role === "regional_manager";
+  // Role checks removed - WorkflowActionPanel handles permissions based on node roles
 
   useEffect(() => {
     if (loan) fetchLoanDetails();
@@ -218,70 +168,7 @@ const fetchWalletAndFeeStatus = async (loanData) => {
     return `Cannot approve: ${unpaidFees.join(' and ')} not paid`;
   };
 
-  // Branch Manager Approval Logic
-  const approveLoanBM = async (loanId, approved, comment, profile) => {
-    let newStatus = "rejected"; 
-
-    if (approved) {
-      if (loanDetails.is_new_loan) {
-        newStatus = "rn_review";  // New loans go to Regional Manager
-      } else {
-        newStatus = "ca_review";  // Repite loans go directly to Credit Analyst
-      }
-    }
-
-    const { error } = await supabase
-      .from("loans")
-      .update({
-        status: newStatus,
-        bm_comment: comment,
-        bm_id: profile?.id || null,
-        bm_reviewed_at: new Date().toISOString(),
-        bm_decision: approved ? 'approved' : 'rejected'
-      })
-      .eq("id", loanId);
-
-    if (error) {
-      console.error("Supabase error while approving loan:", error);
-      throw error; 
-    }
-  };
-
-  // Regional Manager Approval Logic
-  const approveLoanRM = async (loanId, approved, comment, profile) => {
-    let newStatus = "rejected"; 
-
-    if (approved) {
-      newStatus = "ca_review";  // Approved loans go to Credit Analyst for disbursement
-    }
-
-    const { error } = await supabase
-      .from("loans")
-      .update({
-        status: newStatus,
-        rm_comment: comment,
-        rm_id: profile?.id || null,
-        rm_reviewed_at: new Date().toISOString(),
-        rm_decision: approved ? 'approved' : 'rejected'
-      })
-      .eq("id", loanId);
-
-    if (error) {
-      console.error("Supabase error while approving loan:", error);
-      throw error; 
-    }
-  };
-
-  const getNextStage = (approved) => {
-    if (!approved) return "rejected";
-    
-    if (isBranchManager) {
-      return loanDetails?.is_new_loan ? "Regional Manager" : "Credit Analyst";
-    } else if (isRegionalManager) {
-      return "Credit Analyst";
-    }
-    return "next stage";
-  };
+// Legacy approval logic removed
 
   const generateRepaymentSchedule = (loan) => {
     const schedule = [];
@@ -332,25 +219,9 @@ const fetchWalletAndFeeStatus = async (loanData) => {
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-xsm  bg-slate-600 bg-clip-text text-transparent">
-                {isRegionalManager ? 'Regional Manager Loan Review' : 'Branch Manager Loan Approval'}
+                Loan Review & Approval
               </h1>
-              {/* <p className="text-xsm text-gray-500 mt-1">
-                Role: {profile?.role?.replace(/_/g, " ").toUpperCase()} 
-              </p> */}
-              <div className="mt-2 text-sm text-gray-600">
-                {isRegionalManager && bmDecision?.decision && (
-                  <span className="ml-4">
-                    <span className="font-medium">BM Decision:</span> 
-                    <span className={`ml-1 px-2 py-1 rounded-full text-xs font-semibold ${
-                      bmDecision.decision === 'approved' 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-red-100 text-red-800'
-                    }`}>
-                      {bmDecision.decision.toUpperCase()}
-                    </span>
-                  </span>
-                )}
-              </div>
+
             </div>
             <div className="text-right">
               <div className="text-sm font-semibold text-indigo-600">
@@ -480,243 +351,28 @@ const fetchWalletAndFeeStatus = async (loanData) => {
           </div>
         </div>
 
-        {/* Wallet & Fee Status Section */}
-        <div className={`rounded-lg shadow-lg p-6 border mt-8 ${
-          feesPaid 
-            ? 'bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200' 
-            : 'bg-gradient-to-br from-amber-50 to-orange-50 border-amber-300'
-        }`}>
-          <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
-            <BanknotesIcon className="h-6 w-6 text-emerald-600 mr-3" />
-            Wallet & Fee Payment Status
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="bg-white rounded-xl p-5 shadow-sm">
-              <div className="text-sm text-gray-600 mb-2">Wallet Balance</div>
-              <div className="text-2xl font-bold text-indigo-600">
-                KES {walletInfo.balance.toLocaleString()}
-              </div>
-            </div>
-            
-            <div className="bg-white rounded-xl p-5 shadow-sm">
-              <div className="text-sm text-gray-600 mb-2">Processing Fee</div>
-              <div className="flex items-center justify-between">
-                <span className="text-lg font-semibold text-slate-600">
-                  KES {loanDetails.processing_fee?.toLocaleString()}
-                </span>
-                {walletInfo.processing_fee_paid ? (
-                  <div className="flex items-center gap-2">
-                    <CheckCircleIcon className="h-6 w-6 text-green-500" />
-                    <span className="text-sm font-semibold text-green-600">Paid</span>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <ExclamationTriangleIcon className="h-6 w-6 text-amber-500" />
-                    <span className="text-sm font-semibold text-amber-600">Unpaid</span>
-                  </div>
-                )}
-              </div>
-            </div>
 
-            {loanDetails.is_new_loan && (
-              <div className="bg-white rounded-xl p-5 shadow-sm">
-                <div className="text-sm text-gray-600 mb-2">Registration Fee</div>
-                <div className="flex items-center justify-between">
-                  <span className="text-lg font-semibold text-gray-900">
-                    KES {loanDetails.registration_fee?.toLocaleString()}
-                  </span>
-                  {walletInfo.registration_fee_paid ? (
-                    <div className="flex items-center gap-2">
-                      <CheckCircleIcon className="h-6 w-6 text-green-500" />
-                      <span className="text-sm font-semibold text-green-600">Paid</span>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <ExclamationTriangleIcon className="h-6 w-6 text-amber-500" />
-                      <span className="text-sm font-semibold text-amber-600">Unpaid</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Branch Manager Decision (Visible to RM) */}
-        {isRegionalManager && bmDecision && (
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200 mt-8">
-            <h3 className="text-lg font-semibold text-gray-600 flex items-center mb-4">
-              <IdentificationIcon className="h-6 w-6 text-blue-600 mr-3" />
-              Branch Manager Decision
-            </h3>
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <span className="text-gray-600 font-medium">Decision:</span>
-                  <div className={`mt-1 px-3 py-1 rounded-full text-sm font-semibold inline-block ${
-                    bmDecision.decision === 'approved' 
-                      ? 'bg-green-100 text-green-800' 
-                      : 'bg-red-100 text-red-800'
-                  }`}>
-                    {bmDecision.decision?.toUpperCase() || 'PENDING'}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Reviewed On:</span>
-                  <div className="text-gray-900 font-semibold">
-                    {bmDecision.reviewed_at ? new Date(bmDecision.reviewed_at).toLocaleDateString('en-GB') : 'N/A'}
-                  </div>
-                </div>
-                <div>
-                  <span className="text-gray-600 font-medium">Branch Manager:</span>
-                  <div className="text-gray-900 font-semibold">
-                    {bmDecision.bm_name || 'N/A'}
-                  </div>
-                </div>
-              </div>
-              <div>
-                <span className="text-gray-600 font-medium">Comments:</span>
-                <div className="mt-1 p-3 bg-white rounded-lg border border-gray-200">
-                  {bmDecision.comment || 'No comments provided'}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
 
-        {/* Booked By Information */}
-        <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-6 border border-purple-200 mt-8">
-          <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-4">
-            <IdentificationIcon className="h-6 w-6 text-purple-600 mr-3" />
-            Booked By
-          </h3>
-          {bookedByUser ? (
-            <div className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Name:</span>
-                <span className="text-gray-600 font-semibold">
-                  {bookedByUser.full_name}
-                </span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-gray-600 font-medium">Role:</span>
-                <span className="text-purple-600 font-semibold">
-                  {bookedByUser.role || 'Staff'}
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="text-center py-4">
-              <UserIcon className="h-12 w-12 text-gray-300 mx-auto mb-2" />
-              <p className="text-gray-500">User information not available</p>
-            </div>
-          )}
-        </div>
-
-        {/* Repayment Schedule */}
-        {repaymentSchedule.length > 0 && (
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden mt-8">
-            <div className="bg-gray-100 text-gray-100 p-4">
-              <h3 className="text-lg font-semibold flex items-center">
-                <DocumentTextIcon className="h-6 w-6 mr-3" />
-                Repayment Schedule
-              </h3>
-            </div>
-            <div className="overflow-x-auto">
-              <table className="min-w-full">
-                <thead className="bg-gray-50">
-                  <tr>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">Week</th>
-                    <th className="px-6 py-3 text-left text-sm font-semibold text-gray-600">Due Date</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">Principal</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">Interest</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">Fees</th>
-                    <th className="px-6 py-3 text-right text-sm font-semibold text-gray-600">Installments</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {repaymentSchedule.map((payment, index) => (
-                    <tr key={index} className={index % 2 === 0 ? 'bg-white' : 'bg-gray-50'}>
-                      <td className="px-6 py-4 text-sm">
-                        <div className="flex items-center">
-                          <div className="w-8 h-8 bg-indigo-100 rounded-full flex items-center justify-center">
-                            <span className="text-indigo-600 font-semibold text-sm">{payment.week}</span>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-sm text-gray-600">
-                        {new Date(payment.due_date).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-gray-600">
-                        KES {payment.principal.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-blue-600">
-                        KES {payment.interest.toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right font-semibold text-amber-600">
-                        KES {(payment.processing_fee + payment.registration_fee).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 text-sm text-right font-bold text-indigo-600">
-                        KES {payment.total.toLocaleString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
         {/* Manager Decision Section */}
         <div className="bg-white rounded-2xl shadow-lg p-8 mt-8 border border-gray-200">
           <h3 className="text-lg font-semibold text-slate-600 flex items-center mb-6">
             <ChatBubbleLeftRightIcon className="h-6 w-6 text-blue-600 mr-3" />
-            {isRegionalManager ? 'Regional Manager Decision' : 'Branch Manager Decision'}
+            Decision Panel
           </h3>
           
           <div className="space-y-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-3">
-                Comments / Notes
-              </label>
-              <textarea
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                rows="4"
-                className="w-full p-4 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-                placeholder={`Provide your comments and reasoning for the ${isRegionalManager ? 'regional' : 'branch'} approval/rejection decision...`}
-                required
+              <WorkflowActionPanel 
+                entityId={loan.id} 
+                entityType="loan" 
+                onActionComplete={() => {
+                  fetchLoanDetails();
+                  onComplete?.();
+                }}
               />
             </div>
-
- <div className="flex gap-3 justify-end">
-  <button
-    onClick={() => handleApprovalDecision(false)}
-    disabled={loadingReject || !comment.trim()}
-    className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-red-600 to-red-700 text-white rounded-lg hover:from-red-700 hover:to-red-800 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-  >
-    {loadingReject ? (
-      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-    ) : (
-      <XCircleIcon className="h-4 w-4" />
-    )}
-    Reject Loan
-  </button>
-
-  <button
-    onClick={() => handleApprovalDecision(true)}
-    disabled={loadingApprove || !comment.trim() || !feesPaid}
-    className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-lg hover:from-emerald-700 hover:to-green-700 transition-all shadow-md hover:shadow-lg font-semibold text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-    title={!feesPaid ? feeMessage : ''}
-  >
-    {loadingApprove ? (
-      <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
-    ) : (
-      <CheckCircleIcon className="h-4 w-4" />
-    )}
-    {`Approve & Forward to ${getNextStage(true)}`}
-  </button>
-</div>
 
 
           </div>

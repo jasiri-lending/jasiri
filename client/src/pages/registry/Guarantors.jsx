@@ -72,6 +72,7 @@ const Guarantors = () => {
           Middlename,
           mobile,
           id_number,
+          date_of_birth,
           branch_id,
           region_id,
           created_by,
@@ -174,27 +175,21 @@ const Guarantors = () => {
 
 
   const checkCustomerLoanStatus = async (customerId) => {
+    console.log(`[Loan Status Check] Checking status for ${customerId} (Tenant: ${profile?.tenant_id})`);
     try {
-      // Get all disbursed loans for this customer
+      // Get loans - EXACT columns from OutstandingLoanBalanceReport.jsx to avoid "column does not exist" error
       const { data: loans, error: loansError } = await supabase
         .from('loans')
-        .select(`
-          id,
-          total_payable,
-          status,
-          repayment_state,
-          total_penalties,
-          penalty_waived,
-          net_penalties,
-          created_at,
-          product_name
-        `)
+        .select('id, customer_id, booked_by, branch_id, product_name, scored_amount, disbursed_at, status, repayment_state, duration_weeks, total_interest, total_payable, weekly_payment')
         .eq('customer_id', customerId)
         .eq('tenant_id', profile?.tenant_id)
-        .eq('status', 'disbursed')
+        .in('status', ['active', 'disbursed'])
+        .neq('repayment_state', 'completed')
         .order('created_at', { ascending: false });
 
       if (loansError) throw loansError;
+
+      console.log(`[Loan Status Check] Found ${loans?.length || 0} loans for customer ${customerId}`);
 
       if (!loans || loans.length === 0) {
         return {
@@ -209,41 +204,58 @@ const Guarantors = () => {
 
       // Check each loan for outstanding balance
       let hasActiveLoans = false;
-      let totalOutstanding = 0;
+      let totalOutstandingBalance = 0;
       let firstLoanId = null;
       let firstRepaymentState = null;
       const loanDetails = [];
 
       for (const loan of loans) {
-        // Get all payments for this loan
-        const { data: payments, error: paymentsError } = await supabase
-          .from('loan_payments')
-          .select(`
-            paid_amount,
-            principal_paid,
-            interest_paid,
-            penalty_paid,
-            paid_at
-          `)
-          .eq('loan_id', loan.id)
-          .eq('tenant_id', profile?.tenant_id);
+        // Fetch installments - EXACT columns from OutstandingLoanBalanceReport.jsx
+        const { data: installments, error: instError } = await supabase
+          .from('loan_installments')
+          .select('loan_id, installment_number, due_date, due_amount, principal_amount, interest_amount, paid_amount, status, days_overdue, interest_paid, principal_paid')
+          .eq('loan_id', loan.id);
 
-        if (paymentsError) continue;
+        if (instError) {
+          console.warn(`Error fetching installments for loan ${loan.id}:`, instError);
+          continue;
+        }
 
-        // Calculate total paid from all payment types
-        const totalPaid = payments?.reduce((sum, payment) => {
-          return sum +
-            parseFloat(payment.paid_amount || 0) +
-            parseFloat(payment.principal_paid || 0) +
-            parseFloat(payment.interest_paid || 0) +
-            parseFloat(payment.penalty_paid || 0);
-        }, 0) || 0;
+        console.log(`[Loan Status Check] Fetched ${installments?.length || 0} installments for loan ${loan.id}`);
 
+        let totalPrincipalOutstanding = 0;
+        let totalInterestOutstanding = 0;
+        let totalInterestPaid = 0;
+        let totalPrincipalPaid = 0;
+
+        installments?.forEach((inst) => {
+          const principalAmount = parseFloat(inst.principal_amount || 0);
+          const interestAmount = parseFloat(inst.interest_amount || 0);
+          const interestPaid = parseFloat(inst.interest_paid || 0);
+          const principalPaid = parseFloat(inst.principal_paid || 0);
+
+          totalPrincipalOutstanding += (principalAmount - principalPaid);
+          totalInterestOutstanding += (interestAmount - interestPaid);
+          totalInterestPaid += interestPaid;
+          totalPrincipalPaid += principalPaid;
+        });
+
+        const totalPaid = totalPrincipalPaid + totalInterestPaid;
+        const loanOutstanding = totalPrincipalOutstanding + totalInterestOutstanding;
         const totalPayable = parseFloat(loan.total_payable || 0);
-        const netPenalties = parseFloat(loan.net_penalties || 0);
 
-        // Calculate outstanding balance
-        const outstanding = Math.max(0, (totalPayable - totalPaid) + netPenalties);
+        console.log(`[Loan Status Check] Loan ${loan.id}:`, {
+          totalPayable,
+          totalPaid,
+          loanOutstanding,
+          status: loan.status,
+          repaymentState: loan.repayment_state
+        });
+
+        // Use loanOutstanding (sum of unpaid principal/interest) matching the report's "Balance"
+        const outstanding = Math.max(0, loanOutstanding);
+
+        console.log(`[Loan Status Check] Calculated Outstanding for ${customerId}: ${outstanding}`);
 
         // Store loan details
         const loanDetail = {
@@ -251,21 +263,17 @@ const Guarantors = () => {
           productName: loan.product_name,
           totalPayable: totalPayable,
           totalPaid: totalPaid,
-          netPenalties: netPenalties,
           outstandingBalance: outstanding,
           repaymentState: loan.repayment_state,
           status: loan.status,
-          paymentCount: payments?.length || 0,
-          lastPaymentDate: payments && payments.length > 0
-            ? new Date(Math.max(...payments.map(p => new Date(p.paid_at).getTime())))
-            : null
+          installmentCount: installments?.length || 0
         };
 
         loanDetails.push(loanDetail);
 
         if (outstanding > 0.01) {
           hasActiveLoans = true;
-          totalOutstanding += outstanding;
+          totalOutstandingBalance += outstanding;
 
           if (!firstLoanId) {
             firstLoanId = loan.id;
@@ -276,7 +284,7 @@ const Guarantors = () => {
 
       return {
         hasActiveLoans,
-        outstandingBalance: totalOutstanding,
+        outstandingBalance: totalOutstandingBalance,
         loanId: firstLoanId,
         repaymentState: firstRepaymentState,
         loanCount: loans.length,
@@ -342,6 +350,22 @@ const Guarantors = () => {
     }
   };
 
+  const calculateAge = (dob) => {
+    if (!dob) return 'N/A';
+    try {
+      const birthDate = new Date(dob);
+      const today = new Date();
+      let age = today.getFullYear() - birthDate.getFullYear();
+      const m = today.getMonth() - birthDate.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
+        age--;
+      }
+      return age;
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   const showNotification = (type, message) => {
     setNotification({ type, message });
     setTimeout(() => setNotification(null), 5000);
@@ -395,17 +419,7 @@ const Guarantors = () => {
     return false;
   });
   // ========== LOADING STATE ==========
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-muted">
-        <div className="flex items-center justify-center h-screen">
-          <div className="text-center">
-            <Spinner text="Loading guarantor..." />
-          </div>
-        </div>
-      </div>
-    );
-  }
+
 
   if (showAddGuarantor) {
     return (
@@ -426,6 +440,9 @@ const Guarantors = () => {
             <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
               Registry / Guarantors Management
             </h1>
+          </div>
+          <div className="text-xs text-brand-primary ">
+            <span className="font-medium text-brand-primary">{guarantors.length}</span> guarantors
           </div>
         </div>
       </div>
@@ -449,7 +466,7 @@ const Guarantors = () => {
         {/* Add Button */}
         <button
           onClick={() => setShowAddGuarantor(true)}
-          className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-white rounded-md transition-colors hover:opacity-90 whitespace-nowrap flex-shrink-0"
+          className="flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-white rounded-md transition-colors hover:opacity-90 whitespace-nowrap flex-shrink-0"
           style={{ backgroundColor: "#586ab1" }}
         >
           <Plus className="w-4 h-4" />
@@ -466,7 +483,7 @@ const Guarantors = () => {
               placeholder="Search by name, phone, or ID number..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
+              className="w-full pl-10 pr-4 py-1.5 text-sm border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
@@ -474,7 +491,7 @@ const Guarantors = () => {
           <div className="flex items-center gap-4 w-full sm:w-auto">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
+              className="flex items-center gap-2 px-4 py-1.5 text-sm font-medium text-gray-700 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors whitespace-nowrap"
             >
               <Filter className="w-4 h-4" />
               {showFilters ? 'Hide Filters' : 'Show Filters'}
@@ -487,7 +504,7 @@ const Guarantors = () => {
             {showFilters && (
               <button
                 onClick={handleFilterSubmit}
-                className="px-4 py-2 text-sm font-medium text-white rounded-md transition-colors hover:opacity-90 whitespace-nowrap"
+                className="px-4 py-1.5 text-sm font-medium text-white rounded-md transition-colors hover:opacity-90 whitespace-nowrap"
                 style={{ backgroundColor: "#586ab1" }}
               >
                 Apply
@@ -505,7 +522,7 @@ const Guarantors = () => {
             <div className="flex items-center gap-3">
               <button
                 onClick={handleClearFilters}
-                className="text-xs px-3 py-1.5 text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
+                className="text-xs px-3 py-1 text-gray-600 hover:text-gray-900 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
               >
                 Clear Filters
               </button>
@@ -521,7 +538,7 @@ const Guarantors = () => {
                 name="region"
                 value={filters.region}
                 onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Regions</option>
                 {regions.map(region => (
@@ -540,7 +557,7 @@ const Guarantors = () => {
                 name="branch"
                 value={filters.branch}
                 onChange={handleFilterChange}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-1 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
                 <option value="">All Branches</option>
                 {branches.map(branch => (
@@ -557,27 +574,30 @@ const Guarantors = () => {
       <div className="bg-white rounded-lg shadow overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1000px]">
-            <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Guarantor Details
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   ID
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Phone
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Customer
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Loan Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                  Age
+                </th>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
                   Action
                 </th>
               </tr>
@@ -632,6 +652,9 @@ const Guarantors = () => {
                                     </span>
                                     <span className="text-xs text-gray-500">
                                       Phone: {gc.customer?.mobile || 'N/A'}
+                                    </span>
+                                    <span className="text-xs text-brand-primary font-medium">
+                                      Age: {calculateAge(gc.customer?.date_of_birth)}
                                     </span>
                                   </div>
                                 </div>
@@ -692,6 +715,13 @@ const Guarantors = () => {
                             </>
                           )}
                         </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-4">
+                      <div className="text-sm text-gray-600 font-medium">
+                        {calculateAge(guarantor.date_of_birth) !== 'N/A' 
+                          ? `${calculateAge(guarantor.date_of_birth)} yrs` 
+                          : 'N/A'}
                       </div>
                     </td>
                     <td className="px-4 py-4">

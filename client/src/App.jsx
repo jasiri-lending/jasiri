@@ -150,6 +150,7 @@ const Branches = lazy(() => import("./pages/admin/Branches.jsx"));
 const UserGroups = lazy(() => import("./pages/admin/UserGroups.jsx"));
 const Partners = lazy(() => import("./pages/admin/Partners.jsx"));
 const WorkflowSettings = lazy(() => import("./pages/admin/WorkflowSettings.jsx"));
+const WorkflowBuilder = lazy(() => import("./pages/admin/WorkflowBuilder.jsx"));
 const WorkflowStatuses = lazy(() => import("./pages/admin/WorkflowStatuses.jsx"));
 const RolePermissionManager = lazy(() => import("./pages/admin/RolePermissionManager.jsx"));
 const TenantFeatureManager = lazy(() => import("./pages/admin/TenantFeatureManager.jsx"));
@@ -578,6 +579,18 @@ function MainLayout({
                       />
 
 
+                      <Route
+                        path="/workflow-setting/admin/builder/:id"
+                        element={
+                          <ProtectedRoute>
+                            {["admin", "superadmin"].includes(role) ? (
+                              <WorkflowBuilder userRole={role} />
+                            ) : (
+                              <Navigate to="/dashboard" replace />
+                            )}
+                          </ProtectedRoute>
+                        }
+                      />
                       <Route
                         path="/analytics"
                         element={

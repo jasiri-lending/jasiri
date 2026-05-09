@@ -397,41 +397,43 @@ const RejectedLoans = () => {
 
   if (!profile) return null;
 
-  if (authLoading || loading) {
+  if (authLoading) {
     return (
-      <div className="h-full bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50 p-6 min-h-screen flex items-center justify-center">
-        <Spinner text="Loading rejected loans..." />
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
+        <Spinner text="Authenticating..." />
       </div>
     );
   }
 
   return (
-    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-body text-gray-800">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+          <h1 className="text-sm text-slate-600">
             Rejected Loans
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#dc2626" }}>
-          <span className="font-medium text-white">{rejectedLoans.length}</span> rejected loan{rejectedLoans.length !== 1 ? 's' : ''}
+        <div className="flex items-center gap-3">
+          <div className="text-xs text-brand-primary">
+            <span className="font-semibold">{rejectedLoans.length}</span> rejected loan{rejectedLoans.length !== 1 ? 's' : ''}
+          </div>
         </div>
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-100">
         {/* Search and Filters Header */}
         <div className="p-5 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               {/* Search Bar */}
               <div className="relative flex-1">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-3.5 w-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-brand-secondary" />
                 <input
                   type="text"
                   placeholder="Search by loan ID, customer name, mobile, or ID number..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-full pl-9 pr-8 py-2 text-xs font-body border border-gray-200 rounded-lg focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -458,12 +460,16 @@ const RejectedLoans = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-body font-medium transition-all duration-200 border ${
+                    showFilters
+                      ? "bg-brand-surface border-brand-primary text-brand-primary"
+                      : "bg-gray-50 border-gray-200 text-gray-600 hover:bg-brand-surface hover:border-brand-secondary hover:text-brand-primary"
+                  }`}
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
                   {(selectedBranch || selectedRegion || selectedRO || startDate || endDate) && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
+                    <span className="ml-1 px-1.5 py-0.5 bg-brand-btn text-white rounded-full text-xs font-semibold">
                       {[selectedBranch, selectedRegion, selectedRO, startDate, endDate].filter(Boolean).length}
                     </span>
                   )}
@@ -484,7 +490,7 @@ const RejectedLoans = () => {
                       <select
                         value={selectedRegion}
                         onChange={(e) => handleRegionChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 appearance-none bg-white"
                       >
                         <option value="">All Regions</option>
                         {regions.map((region) => (
@@ -508,7 +514,7 @@ const RejectedLoans = () => {
                       <select
                         value={selectedBranch}
                         onChange={(e) => handleBranchChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 appearance-none bg-white"
                       >
                         <option value="">All Branches</option>
                         {branches.map((branch) => (
@@ -555,7 +561,7 @@ const RejectedLoans = () => {
                     type="date"
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 bg-white font-sans"
                   />
                 </div>
 
@@ -566,7 +572,7 @@ const RejectedLoans = () => {
                     type="date"
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white font-sans"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400 bg-white font-sans"
                   />
                 </div>
               </div>
@@ -624,12 +630,12 @@ const RejectedLoans = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-body">
           <table className="w-full">
             <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Loan ID</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Customer</th>
+              <tr className="border-b border-gray-100" style={{ backgroundColor: '#E7F0FA' }}>
+                <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600" >Loan ID</th>
+                <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600">Customer</th>
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>ID Number</th>
                 <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>Mobile</th>
                 {showBranchColumn && (
@@ -654,8 +660,8 @@ const RejectedLoans = () => {
                 const rejectionDate = getRejectionDate(loan);
 
                 return (
-                  <tr key={loan.id} className={`border-b transition-colors hover:bg-red-50 ${index % 2 === 0 ? '' : 'bg-red-50/50'}`}>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono" style={{ color: '#0D2440' }}>
+                  <tr key={loan.id} className={`border-b border-gray-50 transition-colors hover:bg-brand-surface ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       #{loan.id}
                     </td>
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>

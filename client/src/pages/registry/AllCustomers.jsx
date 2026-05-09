@@ -515,30 +515,24 @@ const AllCustomers = () => {
     );
   }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-muted">
-        <Spinner text="Loading customer registry..." />
-      </div>
-    );
-  }
+
 
   return (
     <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1 font-medium  tracking-wide">
+          <h1 className="text-xs text-slate-600 mb-1 ">
             Registry / All Customers
           </h1>
         </div>
-        <div className="text-xs text-white  px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm bg-brand-primary" >
-          <span className="font-medium text-white">{customers.length}</span> total customers
+        <div className="text-xs text-brand-primary " >
+          <span className="font-medium text-brand-primary">{customers.length}</span> customers
         </div>
       </div>
 
       {/* Main Container */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+      <div className="bg-white rounded-sm shadow-sm border border-gray-200">
         {/* Search and Filters Header */}
         <div className="p-5 border-b border-gray-200">
           <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
@@ -546,11 +540,11 @@ const AllCustomers = () => {
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               {/* Search Bar */}
               <div className="relative flex-1">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-3 w-3 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name, mobile, or ID number..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-1/2 pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -569,7 +563,7 @@ const AllCustomers = () => {
                 {profile?.role === 'relationship_officer' && (
                   <button
                     onClick={() => navigate('/officer/customers/add')}
-                    className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
+                    className="flex items-center gap-2 px-4 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
                   >
                     <PlusIcon className="h-5 w-5" />
                     <span className="text-sm font-medium">Add Customer</span>
@@ -578,7 +572,7 @@ const AllCustomers = () => {
                 {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
                   <button
                     onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
                   >
                     <XMarkIcon className="h-3.5 w-3.5" />
                     Clear
@@ -586,7 +580,7 @@ const AllCustomers = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -614,7 +608,7 @@ const AllCustomers = () => {
                       <select
                         value={selectedRegion}
                         onChange={(e) => handleRegionChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Regions</option>
                         {regions.map((region) => (
@@ -640,7 +634,7 @@ const AllCustomers = () => {
                       <select
                         value={selectedBranch}
                         onChange={(e) => handleBranchChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Branches</option>
                         {branches.map((branch) => (
@@ -666,7 +660,7 @@ const AllCustomers = () => {
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -691,7 +685,7 @@ const AllCustomers = () => {
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                      className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                     >
                       <option value="" className="text-gray-400">All Statuses</option>
                       {uniqueStatuses.map((status) => (
@@ -767,42 +761,42 @@ const AllCustomers = () => {
 
         {/* Table Container */}
         <div className="overflow-x-auto font-sans">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600" >
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Mobile
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Prequalified Amount
                 </th>
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                  <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                     RO
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Region
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {currentCustomers.map((customer, index) => {
                 const fullName = `${customer.Firstname || ""} ${customer.Middlename || ""} ${customer.Surname || ""}`.trim();
                 const statusColor = getStatusColor(customer.status);
@@ -810,34 +804,34 @@ const AllCustomers = () => {
                 return (
                   <tr
                     key={customer.id}
-                    className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+                    className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {fullName || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.mobile || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.id_number || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-right text-slate-600">
                       {customer.prequalifiedAmount ?
                         `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.users?.full_name || "N/A"}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.branches?.name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.regions?.name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <td className="px-4 py-3 text-center text-xs whitespace-nowrap">
                       <span
                         className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
                         style={{
@@ -848,7 +842,7 @@ const AllCustomers = () => {
                         {customer.displayStatus || "N/A"}
                       </span>
                     </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
+                    <td className="px-5 py-3.5 text-center  text-xs whitespace-nowrap">
                       <div className="flex items-center justify-center gap-1.5">
                         {/* View Customer */}
                         <button

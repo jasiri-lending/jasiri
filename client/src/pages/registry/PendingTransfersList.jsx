@@ -95,13 +95,7 @@ const PendingTransfersList = ({ onApprove, onReject, currentUser }) => {
     });
   };
 
-  if (loading) {
-    return (
-      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center ">
-        <Spinner text="Loading ..." />
-      </div>
-    );
-  }
+
 
   if (transfers.length === 0) {
     return (
@@ -180,17 +174,17 @@ const PendingTransfersList = ({ onApprove, onReject, currentUser }) => {
                 </h4>
                 <div className="bg-white rounded-lg border overflow-hidden">
                   <div className="max-h-40 overflow-y-auto">
-                    <table className="w-full text-sm">
+                    <table className="w-full text-sm divide-y divide-gray-200">
                       <thead className="bg-gray-50">
                         <tr>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">ID Number</th>
-                          <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium whitespace-nowrap text-slate-600">Name</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium whitespace-nowrap text-slate-600">ID Number</th>
+                          <th className="px-4 py-2 text-left text-xs font-medium whitespace-nowrap text-slate-600">Phone</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-200">
+                      <tbody className="bg-white divide-y divide-gray-200">
                         {transfer.transfer_items?.slice(0, 5).map((item, index) => (
-                          <tr key={item.id || index} className="hover:bg-gray-50">
+                          <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
                             <td className="px-4 py-2">
                               {item.customer?.Firstname} {item.customer?.Surname}
                             </td>

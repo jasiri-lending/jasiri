@@ -353,17 +353,17 @@ const TransferReviewPage = () => {
           </div>
 
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">#</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Name</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">ID Number</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Phone</th>
-                  <th className="px-6 py-3 text-left text-xs font-bold text-gray-500 uppercase tracking-wider">Destination</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">#</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Name</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">ID Number</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Phone</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-600 whitespace-nowrap">Destination</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-100">
+              <tbody className="bg-white divide-y divide-gray-100">
                 {transfer.transfer_items?.map((item, idx) => (
                   <tr key={item.id || idx} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-3 text-sm text-gray-400">{idx + 1}</td>

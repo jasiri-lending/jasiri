@@ -27,6 +27,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
+import { apiFetch } from "../../utils/api";
 
 // Kenya's 47 counties
 // Kenya's 47 counties
@@ -2061,11 +2062,27 @@ const AddCustomer = () => {
       const { data: customerData, error: customerError } = await supabase
         .from("customers")
         .insert([customerPayload])
-        .select("id")
+        .select("id, status")
         .single();
 
       if (customerError) throw customerError;
       const customerId = customerData.id;
+
+      // Initiate workflow for the new customer
+      try {
+        await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            entity_id: customerId,
+            entity_type: 'customer',
+            tenant_id: profile?.tenant_id
+          })
+        });
+      } catch (wfError) {
+        console.error("Failed to start workflow for customer:", wfError);
+        // We don't throw here to avoid failing the whole submission if workflow initiation fails, 
+        // but in a production app you might want more robust error handling.
+      }
 
       // NOW wait for secondary uploads to complete (they were running in background)
       const [

@@ -356,13 +356,7 @@ const PendingBM = () => {
     return '#f59e0b'; // amber color for pending status
   };
 
-  if (loading) {
-    return (
-      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center">
-        <Spinner text="Loading ..." />
-      </div>
-    );
-  }
+
 
   if (!profile) {
     return (
@@ -384,8 +378,8 @@ const PendingBM = () => {
             Registry / Pending BM Review
           </h1>
         </div>
-        <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
-          <span className="font-medium text-white">{filteredCustomers.length}</span> pending customers
+        <div className="text-xs text-brand-primary ">
+          <span className="font-medium text-brand-primary">{filteredCustomers.length}</span> pending customers
         </div>
       </div>
 
@@ -401,7 +395,7 @@ const PendingBM = () => {
                 <input
                   type="text"
                   placeholder="Search by name, mobile, or ID number..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-full pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -420,7 +414,7 @@ const PendingBM = () => {
                 {(selectedBranch || selectedRegion || selectedRO) && (
                   <button
                     onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
                   >
                     <XMarkIcon className="h-3.5 w-3.5" />
                     Clear
@@ -428,7 +422,7 @@ const PendingBM = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -456,7 +450,7 @@ const PendingBM = () => {
                       <select
                         value={selectedRegion}
                         onChange={(e) => handleRegionChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Regions</option>
                         {regions.map((region) => (
@@ -482,7 +476,7 @@ const PendingBM = () => {
                       <select
                         value={selectedBranch}
                         onChange={(e) => handleBranchChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Branches</option>
                         {branches.map((branch) => (
@@ -508,7 +502,7 @@ const PendingBM = () => {
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -572,42 +566,42 @@ const PendingBM = () => {
 
         {/* Table Container */}
         <div className="overflow-x-auto font-sans">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Mobile
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Prequalified Amount
                 </th>
                 {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                  <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                  <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                     RO
                   </th>
                 )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Region
                 </th>
                 <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
                   Status
                 </th>
-                <th className="px-4 py-3 text-center text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs font-medium tracking-wider whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {currentCustomers.map((customer, index) => {
                 const fullName = getFullName(customer);
                 const statusColor = getStatusColor();
@@ -615,7 +609,7 @@ const PendingBM = () => {
                 return (
                   <tr
                     key={customer.id}
-                    className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+                    className="hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
                       {fullName || "N/A"}

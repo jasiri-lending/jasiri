@@ -393,15 +393,6 @@ const PendingAmendments = () => {
   // Get unique statuses for filter dropdown
   const uniqueStatuses = ["RO Action Needed", "Manager Approval Needed"];
 
-  // Show loading while auth is initializing
-  if (authLoading) {
-    return (
-      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center font-sans">
-        <Spinner text="Loading ..." />
-      </div>
-    );
-  }
-
   // Safety null guard 🔌
   if (!profile) return null;
 
@@ -440,13 +431,13 @@ const PendingAmendments = () => {
           <button
             onClick={clearCache}
             disabled={refreshing}
-            className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+            className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
           >
             <ArrowPathIcon className={`h-3.5 w-3.5 ${refreshing ? 'animate-spin' : ''}`} />
             {refreshing ? 'Refreshing...' : 'Refresh'}
           </button>
-          <div className="text-xs text-white px-3 py-1.5 rounded-lg border border-gray-200 shadow-sm" style={{ backgroundColor: "#586ab1" }}>
-            <span className="font-medium text-white">{filteredCustomers.length}</span> pending amendments
+          <div className="text-xs font-semibold text-brand-primary bg-blue-50 px-3 py-1 rounded-full border border-blue-100">
+            {filteredCustomers.length} pending amendments
           </div>
         </div>
       </div>
@@ -464,7 +455,7 @@ const PendingAmendments = () => {
                 <input
                   type="text"
                   placeholder="Search by name, ID number, phone, or business..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-full pl-9 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -483,7 +474,7 @@ const PendingAmendments = () => {
                 {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
                   <button
                     onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                    className="px-3 py-1 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
                   >
                     <XMarkIcon className="h-3.5 w-3.5" />
                     Clear
@@ -491,12 +482,12 @@ const PendingAmendments = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1 rounded-md flex items-center gap-2 text-xs transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
-                  <AdjustmentsHorizontalIcon className="h-4 w-4" />
+                  <AdjustmentsHorizontalIcon className="h-3.5 w-3.5" />
                   Filters
                   {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (
-                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-xs">
+                    <span className="ml-1 px-1.5 py-0.5 bg-gray-700 text-white rounded-full text-[10px]">
                       {[selectedBranch, selectedRegion, selectedRO, selectedStatus].filter(Boolean).length}
                     </span>
                   )}
@@ -519,7 +510,7 @@ const PendingAmendments = () => {
                       <select
                         value={selectedRegion}
                         onChange={(e) => handleRegionChange(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Regions</option>
                         {regions.map((region) => (
@@ -545,7 +536,7 @@ const PendingAmendments = () => {
                       <select
                         value={selectedBranch}
                         onChange={(e) => setSelectedBranch(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All Branches</option>
                         {branches.map((branch) => (
@@ -571,7 +562,7 @@ const PendingAmendments = () => {
                       <select
                         value={selectedRO}
                         onChange={(e) => setSelectedRO(e.target.value)}
-                        className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                        className="w-full pl-3 pr-8 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                       >
                         <option value="" className="text-gray-400">All ROs</option>
                         {relationshipOfficers.map((ro) => (
@@ -596,7 +587,7 @@ const PendingAmendments = () => {
                     <select
                       value={selectedStatus}
                       onChange={(e) => setSelectedStatus(e.target.value)}
-                      className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
+                      className="w-full pl-3 pr-8 py-1 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white"
                     >
                       <option value="" className="text-gray-400">All Statuses</option>
                       {uniqueStatuses.map((status) => (
@@ -682,40 +673,40 @@ const PendingAmendments = () => {
 
         {/* Table Container */}
         <div className="overflow-x-auto font-sans">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   ID Number
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Contact
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Last Updated
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs  tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Branch
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Region
                 </th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   RO Name
                 </th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap" style={{ color: '#0D2440' }}>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
             </thead>
 
-            <tbody>
+            <tbody className="bg-white divide-y divide-gray-200">
               {loading ? (
                 <tr>
                   <td colSpan="9" className="px-6 py-12 text-center">
@@ -736,7 +727,7 @@ const PendingAmendments = () => {
                   return (
                     <tr
                       key={customer.id}
-                      className={`border-b transition-colors hover:bg-gray-50 ${index % 2 === 0 ? '' : 'bg-gray-50'}`}
+                      className="hover:bg-gray-50 transition-colors"
                     >
                       {/* Name */}
                       <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
