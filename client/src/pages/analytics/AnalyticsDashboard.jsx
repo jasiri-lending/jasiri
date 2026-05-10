@@ -40,34 +40,34 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
   <div className="col-span-1 lg:col-span-2">
     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
       <div className="bg-gradient-to-br from-blue-50 to-blue-100 p-6 rounded-xl shadow-sm border border-blue-200">
-        <p className="text-sm text-blue-700 mb-2">Total Disbursed</p>
-        <p className="text-2xl font-bold text-blue-900">
+        <p className="text-sm text-brand-primary mb-2">Total Disbursed</p>
+        <p className="text-2xl font-bold text-brand-primary">
           Ksh {totalDisbursed?.toLocaleString() || '0'}
         </p>
-        <p className="text-xs text-blue-600 mt-2">All Regions</p>
+        <p className="text-xs text-brand-primary mt-2">All Regions</p>
       </div>
 
       <div className="bg-gradient-to-br from-green-50 to-green-100 p-6 rounded-xl shadow-sm border border-green-200">
-        <p className="text-sm text-green-700 mb-2">Total Loans</p>
-        <p className="text-2xl font-bold text-green-900">
+        <p className="text-sm text-brand-primary mb-2">Total Loans</p>
+        <p className="text-2xl font-bold text-brand-primary">
           {totalLoans?.toLocaleString() || '0'}
         </p>
         <p className="text-xs text-green-600 mt-2">Active Portfolio</p>
       </div>
 
       <div className="bg-gradient-to-br from-purple-50 to-purple-100 p-6 rounded-xl shadow-sm border border-purple-200">
-        <p className="text-sm text-purple-700 mb-2">Collection Rate</p>
+        <p className="text-sm text-slate-600 mb-2">Collection Rate</p>
         <div className="flex items-center gap-2">
-          <p className="text-2xl font-bold text-purple-900">
+          <p className="text-2xl font-semibold text-slate-600">
             {avgCollectionRate?.toFixed(1) || '0'}%
           </p>
         </div>
-        <p className="text-xs text-purple-600 mt-2">Average</p>
+        <p className="text-xs text-slate-600 mt-2">Average</p>
       </div>
 
       <div className="bg-gradient-to-br from-orange-50 to-orange-100 p-6 rounded-xl shadow-sm border border-orange-200">
         <p className="text-sm text-orange-700 mb-2">Total Branches</p>
-        <p className="text-2xl font-bold text-orange-900">
+        <p className="text-2xl font-semibold text-orange-900">
           {totalBranches?.toLocaleString() || '0'}
         </p>
       </div>
@@ -224,7 +224,7 @@ const AnalyticsDashboard = () => {
   const summaryStats = calculateSummaryStats();
 
   return (
-    <div className="min-h-screen p-4 md:p-6" style={{ backgroundColor: CHART_BG }}>
+    <div className="min-h-screen p-4 md:p-6 bg-muted" >
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-sm md:text-sm  text-slate-600 mb-2">

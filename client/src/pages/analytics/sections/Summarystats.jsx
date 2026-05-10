@@ -41,7 +41,7 @@ const SummaryStats = ({ totalDisbursed, totalLoans, totalBranches, avgCollection
         <div className="flex items-center gap-3">
           <div>
             <p className="text-sm text-gray-500">Avg Collection Rate</p>
-            <p className={`text-2xl font-bold ${status.color}`}>
+            <p className={`text-lg font-semibold ${status.color}`}>
               {avgCollectionRate}%
             </p>
             <p className={`text-xs font-medium ${status.color}`}>

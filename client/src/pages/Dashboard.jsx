@@ -1530,7 +1530,7 @@ const Dashboard = () => {
                 placeholder="Search name, phone, ID…"
                 value={quickSearchTerm}
                 onChange={(e) => setQuickSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 rounded-lg text-[8px] font-semibold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                className="w-full pl-10 pr-10 py-2 rounded-lg text-[10px] font-semibold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
                 style={{
                   color: COLORS.authority,
                 }}

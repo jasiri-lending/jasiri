@@ -38,8 +38,8 @@ const CustomTooltip = ({ active, payload, label }) => {
           <Globe className="w-5 h-5 text-indigo-600" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Region Analysis</p>
-          <p className="font-black text-slate-800 text-base">{label}</p>
+          <p className="text-[10px] font-semibold  text-slate-600">Region Analysis</p>
+          <p className="font-semibold text-slate-600 ">{label}</p>
         </div>
       </div>
 
@@ -440,13 +440,13 @@ const RegionChart = () => {
   }, [localData]);
 
   return (
-    <div className="bg-white/80 backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
+    <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
       {/* Header with title and export */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-5">
 
           <div>
-            <h3 className="text-lg  text-stone-600 whitespace-nowrap">Regional Performance Analysis</h3>
+            <h3 className="text-sm  text-stone-600 whitespace-nowrap">Regional Performance Analysis</h3>
           </div>
         </div>
 
@@ -455,7 +455,7 @@ const RegionChart = () => {
           className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!localData || localData.length === 0}
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3 " />
           Export
         </button>
       </div>

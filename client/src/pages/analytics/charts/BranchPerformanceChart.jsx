@@ -32,14 +32,25 @@ const CustomTooltip = ({ active, payload }) => {
   const branchData = payload[0]?.payload;
 
   return (
-    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[320px] relative z-[9999]">
+    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-xl shadow-xl border border-white/40 min-w-[320px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-emerald-50 rounded-lg">
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{branchData?.region}</p>
-          <p className="font-black text-slate-800 text-base">{branchData?.name}</p>
-        </div>
+  <p className="text-[8px] text-slate-600">
+    <span className="text-slate-500 mr-1 text-xs">Region:</span>
+    <span className="text-slate-700 text-xs">
+      {branchData?.region}
+    </span>
+  </p>
+
+  <p className="font-semibold text-slate-600">
+    <span className="text-slate-500 text-xs mr-1 font-normal">Branch:</span>
+    <span className="text-slate-600 text-xs">
+      {branchData?.name}
+    </span>
+  </p>
+</div>
       </div>
 
       <div className="space-y-3">
@@ -541,14 +552,14 @@ const BranchChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Branch Performance Analysis</h3>
+        <h3 className="text-sm text-stone-600 whitespace-nowrap">Branch Performance Analysis</h3>
 
         <button
           onClick={handleExport}
           className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!localData || localData.length === 0}
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3" />
           Export
         </button>
       </div>

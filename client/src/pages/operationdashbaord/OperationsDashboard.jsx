@@ -40,12 +40,12 @@ const formatCurrency = (amount) => {
 const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
   <div className="relative">
     <div className="absolute left-3 top-1/2 -translate-y-1/2">
-      <Icon className="w-4 h-4 text-primary" strokeWidth={2.4} />
+      <Icon className="w-3 h-3 text-primary" strokeWidth={2.4} />
     </div>
     <select
       value={value}
       onChange={(e) => onChange(e.target.value)}
-      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 bg-gray-50 appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
+      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-700 bg-gray-50 appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
     >
       {options.map((option) => (
         <option key={option.value} value={option.value}>
@@ -54,7 +54,7 @@ const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
       ))}
     </select>
     <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-      <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
       </svg>
     </div>
@@ -71,7 +71,7 @@ const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange,
           type="date"
           value={startDate}
           onChange={(e) => onStartChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+          className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
         />
       </div>
       <div className="flex-1">
@@ -80,7 +80,7 @@ const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange,
           type="date"
           value={endDate}
           onChange={(e) => onEndChange(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
+          className="w-full px-3 py-1.5 rounded-lg border border-gray-200 text-sm font-medium text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary"
         />
       </div>
       <button
@@ -774,22 +774,15 @@ const OperationsDashboard = ({ userRole }) => {
         <div className="flex flex-col gap-4 border-b border-gray-200 pb-4">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-lg text-gray-600 tracking-tight">Operations Dashboard</h1>
-              <p className="text-xs text-gray-500 mt-1">Real-time overview of lending operations</p>
+              <h1 className="text-sm text-gray-600 ">Operations Dashboard</h1>
             </div>
             <div className="flex items-center gap-2">
              
-              <button
-                onClick={fetchRealData}
-                className="p-2 text-gray-500 hover:text-brand-primary hover:bg-white rounded-lg transition-colors border border-transparent hover:border-gray-200"
-              >
-                <RefreshCw className="w-5 h-5" />
-              </button>
             </div>
           </div>
 
           {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 bg-gray-200 p-3 rounded-xl border border-gray-100 shadow-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3  p-3 rounded-sm">
             <FilterSelectCompact
               icon={Home}
               value={selectedRegion}
