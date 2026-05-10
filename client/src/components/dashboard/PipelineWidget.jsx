@@ -11,9 +11,9 @@ const PipelineStage = ({ label, count,  colorClass, width }) => {
                     borderRadius: '4px'
                 }}
             >
-                <span className="font-medium text-sm whitespace-nowrap">{label}</span>
+                <span className=" text-sm whitespace-nowrap">{label}</span>
                 <div className="flex items-center gap-2">
-                    <span className="font-bold">{count}</span>
+                    <span className="font-semibold text-xs">{count}</span>
                     {/* {time && <span className="text-[10px] bg-white/20 px-1.5 rounded opacity-90 whitespace-nowrap">{time}</span>} */}
                 </div>
             </div>
@@ -55,8 +55,8 @@ const PipelineWidget = ({ data }) => {
                 />
                 <div className="flex w-[60%] mt-1">
                     <div className="bg-red-500 text-white w-full py-2 px-4 rounded-b-lg flex justify-between items-center shadow-sm">
-                        <span className="text-sm font-medium">Rejected</span>
-                        <span className="font-bold">{data.rejected}</span>
+                        <span className="text-sm ">Rejected</span>
+                        <span className="font-semibold text-xs">{data.rejected}</span>
                     </div>
                 </div>
             </div>

@@ -67,7 +67,7 @@ const PortfolioChartsWidget = ({ statusData, typeData }) => {
                         <Doughnut data={statusChartData} options={options} />
                     </div>
                 </div>
-                <div className="w-full h-px bg-gray-100"></div>
+                <div className="w-full h-px bg-red-100"></div>
                 <div className="flex-1 flex flex-col items-center justify-center relative min-h-[160px]">
                     <h4 className="absolute text-center text-xs font-bold text-gray-400 pointer-events-none top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 mt-[-15px]">TYPE</h4>
                     <div className="w-full h-full">

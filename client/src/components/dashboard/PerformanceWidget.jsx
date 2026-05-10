@@ -2,10 +2,10 @@ import React from 'react';
 import DashboardCard from './DashboardCard';
 
 const PerformanceItem = ({ label, value, subtext }) => (
-    <div className="flex justify-between items-center py-2 border-b border-gray-50 last:border-0">
-        <span className="text-sm font-medium text-gray-500">{label}</span>
+    <div className="flex justify-between items-center py-2 border-b border-stone-200 last:border-0">
+        <span className="text-sm text-gray-600">{label}</span>
         <div className="text-right">
-            <span className="block text-lg font-bold text-gray-800">{value}</span>
+            <span className="block text-sm font-semibold text-green-600">{value}</span>
             {subtext && <span className="text-xs text-gray-400">{subtext}</span>}
         </div>
     </div>
@@ -17,7 +17,7 @@ const PerformanceWidget = ({ type = 'agent', data }) => {
 
     return (
         <DashboardCard title={title}>
-            <div className="flex flex-col gap-1 mt-2">
+            <div className="flex flex-col gap-1 mt-2 ">
                 {isAgent ? (
                     <>
                         <PerformanceItem label="Apps Processed" value={data.processed} />

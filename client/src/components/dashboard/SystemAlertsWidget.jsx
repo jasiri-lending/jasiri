@@ -19,8 +19,8 @@ const AlertItem = ({ level, message }) => {
 
     return (
         <div className={`flex items-start gap-2 p-2 rounded-lg ${bg} mb-2 last:mb-0`}>
-            <Icon className={`w-4 h-4 mt-0.5 ${color}`} />
-            <span className={`text-sm font-medium ${color}`}>{message}</span>
+            <Icon className={`w-3 h-3 mt-0.5 ${color}`} />
+            <span className={`text-sm  ${color}`}>{message}</span>
         </div>
     );
 };

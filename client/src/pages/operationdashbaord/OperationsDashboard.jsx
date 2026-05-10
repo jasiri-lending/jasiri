@@ -98,30 +98,30 @@ const CollectionsActivityWidget = ({ data }) => (
   <DashboardCard title="Collections Activity Monitor">
     <div className="grid grid-cols-2 gap-4 mt-2">
       <div className="p-3 bg-brand-surface rounded-lg">
-        <p className="text-xs text-brand-primary font-medium uppercase">Calls Made</p>
+        <p className="text-xs text-brand-primary ">Calls Made</p>
         <div className="flex justify-between items-end mt-1">
-          <h3 className="text-xl font-bold text-primary">{data.callsMade}</h3>
+          <h3 className="text-sm text-primary">{data.callsMade}</h3>
           <Phone className="w-4 h-4 text-brand-secondary" />
         </div>
       </div>
       <div className="p-3 bg-emerald-50 rounded-lg">
-        <p className="text-xs text-accent font-medium uppercase">Success Rate</p>
+        <p className="text-xs text-accent  ">Success Rate</p>
         <div className="flex justify-between items-end mt-1">
-          <h3 className="text-xl font-bold text-accent">{data.successRate}%</h3>
+          <h3 className="text-sm  text-accent">{data.successRate}%</h3>
           <Activity className="w-4 h-4 text-accent" />
         </div>
       </div>
       <div className="p-3 bg-amber-50 rounded-lg">
-        <p className="text-xs text-highlight font-medium uppercase">PTPs Created</p>
+        <p className="text-xs text-highlight  ">PTPs Created</p>
         <div className="flex justify-between items-end mt-1">
-          <h3 className="text-xl font-bold text-amber-600">{data.ptpCreated}</h3>
+          <h3 className="text-sm font-bold text-amber-600">{data.ptpCreated}</h3>
           <FileText className="w-4 h-4 text-highlight" />
         </div>
       </div>
       <div className="p-3 bg-indigo-50 rounded-lg">
-        <p className="text-xs text-indigo-600 font-medium uppercase">PTP Kept</p>
+        <p className="text-xs text-indigo-600  ">PTP Kept</p>
         <div className="flex justify-between items-end mt-1">
-          <h3 className="text-xl font-bold text-indigo-900">{data.ptpKept}%</h3>
+          <h3 className="text-sm font-bold text-indigo-900">{data.ptpKept}%</h3>
           <ShieldCheck className="w-4 h-4 text-indigo-400" />
         </div>
       </div>

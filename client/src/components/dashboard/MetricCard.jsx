@@ -25,21 +25,21 @@ const MetricCard = ({ title, value, subValue, trend, trendValue, icon: Icon, col
     const responsiveFontSize = valueLength > 15 ? 'text-lg' : valueLength > 12 ? 'text-xl' : 'text-2xl';
 
     return (
-        <div className={`bg-white rounded-xl shadow-sm border border-brand-secondary/20 p-5 flex flex-col justify-between h-full transition-all hover:shadow-md ${className}`}>
+        <div className={`bg-muted rounded-xl shadow-sm border border-brand-secondary/20 p-5 flex flex-col justify-between h-full transition-all hover:shadow-md ${className}`}>
             <div className="flex justify-between items-start gap-3">
                 <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-500 truncate">{title}</p>
-                    <h3 className={valueClassName || `${responsiveFontSize} font-bold text-gray-800 mt-1 break-all`}>
+                    <p className="text-xs font-medium text-gray-500 truncate">{title}</p>
+                    <h3 className={valueClassName || `${responsiveFontSize} font-semibold text-brand-primary mt-1 break-all`}>
                         {value}
                     </h3>
                     {subValue && (
-                        <p className={subValueClassName || "text-sm font-semibold text-gray-600 mt-1 truncate"}>
+                        <p className={subValueClassName || "text-xs text-gray-600 font-semibold mt-1 truncate"}>
                             {subValue}
                         </p>
                     )}
                 </div>
                 <div className={`p-3 rounded-lg flex-shrink-0 ${colorClasses[color] || colorClasses.blue}`}>
-                    {Icon && <Icon className="w-6 h-6" />}
+                    {Icon && <Icon className="w-4 h-4" />}
                 </div>
             </div>
 

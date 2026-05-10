@@ -28,7 +28,7 @@ const DisbursementWidget = ({ data }) => {
                             <CheckCircle className="w-5 h-5" />
                         </div>
                         <div>
-                            <p className="font-medium text-gray-700">Pending Disbursements</p>
+                            <p className="text-sm text-gray-600 "> Pending Disbursements</p>
                             <p className="text-xs text-gray-500">Awaiting processing</p>
                         </div>
                     </div>

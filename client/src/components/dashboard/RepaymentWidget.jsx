@@ -14,19 +14,19 @@ const RepaymentWidget = ({ data, chartData }) => {
         <DashboardCard title="Repayment Overview">
             <div className="space-y-3 mb-6">
                 <div className="flex justify-between items-baseline">
-                    <span className="text-sm text-gray-500">Collection Rate</span>
-                    <span className={`text-2xl font-bold ${data.collectionRate >= 80 ? 'text-emerald-600' : 'text-amber-500'}`}>
+                    <span className="text-sm text-gray-600">Collection Rate</span>
+                    <span className={`text-lg font-semibold ${data.collectionRate >= 80 ? 'text-emerald-600' : 'text-amber-500'}`}>
                         {data.collectionRate}%
                     </span>
                 </div>
                 <div className="grid grid-cols-2 gap-4 pt-2 border-t border-gray-50">
                     <div>
-                        <p className="text-xs text-gray-400">Due Today</p>
-                        <p className="font-semibold text-gray-800">{data.dueToday}</p>
+                        <p className="text-xs text-slate-600 font-semibold">Due Today</p>
+                        <p className="font-semibold text-sm text-gray-600">{data.dueToday}</p>
                     </div>
                     <div className="text-right">
-                        <p className="text-xs text-gray-400">Collected</p>
-                        <p className="font-semibold text-emerald-600">{data.collectedToday}</p>
+                        <p className="text-xs text-slate-600 font-semibold">Collected</p>
+                        <p className="font-semibold text-sm text-emerald-600">{data.collectedToday}</p>
                     </div>
                 </div>
             </div>

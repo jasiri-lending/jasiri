@@ -20,11 +20,11 @@ const TaskItem = ({ title, count, color, icon: Icon }) => {
     return (
         <div className={`p-4 rounded-xl border ${colors[color]} flex flex-col justify-between hover:shadow-md transition-all cursor-pointer group`}>
             <div className="flex justify-between items-start">
-                <h4 className="font-semibold text-sm leading-tight pr-2">{title}</h4>
-                <Icon className={`w-5 h-5 ${iconColors[color]}`} />
+                <h4 className=" text-xs  pr-2"> {title}</h4>
+                <Icon className={`w-3 h-3 ${iconColors[color]}`} />
             </div>
             <div className="mt-4 flex justify-between items-end">
-                <span className="text-2xl font-bold">{count}</span>
+                <span className="text-xl font-semibold">{count}</span>
                 <ChevronRight className={`w-5 h-5 opacity-0 group-hover:opacity-100 transition-opacity ${iconColors[color]}`} />
             </div>
         </div>
