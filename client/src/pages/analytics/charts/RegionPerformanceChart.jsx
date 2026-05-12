@@ -32,10 +32,10 @@ const CustomTooltip = ({ active, payload, label }) => {
   const regionData = payload[0]?.payload;
 
   return (
-    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[320px] relative z-[9999]">
+    <div className="bg-white backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[320px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-indigo-50 rounded-lg">
-          <Globe className="w-5 h-5 text-indigo-600" />
+          <Globe className="w-3 h-3 text-brand-primary" />
         </div>
         <div>
           <p className="text-[10px] font-semibold  text-slate-600">Region Analysis</p>
@@ -54,9 +54,9 @@ const CustomTooltip = ({ active, payload, label }) => {
           <div key={idx} className="flex justify-between items-center group">
             <div className="flex items-center gap-2">
               <span className="text-xs grayscale group-hover:grayscale-0 transition-all">{item.icon}</span>
-              <span className="text-slate-500 text-xs font-bold">{item.label}</span>
+              <span className="text-slate-600 font-semibold text-xs ">{item.label}</span>
             </div>
-            <span className="font-black text-xs tracking-tight" style={{ color: item.color }}>
+            <span className=" text-xs font-semibold " style={{ color: item.color }}>
               Ksh {item.value?.toLocaleString()}
             </span>
           </div>
@@ -64,14 +64,14 @@ const CustomTooltip = ({ active, payload, label }) => {
 
         <div className="pt-3 mt-3 border-t border-slate-100 flex justify-between items-center">
           <div className="flex flex-col">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Collection Rate</span>
-            <span className={`text-lg font-black ${regionData?.collectionRate >= 80 ? 'text-emerald-600' : regionData?.collectionRate >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
+            <span className="text-[9px] font-semibold text-slate-400 ">Collection Rate</span>
+            <span className={`text-lg font-semibold ${regionData?.collectionRate >= 80 ? 'text-emerald-600' : regionData?.collectionRate >= 60 ? 'text-amber-600' : 'text-rose-600'}`}>
               {regionData?.collectionRate}%
             </span>
           </div>
           <div className="text-right">
-            <span className="text-[9px] font-black text-slate-400 uppercase tracking-tighter">Loan Count</span>
-            <p className="text-base font-black text-slate-700">{regionData?.loanCount}</p>
+            <span className="text-[9px] font-semibold text-slate-600">Loan Count</span>
+            <p className="text-base font-semibold text-slate-700">{regionData?.loanCount}</p>
           </div>
         </div>
       </div>
@@ -440,13 +440,13 @@ const RegionChart = () => {
   }, [localData]);
 
   return (
-    <div className="bg-white/10 backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
+    <div className="bg-white backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
       {/* Header with title and export */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-5">
 
           <div>
-            <h3 className="text-sm  text-stone-600 whitespace-nowrap">Regional Performance Analysis</h3>
+            <h3 className="text-sm  text-slate-600 whitespace-nowrap">Regional Performance Analysis</h3>
           </div>
         </div>
 

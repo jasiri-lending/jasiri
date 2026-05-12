@@ -552,11 +552,11 @@ const BranchChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-sm text-stone-600 whitespace-nowrap">Branch Performance Analysis</h3>
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">Branch Performance Analysis</h3>
 
         <button
           onClick={handleExport}
-          className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
+          className="flex items-center gap-2 text-slate-500 hover:text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-slate-200 hover:bg-slate-50"
           disabled={!localData || localData.length === 0}
         >
           <Download className="w-3 h-3" />

@@ -16,29 +16,29 @@ const CustomTooltip = ({ active, payload, label }) => {
     <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-indigo-50 rounded-lg">
-          <Users className="w-5 h-5 text-indigo-600" />
+          <Users className="w-5 h-5 text-brand-primary" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Age Distribution</p>
-          <p className="font-black text-slate-800 text-base">{label}</p>
+          <p className="text-[8px] font-semibold text-slate-600">Age Distribution</p>
+          <p className="font-semibold text-slate-600 ">{label}</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100">
-            <p className="text-[8px] font-black text-blue-400 uppercase tracking-tighter mb-0.5">Male</p>
-            <p className="text-sm font-black text-blue-700">{data?.male?.toLocaleString() || 0}</p>
+            <p className="text-[8px] font-semibold text-slate-600  mb-0.5">Male</p>
+            <p className="text-sm font-semibold text-brand-primary">{data?.male?.toLocaleString() || 0}</p>
           </div>
           <div className="p-3 bg-pink-50/50 rounded-xl border border-pink-100">
-            <p className="text-[8px] font-black text-pink-400 uppercase tracking-tighter mb-0.5">Female</p>
-            <p className="text-sm font-black text-pink-700">{data?.female?.toLocaleString() || 0}</p>
+            <p className="text-[8px] font-semibold text-accent   mb-0.5">Female</p>
+            <p className="text-sm font-semibold text-pink-700">{data?.female?.toLocaleString() || 0}</p>
           </div>
         </div>
 
         <div className="p-4 bg-slate-50/50 rounded-2xl border border-slate-100">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-tighter mb-1">Total Customers</p>
-          <p className="text-2xl font-black text-slate-700 tracking-tight">
+          <p className="text-[9px] font-semibold text-slate-600  mb-1">Total Customers</p>
+          <p className="text-lg font-semibold text-slate-700 tracking-tight">
             {((data?.male || 0) + (data?.female || 0) + (data?.other || 0)).toLocaleString()}
           </p>
         </div>
@@ -388,7 +388,7 @@ const CustomerAgeChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Customer Age Distribution</h3>
+        <h3 className="text-xs text-slate-600 whitespace-nowrap">Customer Age Distribution</h3>
 
         <button
           onClick={handleExport}
@@ -503,8 +503,8 @@ const CustomerAgeChart = () => {
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Bar dataKey="male" name="Male" fill="#6366f1" stackId="a" radius={[0, 0, 0, 0]} />
-              <Bar dataKey="female" name="Female" fill="#ec4899" stackId="a" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="male" name="Male" fill="#2E5E99" stackId="a" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="female" name="Female" fill="#10B981" stackId="a" radius={[0, 0, 0, 0]} />
               <Bar dataKey="other" name="Other" fill="#94a3b8" stackId="a" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>

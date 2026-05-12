@@ -34,28 +34,28 @@ const CustomTooltip = ({ active, payload }) => {
     <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-indigo-50 rounded-lg">
-          <Repeat className="w-5 h-5 text-indigo-600" />
+          <Repeat className="w-5 h-5 text-brand-primary" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Customer Loyalty</p>
-          <p className="font-black text-slate-800 text-base">{data?.category}</p>
+          <p className="text-xs font-semibold  text-slate-600">Customer Loyalty</p>
+          <p className="text-sm text-accent ">{data?.category}</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter mb-1">Total Loan Amount</p>
-          <p className="text-2xl font-black text-indigo-700 tracking-tight">Ksh {data?.amount?.toLocaleString()}</p>
+          <p className="text-[9px] font-semibold text-slate-600  mb-1">Total Loan Amount</p>
+          <p className="text-lg font-semibold text-brand-primary tracking-tight">Ksh {data?.amount?.toLocaleString()}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Customers</p>
-            <p className="text-sm font-black text-slate-700">{data?.count?.toLocaleString()}</p>
+            <p className="text-[8px] font-semibold text-slate-600  mb-0.5">Customers</p>
+            <p className="text-sm font-semibold text-slate-700">{data?.count?.toLocaleString()}</p>
           </div>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Share</p>
-            <p className="text-sm font-black text-slate-700">{data?.percentage}%</p>
+            <p className="text-[8px] font-semibold text-slate-600  mb-0.5">Share</p>
+            <p className="text-sm font-semibold text-slate-700">{data?.percentage}%</p>
           </div>
         </div>
       </div>
@@ -425,14 +425,14 @@ const CustomerLoyaltyChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl h-full relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Customer Retention Analysis</h3>
+        <h3 className="text-xs text-slate-600 whitespace-nowrap">Customer Retention Analysis</h3>
 
         <button
           onClick={handleExport}
           className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!localData || localData.length === 0}
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3" />
           Export
         </button>
       </div>
@@ -543,8 +543,8 @@ const CustomerLoyaltyChart = () => {
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend />
-              <Bar dataKey="count" name="Customer Count" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="amount" name="Total Loan Amount" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="count" name="Customer Count" fill="#2E5E99" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="amount" name="Total Loan Amount" fill="#10B981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (

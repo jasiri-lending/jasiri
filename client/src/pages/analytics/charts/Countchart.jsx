@@ -309,23 +309,23 @@ const CountyChart = () => {
       <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[280px] relative z-[9999]">
         <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
           <div className="p-2 bg-indigo-50 rounded-lg">
-            <Globe className="w-5 h-5 text-indigo-600" />
+            <Globe className="w-5 h-5 text-brand-primary" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Regional Reach</p>
-            <p className="font-black text-slate-800 text-base">{item.county}</p>
+            <p className="text-[8px] font-semibold text-slate-400">Regional Reach</p>
+            <p className="font-semibold text-xs text-slate-600 ">{item.county}</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-            <p className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter mb-1">Customer Count</p>
-            <p className="text-2xl font-black text-indigo-700 tracking-tight">{item.customers.toLocaleString()}</p>
+            <p className="text-[9px] font-semibold text-slate-600 mb-1">Customer Count</p>
+            <p className="text-xl font-black text-brand-primary ">{item.customers.toLocaleString()}</p>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Market Share</p>
-            <p className="text-sm font-black text-slate-700">{item.percentage}%</p>
+            <p className="text-[8px] font-semibold text-slate-400  mb-0.5">Market Share</p>
+            <p className="text-sm font-semibold text-slate-700">{item.percentage}%</p>
           </div>
         </div>
       </div>
@@ -336,7 +336,7 @@ const CountyChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Customer Distribution by County</h3>
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">Customer Distribution by County</h3>
 
         <button
           onClick={handleExport}

@@ -16,11 +16,11 @@ const CustomTooltip = ({ active, payload, dateRange }) => {
     <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-indigo-50 rounded-lg">
-          <TrendingUp className="w-5 h-5 text-indigo-600" />
+          <TrendingUp className="w-5 h-5 text-primary" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Repayment Trend</p>
-          <p className="font-black text-slate-800 text-base">
+          <p className="text-xs font-semibold text-slate-600">Repayment Trend</p>
+          <p className="font-semibold text-slate-600 ">
             {dateRange === 'week' || dateRange === 'month'
               ? data?.period
               : dateRange === 'quarter'
@@ -32,18 +32,18 @@ const CustomTooltip = ({ active, payload, dateRange }) => {
 
       <div className="space-y-4">
         <div className="p-4 bg-indigo-50/50 rounded-2xl border border-indigo-100">
-          <p className="text-[9px] font-black text-indigo-400 uppercase tracking-tighter mb-1">Collection Amount</p>
-          <p className="text-2xl font-black text-indigo-700 tracking-tight">Ksh {data?.amount?.toLocaleString()}</p>
+          <p className="text-[9px] font-semibold text-slate-600  mb-1">Collection Amount</p>
+          <p className="text-xl font-semibold  text-brand-primary ">Ksh {data?.amount?.toLocaleString()}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Transactions</p>
-            <p className="text-sm font-black text-slate-700">{data?.count?.toLocaleString()}</p>
+            <p className="text-[8px] font-semibold text-slate-600  mb-0.5">Transactions</p>
+            <p className="text-sm font-semibold text-slate-700">{data?.count?.toLocaleString()}</p>
           </div>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Avg/Tx</p>
-            <p className="text-sm font-black text-slate-700">Ksh {data?.count > 0 ? Math.round(data?.amount / data?.count).toLocaleString() : '0'}</p>
+            <p className="text-[8px] font-semibold text-slate-600  mb-0.5">Avg/Tx</p>
+            <p className="text-sm font-semibold text-slate-700">Ksh {data?.count > 0 ? Math.round(data?.amount / data?.count).toLocaleString() : '0'}</p>
           </div>
         </div>
       </div>
@@ -517,7 +517,7 @@ const RepaymentTrendsChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header with title and export */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Repayment Trends Analysis</h3>
+        <h3 className="text-xs text-slate-600 whitespace-nowrap">Repayment Trends Analysis</h3>
 
         <div className="flex items-center gap-3">
           <button

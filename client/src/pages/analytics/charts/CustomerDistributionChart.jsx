@@ -12,7 +12,7 @@ const CustomerDistributionChart = ({ data }) => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
           <UserCog className="w-6 h-6" style={{ color: "#586ab1" }} />
-          <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Customer Distribution by County</h3>
+          <h3 className="text-xs font-semibold" style={{ color: "#586ab1" }}>Customer Distribution by County</h3>
         </div>
       </div>
       <div className="h-80">

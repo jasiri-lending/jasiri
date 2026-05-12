@@ -31,32 +31,32 @@ router.get("/", verifySupabaseToken, async (req, res) => {
 
 // ─── Save or Update a workflow ─────────────────────────────────────────────────
 router.post("/save", verifySupabaseToken, async (req, res) => {
-    const { id, name, type, nodes, edges, roles } = req.body;
+    const { id, name, type, nodes, edges, config = {} } = req.body;
     const tenant_id = req.user.tenant_id;
 
     try {
         let workflow_id = id;
 
+        // Use a transaction-like approach (manual rollback if needed or just sequential)
         if (workflow_id) {
             // Update existing definition
             const { error: defError } = await supabaseAdmin
                 .from("workflow_definitions")
-                .update({ name, type })
+                .update({ name, type, config, updated_at: new Date() })
                 .eq("id", workflow_id)
                 .eq("tenant_id", tenant_id);
 
             if (defError) throw defError;
 
-            // Delete old nodes (cascades to edges and node_roles via DB constraints)
-            await supabaseAdmin
-                .from("workflow_nodes")
-                .delete()
-                .eq("workflow_id", workflow_id);
+            // Delete old data (cascades handle most, but let's be explicit if needed)
+            // workflow_conditions are child of edges, edges are child of definition
+            // workflow_nodes are child of definition
+            await supabaseAdmin.from("workflow_nodes").delete().eq("workflow_id", workflow_id);
         } else {
             // Create new definition
             const { data: def, error: defError } = await supabaseAdmin
                 .from("workflow_definitions")
-                .insert({ tenant_id, name, type, status: "active" })
+                .insert({ tenant_id, name, type, config, status: "active" })
                 .select()
                 .single();
 
@@ -64,15 +64,19 @@ router.post("/save", verifySupabaseToken, async (req, res) => {
             workflow_id = def.id;
         }
 
-        // Insert Nodes
+        // 1. Insert Nodes
         const nodesToInsert = nodes.map(n => ({
             workflow_id: workflow_id,
             node_client_id: n.id,
-            type: n.data?.type || n.type?.toUpperCase() || "APPROVAL",
+            type: n.type?.toUpperCase() || "APPROVAL",
             name: n.data?.label || n.id,
+            description: n.data?.description || null,
+            sla_timeout_minutes: n.data?.sla_timeout_minutes || null,
+            escalation_node_id: n.data?.escalation_node_id || null,
+            on_entry_actions: n.data?.on_entry_actions || [],
+            permissions: n.data?.permissions || {},
             position_x: n.position.x,
             position_y: n.position.y,
-            required_permission_id: n.data?.required_permission_id || n.required_permission_id || null,
         }));
 
         const { data: savedNodes, error: nodesError } = await supabaseAdmin
@@ -82,51 +86,62 @@ router.post("/save", verifySupabaseToken, async (req, res) => {
 
         if (nodesError) throw nodesError;
 
-        // Map client IDs to DB IDs
-        const nodeMap = {};
-        savedNodes.forEach(n => (nodeMap[n.node_client_id] = n.id));
+        // 2. Insert Edges & Conditions
+        for (const e of edges) {
+            const { data: savedEdge, error: edgeError } = await supabaseAdmin
+                .from("workflow_edges")
+                .insert({
+                    workflow_id: workflow_id,
+                    edge_client_id: e.id,
+                    source_node_id: e.source,
+                    target_node_id: e.target,
+                    event: e.data?.event || "APPROVE",
+                    roles_allowed: e.data?.roles_allowed || [],
+                })
+                .select()
+                .single();
 
-        // Insert Node Roles
-        if (roles && roles.length > 0) {
-            const rolesToInsert = [];
-            roles.forEach(r => {
-                if (nodeMap[r.node_id]) {
-                    rolesToInsert.push({
-                        node_id: nodeMap[r.node_id],
-                        role_id: r.role_id,
-                    });
-                }
-            });
-            if (rolesToInsert.length > 0) {
-                const { error: rolesError } = await supabaseAdmin
-                    .from("workflow_node_roles")
-                    .insert(rolesToInsert);
-                if (rolesError) throw rolesError;
+            if (edgeError) throw edgeError;
+
+            // Insert conditions for this edge if they exist
+            if (e.data?.conditions && Array.isArray(e.data.conditions) && e.data.conditions.length > 0) {
+                const conditionsToInsert = e.data.conditions.map(c => ({
+                    edge_id: savedEdge.id,
+                    field: c.field,
+                    operator: c.operator,
+                    value: c.value
+                }));
+
+                const { error: condError } = await supabaseAdmin
+                    .from("workflow_conditions")
+                    .insert(conditionsToInsert);
+
+                if (condError) throw condError;
             }
         }
-
-        // Insert Edges
-        const edgesToInsert = edges.map(e => ({
-            workflow_id: workflow_id,
-            edge_client_id: e.id,
-            source_node_id: e.source,
-            target_node_id: e.target,
-            action_type: e.data?.action || "approve",
-        }));
-
-        const { error: edgesError } = await supabaseAdmin
-            .from("workflow_edges")
-            .insert(edgesToInsert);
-
-        if (edgesError) throw edgesError;
 
         res.json({ success: true, message: "Workflow saved successfully", workflow_id });
     } catch (err) {
         console.error("❌ [Workflow Save Error]:", err);
-        res.status(500).json({
+        
+        let friendlyMessage = err.message;
+        
+        // Handle unique constraint violations
+        if (err.code === '23505') {
+            if (err.constraint === 'workflow_definitions_tenant_id_name_type_version_key' || 
+                err.message.includes('workflow_definitions_tenant_id_name_type_version_key')) {
+                friendlyMessage = `A workflow named "${name}" already exists for this type (${type.replace(/_/g, ' ')}) in your organization. Please provide a unique name or update the version.`;
+            } else {
+                friendlyMessage = "A record with these details already exists in the system.";
+            }
+        } else if (err.code === 'PGRST204') {
+            friendlyMessage = "Database schema mismatch: The system is missing the 'config' column. Please run the required database migrations.";
+        }
+
+        res.status(err.code === '23505' ? 409 : 500).json({
             success: false,
-            error: err.message,
-            details: err.details || err.hint || null,
+            error: friendlyMessage,
+            details: process.env.NODE_ENV === 'development' ? err.details : null,
         });
     }
 });
@@ -146,14 +161,17 @@ router.get("/:id/graph", verifySupabaseToken, async (req, res) => {
 
         const { data: nodes, error: nodesError } = await supabaseAdmin
             .from("workflow_nodes")
-            .select("*, workflow_node_roles(role_id)")
+            .select("*")
             .eq("workflow_id", id);
 
         if (nodesError) throw nodesError;
 
         const { data: edges, error: edgesError } = await supabaseAdmin
             .from("workflow_edges")
-            .select("*")
+            .select(`
+                *,
+                workflow_conditions(*)
+            `)
             .eq("workflow_id", id);
 
         if (edgesError) throw edgesError;
@@ -166,7 +184,7 @@ router.get("/:id/graph", verifySupabaseToken, async (req, res) => {
 
 // ─── Start a workflow instance ────────────────────────────────────────────────
 router.post("/start", verifySupabaseToken, async (req, res) => {
-    const { workflow_type, entity_id, entity_type, user_roles = [] } = req.body;
+    const { workflow_type, entity_id, entity_type, initial_context = {} } = req.body;
     try {
         const instance = await startWorkflow(
             req.user.tenant_id,
@@ -174,7 +192,7 @@ router.post("/start", verifySupabaseToken, async (req, res) => {
             entity_id,
             entity_type,
             req.user.id,
-            user_roles
+            initial_context
         );
         res.json({ success: true, instance });
     } catch (err) {
@@ -184,16 +202,17 @@ router.post("/start", verifySupabaseToken, async (req, res) => {
 
 // ─── Perform a workflow action ────────────────────────────────────────────────
 router.post("/action", verifySupabaseToken, async (req, res) => {
-    const { instance_id, action_type, comments } = req.body;
-    const user_roles = req.body.user_roles || [];
+    const { instance_id, event, comments, updated_context = {} } = req.body;
+    const user_roles = req.user.roles || []; // Get roles from token/user object
 
     try {
         const updated = await performAction(
             instance_id,
             req.user.id,
             user_roles,
-            action_type,
-            comments
+            event,
+            comments,
+            updated_context
         );
         res.json({ success: true, instance: updated });
     } catch (err) {
@@ -227,33 +246,25 @@ router.get("/status/:entity_type/:entity_id", verifySupabaseToken, async (req, r
         // Get available actions for the current node
         const { data: actions, error: actionsError } = await supabaseAdmin
             .from("workflow_edges")
-            .select("*")
+            .select(`
+                *,
+                workflow_conditions(*)
+            `)
             .eq("source_node_id", instance.workflow_nodes?.node_client_id)
             .eq("workflow_id", instance.workflow_id);
 
         if (actionsError) throw actionsError;
 
-        // Get required roles for the current node
-        const { data: nodeRoles, error: rolesError } = await supabaseAdmin
-            .from("workflow_node_roles")
+        // History with full node details
+        const { data: history, error: historyError } = await supabaseAdmin
+            .from("workflow_instance_history")
             .select(`
                 *,
-                roles(id, name)
+                from_node:workflow_nodes!workflow_instance_history_from_node_id_fkey(*),
+                to_node:workflow_nodes!workflow_instance_history_to_node_id_fkey(*)
             `)
-            .eq("node_id", instance.current_node_id);
-
-        if (rolesError) throw rolesError;
-
-        // Get the specific permission required for this node
-        let requiredPermission = null;
-        if (instance.workflow_nodes?.required_permission_id) {
-            const { data: permData } = await supabaseAdmin
-                .from("permissions")
-                .select("*")
-                .eq("id", instance.workflow_nodes.required_permission_id)
-                .single();
-            requiredPermission = permData;
-        }
+            .eq("instance_id", instance.id)
+            .order("created_at", { ascending: true });
 
         res.json({
             success: true,
@@ -261,8 +272,7 @@ router.get("/status/:entity_type/:entity_id", verifySupabaseToken, async (req, r
                 instance,
                 currentNode: instance.workflow_nodes,
                 actions,
-                nodeRoles,
-                requiredPermission,
+                history: history || [],
             },
         });
     } catch (err) {
@@ -288,3 +298,4 @@ router.delete("/:id", verifySupabaseToken, async (req, res) => {
 });
 
 export default router;
+

@@ -421,7 +421,7 @@ const NPLChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">
           Non-Performing Loans <span className="text-red-700/70 font-bold">(NPL)</span> Analysis
         </h3>
 
@@ -430,7 +430,7 @@ const NPLChart = () => {
           className="flex items-center gap-2 text-stone-500 hover:text-stone-700 px-3 py-1.5 rounded-lg text-xs font-bold transition-colors border border-stone-200 hover:bg-stone-50"
           disabled={!data || data.length === 0}
         >
-          <Download className="w-3.5 h-3.5" />
+          <Download className="w-3 h-3" />
           Export
         </button>
       </div>

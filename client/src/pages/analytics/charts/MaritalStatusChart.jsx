@@ -321,20 +321,20 @@ const MaritalStatusChart = () => {
             <Heart className="w-5 h-5 text-pink-600" />
           </div>
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Demographic Insights</p>
-            <p className="font-black text-slate-800 text-base">{item.name}</p>
+            <p className="text-[10px] font-semibold text-slate-400">Demographic Insights</p>
+            <p className="font-semibold text-slate-600 text-sm">{item.name}</p>
           </div>
         </div>
 
         <div className="space-y-4">
           <div className="p-4 bg-pink-50/50 rounded-2xl border border-pink-100">
-            <p className="text-[9px] font-black text-pink-400 uppercase tracking-tighter mb-1">Customer Count</p>
-            <p className="text-2xl font-black text-pink-700 tracking-tight">{item.value.toLocaleString()}</p>
+            <p className="text-[9px] font-semibold text-pink-400  mb-1">Customer Count</p>
+            <p className="text-xl font-black text-pink-700 ">{item.value.toLocaleString()}</p>
           </div>
 
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Distribution</p>
-            <p className="text-sm font-black text-slate-700">{percentage}%</p>
+            <p className="text-[8px] font-semibold text-slate-400  mb-0.5">Distribution</p>
+            <p className="text-sm font-semibold text-slate-700">{percentage}%</p>
           </div>
         </div>
       </div>
@@ -345,7 +345,7 @@ const MaritalStatusChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl h-full relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Marital Status Breakdown</h3>
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">Marital Status Breakdown</h3>
 
         <button
           onClick={handleExport}

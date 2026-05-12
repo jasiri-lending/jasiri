@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { CHART_BG } from "./shared/constants";
 import { useTenant } from "../../hooks/useTenant";
+import { supabase } from "../../supabaseClient";
 
 // Chart components
 import RegionChart from "./charts/RegionPerformanceChart";
@@ -301,6 +302,7 @@ const AnalyticsDashboard = () => {
         {/* Guarantor Age Chart – 2/5 */}
         <div className="lg:col-span-2">
           <GuarantorAgeChart
+            type="guarantor"
             data={analyticsData.ageGenderDistribution}
             filters={globalFilters}
             onFilterChange={handleGlobalFilterChange}

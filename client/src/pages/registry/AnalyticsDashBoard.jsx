@@ -977,7 +977,7 @@ const AnalyticsDashboard = () => {
 
   const status = getCollectionStatus(avgCollectionRate);
 
-  // Custom tooltip component - FIXED TypeScript warnings
+  // Custom tooltip component 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
       return (
@@ -1064,7 +1064,7 @@ const AnalyticsDashboard = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
           <div className="flex items-center gap-3">
-            <DollarSign className="w-5 h-5 text-emerald-600" />
+            <DollarSign className="w-3 h-3 text-emerald-600" />
             <div>
               <p className="text-sm text-gray-500">Total Disbursed</p>
               <p className="text-2xl text-emerald-600 font-bold">{formatCurrencyCompact(totalDisbursed)}</p>

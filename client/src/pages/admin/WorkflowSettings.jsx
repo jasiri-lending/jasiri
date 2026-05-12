@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, GitBranch } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, GitBranch, CheckCircle, Settings, Eye } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../hooks/userAuth';
@@ -28,117 +28,196 @@ const WorkflowSettings = () => {
         fetchWorkflows();
     }, []);
 
+    const filteredWorkflows = workflows.filter(w => 
+        w.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        w.type.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
     return (
-        <div className="p-6">
-            <div className="mb-6">
-                <h1 className="text-2xl font-bold text-gray-900">Workflow Settings</h1>
-                <p className="text-gray-600 mt-1">Configure and manage workflow processes</p>
-            </div>
-
-            {/* Actions Bar */}
-            <div className="flex justify-between items-center mb-6">
-                <div className="relative flex-1 max-w-md">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
-                    <input
-                        type="text"
-                        placeholder="Search workflows..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-10 pr-4 py-2 w-full border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-                    />
+        <div className="p-8 bg-muted min-h-screen font-inter">
+            <div className="max-w-7xl mx-auto">
+                <div className="flex justify-between items-end mb-8">
+                    <div>
+                        <h1 className="text-sm  text-slate-600 ">Workflow Registry</h1>
+                        <p className="text-xs text-slate-500  mt-1">Manage and monitor organizational process flows</p>
+                    </div>
+                    <button 
+                        onClick={() => navigate('/workflow-setting/admin/builder/new')}
+                        className="flex items-center px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded-xl hover:bg-brand-secondary transition-all shadow-lg shadow-slate-200 active:scale-95"
+                    >
+                        <Plus className="h-3 w-3 mr-2" />
+                        Create Workflow
+                    </button>
                 </div>
-                <button 
-                    onClick={() => navigate('/workflow-setting/admin/builder/new')}
-                    className="ml-4 flex items-center px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors"
-                >
-                    <Plus className="h-5 w-5 mr-2" />
-                    Add Workflow
-                </button>
-            </div>
 
-            {/* Table */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-                <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
-                        <tr>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Workflow Name
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Steps
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Type
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Status
-                            </th>
-                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                Actions
-                            </th>
-                        </tr>
-                    </thead>
-                    <tbody className="bg-white divide-y divide-gray-200">
-                        {workflows.length === 0 ? (
-                            <tr>
-                                <td colSpan="5" className="px-6 py-10 text-center text-gray-500 italic">
-                                    No workflows defined yet. Click "Add Workflow" to get started.
-                                </td>
-                            </tr>
-                        ) : (
-                            workflows.map((workflow) => (
-                                <tr key={workflow.id} className="hover:bg-gray-50">
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <div className="flex items-center">
-                                            <GitBranch className="h-5 w-5 text-gray-400 mr-2" />
-                                            <span className="text-sm font-medium text-gray-900">{workflow.name}</span>
-                                        </div>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {workflow.steps_count} steps
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        {workflow.type}
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap">
-                                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${workflow.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}`}>
-                                            {workflow.status}
-                                        </span>
-                                    </td>
-                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                        <div className="flex space-x-2">
-                                            <button 
-                                                onClick={() => navigate(`/workflow-setting/admin/builder/${workflow.id}`)}
-                                                className="text-brand-primary hover:text-brand-primary/80"
-                                            >
-                                                <Edit className="h-4 w-4" />
-                                            </button>
-                                            <button 
-                                                onClick={async () => {
-                                                    if (window.confirm("Are you sure you want to delete this workflow?")) {
-                                                        try {
-                                                            const { data: session } = await supabase.auth.getSession();
-                                                            await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/workflows/${workflow.id}`, {
-                                                                headers: { Authorization: `Bearer ${session.session?.access_token}` }
-                                                            });
-                                                            setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
-                                                        } catch (err) {
-                                                            console.error(err);
-                                                            alert("Failed to delete workflow");
-                                                        }
-                                                    }
-                                                }}
-                                                className="text-red-600 hover:text-red-800"
-                                            >
-                                                <Trash2 className="h-4 w-4" />
-                                            </button>
-                                        </div>
-                                    </td>
+                {/* Stats / Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+                    {[
+                        { label: 'Total Processes', value: workflows.length, icon: GitBranch, color: 'text-slate-600', bg: 'bg-slate-100' },
+                        { label: 'Active', value: workflows.filter(w => w.status === 'active').length, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+                        { label: 'Drafts', value: workflows.filter(w => w.status === 'draft').length, icon: Edit, color: 'text-amber-600', bg: 'bg-amber-50' },
+                        { label: 'System Types', value: 22, icon: Settings, color: 'text-indigo-600', bg: 'bg-indigo-50' },
+                    ].map((stat, i) => (
+                        <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-[10px] font-semibold text-slate-500  mb-0.5">{stat.label}</p>
+                                    <p className="text-xl font-black text-slate-600">{stat.value}</p>
+                                </div>
+                                <div className={`${stat.bg} p-2.5 rounded-xl`}>
+                                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Main Table Card */}
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+                    <div className="p-4 bg-white border-b border-slate-100 flex items-center justify-between">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
+                            <input
+                                type="text"
+                                placeholder="Filter workflows..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 pr-4 py-2 w-full bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 transition-all text-xs font-medium"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="min-w-full divide-y divide-slate-100">
+                            <thead className="bg-slate-50/50">
+                                <tr className="text-left text-xs text-slate-600 ">
+                                    <th className="px-6 py-4">Category</th>
+                                    <th className="px-6 py-4">Process Type</th>
+                                    <th className="px-6 py-4">Structure</th>
+                                    <th className="px-6 py-4">Last Updated</th>
+                                    <th className="px-6 py-4">Status</th>
+                                    <th className="px-6 py-4 text-right">Actions</th>
                                 </tr>
-                            ))
-                        )}
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody className="divide-y divide-slate-50">
+                                {filteredWorkflows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="6" className="px-6 py-12 text-center text-xs text-slate-400 italic bg-slate-50/20">
+                                            No workflows found matching your search.
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredWorkflows.map((workflow) => {
+                                        const categories = {
+                                            'Customer Management': ['customer_onboarding', 'customer_edits', 'customer_transfer', 'customer_exit', 'customer_blacklisting'],
+                                            'Loan Lifecycle': ['loan_application', 'loan_disbursement', 'loan_restructuring', 'loan_write_off', 'loan_closure', 'loan_top_up'],
+                                            'Finance & Accounting': ['journal_creation', 'refund_approval', 'penalty_approval', 'fee_waiver', 'transaction_reconciliation'],
+                                            'System Configuration': ['credit_settings_change', 'penalty_settings_change', 'loan_product_config'],
+                                            'Sales & Collections': ['lead_management', 'collections_recovery', 'collateral_management']
+                                        };
+
+                                        const getCategory = (type) => {
+                                            for (const [cat, types] of Object.entries(categories)) {
+                                                if (types.includes(type)) return cat;
+                                            }
+                                            return 'Operational';
+                                        };
+
+                                        const category = getCategory(workflow.type);
+
+                                        return (
+                                            <tr key={workflow.id} className="hover:bg-slate-50/50 transition-colors group">
+                                                <td className="px-6 py-3.5">
+                                                    <div className="flex items-center">
+                                                        <div className="w-7 h-7 rounded-lg bg-slate-100 flex items-center justify-center mr-2.5">
+                                                            <GitBranch className="h-3.5 w-3.5 text-slate-500" />
+                                                        </div>
+                                                        <span className="text-xs whitespace-nowrap text-slate-600   ">
+                                                            {category}
+                                                        </span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3.5">
+                                                    <div>
+                                                        <div className="text-xs  text-brand-primary font-semibold ">
+                                                            {workflow.type.replace(/_/g, ' ')}
+                                                        </div>
+                                                        {workflow.name !== 'New Business Process' && (
+                                                            <div className="text-xs whitespace-nowrap text-slate-400 font-medium italic mt-0.5">
+                                                                Alias: {workflow.name}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-3.5">
+                                                <div className="flex items-center space-x-1.5">
+                                                    <span className="text-[10px] whitespace-nowrap text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded">
+                                                        {workflow.steps_count || 0} Nodes
+                                                    </span>
+                                                   
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-3.5">
+                                                <span className="text-[10px] whitespace-nowrap text-slate-500 font-medium">
+                                                    {new Date(workflow.updated_at || workflow.created_at).toLocaleDateString()}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3.5">
+                                                <span className={`px-2 py-0.5 text-[9px] whitespace-nowrap rounded-md ${
+                                                    workflow.status === 'active' 
+                                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                                                        : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                                }`}>
+                                                    {workflow.status}
+                                                </span>
+                                            </td>
+                                            <td className="px-6 py-3.5 text-right">
+                                                            <div className="flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button 
+                                                                    onClick={() => navigate(`/workflow-setting/admin/builder/${workflow.id}?view=true`)}
+                                                                    className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"
+                                                                    title="View Workflow"
+                                                                >
+                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                </button>
+                                                                <button 
+                                                                    onClick={() => navigate(`/workflow-setting/admin/builder/${workflow.id}`)}
+                                                                    className="p-1.5 text-slate-400 hover:text-slate-900 hover:bg-slate-100 rounded-lg transition-all"
+                                                                    title="Edit Workflow"
+                                                                >
+                                                                    <Edit className="h-3.5 w-3.5" />
+                                                                </button>
+                                                    <button 
+                                                        onClick={async () => {
+                                                            if (window.confirm("Delete this workflow?")) {
+                                                                try {
+                                                                    const { data: session } = await supabase.auth.getSession();
+                                                                    await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/workflows/${workflow.id}`, {
+                                                                        headers: { Authorization: `Bearer ${session.session?.access_token}` }
+                                                                    });
+                                                                    setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
+                                                                } catch (err) { console.error(err); }
+                                                            }
+                                                        }}
+                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div className="mt-6 flex items-center justify-center space-x-2">
+                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                     <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Multi-Tenant Workflow Engine Active</span>
+                </div>
             </div>
         </div>
     );

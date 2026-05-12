@@ -364,7 +364,7 @@ const PayerTypeChart = () => {
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Payer Type Analysis</h3>
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">Payer Type Analysis</h3>
 
         <button
           onClick={handleExport}
@@ -441,7 +441,7 @@ const PayerTypeChart = () => {
 
         {showCustomDate && (
           <div className="mt-4 flex flex-wrap items-center gap-3 bg-stone-50/50 p-3 rounded-lg border border-stone-100">
-            <Calendar className="w-3.5 h-3.5 text-stone-400" />
+            <Calendar className="w-3 h-3 text-stone-400" />
 
             <input
               type="date"
@@ -501,7 +501,7 @@ const PayerTypeChart = () => {
           {/* Pie Chart */}
           <div className="mb-6">
             <div className="bg-gray-50 p-4 rounded-lg">
-              <h4 className="text-sm font-medium text-gray-700 mb-4 text-center">
+              <h4 className="text-sm  text-brand-primary mb-4 text-center">
                 Payment Distribution by Payer Type
               </h4>
               <div className="h-64">
@@ -527,7 +527,7 @@ const PayerTypeChart = () => {
                           const data = payload[0].payload;
                           return (
                             <div className="bg-[#E7F0FA] p-4 border border-gray-200 rounded-lg shadow-lg">
-                              <p className="font-semibold text-gray-900">{data.name}</p>
+                              <p className="font-semibold text-gray-600">{data.name}</p>
                               <p className="text-sm text-gray-600">
                                 Amount: {formatCurrencyCompact(data.value)}
                               </p>

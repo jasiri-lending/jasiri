@@ -18,14 +18,14 @@ import "react-datepicker/dist/react-datepicker.css";
 
 // ========== BRAND COLORS ==========
 const BRAND = {
-  primary: '#2E5E99',
+  primary: '#1E3A8A',
   btn: '#586ab1',
   secondary: '#7BA4D0',
   surface: '#E7F0FA',
   accent: '#10B981',
   highlight: '#FACC15',
   text: '#111827',
-  muted: '#6B7280',
+  muted: '#E5E7EB',
   danger: '#EF4444',
   warning: '#F59E0B',
   navy: '#1E3A8A',
@@ -100,7 +100,7 @@ const EmptyState = ({ title, description }) => (
     <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-4" style={{ backgroundColor: BRAND.surface }}>
       <BarChart3 className="w-7 h-7" style={{ color: BRAND.secondary }} />
     </div>
-    <h3 className="text-base font-semibold mb-1" style={{ color: BRAND.text }}>{title}</h3>
+    <h3 className="text-slate-600 text-xs  mb-1" style={{ color: BRAND.text }}>{title}</h3>
     <p className="text-sm max-w-xs" style={{ color: BRAND.muted }}>{description}</p>
   </div>
 );
@@ -116,12 +116,12 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accentColor, trend, loadi
     >
       <div>
         <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0"
-              style={{ backgroundColor: `${accentColor}18` }}>
-              <Icon className="w-5 h-5" style={{ color: accentColor }} />
+          <div className="flex items-center ">
+            <div className="w-10 h-5 rounded-lg flex items-center justify-center flex-shrink-0"
+              >
+              <Icon className="w-3 h-3" style={{ color: accentColor }} />
             </div>
-            <span className="text-sm font-medium leading-tight" style={{ color: BRAND.muted }}>{title}</span>
+            <span className="text-sm text-slate-600">{title}</span>
           </div>
           {trend !== undefined && (
             <div className="flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold flex-shrink-0"
@@ -131,7 +131,7 @@ const KpiCard = ({ title, value, subtitle, icon: Icon, accentColor, trend, loadi
             </div>
           )}
         </div>
-        <div className="text-2xl font-bold font-mono tracking-tight mb-1" style={{ color: accentColor }}>
+        <div className="text-2xl  font-semibold font-sans mb-1" style={{ color: accentColor }}>
           {formatNumber(value)}
         </div>
         {subtitle && <div className="text-xs mt-1" style={{ color: BRAND.muted }}>{subtitle}</div>}
@@ -146,17 +146,17 @@ const ChartCard = ({ title, subtitle, icon: Icon, children, loading, className =
   return (
     <div className={`bg-white rounded-2xl border overflow-hidden hover:shadow-md transition-shadow duration-200 ${className}`}
       style={{ borderColor: '#E5E7EB' }}>
-      <div className="px-6 py-4 border-b flex items-center gap-3"
-        style={{ borderColor: BRAND.surface, backgroundColor: BRAND.surface }}>
+      <div className="px-6 py-4 border-b flex items-center gap-3 bg-brand-surface"
+      >
         {Icon && (
-          <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
+          <div className="w-7 h-7 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ backgroundColor: BRAND.primary }}>
-            <Icon className="w-5 h-5 text-white" />
+            <Icon className="w-3 h-3 text-white" />
           </div>
         )}
         <div>
-          <h3 className="font-semibold text-base" style={{ color: BRAND.text }}>{title}</h3>
-          {subtitle && <p className="text-xs mt-0.5" style={{ color: BRAND.muted }}>{subtitle}</p>}
+          <h3 className=" text-sm text-slate-600" >{title}</h3>
+          {subtitle && <p className="text-xs mt-0.5 text-slate-600" >{subtitle}</p>}
         </div>
       </div>
       <div className="p-6">{children}</div>
@@ -169,10 +169,10 @@ const RevenueRow = ({ label, sub, value, color, pct }) => (
   <div className="space-y-1.5">
     <div className="flex items-center justify-between">
       <div>
-        <span className="text-sm font-medium" style={{ color: BRAND.text }}>{label}</span>
-        {sub && <span className="text-xs ml-2" style={{ color: BRAND.muted }}>{sub}</span>}
+        <span className="text-sm text-slate-600" >{label}</span>
+        {sub && <span className="text-xs ml-2 text-slate-600" >{sub}</span>}
       </div>
-      <span className="text-sm font-bold font-mono" style={{ color }}>{formatNumber(value)}</span>
+      <span className="text-sm font-semibold font-sans" style={{ color }}>{formatNumber(value)}</span>
     </div>
     <div className="h-1.5 rounded-full bg-gray-100 overflow-hidden">
       <div className="h-full rounded-full transition-all duration-500"
@@ -211,8 +211,8 @@ const ProfitSummaryCard = ({ metrics, loading }) => {
           <Target className="w-5 h-5 text-white" />
         </div>
         <div>
-          <h3 className="font-semibold text-base" style={{ color: BRAND.text }}>Revenue & Cost Breakdown</h3>
-          <p className="text-xs mt-0.5" style={{ color: BRAND.muted }}>All sources — period overview</p>
+          <h3 className="text-sm text-slate-600" >Revenue & Cost Breakdown</h3>
+          <p className="text-xs mt-0.5 text-slate-600" >All sources — period overview</p>
         </div>
       </div>
       <div className="p-6 space-y-4">
@@ -232,7 +232,7 @@ const ProfitSummaryCard = ({ metrics, loading }) => {
               <div className="text-sm font-bold" style={{ color: isProfitable ? '#065F46' : '#991B1B' }}>Net Profit</div>
               <div className="text-xs" style={{ color: isProfitable ? '#059669' : '#DC2626' }}>Revenue − Costs − Write-offs</div>
             </div>
-            <div className="text-xl font-bold font-mono" style={{ color: isProfitable ? '#065F46' : '#991B1B' }}>
+            <div className="text-xl font-bold font-sans" style={{ color: isProfitable ? '#065F46' : '#991B1B' }}>
               {formatNumber(netProfit)}
             </div>
           </div>
@@ -248,9 +248,9 @@ const ProfitSummaryCard = ({ metrics, loading }) => {
 // ========== SECTION HEADER ==========
 const SectionHeader = ({ icon: Icon, title }) => (
   <div className="flex items-center mb-5">
-    <div className="px-4 py-2 rounded-r-full flex items-center gap-2 shadow-sm" style={{ backgroundColor: BRAND.primary }}>
-      <Icon className="w-4 h-4 text-white" strokeWidth={2.5} />
-      <h2 className="text-white text-sm font-semibold whitespace-nowrap">{title}</h2>
+    <div className="px-2 py-1.5 rounded-r-full flex items-center gap-2 shadow-sm bg-brand-primary" >
+      <Icon className="w-2 h-2 text-xs text-white" strokeWidth={2.5} />
+      <h2 className="text-white text-xs  whitespace-nowrap">{title}</h2>
     </div>
   </div>
 );
@@ -260,14 +260,14 @@ const CustomTooltip = ({ active, payload, label }) => {
   if (!active || !payload?.length) return null;
   return (
     <div className="bg-white border rounded-xl shadow-lg p-3 text-sm" style={{ borderColor: BRAND.surface }}>
-      <p className="font-semibold mb-2" style={{ color: BRAND.text }}>{label}</p>
+      <p className="font-semibold mb-2 text-slate-600" >{label}</p>
       {payload.map((p, i) => (
         <div key={i} className="flex items-center justify-between gap-6 py-0.5">
-          <span className="flex items-center gap-1.5" style={{ color: BRAND.muted }}>
+          <span className="flex items-center gap-1.5 text-slate-600" >
             <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: p.color }} />
             {p.name}
           </span>
-          <span className="font-mono font-semibold" style={{ color: BRAND.text }}>{formatNumber(p.value)}</span>
+          <span className="font-mono font-semibold text-slate-600" >{formatNumber(p.value)}</span>
         </div>
       ))}
     </div>
@@ -284,22 +284,16 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
     onFilterChange('dateRange', val);
   };
 
-  const selectBase = "pl-9 pr-3 py-2 rounded-xl text-sm border appearance-none outline-none cursor-pointer bg-white";
+  const selectBase = "pl-8 pr-2 py-1 h-8 rounded-lg text-[11px] font-bold border appearance-none outline-none cursor-pointer bg-white transition-all";
 
   return (
     <div className="bg-white border-b px-6 py-5" style={{ borderColor: BRAND.surface }}> {/* sticky removed */}
       <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ backgroundColor: BRAND.primary }}>
-            <Activity className="w-5 h-5 text-white" />
-          </div>
+            <Activity className="w-3 h-3 text-brand-primary" />
           <div>
-            <h1 className="text-lg font-bold" style={{ color: BRAND.text }}>Financial Dashboard</h1>
-            <p className="text-xs" style={{ color: BRAND.muted }}>
-              {lastUpdated
-                ? `Last updated ${lastUpdated.toLocaleTimeString('en-KE', { hour: '2-digit', minute: '2-digit' })}`
-                : 'Monitor your financial performance'}
-            </p>
+            <h1 className="text-lg text-brand-primary" >Financial Dashboard</h1>
+            
           </div>
         </div>
 
@@ -307,7 +301,7 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
           <div className="relative">
             <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: BRAND.secondary }} />
             <select value={filters.dateRange} onChange={handleDateRangeChange}
-              className={selectBase} style={{ color: BRAND.text, borderColor: '#D1D5DB' }}>
+              className={selectBase} text-slate-600 style={{  borderColor: '#D1D5DB' }}>
               <option value="all_time">All Time</option>
               <option value="mtd">Month to Date</option>
               <option value="qtd">Quarter to Date</option>
@@ -347,9 +341,9 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
           </div>
 
           <button onClick={() => onFilterChange('_refresh', true)} disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90 disabled:opacity-60"
-            style={{ backgroundColor: BRAND.primary }}>
-            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            className="flex items-center gap-2 px-3 h-8 rounded-lg text-[10px]  text-white transition-all hover:opacity-90 disabled:opacity-60 bg-brand-primary shadow-sm"
+            >
+            <RefreshCw className={`w-3 h-3 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </button>
         </div>
@@ -421,10 +415,29 @@ const FinancialDashboard = () => {
       const startStr = toKenyaDateStr(start);
       const endStr = toKenyaDateStr(end);
 
-      const geo = (q, table = null) => {
-        // Skip branch/region filtering for payments as the columns are not on the table
-        if (table === 'loan_payments' || table === 'loan_installments') return q;
+      // --- Robust Geo Filtering Logic ---
+      let targetLoanIds = null;
+      const filteringActive = currentFilters.region !== 'all' || currentFilters.branch !== 'all';
+      
+      if (filteringActive) {
+        let q = supabase.from('loans').select('id').eq('tenant_id', tenantId);
+        if (currentFilters.region !== 'all') q = q.eq('region_id', currentFilters.region);
+        if (currentFilters.branch !== 'all') q = q.eq('branch_id', currentFilters.branch);
+        const { data: loanIds } = await q;
+        targetLoanIds = loanIds?.map(l => l.id) || [];
+      }
 
+      const geo = (q, table = null) => {
+        if (!filteringActive) return q;
+
+        // For tables that have loan_id, we filter by the resolved targetLoanIds
+        const hasLoanId = ['loan_payments', 'loan_installments', 'loan_fees_log'].includes(table);
+        if (hasLoanId) {
+            if (targetLoanIds.length === 0) return q.eq('loan_id', -1); // Force empty if no loans in region
+            return q.in('loan_id', targetLoanIds);
+        }
+
+        // For tables that have direct geo columns (loans, disbursements, etc)
         if (currentFilters.region !== 'all') q = q.eq('region_id', currentFilters.region);
         if (currentFilters.branch !== 'all') q = q.eq('branch_id', currentFilters.branch);
         return q;
@@ -442,21 +455,36 @@ const FinancialDashboard = () => {
         portfolioPaymentsRes,
         installmentPenaltiesRes,
         operationalExpensesRes,
+        feesLogRes,
       ] = await Promise.all([
         geo(supabase.from('loan_payments').select('paid_amount, interest_paid, principal_paid, penalty_paid, created_at, loan_id, payment_type, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
-        geo(supabase.from('loans').select('id, processing_fee, registration_fee, processing_fee_paid, registration_fee_paid, net_penalties, scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
-        geo(supabase.from('loans').select('id, scored_amount').eq('tenant_id', tenantId).eq('status', 'disbursed')),
-        supabase.from('loan_payments').select('loan_id, paid_amount, principal_paid').eq('tenant_id', tenantId),
-        geo(supabase.from('loans').select('total_payable, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed').eq('repayment_state', 'defaulted')),
-        geo(supabase.from('loans').select('scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed')),
+        geo(supabase.from('loans').select('id, processing_fee, registration_fee, processing_fee_paid, registration_fee_paid, net_penalties, scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed'), 'loans'),
+        geo(supabase.from('loans').select('id, scored_amount').eq('tenant_id', tenantId).eq('status', 'disbursed'), 'loans'),
+        geo(supabase.from('loan_payments').select('loan_id, paid_amount, principal_paid').eq('tenant_id', tenantId), 'loan_payments'),
+        geo(supabase.from('loans').select('total_payable, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed').eq('repayment_state', 'defaulted'), 'loans'),
+        geo(supabase.from('loans').select('scored_amount, disbursed_at').eq('tenant_id', tenantId).eq('status', 'disbursed'), 'loans'),
         geo(supabase.from('loan_payments').select('paid_amount, created_at, paid_at').eq('tenant_id', tenantId), 'loan_payments'),
-        geo(supabase.from('loans').select('scored_amount, disbursed_at, status').eq('tenant_id', tenantId).order('disbursed_at')),
-        supabase.from('loan_payments').select('paid_amount, created_at, loan_id').eq('tenant_id', tenantId),
-        supabase.from('loan_installments').select('net_penalty, loan_id, tenant_id, updated_at').eq('tenant_id', tenantId).gt('penalty_amount', 0),
+        geo(supabase.from('loans').select('scored_amount, disbursed_at, status').eq('tenant_id', tenantId).order('disbursed_at'), 'loans'),
+        geo(supabase.from('loan_payments').select('paid_amount, created_at, loan_id').eq('tenant_id', tenantId), 'loan_payments'),
+        geo(supabase.from('loan_installments').select('net_penalty, loan_id, tenant_id, updated_at').eq('tenant_id', tenantId).gt('penalty_amount', 0), 'loan_installments'),
         supabase.from('operational_expenses').select('amount, date').eq('tenant_id', tenantId),
+        geo(supabase.from('loan_fees_log').select('fee_type, paid_amount, created_at').eq('tenant_id', tenantId), 'loan_fees_log'),
       ]);
 
       if (fetchIdRef.current !== myId) return;
+
+      // Aggregating Fees from log
+      let processingFees = 0, registrationFees = 0;
+      feesLogRes.data?.forEach(f => {
+        const feeDate = toKenyaDateStr(f.created_at);
+        if (feeDate >= startStr && feeDate <= endStr) {
+            if (f.fee_type === 'processing') processingFees += Number(f.paid_amount) || 0;
+            if (f.fee_type === 'registration') registrationFees += Number(f.paid_amount) || 0;
+        }
+      });
+
+      // Aggregating Penalties from loans
+      let netPenaltiesOnLoans = disbursedLoansRes.data?.reduce((s, l) => s + (Number(l.net_penalties) || 0), 0) ?? 0;
 
       // Payments aggregation
       let interestPaid = 0, principalPaid = 0, penaltiesPaid = 0, totalPaymentsAmount = 0;
@@ -479,27 +507,15 @@ const FinancialDashboard = () => {
         totalPaymentsAmount += paidAmt;
       });
 
-      // Fee income from disbursed loans in period
-      let processingFees = 0, registrationFees = 0, netPenaltiesOnLoans = 0;
-      disbursedLoansRes.data?.forEach(l => {
-        const dDate = toKenyaDateStr(l.disbursed_at);
-        if (dDate >= startStr && dDate <= endStr) {
-          if (l.processing_fee_paid) processingFees += Number(l.processing_fee) || 0;
-          if (l.registration_fee_paid) registrationFees += Number(l.registration_fee) || 0;
-        }
-        netPenaltiesOnLoans += Number(l.net_penalties) || 0;
-      });
-
       // Installment-level penalties
       const netPenaltiesOnInstallments = installmentPenaltiesRes.data?.reduce((s, i) => {
         const upDate = toKenyaDateStr(i.updated_at);
         return (upDate >= startStr && upDate <= endStr) ? s + (Number(i.net_penalty) || 0) : s;
       }, 0) ?? 0;
 
-      // Outstanding principal — scored_amount minus principal already repaid (excludes interest)
+      // Outstanding principal
       const loanPrincipalPaidMap = {};
       allPaymentsRes.data?.forEach(p => {
-        // Use principal_paid field; fall back to 0 if not recorded separately
         loanPrincipalPaidMap[p.loan_id] = (loanPrincipalPaidMap[p.loan_id] || 0) + (Number(p.principal_paid) || 0);
       });
       const outstandingPrincipal = allDisbursedLoansRes.data?.reduce((s, l) =>
@@ -680,8 +696,8 @@ const FinancialDashboard = () => {
                   <ResponsiveContainer width="100%" height={280}>
                     <ComposedChart data={cashFlowData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke={BRAND.surface} vertical={false} />
-                      <XAxis dataKey="date" stroke={BRAND.muted} fontSize={10} tickLine={false} axisLine={{ stroke: BRAND.surface }} />
-                      <YAxis stroke={BRAND.muted} fontSize={10} tickFormatter={tickFmt} tickLine={false} axisLine={{ stroke: BRAND.surface }} width={80} />
+                      <XAxis dataKey="date" stroke="#64748b" fontSize={11} fontWeight={600} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} dy={8} />
+                      <YAxis stroke="#64748b" fontSize={11} fontWeight={600} tickFormatter={tickFmt} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} width={80} />
                       <Tooltip content={<CustomTooltip />} />
                       <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
                       <Bar dataKey="disbursements" name="Disbursements" fill={CHART_COLORS.disbursements} radius={[4, 4, 0, 0]} barSize={16} />
@@ -705,8 +721,8 @@ const FinancialDashboard = () => {
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={BRAND.surface} vertical={false} />
-                      <XAxis dataKey="date" stroke={BRAND.muted} fontSize={10} tickLine={false} axisLine={{ stroke: BRAND.surface }} />
-                      <YAxis stroke={BRAND.muted} fontSize={10} tickFormatter={tickFmt} tickLine={false} axisLine={{ stroke: BRAND.surface }} width={80} />
+                      <XAxis dataKey="date" stroke="#64748b" fontSize={11} fontWeight={600} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} dy={8} />
+                      <YAxis stroke="#64748b" fontSize={11} fontWeight={600} tickFormatter={tickFmt} tickLine={false} axisLine={{ stroke: "#cbd5e1" }} width={80} />
                       <Tooltip content={<CustomTooltip />} />
                       <Area type="monotone" dataKey="value" name="Portfolio Value"
                         stroke={BRAND.primary} strokeWidth={2.5} fill="url(#portfolioGrad)" />
@@ -755,28 +771,7 @@ const FinancialDashboard = () => {
         </section>
 
         {/* ═══ Footer ═══ */}
-        <div className="pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4"
-          style={{ borderColor: '#E5E7EB' }}>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 bg-white rounded-xl border text-sm" style={{ borderColor: '#E5E7EB' }}>
-              <div className={`w-2 h-2 rounded-full ${loading ? 'bg-amber-400 animate-pulse' : 'bg-green-500'}`} />
-              <span style={{ color: BRAND.muted }}>{loading ? 'Fetching data...' : 'All systems operational'}</span>
-            </div>
-            <button onClick={() => handleFilterChange('_refresh', true)} disabled={loading}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm rounded-xl border transition-colors disabled:opacity-50"
-              style={{ color: BRAND.primary, borderColor: BRAND.secondary, backgroundColor: 'white' }}>
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
-            </button>
-          </div>
-          {lastUpdated && (
-            <div className="text-sm px-3 py-1.5 bg-white rounded-xl border" style={{ color: BRAND.muted, borderColor: '#E5E7EB' }}>
-              Last updated: {lastUpdated.toLocaleTimeString('en-KE', {
-                hour: '2-digit', minute: '2-digit', second: '2-digit', timeZone: 'Africa/Nairobi'
-              })}
-            </div>
-          )}
-        </div>
+        
       </div>
     </div>
   );

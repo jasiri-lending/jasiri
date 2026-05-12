@@ -13,27 +13,27 @@ const CustomTooltip = ({ active, payload }) => {
   const data = payload[0]?.payload;
 
   return (
-    <div className="bg-white/90 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
+    <div className="bg-white/95 backdrop-blur-xl p-6 rounded-2xl shadow-2xl border border-white/40 min-w-[300px] relative z-[9999]">
       <div className="flex items-center gap-3 mb-4 border-b border-slate-100 pb-3">
         <div className="p-2 bg-indigo-50 rounded-lg">
-          <Briefcase className="w-5 h-5 text-indigo-600" />
+          <Briefcase className="w-5 h-5 text-[#2E5E99]" />
         </div>
         <div>
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Business Sector</p>
-          <p className="font-black text-slate-800 text-base">{data?.name}</p>
+          <p className="text-xs font-semibold text-slate-600">Business Sector:</p>
+          <p className="font-semibold text-slate-600 ">{data?.name}</p>
         </div>
       </div>
 
       <div className="space-y-4">
         <div className="p-4 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-          <p className="text-[9px] font-black text-emerald-400 uppercase tracking-tighter mb-1">Total Daily Income</p>
-          <p className="text-2xl font-black text-emerald-700 tracking-tight">Ksh {data?.totalIncome?.toLocaleString()}</p>
+          <p className="text-[9px]  text-[#10B981]  mb-1">Total Daily Income</p>
+          <p className="text-lg font-semibold text-[#10B981] ">Ksh {data?.totalIncome?.toLocaleString()}</p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Customers</p>
-            <p className="text-sm font-black text-slate-700">{data?.count?.toLocaleString()}</p>
+            <p className="text-[8px] font-black text-[#2E5E99] uppercase tracking-tighter mb-0.5">Customers</p>
+            <p className="text-sm font-black text-[#2E5E99]">{data?.count?.toLocaleString()}</p>
           </div>
           <div className="p-3 bg-slate-50 rounded-xl border border-slate-100">
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-0.5">Avg Income</p>
@@ -355,7 +355,7 @@ const BusinessTypesChart = () => {
   return (
     <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl h-full relative hover:z-10">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
-        <h3 className="text-lg text-stone-600 whitespace-nowrap">Business Sector Distribution</h3>
+        <h3 className="text-sm text-slate-600 whitespace-nowrap">Business Sector Distribution</h3>
 
         <button
           onClick={handleExport}
@@ -433,7 +433,7 @@ const BusinessTypesChart = () => {
             <button
               onClick={handleTopTenToggle}
               disabled={loading}
-              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ml-auto ${showTopTen ? 'bg-indigo-600' : 'bg-slate-300'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ml-auto ${showTopTen ? 'bg-[#2E5E99]' : 'bg-slate-300'} ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${showTopTen ? 'translate-x-6' : 'translate-x-1'}`} />
             </button>
@@ -481,13 +481,28 @@ const BusinessTypesChart = () => {
               />
               <YAxis
                 fontSize={10}
-                fontWeight="bold"
-                tickFormatter={(value) => value.toLocaleString()}
+                fontWeight="black"
+                tickFormatter={(value) => value >= 1000 ? `${(value / 1000).toFixed(0)}k` : value}
               />
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-              <Bar dataKey="count" name="Customer Count" fill="#6366f1" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="totalIncome" name="Total Daily Income" fill="#10b981" radius={[4, 4, 0, 0]} />
+              <Tooltip 
+                content={<CustomTooltip />} 
+                cursor={{ fill: 'transparent' }}
+                wrapperStyle={{ zIndex: 10000 }} 
+              />
+              <Legend 
+                verticalAlign="top" 
+                align="right" 
+                iconType="circle"
+                wrapperStyle={{ 
+                  fontSize: '10px', 
+                  fontWeight: 'bold', 
+                  paddingBottom: '20px',
+                  paddingRight: '10px'
+                }} 
+              />
+              
+              <Bar dataKey="count" name="Customer Count" fill="#2E5E99" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="totalIncome" name="Total Daily Income" fill="#10B981" radius={[4, 4, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         ) : (
