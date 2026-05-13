@@ -369,7 +369,7 @@ const SharedSidebar = () => {
 
 
   const sidebarStyles = {
-    bg: "bg-muted", // Light bluish-gray from tailwind config
+    bg: "bg-muted/10", // Light bluish-gray from tailwind config
     text: "text-slate-600",
     activeText: "text-brand-primary",
     hoverBg: "hover:bg-brand-primary/10",

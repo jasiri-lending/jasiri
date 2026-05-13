@@ -45,7 +45,7 @@ const SharedHeader = ({ onMenuClick }) => {
   // Render skeleton while loading
   if (isLoading) {
     return (
-      <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-brand-surface">
+      <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-brand-surface/10">
         <div className="flex items-center justify-end px-4 lg:px-6 py-3">
           <div className="flex items-center space-x-4 lg:space-x-6">
             <div className="hidden md:block">
@@ -65,7 +65,7 @@ const SharedHeader = ({ onMenuClick }) => {
   }
 
   return (
-    <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-muted h-[76px]">
+    <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-muted/10 h-[76px]">
       <div className="flex items-center justify-between px-4 lg:px-6 py-3">
         {/* Left Section - Menu Button and Admin Badge */}
         <div className="flex items-center space-x-4">

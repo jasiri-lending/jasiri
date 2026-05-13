@@ -205,7 +205,7 @@ const Pagination = ({ currentPage, totalPages, totalItems, pageSize, onPageChang
   );
 };
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 50;
 
 // Successful Transactions Component
 // Shows: mpesa_c2b_transactions (status=applied) + suspense_transactions (status=reconciled)
@@ -308,19 +308,19 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
     <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Successful Transactions</h2>
+          <h2 className="text-sm font-semibold text-slate-600" >Successful Transactions</h2>
           <p className="text-xs text-gray-400 mt-0.5">
             Direct payments + reconciled suspense entries · {transactions.length} total
           </p>
         </div>
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm w-5 h-5" />
           <input
             type="text"
             placeholder="Search name, M-Pesa code, ref..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-10 pr-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-300 w-64"
+            className="pl-10 pr-4 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-slate-500 focus:border-transparent transition-all duration-300 w-64"
           />
         </div>
       </div>
@@ -336,29 +336,29 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Name</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Bill Reference</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Amount</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">M-Pesa Code</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Source</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Action</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Bill Reference</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">M-Pesa Code</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Source</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-600 whitespace-nowrap">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {paginated.map((t) => (
                   <tr key={t._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-gray-800">{t.name}</p>
-                      {t.mobile && <p className="text-xs text-gray-400">{t.mobile}</p>}
+                      <p className="text-sm font-medium text-gray-600 whitespace-nowrap">{t.name}</p>
+                      {t.mobile && <p className="text-xs text-gray-400 whitespace-nowrap">{t.mobile}</p>}
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-800">{t.bill_ref}</td>
-                    <td className="px-4 py-3 text-sm font-bold text-gray-800">
+                    <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{t.bill_ref}</td>
+                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-600">
                       KSh {parseFloat(t.amount).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm font-mono text-emerald-700">{t.transaction_id}</td>
+                    <td className="px-4 py-3 text-sm font-mono text-accent">{t.transaction_id}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-3 py-1 text-xs font-semibold rounded-full ${t.status_color}`}>
+                      <span className={`px-3 py-1 text-xs  rounded-full ${t.status_color}`}>
                         {t.status_label}
                       </span>
                     </td>
@@ -371,10 +371,10 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => onViewDetails(t.raw)}
-                        className="flex items-center gap-2 px-3 py-1 text-white text-sm rounded-xl transition-all duration-300 hover:shadow-lg"
-                        style={{ backgroundColor: "#586ab1" }}
+                        className="flex items-center gap-2 px-2 py-1 text-white text-xs rounded-lg transition-all duration-300 hover:shadow-lg bg-brand-btn"
+                        
                       >
-                        <Eye className="w-4 h-4" />
+                        <Eye className="w-3 h-3" />
                         View
                       </button>
                     </td>
@@ -620,7 +620,7 @@ const PendingReconciliations = ({ onViewDetails, onRefresh }) => {
 
       <div className="bg-white rounded-2xl shadow-lg border border-gray-100 p-6 mt-6">
         <div className="flex justify-between items-center mb-6">
-          <h2 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Pending Reconciliations</h2>
+          <h2 className="text-sm font-semibold text-slate-600" >Pending Reconciliations</h2>
           <span className="px-3 py-1 bg-blue-100 text-blue-800 text-sm font-semibold rounded-full">
             {transactions.length} Awaiting Approval
           </span>
@@ -635,12 +635,12 @@ const PendingReconciliations = ({ onViewDetails, onRefresh }) => {
             <table className="w-full">
               <thead>
                 <tr className="bg-gradient-to-br from-gray-50 to-gray-100 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">M-Pesa Code</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Amount</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Proposed To</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Initiated By</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">M-Pesa Code</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Proposed To</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Initiated By</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-left text-sm  text-gray-600 whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -653,21 +653,21 @@ const PendingReconciliations = ({ onViewDetails, onRefresh }) => {
                     <td className="px-4 py-3">
                       {transaction._customer ? (
                         <div>
-                          <p className="text-sm font-semibold text-gray-800">
+                          <p className="text-xs text-gray-600">
                             {`${transaction._customer.Firstname || ''} ${transaction._customer.Surname || ''}`.trim()}
                           </p>
-                          <p className="text-xs text-gray-400">{transaction._customer.mobile}</p>
+                          <p className="text-xs text-gray-600">{transaction._customer.mobile}</p>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-400 italic">—</span>
+                        <span className="text-sm text-gray-600 italic">—</span>
                       )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          <User className="w-3.5 h-3.5 text-slate-400" />
+                          <User className="w-3 h-3 text-slate-400" />
                         </div>
-                        <span className="text-sm text-gray-700 font-medium">
+                        <span className="text-xs text-gray-600 ">
                           {transaction._initiator?.full_name || 'Unknown'}
                         </span>
                       </div>
