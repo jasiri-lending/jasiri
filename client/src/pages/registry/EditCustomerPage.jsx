@@ -136,41 +136,49 @@ const FormField = memo(
     }
 
     return (
-      <div className={className}>
-        <label className="block text-sm font-medium text-text mb-2">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
+     <div className={className}>
+  <label className="text-xs text-slate-600 mb-1 block">
+    {label} {required && <span className="text-red-500">*</span>}
+  </label>
 
-        {options ? (
-          <select
-            name={name}
-            value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"}`}
-            required={required}
-            disabled={disabled}
-          >
-            <option value="">{placeholder || `Select ${label}`}</option>
-            {options.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        ) : (
-          <input
-            name={name}
-            type={type}
-            value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"}`}
-            required={required}
-            placeholder={placeholder}
-            disabled={disabled}
-          />
-        )}
-        {errorMessage && (
-          <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
-        )}
-      </div>
+  {options ? (
+    <select
+      name={name}
+      value={value || ""}
+      onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
+      className={`w-full max-w-sm px-3 py-2 text-sm border rounded-md 
+      focus:outline-none focus:border-slate-400 transition-colors
+      ${errorMessage ? "border-red-500" : "border-gray-300"}`}
+      required={required}
+      disabled={disabled}
+    >
+      <option value="">{placeholder || `Select ${label}`}</option>
+
+      {options.map((option) => (
+        <option key={option} value={option}>
+          {option}
+        </option>
+      ))}
+    </select>
+  ) : (
+    <input
+      name={name}
+      type={type}
+      value={value || ""}
+      onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
+      className={`w-full max-w-sm px-3 py-2 text-sm border rounded-md
+      focus:outline-none focus:border-slate-400 transition-colors
+      ${errorMessage ? "border-red-500" : "border-gray-300"}`}
+      required={required}
+      placeholder={placeholder}
+      disabled={disabled}
+    />
+  )}
+
+  {errorMessage && (
+    <p className="mt-1 text-xs text-red-500">{errorMessage}</p>
+  )}
+</div>
     );
   }
 );
@@ -1542,31 +1550,55 @@ const EditCustomerPage = () => {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Navigation Tabs */}
-        <div className="bg-gray-50 backdrop-blur-md rounded-2xl shadow-sm p-3 mb-6 border border-white/50">
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-2">
-            {sections.map(({ id, label, icon: Icon }) => {
-              const isCompleted = completedSections.has(id);
-              const isActive = activeSection === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => {
-                    if (id !== activeSection) setCompletedSections(prev => new Set([...prev, activeSection]));
-                    setActiveSection(id);
-                  }}
-                  className="flex flex-col items-center gap-1.5 transition-all duration-300 group"
-                >
-                  <div className={`w-11 h-11 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${isActive ? "bg-brand-primary text-white shadow-lg shadow-brand-primary/30 transform scale-105" : isCompleted ? "bg-accent text-white shadow-lg shadow-accent/30 border-2 border-accent" : "bg-gray-100 text-slate-700 border-2 border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300 group-hover:scale-105"}`}>
-                    {isCompleted && !isActive ? <CheckCircleIcon className="h-5 w-5 text-white" /> : <Icon className={`h-5 w-5 ${isActive ? "text-white" : "text-slate-700"}`} />}
-                  </div>
-                  <span className={`text-[10px] sm:text-xs font-medium text-center transition-all duration-300 ${isActive ? "text-brand-primary font-bold" : isCompleted ? "text-accent font-semibold" : "text-slate-700 group-hover:text-slate-900"}`}>
-                    {label}
-                  </span>
-                </button>
-              );
-            })}
+       <div className="bg-gray-100 backdrop-blur-md rounded-lg p-2 mb-3 border border-white/50">
+  <div className="grid grid-cols-4 md:grid-cols-8 gap-1">
+    {sections.map(({ id, label, icon: Icon }) => {
+      const isCompleted = completedSections.has(id);
+      const isActive = activeSection === id;
+
+      return (
+        <button
+          key={id}
+          onClick={() => {
+            if (id !== activeSection)
+              setCompletedSections(prev => new Set([...prev, activeSection]));
+
+            setActiveSection(id);
+          }}
+          className="flex flex-col items-center gap-1 transition-all duration-300 group"
+        >
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center font-medium transition-all duration-300 relative ${
+              isActive
+                ? "bg-brand-primary text-white shadow-md shadow-brand-primary/20 scale-105"
+                : isCompleted
+                ? "bg-accent text-white shadow-md shadow-accent/20 border border-accent"
+                : "bg-gray-100 text-slate-700 border border-gray-200 group-hover:bg-gray-200 group-hover:border-gray-300"
+            }`}
+          >
+            {isCompleted && !isActive ? (
+              <CheckCircleIcon className="h-4 w-4 text-white" />
+            ) : (
+              <Icon className={`h-4 w-4 ${isActive ? "text-white" : "text-slate-700"}`} />
+            )}
           </div>
-        </div>
+
+          <span
+            className={`text-[10px] leading-tight whitespace-nowrap font-medium text-center transition-all duration-300 ${
+              isActive
+                ? "text-brand-primary font-bold"
+                : isCompleted
+                ? "text-accent"
+                : "text-slate-600 group-hover:text-slate-900"
+            }`}
+          >
+            {label}
+          </span>
+        </button>
+      );
+    })}
+  </div>
+</div>
 
         {/* Content */}
         <div className="bg-white rounded-2xl shadow-lg border border-indigo-100 overflow-hidden">
@@ -1576,11 +1608,10 @@ const EditCustomerPage = () => {
             {activeSection === "personal" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <UserCircleIcon className="h-8 w-8 text-brand-primary mr-3" />
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <UserCircleIcon className="h-4 w-4 text-brand-primary mr-3" />
                     Personal Information
                   </h2>
-                  <p className="text-muted mt-2">Enter customer's personal details and contact information</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1614,7 +1645,7 @@ const EditCustomerPage = () => {
 
                 {imageUploadEnabled && (
                   <div className="mt-10 pt-8 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                    <h3 className="text-sm  text-slate-600 mb-6 flex items-center gap-2">
                       <IdentificationIcon className="w-5 h-5" /> Personal Documents
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -1624,11 +1655,11 @@ const EditCustomerPage = () => {
                         { key: "idBack", label: "ID Back", handler: setIdBackFile },
                         { key: "houseImage", label: "Residence Image", handler: setHouseImageFile },
                       ].map((file) => (
-                        <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
-                          <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                        <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-muted">
+                          <label className="block text-xs  text-slate-600 mb-3 ">{file.label}</label>
                           <div className="flex gap-2">
-                            <label className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm">
-                              <ArrowUpTrayIcon className="w-4 h-4" />
+                            <label className="flex-1 flex items-center  text-xs justify-center gap-2 px-1 py-0.5 bg-brand-primary border border-gray-200 text-white rounded-sm cursor-pointer hover:bg-brand-surface transition ">
+                              <ArrowUpTrayIcon className="w-3 h-3" />
                               {existingImages[file.key] ? "Replace" : "Upload"}
                               <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                             </label>
@@ -1659,10 +1690,9 @@ const EditCustomerPage = () => {
             {activeSection === "business" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <BuildingOffice2Icon className="h-8 w-8 text-brand-primary mr-3" /> Business Information
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <BuildingOffice2Icon className="h-4 w-4 text-brand-primary mr-3" /> Business Information
                   </h2>
-                  <p className="text-muted mt-2">Enter business details and operations information</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -1694,12 +1724,12 @@ const EditCustomerPage = () => {
 
                 {imageUploadEnabled && (
                   <div className="mt-10 pt-8 border-t border-gray-100">
-                    <h3 className="text-sm font-semibold text-brand-primary mb-6 flex items-center gap-2">
+                    <h3 className="text-sm  text-slate-600 mb-6 flex items-center gap-2">
                       <BuildingOffice2Icon className="w-5 h-5" /> Business Images
                     </h3>
                     <div className="flex gap-4 mb-6">
-                      <label className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-xl cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
-                        <ArrowUpTrayIcon className="w-5 h-5" /> Add Business Images
+                      <label className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white  text-xs rounded-sm cursor-pointer hover:bg-brand-secondary transition  ">
+                        <ArrowUpTrayIcon className="w-3 h-3" /> Add Business Images
                         <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
                       </label>
                     </div>
@@ -1733,46 +1763,57 @@ const EditCustomerPage = () => {
                   </div>
                 )}
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <ShieldCheckIcon className="h-8 w-8 text-brand-primary mr-3" /> Borrower Security
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <ShieldCheckIcon className="h-4 w-4 text-slate-600 mr-3" /> Borrower Security
                   </h2>
-                  <p className="text-muted mt-2">Add security type, description and estimated market value</p>
                 </div>
 
                 <div className="space-y-6">
                   {securityItems.map((item, index) => (
-                    <div key={index} className="bg-brand-surface rounded-xl p-6 border border-brand-surface">
+                    <div key={index} className="bg-muted rounded-xl p-6 border border-brand-surface">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-semibold text-text flex items-center">
-                          <ShieldCheckIcon className="h-5 w-5 text-brand-primary mr-2" /> Security {index + 1}
+                        <h3 className="text-sm text-slate-600 flex items-center">
+                          <ShieldCheckIcon className="h-4 w-5 text-slate-600 mr-2" /> Security {index + 1}
                         </h3>
                         {securityItems.length > 1 && (
                           <button type="button" onClick={() => removeSecurityItem(index)} className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50">
-                            <TrashIcon className="h-5 w-5" />
+                            <TrashIcon className="h-4 w-4" />
                           </button>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <div>
-                          <label className="block text-sm font-medium mb-1 text-text">Security Type</label>
-                          <select name="type" value={item.type} onChange={(e) => handleSecurityChange(e, index)} className="w-full border border-gray-300 rounded-lg p-2 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20" required>
-                            <option value="">Select Security Type</option>
-                            <option value="Household Items">Household Items</option>
-                            <option value="Business Equipment">Business Equipment</option>
-                            <option value="Livestock">Livestock</option>
-                            <option value="Motor Vehicle">Motor Vehicle</option>
-                            <option value="Motorbike">Motorbike</option>
-                            <option value="Land / Property">Land / Property</option>
-                            <option value="Title deed">Title deed</option>
-                            <option value="Logbook">Logbook</option>
-                            <option value="Salary Check-off">Salary Check-off</option>
-                            <option value="Stock / Inventory">Stock / Inventory</option>
-                            <option value="Fixed deposit / Savings security">Fixed deposit / Savings security</option>
-                            <option value="Electronics">Electronics</option>
-                            <option value="Other">Other (specify)</option>
-                          </select>
-                        </div>
+                      <div>
+  <label className="text-xs mb-1 text-slate-600 block">
+    Security Type
+  </label>
+
+  <select
+    name="type"
+    value={item.type}
+    onChange={(e) => handleSecurityChange(e, index)}
+    className="w-full max-w-sm px-3 py-2 text-sm border border-gray-300 rounded-md 
+    focus:outline-none focus:border-slate-400 transition-colors"
+    required
+  >
+    <option value="">Select Security Type</option>
+    <option value="Household Items">Household Items</option>
+    <option value="Business Equipment">Business Equipment</option>
+    <option value="Livestock">Livestock</option>
+    <option value="Motor Vehicle">Motor Vehicle</option>
+    <option value="Motorbike">Motorbike</option>
+    <option value="Land / Property">Land / Property</option>
+    <option value="Title deed">Title deed</option>
+    <option value="Logbook">Logbook</option>
+    <option value="Salary Check-off">Salary Check-off</option>
+    <option value="Stock / Inventory">Stock / Inventory</option>
+    <option value="Fixed deposit / Savings security">
+      Fixed deposit / Savings security
+    </option>
+    <option value="Electronics">Electronics</option>
+    <option value="Other">Other (specify)</option>
+  </select>
+</div>
                         {item.type === "Other" && (
                           <FormField label="Specify Other Security" name="otherType" value={item.otherType || ""} onChange={(e) => handleSecurityChange(e, index)} required />
                         )}
@@ -1782,10 +1823,10 @@ const EditCustomerPage = () => {
 
                       {imageUploadEnabled && (
                         <div className="mt-6">
-                          <label className="block text-sm font-medium mb-2 text-text">Security Images</label>
+                          <label className=" text-xs  mb-2 text-slate-699">Security Images</label>
                           <div className="flex gap-3 mb-3">
-                            <label className="flex items-center justify-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 font-medium">
-                              <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+                            <label className="flex items-center justify-center gap-3 px-1.5 py-0.5 text-xs bg-brand-primary text-white rounded-sm cursor-pointer hover:bg-brand-secondary ">
+                              <ArrowUpTrayIcon className="w-4 h-4" /> Upload Security Images
                               <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                             </label>
                             <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
@@ -1818,9 +1859,9 @@ const EditCustomerPage = () => {
                     <button
                       type="button"
                       onClick={addSecurityItem}
-                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                      className="flex items-center text-sm gap-2 px-4 py-2 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all "
                     >
-                      <PlusIcon className="h-5 w-5" />
+                      <PlusIcon className="h-4 w-4" />
                       Add Another Security Item
                     </button>
                   </div>
@@ -1832,12 +1873,11 @@ const EditCustomerPage = () => {
             {activeSection === "loan" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <CurrencyDollarIcon className="h-8 w-8 text-brand-primary mr-3" /> Loan Information
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <CurrencyDollarIcon className="h-4 w-4 text-slate-600 text-sm mr-3" /> Loan Information
                   </h2>
-                  <p className="text-muted mt-2">Set loan amount and terms</p>
                 </div>
-                <div className="bg-brand-surface rounded-xl p-8 border border-brand-surface">
+                <div className="bg-muted rounded-xl p-8 border border-brand-surface">
                   <div className="max-w-md mx-auto">
                     <FormField label="Pre-qualified Amount (KES)" name="prequalifiedAmount" type="number" value={formData.prequalifiedAmount} onChange={handleChange} className="text-center" required handleNestedChange={handleNestedChange} errors={errors} />
                   </div>
@@ -1849,17 +1889,16 @@ const EditCustomerPage = () => {
             {activeSection === "guarantor" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" /> Guarantor Information
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <UserGroupIcon className="h-4 w-4 text-slate-600 mr-3" /> Guarantor Information
                   </h2>
-                  <p className="text-muted mt-2">Enter guarantor personal details (Max 3)</p>
                 </div>
 
                 {formData.guarantors.map((g, index) => (
                   <div key={index} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative">
                     <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
-                      <h3 className="text-md font-bold text-slate-700 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-brand-primary text-white text-xs rounded-full flex items-center justify-center">{index + 1}</span>
+                      <h3 className="text-sm  text-slate-600 flex items-center gap-2">
+                        <span className="w-4 h-4 bg-brand-primary text-white text-xs rounded-full flex items-center justify-center">{index + 1}</span>
                         {index === 0 ? "Primary Guarantor" : `Secondary Guarantor ${index}`}
                       </h3>
                       {formData.guarantors.length > 1 && (
@@ -1885,8 +1924,8 @@ const EditCustomerPage = () => {
 
                     {imageUploadEnabled && (
                       <div className="mt-8 pt-6 border-t border-gray-50">
-                        <h4 className="text-sm font-semibold text-brand-primary mb-4 flex items-center gap-2">
-                          <IdentificationIcon className="w-5 h-5" /> Guarantor {index + 1} Documents
+                        <h4 className="text-sm  text-slate-600 mb-4 flex items-center gap-2">
+                          <IdentificationIcon className="w-4 h-4" /> Guarantor {index + 1} Documents
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                           {[
@@ -1894,17 +1933,17 @@ const EditCustomerPage = () => {
                             { key: "idFront", label: "ID Front", setter: setGuarantorIdFrontFiles, files: guarantorIdFrontFiles },
                             { key: "idBack", label: "ID Back", setter: setGuarantorIdBackFiles, files: guarantorIdBackFiles },
                           ].map((file) => (
-                            <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-brand-surface">
-                              <label className="block text-xs font-semibold text-text mb-3 uppercase tracking-wider">{file.label}</label>
+                            <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-muted">
+                              <label className="block text-xs   mb-3 ">{file.label}</label>
                               <div className="flex flex-col gap-2">
-                                <label className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm font-medium">
+                                <label className="w-full flex items-center justify-center gap-2 px-1 py-0.5 bg-white border border-gray-200 text-brand-primary rounded-lg cursor-pointer hover:bg-brand-surface transition text-sm font-medium">
                                   <ArrowUpTrayIcon className="w-4 h-4" /> Upload
                                   <input type="file" accept="image/*" onChange={(e) => {
                                     const f = e.target.files[0];
                                     if (f) file.setter(prev => { const n = [...prev]; n[index] = f; return n; });
                                   }} className="hidden" />
                                 </label>
-                                <label className="flex md:hidden items-center justify-center gap-2 px-3 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium text-sm">
+                                <label className="flex md:hidden items-center justify-center gap-2 px-1 py-0.5 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium text-sm">
                                   <CameraIcon className="w-4 h-4" /> Camera
                                   <input type="file" accept="image/*" capture={file.key === "passport" ? "user" : "environment"} onChange={(e) => {
                                     const f = e.target.files[0];
@@ -1939,9 +1978,9 @@ const EditCustomerPage = () => {
                     <button
                       type="button"
                       onClick={addGuarantor}
-                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
                     >
-                      <PlusIcon className="h-5 w-5" />
+                      <PlusIcon className="h-3 w-3" />
                       Add Another Guarantor
                     </button>
                   </div>
@@ -1958,31 +1997,30 @@ const EditCustomerPage = () => {
                   </div>
                 )}
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-bold text-text flex items-center">
-                    <ShieldCheckIcon className="h-8 w-8 text-brand-primary mr-3" /> Guarantor Security Items
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <ShieldCheckIcon className="h-4 w-4 text-slate-600 mr-3" /> Guarantor Security Items
                   </h2>
-                  <p className="text-muted mt-2">Add guarantor security and collateral details</p>
                 </div>
 
                 <div className="space-y-6">
                   {guarantorSecurityItems.map((item, index) => (
-                    <div key={index} className="bg-brand-surface rounded-xl p-6 border border-brand-surface">
+                    <div key={index} className="bg-muted rounded-xl p-6 border border-brand-surface">
                       <div className="flex items-center justify-between mb-6">
-                        <h3 className="text-lg font-semibold text-text flex items-center">
+                        <h3 className="text-sm  text-slate-600 flex items-center">
                           <ShieldCheckIcon className="h-5 w-5 text-brand-primary mr-2" /> Guarantor Security Item {index + 1}
                         </h3>
                         {guarantorSecurityItems.length > 1 && (
                           <button type="button" onClick={() => { setGuarantorSecurityItems(prev => prev.filter((_, i) => i !== index)); setGuarantorSecurityImages(prev => prev.filter((_, i) => i !== index)); }} className="text-red-600 hover:text-red-800 p-2 rounded-full hover:bg-red-50">
-                            <TrashIcon className="h-5 w-5" />
+                            <TrashIcon className="h-4 w-4" />
                           </button>
                         )}
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         <div className="mb-4">
-                          <label className="block text-sm font-medium text-text mb-1">Type</label>
+                          <label className=" text-sm   text-slate-600 mb-1">Type</label>
                           <select name="type" value={item.type} onChange={(e) => handleGuarantorSecurityChange(e, index)} className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary focus:outline-none" required>
-                            <option value="">-- Select Security Type --</option>
+                            <option className="text-600 text-sm" value="">-- Select Security Type --</option>
                             <option>Household Items</option>
                             <option>Business Equipment</option>
                             <option>Livestock</option>
@@ -2020,14 +2058,14 @@ const EditCustomerPage = () => {
 
                       {imageUploadEnabled && (
                         <div className="mt-6">
-                          <label className="block text-sm font-medium mb-3 text-text">Item Images</label>
+                          <label className=" text-sm font-medium mb-3 text-slate-600">Item Images</label>
                           <div className="flex gap-3 mb-4">
-                            <label className="flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
-                              <ArrowUpTrayIcon className="w-5 h-5" /> Upload
+                            <label className="flex items-center justify-center gap-2 px-1 py-0.5 bg-brand-primary text-white text-xs rounded-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
+                              <ArrowUpTrayIcon className="w-4 h-4" /> Upload
                               <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                             </label>
                             <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition-all duration-200">
-                              <CameraIcon className="w-5 h-5" /> Camera
+                              <CameraIcon className="w-4 h-4" /> Camera
                               <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                             </label>
                           </div>
@@ -2056,9 +2094,9 @@ const EditCustomerPage = () => {
                     <button
                       type="button"
                       onClick={addGuarantorSecurityItem}
-                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
                     >
-                      <PlusIcon className="h-5 w-5" />
+                      <PlusIcon className="h-4 w-4" />
                       Add Another Guarantor Security Item
                     </button>
                   </div>
@@ -2070,18 +2108,17 @@ const EditCustomerPage = () => {
             {activeSection === "nextOfKin" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <UserGroupIcon className="h-8 w-8 text-brand-primary mr-3" /> Next of Kin Information
+                  <h2 className="text-sm  text-slate-600 flex items-center">
+                    <UserGroupIcon className="h-4 w-4 text-slate-600 mr-3" /> Next of Kin Information
                   </h2>
-                  <p className="text-muted mt-2">Enter next of kin details (Max 3)</p>
                 </div>
 
                 {formData.nextOfKins.map((nok, index) => (
                   <div key={index} className="bg-white border border-gray-100 rounded-2xl p-6 shadow-sm relative">
                     <div className="flex items-center justify-between mb-6 pb-4 border-b border-gray-50">
-                      <h3 className="text-md font-bold text-slate-700 flex items-center gap-2">
-                        <span className="w-6 h-6 bg-brand-primary text-white text-xs rounded-full flex items-center justify-center">{index + 1}</span>
-                        Next of Kin Entry {index + 1}
+                      <h3 className="text-sm  text-slate-600 flex items-center gap-2">
+                        <span className="w-4 h-4 bg-brand-primary text-white text-xs rounded-full flex items-center justify-center">{index + 1}</span>
+                        Next of Kin Entry  {index + 1}
                       </h3>
                       {formData.nextOfKins.length > 1 && (
                         <button type="button" onClick={() => removeNextOfKin(index)} className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"><TrashIcon className="w-5 h-5" /></button>
@@ -2098,7 +2135,7 @@ const EditCustomerPage = () => {
                       <FormField label="Mobile Number" name="mobile" section="nextOfKins" index={index} value={nok.mobile} required handleNestedChange={handleNestedChange} errors={errors} />
                       {/* Employment Status Dropdown */}
                       <div className="mb-4">
-                        <label className="block text-sm font-medium text-text mb-1">
+                        <label className=" text-xs text-slate-600 mb-1">
                           Employment Status *
                         </label>
                         <select
@@ -2139,9 +2176,9 @@ const EditCustomerPage = () => {
                     <button
                       type="button"
                       onClick={addNextOfKin}
-                      className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
+                      className="flex items-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
                     >
-                      <PlusIcon className="h-5 w-5" />
+                      <PlusIcon className="h-4 w-4" />
                       Add Another Next of Kin
                     </button>
                   </div>
@@ -2153,10 +2190,9 @@ const EditCustomerPage = () => {
             {activeSection === "documents" && (
               <div className="space-y-8">
                 <div className="border-b border-gray-200 pb-6">
-                  <h2 className="text-lg font-semibold text-text flex items-center">
-                    <DocumentTextIcon className="h-8 w-8 text-brand-primary mr-3" /> Document Verification
+                  <h2 className="text-sm font-semibold text-slate-600 flex items-center">
+                    <DocumentTextIcon className="h-4 w-4 text-slate-600 mr-3" /> Document Verification
                   </h2>
-                  <p className="text-muted mt-2">Upload verification and officer images</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2165,12 +2201,12 @@ const EditCustomerPage = () => {
                     { key: "officerClient2", label: "Second Officer & Client", handler: setOfficerClientImage2 },
                     { key: "bothOfficers", label: "Both Officers & Client", handler: setBothOfficersImage },
                   ].map((file) => (
-                    <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-brand-surface shadow-sm hover:shadow-md transition">
+                    <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-muted shadow-sm hover:shadow-md transition">
                       <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
                       <div className="flex flex-col sm:flex-row gap-3 w-full">
-                        <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-brand-surface text-brand-primary rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition">
-                          <ArrowUpTrayIcon className="w-5 h-5" />
-                          <span className="text-sm font-medium">{existingImages[file.key] ? "Replace" : "Upload"}</span>
+                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-brand-primary text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition">
+                          <ArrowUpTrayIcon className="w-4 h-4" />
+                          <span className="text-sm text-white">{existingImages[file.key] ? "Replace" : "Upload"}</span>
                           <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
                         </label>
                       </div>
@@ -2205,34 +2241,34 @@ const EditCustomerPage = () => {
             <div className="flex justify-between items-center pt-8 mt-8 border-t border-gray-200">
               <div className="flex items-center gap-4">
                 {activeSection !== sections[0].id && (
-                  <button type="button" onClick={() => { const i = sections.findIndex(s => s.id === activeSection); setActiveSection(sections[i - 1].id); }} className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors" disabled={isSubmitting || isSavingDraft}>
+                  <button type="button" onClick={() => { const i = sections.findIndex(s => s.id === activeSection); setActiveSection(sections[i - 1].id); }} className="flex items-center gap-2 px-4 py-2 bg-neutral text-slate-600 text-xs rounded-lg hover:bg-brand-surface transition-colors" disabled={isSubmitting || isSavingDraft}>
                     <ChevronLeftIcon className="h-4 w-4" /> Previous
                   </button>
                 )}
-                <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft || isSubmitting} className="flex items-center gap-2 px-4 py-2 bg-brand-secondary text-white rounded-lg hover:bg-brand-primary transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
+                <button type="button" onClick={handleSaveDraft} disabled={isSavingDraft || isSubmitting} className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white  text-xs rounded-lg hover:bg-brand-primary/80 transition-all shadow-sm hover:shadow-md disabled:opacity-50 disabled:cursor-not-allowed">
                   {isSavingDraft ? (
                     <div className="flex items-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Saving Draft...</div>
                   ) : (
-                    <div className="flex items-center gap-2"><DocumentTextIcon className="h-4 w-4" />Save as Draft</div>
+                    <div className="flex items-center gap-2b text-xs"><DocumentTextIcon className="h-4 w-4" />Save as Draft</div>
                   )}
                 </button>
               </div>
 
               <div>
                 {activeSection !== sections[sections.length - 1].id ? (
-                  <button type="button" onClick={handleNext} className="flex items-center gap-2 px-4 py-2 bg-neutral text-text rounded-lg hover:bg-brand-surface transition-colors disabled:opacity-50" disabled={isSubmitting || isSavingDraft || isValidating}>
+                  <button type="button" onClick={handleNext} className="flex items-center gap-2 px-4 py-2 bg-neutral text-salte-600 text-xs rounded-lg hover:bg-brand-surface transition-colors disabled:opacity-50" disabled={isSubmitting || isSavingDraft || isValidating}>
                     {isValidating ? (
                       <div className="flex items-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-2 border-brand-primary border-t-transparent"></div>Validating...</div>
                     ) : (
-                      <><span>Next</span><ChevronRightIcon className="h-4 w-4" /></>
+                      <><span className="text-xs ">Next</span><ChevronRightIcon className="h-4 w-4" /></>
                     )}
                   </button>
                 ) : (
-                  <button type="submit" disabled={isSubmitting || isSavingDraft} className="px-6 py-3 bg-accent text-white rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
+                  <button type="submit" disabled={isSubmitting || isSavingDraft} className="px-4 py-2 bg-accent text-white text-xs rounded-lg hover:bg-green-700 transition-all shadow-md hover:shadow-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSubmitting ? (
                       <div className="flex items-center gap-2"><div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>Submitting Application...</div>
                     ) : (
-                      <div className="flex items-center gap-2"><CheckCircleIcon className="h-5 w-5" />Submit Application</div>
+                      <div className="flex items-center gap-2"><CheckCircleIcon className="h-4 w-4 " />Submit Application</div>
                     )}
                   </button>
                 )}
