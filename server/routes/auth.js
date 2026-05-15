@@ -138,7 +138,7 @@ Authrouter.post("/login", async (req, res) => {
 
     // CHECK IF LOCKED
     if (user.status === 'LOCKED') {
-      console.warn(`[LOGIN] 🚫 Rejected login for LOCKED user [${cleanEmail}]. Reason: ${user.locked_reason}`);
+      console.warn(`[LOGIN]  Rejected login for LOCKED user [${cleanEmail}]. Reason: ${user.locked_reason}`);
       return res.status(403).json({ 
         success: false, 
         error: "Your account is locked", 

@@ -193,23 +193,37 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         throw new Error(`Invalid action '${event}' for current state`);
     }
 
-    // 3. Filter edges by roles_allowed and evaluate conditions
-    const validEdges = edges.filter(edge => {
-        // Check roles if defined
+    // 3. Filter edges by roles_allowed, groups_allowed and evaluate conditions
+    const validEdges = await Promise.all(edges.map(async (edge) => {
+        // A. Check roles if defined (can be role name string or role UUID)
         if (edge.roles_allowed && Array.isArray(edge.roles_allowed) && edge.roles_allowed.length > 0) {
-            const hasRole = user_roles.some(role_id => edge.roles_allowed.includes(role_id));
-            if (!hasRole) return false;
+            const hasRole = user_roles.some(role => edge.roles_allowed.includes(role));
+            if (!hasRole) return null;
+        }
+
+        // B. Check groups if defined (UUID array)
+        if (edge.groups_allowed && Array.isArray(edge.groups_allowed) && edge.groups_allowed.length > 0) {
+            const { data: membership } = await supabaseAdmin
+                .from('user_group_members')
+                .select('group_id')
+                .eq('user_id', user_id)
+                .in('group_id', edge.groups_allowed);
+            
+            if (!membership || membership.length === 0) return null;
         }
         
-        // Check conditions
-        return evaluateConditions(edge.workflow_conditions, currentContext);
-    });
+        // C. Check conditions
+        const conditionsMet = evaluateConditions(edge.workflow_conditions, currentContext);
+        return conditionsMet ? edge : null;
+    }));
 
-    if (validEdges.length === 0) {
-        throw new Error(`You do not have the required role or conditions are not met for this action`);
+    const filteredEdges = validEdges.filter(e => e !== null);
+
+    if (filteredEdges.length === 0) {
+        throw new Error(`You do not have the required role/group or conditions are not met for this action`);
     }
 
-    const selectedEdge = validEdges[0]; // Take the first valid transition
+    const selectedEdge = filteredEdges[0]; // Take the first valid transition
 
     // 4. Find the target node
     const { data: nextNode, error: nextNodeError } = await supabaseAdmin

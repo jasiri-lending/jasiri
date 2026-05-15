@@ -103,7 +103,7 @@ export const verifySupabaseToken = async (req, res, next) => {
         // This ensures the session hasn't been revoked/expired in our DB even if the JWT is still valid.
         const { data: userData, error: dbError } = await supabaseAdmin
             .from("users")
-            .select("id, email, role, tenant_id, session_expires_at, status, locked_reason")
+            .select("id, email, role, role_id, tenant_id, session_expires_at, status, locked_reason")
             .or(`id.eq.${authUserId},auth_id.eq.${authUserId}`)
             .single();
 
@@ -145,6 +145,7 @@ export const verifySupabaseToken = async (req, res, next) => {
             id: userData.id,
             email: userData.email || localPayload?.email,
             role: userData.role,
+            role_id: userData.role_id,
             tenant_id: userData.tenant_id,
         };
 

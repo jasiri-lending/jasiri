@@ -38,39 +38,12 @@ const WorkflowSettings = () => {
             <div className="max-w-7xl mx-auto">
                 <div className="flex justify-between items-end mb-8">
                     <div>
-                        <h1 className="text-sm  text-slate-600 ">Workflow Registry</h1>
-                        <p className="text-xs text-slate-500  mt-1">Manage and monitor organizational process flows</p>
+                        <h1 className="text-sm text-slate-600">Workflow Registry</h1>
+                        <p className="text-xs text-slate-500 mt-1">Manage and monitor organizational process flows</p>
                     </div>
-                    <button 
-                        onClick={() => navigate('/workflow-setting/admin/builder/new')}
-                        className="flex items-center px-3 py-1.5 bg-brand-primary text-white text-xs font-bold rounded-xl hover:bg-brand-secondary transition-all shadow-lg shadow-slate-200 active:scale-95"
-                    >
-                        <Plus className="h-3 w-3 mr-2" />
-                        Create Workflow
-                    </button>
                 </div>
 
-                {/* Stats / Overview */}
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
-                    {[
-                        { label: 'Total Processes', value: workflows.length, icon: GitBranch, color: 'text-slate-600', bg: 'bg-slate-100' },
-                        { label: 'Active', value: workflows.filter(w => w.status === 'active').length, icon: CheckCircle, color: 'text-emerald-600', bg: 'bg-emerald-50' },
-                        { label: 'Drafts', value: workflows.filter(w => w.status === 'draft').length, icon: Edit, color: 'text-amber-600', bg: 'bg-amber-50' },
-                        { label: 'System Types', value: 22, icon: Settings, color: 'text-indigo-600', bg: 'bg-indigo-50' },
-                    ].map((stat, i) => (
-                        <div key={i} className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-[10px] font-semibold text-slate-500  mb-0.5">{stat.label}</p>
-                                    <p className="text-xl font-black text-slate-600">{stat.value}</p>
-                                </div>
-                                <div className={`${stat.bg} p-2.5 rounded-xl`}>
-                                    <stat.icon className={`w-5 h-5 ${stat.color}`} />
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+
 
                 {/* Main Table Card */}
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
@@ -85,6 +58,13 @@ const WorkflowSettings = () => {
                                 className="pl-9 pr-4 py-2 w-full bg-white border border-slate-200 rounded-xl focus:ring-2 focus:ring-slate-900 transition-all text-xs font-medium"
                             />
                         </div>
+                        <button 
+                            onClick={() => navigate('/workflow-setting/admin/builder/new')}
+                            className="flex items-center px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-xl hover:bg-brand-secondary transition-all shadow-sm active:scale-95"
+                        >
+                            <Plus className="h-4 w-4 mr-2" />
+                            Create Workflow
+                        </button>
                     </div>
 
                     <div className="overflow-x-auto">

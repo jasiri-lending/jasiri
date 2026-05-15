@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
+import { apiFetch } from "../../utils/api";
+import { useToast } from "../../components/Toast";
 
 function BankReconciliations() {
   const { profile } = useAuth();
@@ -26,6 +28,16 @@ function BankReconciliations() {
     failed: 0,
     details: [],
   });
+  const [selectedBank, setSelectedBank] = useState("KCB");
+  const toast = useToast();
+
+  const banks = [
+    "KCB",
+    "Equity",
+    "National Bank",
+    "Cooperative Bank",
+    "I&M Bank",
+  ];
 
   const handleFileImport = (e) => {
     const file = e.target.files[0];
@@ -310,282 +322,53 @@ function BankReconciliations() {
     setUploadError(null);
     setUploadSuccess(false);
 
-    const results = { successful: 0, failed: 0, details: [] };
-
     try {
-      for (let i = 0; i < transactions.length; i++) {
-        const t = transactions[i];
+      const response = await apiFetch("/api/bank-reconciliation/bulk-process", {
+        method: "POST",
+        body: JSON.stringify({
+          transactions,
+          bank_name: selectedBank,
+          tenant_id: profile?.tenant_id
+        }),
+      });
 
-        setTransactions((prev) => {
-          const copy = [...prev];
-          copy[i] = {
-            ...t,
-            reconciliation_status: "Processing...",
-            status: "Processing",
-          };
-          return copy;
-        });
+      const data = await response.json();
 
-        try {
-          // 1️⃣ Match customer
-          const { data: customer, error: customerError } = await supabase
-            .from("customers")
-            .select("id, Firstname, Surname, mobile, tenant_id")
-            .eq("mobile", t.mobile)
-            .eq("tenant_id", profile?.tenant_id)
-            .single();
-
-          if (customerError || !customer) {
-            throw new Error(`Customer with mobile ${t.mobile} not found`);
-          }
-
-          // 2️⃣ Fetch active loans with detailed debugging
-          console.log(`Fetching loans for customer ${customer.id} (${customer.Firstname} ${customer.Surname})`);
-
-          const { data: allLoans } = await supabase
-            .from("loans")
-            .select("id, status, repayment_state, total_payable, scored_amount, tenant_id")
-            .eq("customer_id", customer.id)
-            .eq("tenant_id", profile?.tenant_id);
-
-          console.log("All customer loans:", allLoans);
-
-          // Try to get disbursed loans first
-          let activeLoans = allLoans?.filter(
-            (loan) =>
-              loan.status === "disbursed" &&
-              (loan.repayment_state === "ongoing" || loan.repayment_state === "partial")
-          );
-
-          // If no disbursed+ongoing/partial loans, try just disbursed
-          if (!activeLoans || activeLoans.length === 0) {
-            console.log("No ongoing/partial loans found, checking all disbursed loans...");
-            activeLoans = allLoans?.filter((loan) => loan.status === "disbursed");
-          }
-
-          // If still nothing, try any loan that's not rejected
-          if (!activeLoans || activeLoans.length === 0) {
-            console.log("No disbursed loans found, checking all non-rejected loans...");
-            activeLoans = allLoans?.filter((loan) => loan.status !== "rejected");
-          }
-
-          if (!activeLoans || activeLoans.length === 0) {
-            const loanStatuses = allLoans?.map(l => `${l.status}/${l.repayment_state}`).join(", ") || "none";
-            throw new Error(
-              `No eligible loans found for payment. Customer has ${allLoans?.length || 0} loan(s) with status: ${loanStatuses}. Only 'disbursed' loans can receive payments.`
-            );
-          }
-
-          console.log(`Found ${activeLoans.length} eligible loan(s) for payment`);
-
-          let remainingAmount = t.amount;
-          let reconciled = false;
-          const reconciliationDetails = [];
-
-          // 3️⃣ Process each loan
-          for (const loan of activeLoans) {
-            if (remainingAmount <= 0) break;
-
-            // Fetch unpaid installments - FIXED QUERY
-            const { data: installments, error: instErr } = await supabase
-              .from("loan_installments")
-              .select("*")
-              .eq("loan_id", loan.id)
-              .eq("tenant_id", profile?.tenant_id)
-              .neq("status", "paid")
-              .order("due_date", { ascending: true });
-
-            if (instErr) {
-              console.error(
-                `Error fetching installments for loan ${loan.id}:`,
-                instErr
-              );
-              continue;
-            }
-
-            if (!installments || installments.length === 0) {
-              console.log(`No unpaid installments for loan ${loan.id}. Checking all installments...`);
-
-              // Check all installments for this loan
-              const { data: allInst } = await supabase
-                .from("loan_installments")
-                .select("id, installment_number, status, due_amount, paid_amount, tenant_id")
-                .eq("loan_id", loan.id)
-                .eq("tenant_id", profile?.tenant_id)
-                .order("due_date", { ascending: true });
-
-              console.log(`Loan ${loan.id} has ${allInst?.length || 0} total installments:`, allInst);
-              continue;
-            }
-
-            console.log(`Processing ${installments.length} unpaid installments for loan ${loan.id}`);
-
-            // 4️⃣ Apply payment to installments
-            for (const inst of installments) {
-              if (remainingAmount <= 0) break;
-
-              const outstanding = Number(inst.due_amount) - Number(inst.paid_amount);
-              const amountToApply = Math.min(remainingAmount, outstanding);
-
-              if (amountToApply <= 0) continue;
-
-              const newPaid = Number(inst.paid_amount) + amountToApply;
-              const newStatus = newPaid >= Number(inst.due_amount) ? "paid" : "partial";
-
-              // Update installment
-              const { error: updInstErr } = await supabase
-                .from("loan_installments")
-                .update({
-                  paid_amount: newPaid,
-                  status: newStatus,
-                  paid_date: newStatus === "paid" ? new Date().toISOString().split('T')[0] : null
-                })
-                .eq("id", inst.id);
-
-              if (updInstErr) {
-                console.error("Installment update error:", updInstErr);
-                throw new Error(
-                  `Failed to update installment: ${updInstErr.message}`
-                );
-              }
-
-              reconciliationDetails.push({
-                loan_id: loan.id,
-                installment_id: inst.id,
-                installment_number: inst.installment_number,
-                amount_applied: amountToApply,
-                installment_status: newStatus,
-              });
-
-              remainingAmount -= amountToApply;
-              reconciled = true;
-
-              console.log(
-                `Applied ${amountToApply} to installment ${inst.installment_number}, new status: ${newStatus}`
-              );
-            }
-
-            // Recalculate repayment_state
-            const { data: remainingInstallments } = await supabase
-              .from("loan_installments")
-              .select("id, status")
-              .eq("loan_id", loan.id)
-              .neq("status", "paid");
-
-            const newLoanState =
-              remainingInstallments && remainingInstallments.length > 0
-                ? "partial"
-                : "completed";
-
-            if (newLoanState !== loan.repayment_state) {
-              const { error: updateLoanErr } = await supabase
-                .from("loans")
-                .update({ repayment_state: newLoanState })
-                .eq("id", loan.id);
-
-              if (updateLoanErr) {
-                console.error("Loan state update error:", updateLoanErr);
-              } else {
-                console.log(
-                  `Updated loan ${loan.id} repayment_state to ${newLoanState}`
-                );
-              }
-            }
-          }
-
-          if (!reconciled) {
-            throw new Error("Payment could not be applied to any installment");
-          }
-
-          // 5️⃣ Save reconciliation records for each installment payment
-          for (const detail of reconciliationDetails) {
-            const { error: recErr } = await supabase
-              .from("bank_reconciliation")
-              .insert({
-                loan_id: detail.loan_id,
-                installment_id: detail.installment_id,
-                customer_id: customer.id,
-                customer_name: t.name,
-                mobile: t.mobile,
-                amount: detail.amount_applied,
-                mpesa_ref: t.mpesa_ref,
-                bank_ref: t.bank_ref,
-                payment_date: t.date || new Date().toISOString().split('T')[0],
-                date: t.date || new Date().toISOString().split('T')[0],
-                status: "reconciled",
-                tenant_id: profile?.tenant_id,
-              });
-
-            if (recErr) {
-              console.error("Reconciliation save error:", recErr);
-              throw new Error(
-                `Failed to save reconciliation: ${recErr.message}`
-              );
-            }
-          }
-
-          // Update transaction in UI
-          setTransactions((prev) => {
-            const copy = [...prev];
-            copy[i] = {
-              ...t,
-              reconciliation_status: "Reconciled",
-              status: "Reconciled",
-              customer_id: customer.id,
-              customer_match: `Matched ${customer.Firstname} ${customer.Surname}`,
-            };
-            return copy;
-          });
-
-          results.successful++;
-          results.details.push({
-            transaction: t.mpesa_ref,
-            status: "Success",
-            message: `Reconciled KSh ${t.amount.toLocaleString()} for ${customer.Firstname
-              }`,
-          });
-        } catch (err) {
-          console.error(`Reconciliation failed for ${t.mpesa_ref}:`, err);
-
-          setTransactions((prev) => {
-            const copy = [...prev];
-            copy[i] = {
-              ...t,
-              reconciliation_status: "Failed",
-              status: "Failed",
-              error_message: err.message,
-            };
-            return copy;
-          });
-
-          results.failed++;
-          results.details.push({
-            transaction: t.mpesa_ref,
-            status: "Failed",
-            message: err.message,
-          });
-
-          // Save failed reconciliation record
-          await supabase.from("bank_reconciliation").insert({
-            customer_id: customer?.id || null,
-            customer_name: t.name,
-            mobile: t.mobile,
-            amount: t.amount,
-            mpesa_ref: t.mpesa_ref,
-            bank_ref: t.bank_ref,
-            payment_date: t.date || new Date().toISOString().split('T')[0],
-            date: t.date || new Date().toISOString().split('T')[0],
-            status: "mismatch",
-            tenant_id: profile?.tenant_id,
-          });
-        }
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to process reconciliation");
       }
 
-      setReconciliationResults(results);
+      setReconciliationResults(data.results);
       setUploadSuccess(true);
+      toast.success(`Successfully processed ${data.results.successful} transactions`);
+
+      // Update the transactions list with results from server if needed
+      // For now, we'll just show the summary results
+      if (data.results.details && data.results.details.length > 0) {
+        const detailsMap = {};
+        data.results.details.forEach(d => {
+          detailsMap[d.reference] = d;
+        });
+
+        setTransactions(prev => prev.map(t => {
+          const ref = t.mpesa_ref || t.bank_ref;
+          const result = detailsMap[ref];
+          if (result) {
+            return {
+              ...t,
+              reconciliation_status: result.status === "Success" ? "Reconciled" : "Failed",
+              status: result.status === "Success" ? "Reconciled" : "Failed",
+              error_message: result.status === "Failed" ? result.message : null
+            };
+          }
+          return t;
+        }));
+      }
+
     } catch (finalErr) {
       console.error("Upload process error:", finalErr);
       setUploadError(`Upload failed: ${finalErr.message}`);
+      toast.error(`Reconciliation failed: ${finalErr.message}`);
     } finally {
       setIsUploading(false);
     }
@@ -635,10 +418,23 @@ function BankReconciliations() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h2 className="text-sm sm:text-sm font-semibold text-slate-600">
+              <h2 className="text-sm sm:text-sm font-semibold text-slate-600 mb-2">
                 Import Payment Data
               </h2>
-
+              <div className="flex items-center gap-3">
+                <label className="text-xs text-gray-500">Source Bank:</label>
+                <select
+                  value={selectedBank}
+                  onChange={(e) => setSelectedBank(e.target.value)}
+                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                >
+                  {banks.map((bank) => (
+                    <option key={bank} value={bank}>
+                      {bank}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="flex gap-2">

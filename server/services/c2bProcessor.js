@@ -1,6 +1,7 @@
 import fetch from "node-fetch";
 import { supabaseAdmin } from "../supabaseClient.js";
 import { createLogger } from "../utils/logger.js";
+import { processRepayment } from "./repaymentService.js";
 
 const log = createLogger({ service: "c2bProcessor" });
 
@@ -196,159 +197,18 @@ async function handleProcessingFee(tx, customer, tenantId, loanId) {
 
 async function handleRepayment(tx, customer, tenantId, mpesaAmount) {
   const { transaction_id, phone_number } = tx;
-  const customerId = customer.id;
-
-  const { data: loan } = await supabaseAdmin
-    .from("loans")
-    .select("id, repayment_state")
-    .eq("customer_id", customerId)
-    .eq("tenant_id", tenantId)
-    .eq("status", "disbursed")
-    .in("repayment_state", ["ongoing", "partial", "overdue"])
-    .order("disbursed_at", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  if (!loan) {
-    await walletCredit(tenantId, customerId, mpesaAmount, "Payment with no active loan", transaction_id, "mpesa");
-    return { result: `No active loan — KES ${mpesaAmount} credited to wallet`, loanId: null };
-  }
-
-  const loanId = loan.id;
-
-  const { data: drained, error: drainErr } = await supabaseAdmin
-    .rpc("drain_wallet_for_repayment", {
-      p_tenant_id: tenantId,
-      p_customer_id: customerId,
-      p_reference: transaction_id,
-    });
-
-  const walletDrained = parseFloat(drained || 0);
-  let remaining = mpesaAmount + walletDrained;
-
-  const { data: installments, error: instErr } = await supabaseAdmin
-    .from("loan_installments")
-    .select("*")
-    .eq("loan_id", loanId)
-    .in("status", ["pending", "partial", "overdue"])
-    .order("installment_number", { ascending: true });
-
-  if (instErr) throw new Error(`Failed to fetch installments: ${instErr.message}`);
-
-  let totalApplied = 0;
-
-  for (const inst of (installments || [])) {
-    if (remaining <= 0) break;
-    const applied = await allocateInstallment({
-      inst, loanId, tenantId, customerId, available: remaining, transactionId: transaction_id, phoneNumber: phone_number,
-    });
-    remaining -= applied;
-    totalApplied += applied;
-  }
-
-  if (remaining > 0.005) {
-    await walletCredit(tenantId, customerId, remaining, `Overpayment on loan #${loanId}`, transaction_id, "overpayment");
-  }
-
-  const result = `Applied KES ${totalApplied.toFixed(2)} to loan #${loanId}${
-    walletDrained > 0 ? ` (incl. KES ${walletDrained} from wallet)` : ""
-  }${remaining > 0.005 ? `, KES ${remaining.toFixed(2)} overpayment to wallet` : ""}`;
-  
-  return { result, loanId };
+  const result = await processRepayment({
+    tenantId,
+    customerId: customer.id,
+    amount: mpesaAmount,
+    reference: transaction_id,
+    paymentMethod: "mpesa_c2b",
+    phoneNumber: phone_number,
+    date: tx.transaction_time || new Date().toISOString()
+  });
+  return result;
 }
 
-async function allocateInstallment(ctx) {
-  const { inst, loanId, tenantId, customerId, available, transactionId, phoneNumber } = ctx;
-
-  const penaltyDue = parseFloat(inst.net_penalty ?? inst.penalty_amount ?? 0);
-  const interestDue = parseFloat(inst.interest_amount ?? 0);
-  const principalDue = parseFloat(inst.principal_amount ?? 0);
-  const interestPaid = parseFloat(inst.interest_paid ?? 0);
-  const principalPaid = parseFloat(inst.principal_paid ?? 0);
-
-  const { data: paidRows } = await supabaseAdmin
-    .from("loan_payments")
-    .select("penalty_paid")
-    .eq("installment_id", inst.id);
-    
-  const penaltyPaid = (paidRows || []).reduce((s, r) => s + parseFloat(r.penalty_paid || 0), 0);
-
-  const unpaidPenalty = Math.max(0, penaltyDue - penaltyPaid);
-  const unpaidInterest = Math.max(0, interestDue - interestPaid);
-  const unpaidPrincipal = Math.max(0, principalDue - principalPaid);
-  const totalUnpaid = unpaidPenalty + unpaidInterest + unpaidPrincipal;
-
-  if (totalUnpaid <= 0) return 0;
-
-  const buckets = [];
-  let budget = available;
-  let applied = 0;
-
-  if (budget > 0 && unpaidPenalty > 0) {
-    const pay = Math.min(budget, unpaidPenalty);
-    buckets.push({ type: "penalty", amount: pay, penaltyPaid: pay, interestPaid: 0, principalPaid: 0 });
-    budget -= pay;
-    applied += pay;
-  }
-  if (budget > 0 && unpaidInterest > 0) {
-    const pay = Math.min(budget, unpaidInterest);
-    buckets.push({ type: "interest", amount: pay, penaltyPaid: 0, interestPaid: pay, principalPaid: 0 });
-    budget -= pay;
-    applied += pay;
-  }
-  if (budget > 0 && unpaidPrincipal > 0) {
-    const pay = Math.min(budget, unpaidPrincipal);
-    buckets.push({ type: "principal", amount: pay, penaltyPaid: 0, interestPaid: 0, principalPaid: pay });
-    budget -= pay;
-    applied += pay;
-  }
-
-  if (buckets.length === 0) return 0;
-
-  let balanceBefore = totalUnpaid;
-  for (const b of buckets) {
-    const balanceAfter = balanceBefore - b.amount;
-    const { error: payErr } = await supabaseAdmin.from("loan_payments").insert({
-      loan_id: loanId,
-      installment_id: inst.id,
-      paid_amount: b.amount,
-      payment_type: b.type,
-      description: `${b.type.charAt(0).toUpperCase() + b.type.slice(1)} Repayment`,
-      mpesa_receipt: transactionId,
-      phone_number: phoneNumber,
-      payment_method: "mpesa_c2b",
-      tenant_id: tenantId,
-      payer_reference_id: customerId,
-      payer_type: "customer",
-      penalty_paid: b.penaltyPaid,
-      interest_paid: b.interestPaid,
-      principal_paid: b.principalPaid,
-      balanceBefore: balanceBefore,
-      balance_after: balanceAfter,
-    });
-    if (payErr) throw new Error(`loan_payments insert failed (${b.type}): ${payErr.message}`);
-    balanceBefore = balanceAfter;
-  }
-
-  const newInterestPaid = interestPaid + (buckets.find((b) => b.type === "interest")?.amount || 0);
-  const newPrincipalPaid = principalPaid + (buckets.find((b) => b.type === "principal")?.amount || 0);
-  const newPenaltyPaid = penaltyPaid + (buckets.find((b) => b.type === "penalty")?.amount || 0);
-  const newTotalPaid = newInterestPaid + newPrincipalPaid + newPenaltyPaid;
-  const totalDue = interestDue + principalDue + penaltyDue;
-  const newStatus = newTotalPaid >= totalDue - 0.005 ? "paid" : applied > 0 ? "partial" : inst.status;
-
-  await supabaseAdmin
-    .from("loan_installments")
-    .update({
-      interest_paid: newInterestPaid,
-      principal_paid: newPrincipalPaid,
-      paid_amount: newTotalPaid,
-      status: newStatus,
-    })
-    .eq("id", inst.id);
-
-  return applied;
-}
 
 // ═══════════════════════════════════════════════════════════════════
 // AUTO REPAY
@@ -383,23 +243,14 @@ async function handleAutoRepay(customer_id, tenantId) {
     if (walletDrained <= 0) return;
 
     const loanId = loan.id;
-    let remaining = walletDrained;
-    const { data: installments } = await supabaseAdmin
-      .from("loan_installments")
-      .select("*")
-      .eq("loan_id", loanId)
-      .in("status", ["pending", "partial", "overdue"])
-      .order("installment_number", { ascending: true });
-
-    let totalApplied = 0;
-    for (const inst of (installments || [])) {
-      if (remaining <= 0) break;
-      const applied = await allocateInstallment({
-        inst, loanId, tenantId, customerId: customer_id, available: remaining, transactionId: `auto-${Date.now()}`, phoneNumber: null,
-      });
-      remaining -= applied;
-      totalApplied += applied;
-    }
+    const result = await processRepayment({
+      tenantId,
+      customerId: customer_id,
+      amount: 0, // Auto-repay uses wallet, so mpesaAmount is 0
+      reference: `auto-${Date.now()}`,
+      paymentMethod: "wallet_auto_repay",
+      date: new Date().toISOString()
+    });
 
     if (remaining > 0.005) {
       await walletCredit(

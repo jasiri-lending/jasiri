@@ -273,7 +273,6 @@ function MainLayout({
   // even if a background session verification (initializing) is still happening.
   const showShell = profile && !isLoginPage;
 
-  // 🚩 REMOVED: Mandatory password change redirect as per user request. 
   // Password changes are now handled optionally via Profile.jsx.
 
   return (
