@@ -833,7 +833,7 @@ const AllCustomers = () => {
                     </td>
                     <td className="px-4 py-3 text-center text-xs whitespace-nowrap">
                       <span
-                        className="inline-block px-3 py-1 rounded text-xs whitespace-nowrap"
+                        className="inline-block px-1 py-0.5 rounded text-xs whitespace-nowrap"
                         style={{
                           backgroundColor: statusColor,
                           color: 'white'
@@ -847,7 +847,7 @@ const AllCustomers = () => {
                         {/* View Customer */}
                         <button
                           onClick={() => handleViewCustomer(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className=" text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 "
                           title="View Customer Details"
                         >
                           <EyeIcon className="h-4 w-4" />
@@ -856,7 +856,7 @@ const AllCustomers = () => {
                         {/* Edit Customer */}
                         <button
                           onClick={() => handleEditCustomer(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-brand-surface to-blue-50 border border-brand-secondary/30 text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200 shadow-sm hover:shadow"
+                          className="  text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200 "
                           title="Edit Customer Details"
                         >
                           <PencilIcon className="h-4 w-4" />
@@ -865,7 +865,7 @@ const AllCustomers = () => {
                         {/* Interactions */}
                         <button
                           onClick={() => handleOpenInteractions(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className=" text-brand-primary hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 "
                           title="Customer Interactions"
                         >
                           <ChatBubbleLeftRightIcon className="h-4 w-4" />
@@ -874,7 +874,7 @@ const AllCustomers = () => {
                         {/* Loan Details (always displayed) */}
                         <button
                           onClick={() => handleOpenLoanDetails(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-yellow-50 to-yellow-100 border border-yellow-200 text-yellow-600 hover:from-yellow-100 hover:to-yellow-200 hover:text-yellow-700 hover:border-yellow-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className=" text-yellow-600 hover:from-yellow-100 hover:to-yellow-200 hover:text-yellow-700 hover:border-yellow-300 transition-all duration-200  "
                           title="Loan Details"
                         >
                           <BanknotesIcon className="h-4 w-4" />
@@ -885,7 +885,7 @@ const AllCustomers = () => {
                           ["ongoing", "overdue", "partial"].includes(customer.loanRepaymentState) && (
                             <button
                               onClick={() => handleOpenPromiseToPay(customer)}
-                              className="p-2 rounded-lg bg-gradient-to-r from-purple-50 to-purple-100 border border-purple-200 text-purple-600 hover:from-purple-100 hover:to-purple-200 hover:text-purple-700 hover:border-purple-300 transition-all duration-200 shadow-sm hover:shadow"
+                              className=" text-purple-600 hover:from-purple-100 hover:to-purple-200 hover:text-purple-700 hover:border-purple-300 transition-all duration-200  "
                               title="Promise to Pay"
                             >
                               <HandRaisedIcon className="h-4 w-4" />
@@ -917,14 +917,10 @@ const AllCustomers = () => {
 
         {/* Pagination */}
         {filteredCustomers.length > 0 && (
-          <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
+          <div className="px-5 py-2 border-t border-gray-200 bg-gray-50">
             <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
               {/* Results Count */}
-              <div className="text-sm text-gray-600">
-                Showing  <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
-                <span className="font-semibold text-gray-800">{Math.min(endIndex, filteredCustomers.length)}</span> of{" "}
-                <span className="font-semibold text-gray-800">{filteredCustomers.length}</span> results
-              </div>
+             
 
               {/* Pagination Controls */}
               {totalPages > 1 && (
