@@ -565,8 +565,8 @@ const AllCustomers = () => {
                     onClick={() => navigate('/officer/customers/add')}
                     className="flex items-center gap-2 px-4 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
                   >
-                    <PlusIcon className="h-5 w-5" />
-                    <span className="text-sm font-medium">Add Customer</span>
+                    <PlusIcon className="h-4 w-4" />
+                    <span className="text-xs">Add Customer</span>
                   </button>
                 )}
                 {(selectedBranch || selectedRegion || selectedRO || selectedStatus) && (

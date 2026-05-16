@@ -7,88 +7,13 @@ import {
   PlusIcon,
   TrashIcon,
   XMarkIcon,
+  CurrencyDollarIcon,
+  DocumentTextIcon,
 } from "@heroicons/react/24/outline";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
-
-// Kenya's 47 counties
-const KENYA_COUNTIES = [
-  "Baringo", "Bomet", "Bungoma", "Busia", "Elgeyo Marakwet", "Embu",
-  "Garissa", "Homa Bay", "Isiolo", "Kajiado", "Kakamega", "Kericho",
-  "Kiambu", "Kilifi", "Kirinyaga", "Kisii", "Kisumu", "Kitui",
-  "Kwale", "Laikipia", "Lamu", "Machakos", "Makueni", "Mandera",
-  "Marsabit", "Meru", "Migori", "Mombasa", "Murang'a", "Nairobi",
-  "Nakuru", "Nandi", "Narok", "Nyamira", "Nyandarua", "Nyeri",
-  "Samburu", "Siaya", "Taita Taveta", "Tana River", "Tharaka Nithi",
-  "Trans Nzoia", "Turkana", "Uasin Gishu", "Vihiga", "Wajir", "West Pokot"
-];
-
-const COUNTY_TOWNS = {
-  "Baringo": ["Kabarnet", "Eldama Ravine", "Marigat"],
-  "Bomet": ["Bomet", "Sotik"],
-  "Bungoma": ["Bungoma", "Webuye", "Chwele", "Kimilili"],
-  "Busia": ["Busia", "Malaba", "Butula"],
-  "Elgeyo Marakwet": ["Iten", "Kapsowar"],
-  "Embu": ["Embu", "Runyenjes", "Siakago"],
-  "Garissa": ["Garissa", "Dadaab"],
-  "Homa Bay": ["Homa Bay", "Mbita", "Oyugis"],
-  "Isiolo": ["Isiolo", "Merti"],
-  "Kajiado": ["Kajiado", "Ngong", "Kitengela", "Isinya", "Loitokitok"],
-  "Kakamega": ["Kakamega", "Mumias", "Butere", "Lugari"],
-  "Kericho": ["Kericho", "Litein"],
-  "Kiambu": ["Kiambu", "Thika", "Ruiru", "Limuru", "Kikuyu", "Karuri", "Githunguri"],
-  "Kilifi": ["Kilifi", "Malindi", "Mtwapa", "Mariakani", "Watamu"],
-  "Kirinyaga": ["Kerugoya", "Kutus", "Sagana", "Wang'uru"],
-  "Kisii": ["Kisii", "Ogembo", "Suneka"],
-  "Kisumu": ["Kisumu", "Ahero", "Muhoroni"],
-  "Kitui": ["Kitui", "Mwingi", "Mutomo"],
-  "Kwale": ["Kwale", "Ukunda", "Msambweni", "Lunga Lunga"],
-  "Laikipia": ["Nanyuki", "Nyahururu", "Rumuruti"],
-  "Lamu": ["Lamu", "Mpeketoni"],
-  "Machakos": ["Machakos", "Athi River", "Kangundo", "Tala"],
-  "Makueni": ["Wote", "Mtito Andei", "Kibwezi"],
-  "Mandera": ["Mandera", "El Wak"],
-  "Marsabit": ["Marsabit", "Moyale"],
-  "Meru": ["Meru", "Maua", "Nkubu", "Timau"],
-  "Migori": ["Migori", "Kuria", "Rongo", "Awendo"],
-  "Mombasa": ["Mombasa", "Nyali", "Likoni", "Changamwe", "Kisauni", "Jomvu"],
-  "Murang'a": ["Murang'a", "Kenol", "Kangema", "Maragua"],
-  "Nairobi": ["Nairobi Central", "Westlands", "Dagoretti", "Langata", "Kibra", "Kasarani", "Embakasi", "Makadara", "Kamkunji"],
-  "Nakuru": ["Nakuru", "Naivasha", "Gilgil", "Molo", "Njoro"],
-  "Nandi": ["Kapsabet", "Nandi Hills"],
-  "Narok": ["Narok", "Kilgoris"],
-  "Nyamira": ["Nyamira", "Nyansiongo"],
-  "Nyandarua": ["Ol Kalou", "Njabini", "Mai Mahiu"],
-  "Nyeri": ["Nyeri", "Karatina", "Othaya", "Chaka"],
-  "Samburu": ["Maralal", "Baragoi"],
-  "Siaya": ["Siaya", "Bondo", "Ugunja"],
-  "Taita Taveta": ["Voi", "Wundanyi", "Taveta", "Mwatate"],
-  "Tana River": ["Hola", "Garsen", "Madogo"],
-  "Tharaka Nithi": ["Chuka", "Chogoria", "Marimanti"],
-  "Trans Nzoia": ["Kitale", "Endebess"],
-  "Turkana": ["Lodwar", "Kakuma", "Lokichogio"],
-  "Uasin Gishu": ["Eldoret", "Burnt Forest"],
-  "Vihiga": ["Mbale", "Chavakali", "Hamisi"],
-  "Wajir": ["Wajir", "Habaswein"],
-  "West Pokot": ["Kapenguria", "Sigor"]
-};
-
-const INDUSTRIES = {
-  Retail: ["Clothing Shop", "Second-hand Clothes (Mtumba)", "Electronics Shop", "Grocery Shop", "Supermarket", "Cosmetics Shop", "Hardware Shop", "Furniture Shop", "Mobile Phone Shop", "General Shop (Kiosk)"],
-  "Hospitality & Entertainment": ["Bar", "Restaurant", "Hotel", "Club", "Café", "Lounge", "Fast Food Outlet"],
-  Agriculture: ["Crop Farming", "Dairy Farming", "Poultry Farming", "Fish Farming", "Agro-processing", "Agrovet Shop"],
-  Education: ["Primary School", "Secondary School", "College", "Training Institute", "Driving School", "Daycare / Kindergarten"],
-  "Transport & Logistics": ["Matatu Business", "Taxi / Ride-hailing", "Courier Service", "Logistics Company", "Truck Transport", "Delivery Services"],
-  Technology: ["Software Development", "SaaS Business", "Cyber Café", "IT Services", "Online Business (E-commerce)"],
-  "Financial Services": ["Lending Business", "SACCO", "Microfinance", "Insurance Agency", "Forex Bureau"],
-  Healthcare: ["Clinic", "Pharmacy", "Hospital", "Laboratory", "Medical Supplies Shop"],
-  "Real Estate": ["Property Management", "Real Estate Agency", "Rental Business", "Property Development"],
-  "Creative & Media": ["Photography", "Videography", "Graphic Design", "Printing Services", "Music Production", "Content Creation"],
-  Services: ["Salon / Barber Shop", "Laundry Business", "Cleaning Services", "Repair Shop (Phones/Electronics)", "Auto Garage", "Car Wash"],
-  Manufacturing: ["Furniture Production", "Clothing Production", "Food Processing", "Metal Fabrication", "Plastic Production"],
-  Wholesale: ["General Wholesale", "Food Wholesale", "Clothing Wholesale", "Electronics Wholesale", "Hardware Wholesale"]
-};
+import Form, { KENYA_COUNTIES, COUNTY_TOWNS, INDUSTRIES } from "./Form";
 
 const parseNumber = (val) => {
   if (val === null || val === undefined || val === "" || val === "undefined") {
@@ -98,77 +23,13 @@ const parseNumber = (val) => {
   return isNaN(n) ? null : n;
 };
 
-const FormField = memo(
-  ({
-    label,
-    name,
-    value,
-    onChange,
-    required = false,
-    type = "text",
-    options = null,
-    placeholder = "",
-    section = null,
-    className = "",
-    disabled = false,
-    errors = {},
-    handleNestedChange,
-    index,
-  }) => {
-    let errorMessage = '';
-
-    if (section && index !== undefined && index !== null) {
-      errorMessage = errors[`${section}_${index}_${name}`];
-    } else if (section) {
-      errorMessage = errors[`${section}${name.charAt(0).toUpperCase() + name.slice(1)}`] || errors[section]?.[name];
-    } else {
-      errorMessage = errors?.[name];
-    }
-
-    return (
-      <div className={className}>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {label} {required && <span className="text-red-500">*</span>}
-        </label>
-
-        {options ? (
-          <select
-            name={name}
-            value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"}`}
-            required={required}
-            disabled={disabled}
-          >
-            <option value="">{placeholder || `Select ${label}`}</option>
-            {options.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </select>
-        ) : (
-          <input
-            name={name}
-            type={type}
-            value={value || ""}
-            onChange={section ? (e) => handleNestedChange(e, section, index) : onChange}
-            className={`w-full p-3 border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors ${errorMessage ? "border-red-500" : "border-gray-300"}`}
-            required={required}
-            placeholder={placeholder}
-            disabled={disabled}
-          />
-        )}
-        {errorMessage && <p className="mt-1 text-xs text-red-500">{errorMessage}</p>}
-      </div>
-    );
-  }
-);
-
 const EditCustomerForm = ({ customerId, onClose }) => {
   const { profile } = useAuth();
   const toast = useToast();
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState({});
+  const [activeSection, setActiveSection] = useState("personal");
 
   const [formData, setFormData] = useState({
     prefix: "",
@@ -207,6 +68,16 @@ const EditCustomerForm = ({ customerId, onClose }) => {
 
   const [securityItems, setSecurityItems] = useState([]);
   const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([]);
+
+  const sections = [
+    { id: "personal", label: "Personal", icon: UserCircleIcon },
+    { id: "business", label: "Business", icon: BuildingOffice2Icon },
+    { id: "borrowerSecurity", label: "Security", icon: ShieldCheckIcon },
+    { id: "loan", label: "Loan", icon: CurrencyDollarIcon },
+    { id: "guarantor", label: "Guarantors", icon: UserGroupIcon },
+    { id: "guarantorSecurity", label: "G-Security", icon: ShieldCheckIcon },
+    { id: "nextOfKin", label: "Next of Kin", icon: UserGroupIcon },
+  ];
 
   useEffect(() => {
     if (!customerId) return;
@@ -358,6 +229,13 @@ const EditCustomerForm = ({ customerId, onClose }) => {
     }));
   };
 
+  const removeGuarantor = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      guarantors: prev.guarantors.filter((_, i) => i !== index)
+    }));
+  };
+
   const addNextOfKin = () => {
     if (formData.nextOfKins.length >= 3) return toast.error("Max 3 Next of Kin");
     setFormData(prev => ({
@@ -369,12 +247,44 @@ const EditCustomerForm = ({ customerId, onClose }) => {
     }));
   };
 
+  const removeNextOfKin = (index) => {
+    setFormData(prev => ({
+      ...prev,
+      nextOfKins: prev.nextOfKins.filter((_, i) => i !== index)
+    }));
+  };
+
+  const addSecurityItem = () => {
+    setSecurityItems([...securityItems, { item: "", description: "", identification: "", value: "" }]);
+  };
+
+  const removeSecurityItem = (index) => {
+    setSecurityItems(securityItems.filter((_, i) => i !== index));
+  };
+
+  const handleSecurityChange = (e, index) => {
+    const { name, value } = e.target;
+    setSecurityItems(prev => prev.map((item, idx) => idx === index ? { ...item, [name]: value } : item));
+  };
+
+  const addGuarantorSecurityItem = () => {
+    setGuarantorSecurityItems([...guarantorSecurityItems, { item: "", description: "", identification: "", value: "" }]);
+  };
+
+  const removeGuarantorSecurityItem = (index) => {
+    setGuarantorSecurityItems(guarantorSecurityItems.filter((_, i) => i !== index));
+  };
+
+  const handleGuarantorSecurityChange = (e, index) => {
+    const { name, value } = e.target;
+    setGuarantorSecurityItems(prev => prev.map((item, idx) => idx === index ? { ...item, [name]: value } : item));
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      // 1. & 2. & 3. UPDATE & DELETE IN PARALLEL
       const [custResult] = await Promise.all([
         supabase
           .from("customers")
@@ -425,10 +335,8 @@ const EditCustomerForm = ({ customerId, onClose }) => {
 
       if (custResult.error) throw custResult.error;
 
-      // 4. INSERT NEW DATA IN PARALLEL
       const insertPromises = [];
 
-      // Next of Kin
       if (formData.nextOfKins.length > 0) {
         insertPromises.push(supabase.from("next_of_kin").insert(formData.nextOfKins.map(nk => ({
           customer_id: customerId,
@@ -444,7 +352,6 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         }))));
       }
 
-      // Security Items
       if (securityItems.length > 0) {
         insertPromises.push(supabase.from("security_items").insert(securityItems.map(s => ({
           customer_id: customerId,
@@ -456,7 +363,6 @@ const EditCustomerForm = ({ customerId, onClose }) => {
         }))));
       }
 
-      // Guarantors (Special Handling because we need IDs for their security)
       if (formData.guarantors.length > 0) {
         const guarantorAction = async () => {
           const { data: insertedGuarantors, error: gError } = await supabase
@@ -514,172 +420,46 @@ const EditCustomerForm = ({ customerId, onClose }) => {
   if (loading) return null;
 
   return (
-    <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4">
-      <div className="bg-white w-full max-w-6xl max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl border border-gray-200">
-        <div className="flex justify-between items-center p-6 border-b border-gray-200 sticky top-0 bg-white z-10">
-          <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+    <div className="fixed inset-0 flex items-center justify-center bg-black/60 backdrop-blur-sm z-50 p-4 font-body">
+      <div className="bg-white w-full max-w-6xl max-h-[95vh] overflow-hidden rounded-2xl shadow-2xl border border-gray-200 flex flex-col">
+        <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-white z-10 shrink-0">
+          <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
             <UserCircleIcon className="h-6 w-6 text-brand-primary" />
             Edit Customer Registry Details
           </h2>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-500">
+          <button onClick={onClose} className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-400">
             <XMarkIcon className="w-6 h-6" />
           </button>
         </div>
 
-        <form className="p-8 space-y-10" onSubmit={handleSubmit}>
-          {/* Personal Section */}
-          <section>
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-200 pb-4">
-              <UserCircleIcon className="h-6 w-6 text-brand-primary" />
-              <h3 className="text-lg font-bold text-gray-800">Personal Details</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormField label="Prefix" name="prefix" value={formData.prefix} onChange={handleChange} options={["Mr", "Mrs", "Ms", "Dr"]} />
-              <FormField label="First Name" name="Firstname" value={formData.Firstname} onChange={handleChange} required />
-              <FormField label="Middle Name" name="Middlename" value={formData.Middlename} onChange={handleChange} />
-              <FormField label="Surname" name="Surname" value={formData.Surname} onChange={handleChange} required />
-              <FormField label="Gender" name="gender" value={formData.gender} onChange={handleChange} options={["Male", "Female"]} />
-              <FormField label="Date of Birth" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={handleChange} />
-              <FormField label="Marital Status" name="maritalStatus" value={formData.maritalStatus} onChange={handleChange} options={["Single", "Married", "Separated/Divorced", "Other"]} />
-              <FormField label="Mobile" name="mobile" value={formData.mobile} onChange={handleChange} />
-              <FormField label="ID Number" name="idNumber" value={formData.idNumber} onChange={handleChange} />
-              <FormField label="County" name="county" value={formData.county} onChange={handleChange} options={KENYA_COUNTIES} />
-              <FormField label="Town" name="town" value={formData.town} onChange={handleChange} options={formData.county ? COUNTY_TOWNS[formData.county] : []} />
-              <FormField label="Postal Address" name="postalAddress" value={formData.postalAddress} onChange={handleChange} />
-            </div>
-
-            {formData.maritalStatus === "Married" && (
-              <div className="mt-8 p-6 bg-gray-50 rounded-xl border border-gray-200">
-                <h4 className="text-md font-bold mb-4">Spouse Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <FormField label="Spouse Name" name="name" value={formData.spouse.name} section="spouse" handleNestedChange={handleNestedChange} />
-                  <FormField label="Spouse ID" name="idNumber" value={formData.spouse.idNumber} section="spouse" handleNestedChange={handleNestedChange} />
-                  <FormField label="Spouse Mobile" name="mobile" value={formData.spouse.mobile} section="spouse" handleNestedChange={handleNestedChange} />
-                  <FormField label="Economic Activity" name="economicActivity" value={formData.spouse.economicActivity} section="spouse" handleNestedChange={handleNestedChange} />
-                </div>
-              </div>
-            )}
-          </section>
-
-          {/* Business Section */}
-          <section>
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-200 pb-4">
-              <BuildingOffice2Icon className="h-6 w-6 text-brand-primary" />
-              <h3 className="text-lg font-bold text-gray-800">Business Details</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <FormField label="Business Name" name="businessName" value={formData.businessName} onChange={handleChange} />
-              <FormField label="Industry" name="industry" value={formData.industry} onChange={handleChange} options={Object.keys(INDUSTRIES)} />
-              <FormField label="Business Type" name="businessType" value={formData.businessType} onChange={handleChange} options={formData.industry ? INDUSTRIES[formData.industry] : []} />
-              <FormField label="Year Established" name="yearEstablished" value={formData.yearEstablished} onChange={handleChange} />
-              <FormField label="Daily Sales (KES)" name="daily_Sales" type="number" value={formData.daily_Sales} onChange={handleChange} />
-              <FormField label="Location" name="businessLocation" value={formData.businessLocation} onChange={handleChange} />
-            </div>
-          </section>
-
-          {/* Guarantors Section */}
-          <section>
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-200 pb-4">
-              <UserGroupIcon className="h-6 w-6 text-brand-primary" />
-              <h3 className="text-lg font-bold text-gray-800">Guarantors</h3>
-            </div>
-            {formData.guarantors.map((g, i) => (
-              <div key={i} className="mb-8 p-6 bg-gray-50 rounded-xl border border-gray-200 relative">
-                {formData.guarantors.length > 1 && (
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, guarantors: prev.guarantors.filter((_, idx) => idx !== i) }))} className="absolute top-4 right-4 text-red-500 hover:text-red-700">
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                )}
-                <h4 className="text-sm font-bold text-gray-500 mb-4 uppercase tracking-wider">Guarantor {i + 1}</h4>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField label="First Name" name="Firstname" value={g.Firstname} section="guarantors" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Surname" name="Surname" value={g.Surname} section="guarantors" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="ID Number" name="idNumber" value={g.idNumber} section="guarantors" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Mobile" name="mobile" value={g.mobile} section="guarantors" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Relationship" name="relationship" value={g.relationship} section="guarantors" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="County" name="county" value={g.county} section="guarantors" index={i} handleNestedChange={handleNestedChange} options={KENYA_COUNTIES} />
-                  <FormField label="Town" name="cityTown" value={g.cityTown} section="guarantors" index={i} handleNestedChange={handleNestedChange} options={g.county ? COUNTY_TOWNS[g.county] : []} />
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-center mt-6">
-              <button
-                type="button"
-                onClick={addGuarantor}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Another Guarantor
-              </button>
-            </div>
-          </section>
-
-          {/* Next of Kin Section */}
-          <section>
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-200 pb-4">
-              <UserGroupIcon className="h-6 w-6 text-brand-primary" />
-              <h3 className="text-lg font-bold text-gray-800">Next of Kin</h3>
-            </div>
-            {formData.nextOfKins.map((nk, i) => (
-              <div key={i} className="mb-6 p-6 bg-gray-50 rounded-xl border border-gray-200 relative">
-                {formData.nextOfKins.length > 1 && (
-                  <button type="button" onClick={() => setFormData(prev => ({ ...prev, nextOfKins: prev.nextOfKins.filter((_, idx) => idx !== i) }))} className="absolute top-4 right-4 text-red-500 hover:text-red-700">
-                    <TrashIcon className="h-5 w-5" />
-                  </button>
-                )}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  <FormField label="First Name" name="Firstname" value={nk.Firstname} section="nextOfKins" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Surname" name="Surname" value={nk.Surname} section="nextOfKins" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Mobile" name="mobile" value={nk.mobile} section="nextOfKins" index={i} handleNestedChange={handleNestedChange} />
-                  <FormField label="Relationship" name="relationship" value={nk.relationship} section="nextOfKins" index={i} handleNestedChange={handleNestedChange} />
-                </div>
-              </div>
-            ))}
-            <div className="flex justify-center mt-6">
-              <button
-                type="button"
-                onClick={addNextOfKin}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Another Next of Kin
-              </button>
-            </div>
-          </section>
-
-          {/* Security Section */}
-          <section>
-            <div className="flex items-center gap-3 mb-6 border-b border-gray-200 pb-4">
-              <ShieldCheckIcon className="h-6 w-6 text-brand-primary" />
-              <h3 className="text-lg font-bold text-gray-800">Borrower Security</h3>
-            </div>
-            {securityItems.map((s, i) => (
-              <div key={i} className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-3">
-                <input placeholder="Item" value={s.item} onChange={(e) => setSecurityItems(prev => prev.map((item, idx) => idx === i ? { ...item, item: e.target.value } : item))} className="p-3 border rounded-lg" />
-                <input placeholder="Description" value={s.description} onChange={(e) => setSecurityItems(prev => prev.map((item, idx) => idx === i ? { ...item, description: e.target.value } : item))} className="p-3 border rounded-lg" />
-                <input placeholder="Identification" value={s.identification} onChange={(e) => setSecurityItems(prev => prev.map((item, idx) => idx === i ? { ...item, identification: e.target.value } : item))} className="p-3 border rounded-lg" />
-                <input placeholder="Value" type="number" value={s.value} onChange={(e) => setSecurityItems(prev => prev.map((item, idx) => idx === i ? { ...item, value: e.target.value } : item))} className="p-3 border rounded-lg" />
-              </div>
-            ))}
-            <div className="flex justify-center mt-6">
-              <button
-                type="button"
-                onClick={() => setSecurityItems([...securityItems, { item: "", description: "", identification: "", value: "" }])}
-                className="flex items-center gap-2 px-6 py-3 bg-brand-surface text-brand-primary border border-brand-primary border-dashed rounded-lg hover:bg-brand-primary/5 transition-all font-medium"
-              >
-                <PlusIcon className="h-5 w-5" />
-                Add Security Item
-              </button>
-            </div>
-          </section>
-
-          <div className="flex justify-end gap-4 pt-6 mt-6 border-t border-gray-200">
-            <button type="button" onClick={onClose} className="px-8 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all font-medium">Cancel</button>
-            <button type="submit" disabled={isSubmitting} className="px-8 py-3 bg-brand-primary text-white rounded-xl hover:bg-brand-primary/90 transition-all font-bold shadow-lg disabled:opacity-50">
-              {isSubmitting ? "Updating..." : "Update Customer Registry"}
-            </button>
-          </div>
-        </form>
+        <div className="flex-1 overflow-y-auto">
+          <Form
+            mode="modal"
+            activeSection={activeSection}
+            setActiveSection={setActiveSection}
+            formData={formData}
+            handleChange={handleChange}
+            handleNestedChange={handleNestedChange}
+            errors={errors}
+            sections={sections}
+            completedSections={new Set()}
+            isSubmitting={isSubmitting}
+            securityItems={securityItems}
+            handleSecurityChange={handleSecurityChange}
+            addSecurityItem={addSecurityItem}
+            removeSecurityItem={removeSecurityItem}
+            guarantorSecurityItems={guarantorSecurityItems}
+            handleGuarantorSecurityChange={handleGuarantorSecurityChange}
+            addGuarantorSecurityItem={addGuarantorSecurityItem}
+            removeGuarantorSecurityItem={removeGuarantorSecurityItem}
+            addGuarantor={addGuarantor}
+            removeGuarantor={removeGuarantor}
+            addNextOfKin={addNextOfKin}
+            removeNextOfKin={removeNextOfKin}
+            handleSubmit={handleSubmit}
+            onClose={onClose}
+          />
+        </div>
       </div>
     </div>
   );

@@ -14,6 +14,10 @@ import {
   FunnelIcon,
   ChevronDownIcon,
   AdjustmentsHorizontalIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
 import { supabase } from "../../supabaseClient";
@@ -189,7 +193,7 @@ const AllLeads = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -380,6 +384,33 @@ const AllLeads = () => {
 
   const totalPages = Math.ceil(visibleLeads.length / itemsPerPage);
 
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      pageNumbers.push(1);
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 2) endPage = 4;
+      if (currentPage >= totalPages - 1) startPage = totalPages - 3;
+
+      if (startPage > 2) pageNumbers.push('...');
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+      if (endPage < totalPages - 1) pageNumbers.push('...');
+      pageNumbers.push(totalPages);
+    }
+    return pageNumbers;
+  };
+
   const activeFilterCount = [filterRegion, filterBranch, filterRO, filterDatePreset].filter(Boolean).length;
 
   const clearFilters = () => { setFilterRegion(""); setFilterBranch(""); setFilterRO(""); setFilterDatePreset(""); setStatusFilter("all"); setSearchTerm(""); };
@@ -457,27 +488,21 @@ const AllLeads = () => {
     } catch { showToast("Failed", "error"); } finally { setIsDeleting(false); setDeleteTarget(null); }
   };
 
-  if (isLoading) return <div className="h-64 flex items-center justify-center"><Spinner /></div>;
 
   return (
-    <div className="bg-muted p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-sm  text-gray-600">Leads / All Leads</h1>
+          <h1 className="text-xs text-slate-600 mb-1">
+            Leads / All Leads
+          </h1>
         </div>
-        <div className="flex gap-2">
-          {isOfficer && <button onClick={openAdd} className="px-3 py-1.5 bg-brand-primary text-white rounded-lg text-xs font-bold flex items-center gap-2 shadow-md hover:bg-brand-primary/90"><PlusIcon className="h-4 w-4" /> Add Lead</button>}
+        <div className="text-xs text-brand-primary">
+          <span className="font-medium text-brand-primary">{visibleLeads.length}</span> leads
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Pipeline" value={stats.total} icon={UsersIcon} color="blue" />
-        <StatCard label="Converted" value={stats.converted} icon={CheckCircleIcon} color="emerald" />
-        <StatCard label="Aging (>14d)" value={stats.aging} icon={ClockIcon} color="amber" />
-        <StatCard label="Conversion Rate" value={`${stats.rate}%`} icon={ChartBarIcon} color="purple" />
-      </div>
 
       {/* Filters */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-5">
@@ -486,11 +511,11 @@ const AllLeads = () => {
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               {/* Search Bar */}
               <div className="relative flex-1">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-3 w-3 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search by name, mobile, or business..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-1/2 pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -506,10 +531,19 @@ const AllLeads = () => {
 
               {/* Filter Buttons */}
               <div className="flex items-center gap-2">
+                {isOfficer && (
+                  <button
+                    onClick={openAdd}
+                    className="flex items-center gap-2 px-4 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"
+                  >
+                    <PlusIcon className="h-4 w-4" />
+                    <span className="text-xs">Add Lead</span>
+                  </button>
+                )}
                 {activeFilterCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
                   >
                     <XMarkIcon className="h-3.5 w-3.5" />
                     Clear
@@ -517,7 +551,7 @@ const AllLeads = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -590,7 +624,7 @@ const AllLeads = () => {
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Date Segment</label>
                   <div className="relative">
-                    <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                    <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full pl-3 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                       <option value="" className="text-gray-400">All Time</option>
                       <option value="today">Today</option>
                       <option value="week">This Week</option>
@@ -605,11 +639,11 @@ const AllLeads = () => {
                   <div className="col-span-1 lg:col-span-2 grid grid-cols-2 gap-2">
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">From</label>
-                      <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                      <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-full pl-3 pr-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
                     </div>
                     <div>
                       <label className="block text-xs text-gray-600 mb-1">To</label>
-                      <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                      <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-full pl-3 pr-3 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
                     </div>
                   </div>
                 )}
@@ -654,44 +688,46 @@ const AllLeads = () => {
 
 
       {/* Table */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-[#E7F0FA] border-b">
+      <div className="bg-white rounded-sm shadow-sm border border-gray-200">
+        <div className="overflow-x-auto font-sans">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Name</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Officer</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Branch</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Contact</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Business Name</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Location</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Type</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600  cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Status</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Industry</th>
-                <th className="px-6 py-4 text-xs whitespace-nowrap text-slate-600 ">Source</th>
-                {isOfficer && <th className="px-6 py-4 text-xs font-bold text-slate-600  text-center">Actions</th>}
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Officer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Branch</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Business Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Location</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600 cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Industry</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Source</th>
+                {isOfficer && <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="bg-white divide-y divide-gray-200">
               {pagedLeads.map(l => (
-                <tr key={l.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4 text-sm  text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.business_type}</td>
-                  <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4"><span className="px-2.5 py-1 rounded-full text-[10px] font-bold text-white uppercase whitespace-nowrap" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span></td>
-                  <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
+                <tr key={l.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_type}</td>
+                  <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="px-2.5 py-0.5 rounded-sm text-[8px]  text-white  whitespace-nowrap" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
                   {isOfficer && (
-                    <td className="px-6 py-4 flex items-center justify-center gap-2">
-                      <button onClick={() => navigate("/officer/customer-form", { state: { leadData: l, fromLeads: true } })} disabled={l.is_converted} className={`px-2 py-1 rounded-md text-[10px] font-bold ${l.is_converted ? "bg-emerald-50 text-emerald-600" : "bg-brand-primary text-white hover:bg-brand-primary/90"}`}>{l.is_converted ? "Converted" : "Convert"}</button>
-                      <button onClick={() => openEdit(l)} className="p-1 text-gray-400 hover:text-brand-primary"><PencilSquareIcon className="h-4 w-4" /></button>
-                      <button onClick={() => setDeleteTarget(l)} className="p-1 text-gray-400 hover:text-red-500"><TrashIcon className="h-4 w-4" /></button>
+                    <td className="px-3 py-1.5 flex items-center justify-center gap-2">
+                      <button onClick={() => navigate("/officer/customer-form", { state: { leadData: l, fromLeads: true } })} disabled={l.is_converted} className={`px-1 py-0.5 rounded-lg text-xs  ${l.is_converted ? "bg-emerald-50 text-emerald-600" : "bg-brand-primary text-white hover:bg-brand-primary/90"}`}>{l.is_converted ? "Converted" : "Convert"}</button>
+                      <button onClick={() => openEdit(l)} className="p-1 text-gray-400 hover:text-brand-primary"><PencilSquareIcon className="h-3 w-3" /></button>
+                      <button onClick={() => setDeleteTarget(l)} className="p-1 text-gray-400 hover:text-red-500"><TrashIcon className="h-3 w-3" /></button>
                     </td>
                   )}
                 </tr>
@@ -700,16 +736,98 @@ const AllLeads = () => {
           </table>
         </div>
 
-        {/* Pagination */}
+        {/* Pagination Section */}
         {visibleLeads.length > 0 && (
-          <div className="bg-gray-50 px-6 py-4 border-t flex items-center justify-between">
-            <div className="text-sm text-gray-500">Showing <b>{(currentPage - 1) * itemsPerPage + 1}-{Math.min(currentPage * itemsPerPage, visibleLeads.length)}</b> of <b>{visibleLeads.length}</b></div>
-            <div className="flex gap-1">
-              <button disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50">Prev</button>
-              {Array.from({ length: totalPages }).map((_, i) => (i + 1 === 1 || i + 1 === totalPages || (i + 1 >= currentPage - 1 && i + 1 <= currentPage + 1)) ? (
-                <button key={i} onClick={() => setCurrentPage(i + 1)} className={`w-8 h-8 rounded-lg text-xs font-bold ${currentPage === i + 1 ? "bg-brand-primary text-white" : "bg-white border text-gray-600 hover:bg-gray-50"}`}>{i + 1}</button>
-              ) : (i + 1 === currentPage - 2 || i + 1 === currentPage + 2) ? <span key={i} className="text-gray-400">...</span> : null)}
-              <button disabled={currentPage === totalPages} onClick={() => setCurrentPage(p => p + 1)} className="px-3 py-1.5 text-xs font-bold text-gray-600 bg-white border rounded-lg hover:bg-gray-50 disabled:opacity-50">Next</button>
+          <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1 order-1 sm:order-2">
+                  {/* First Page */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="First Page"
+                  >
+                    <ChevronDoubleLeftIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Previous Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Previous Page"
+                  >
+                    <ChevronLeftIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1 mx-1">
+                    {getPageNumbers().map((pageNum, index) => (
+                      pageNum === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-xs text-gray-400 font-bold">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[32px] h-8 text-xs font-bold rounded-lg transition-all duration-200 ${currentPage === pageNum
+                            ? "bg-brand-primary text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    ))}
+                  </div>
+
+                  {/* Next Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Next Page"
+                  >
+                    <ChevronRightIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Last Page */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Last Page"
+                  >
+                    <ChevronDoubleRightIcon className="h-3 w-3 text-gray-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Items Per Page Selector */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-[11px] text-gray-500 font-medium">Items per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
@@ -726,21 +844,16 @@ const AllLeads = () => {
           
           <div className="relative bg-white w-full max-w-lg rounded-2xl shadow-2xl flex flex-col max-h-[90vh] overflow-hidden border border-gray-100 animate-in fade-in zoom-in-95 duration-200">
             {/* Professional Clean Header */}
-            <div className="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50/50">
+            <div className="flex justify-between items-center px-4 py-2 border-b border-gray-100 bg-gray-50/50">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-brand-primary/10 rounded-xl">
-                  <UserPlusIcon className="h-5 w-5 text-brand-primary" />
+                <div className="p-2  rounded-xl">
+                  <UserPlusIcon className="h-3 w-3 text-brand-primary" />
                 </div>
-                <h2 className="text-lg  text-gray-600">
+                <h2 className="text-sm  text-gray-600">
                   {editingLead ? "Edit Lead Details" : "Create New Lead"}
                 </h2>
               </div>
-              <button
-                onClick={() => setShowLeadForm(false)}
-                className="p-1.5 rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
+           
             </div>
 
             {/* Compact Form Body */}
@@ -749,14 +862,14 @@ const AllLeads = () => {
                 
                 {/* Contact Section */}
                 <div className="space-y-3">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="text-xs  text-gray-400  flex items-center gap-2">
                     Contact Identity
                     <div className="h-px flex-1 bg-gray-100"></div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">First Name *</label>
+                      <label className="text-sm  text-gray-600">First Name *</label>
                       <input
                         type="text" name="Firstname" value={formData.Firstname} onChange={handleChange}
                         placeholder="Jane" required
@@ -764,7 +877,7 @@ const AllLeads = () => {
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Surname *</label>
+                      <label className="text-sm  text-gray-600">Surname *</label>
                       <input
                         type="text" name="Surname" value={formData.Surname} onChange={handleChange}
                         placeholder="Doe" required
@@ -775,12 +888,12 @@ const AllLeads = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Mobile *</label>
+                      <label className="text-sm  text-gray-600">Mobile *</label>
                       <div className="relative">
                         <input
                           type="text" name="mobile" value={formData.mobile} onChange={handleChange}
                           placeholder="0700 000 000" required
-                          className={`w-full bg-gray-50 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 transition-all ${
+                          className={`w-full bg-gray-50 border rounded-lg px-2 py-1.5 text-sm outline-none focus:ring-2 transition-all ${
                             phoneError 
                               ? "border-red-400 focus:ring-red-100 focus:border-red-500 text-red-700" 
                               : "border-gray-200 focus:ring-brand-primary/10 focus:border-brand-primary text-gray-700"
@@ -788,7 +901,7 @@ const AllLeads = () => {
                         />
                         {isValidatingPhone && (
                           <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                            <ArrowPathIcon className="h-3.5 w-3.5 animate-spin text-gray-400" />
+                            <ArrowPathIcon className="h-3 w-3 animate-spin text-gray-400" />
                           </div>
                         )}
                       </div>
@@ -799,7 +912,7 @@ const AllLeads = () => {
                       )}
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Lead Status</label>
+                      <label className="text-sm  text-gray-600">Lead Status</label>
                       <select
                         name="status" value={formData.status} onChange={handleChange}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/10 focus:border-brand-primary transition-all cursor-pointer"
@@ -814,13 +927,13 @@ const AllLeads = () => {
 
                 {/* Business Section */}
                 <div className="space-y-3 pt-2">
-                  <div className="text-[10px] font-bold text-gray-400 uppercase tracking-widest flex items-center gap-2">
+                  <div className="text-xs text-gray-400  flex items-center gap-2">
                     Business Enterprise
                     <div className="h-px flex-1 bg-gray-100"></div>
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-xs font-semibold text-gray-600">Business Name *</label>
+                    <label className="text-sm  text-gray-600">Business Name *</label>
                     <input
                       type="text" name="business_name" value={formData.business_name} onChange={handleChange}
                       placeholder="Acme Ltd." required
@@ -830,7 +943,7 @@ const AllLeads = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Industry</label>
+                      <label className="text-sm  text-gray-600">Industry</label>
                       <select
                         name="industry" value={isCustomIndustry ? "Other" : formData.industry}
                         onChange={(e) => {
@@ -847,7 +960,7 @@ const AllLeads = () => {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Business Type</label>
+                      <label className="text-sm  text-gray-600">Business Type</label>
                       {!isCustomIndustry && INDUSTRIES[formData.industry] ? (
                         <select
                           name="business_type" value={isCustomType ? "Other" : formData.business_type}
@@ -882,7 +995,7 @@ const AllLeads = () => {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Location</label>
+                      <label className="text-sm  text-gray-600">Location</label>
                       <select
                         name="business_location" value={formData.business_location} onChange={handleChange}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/10 focus:border-brand-primary transition-all"
@@ -892,7 +1005,7 @@ const AllLeads = () => {
                       </select>
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-semibold text-gray-600">Lead Source</label>
+                      <label className="text-sm  text-gray-600">Lead Source</label>
                       <select
                         name="source" value={formData.source} onChange={handleChange}
                         className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-brand-primary/10 focus:border-brand-primary transition-all"
@@ -904,21 +1017,34 @@ const AllLeads = () => {
                 </div>
 
                 {/* Footer Actions */}
-                <div className="flex justify-end items-center gap-3 pt-4 border-t border-gray-100">
-                  <button
-                    type="button" onClick={() => setShowLeadForm(false)}
-                    className="px-4 py-2 text-sm font-semibold text-gray-500 hover:text-gray-700 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit" disabled={isSaving || !!phoneError || isValidatingPhone}
-                    className="px-6 py-2 text-sm font-bold text-white bg-brand-primary rounded-lg hover:opacity-90 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-2 shadow-sm"
-                  >
-                    {isSaving ? <ArrowPathIcon className="h-4 w-4 animate-spin" /> : <PlusIcon className="h-4 w-4" />}
-                    {isSaving ? "Saving..." : editingLead ? "Update Lead" : "Save Lead"}
-                  </button>
-                </div>
+               <div className="flex justify-end items-center gap-2 pt-3 border-t border-gray-100">
+  <button
+    type="button"
+    onClick={() => setShowLeadForm(false)}
+    className="px-3 py-1.5 text-xs font-medium rounded-md border border-gray-200 
+    text-slate-600 hover:bg-gray-100 hover:text-slate-800 
+    transition-all duration-200 active:scale-95"
+  >
+    Cancel
+  </button>
+
+  <button
+    type="submit"
+    disabled={isSaving || !!phoneError || isValidatingPhone}
+    className="px-3 py-1.5 text-xs font-medium text-white 
+    bg-brand-primary rounded-md shadow-sm
+    hover:bg-brand-secondary 
+    active:scale-95 transition-all duration-200
+    disabled:opacity-50 disabled:cursor-not-allowed
+    flex items-center gap-1.5"
+  >
+    {isSaving
+      ? "Saving..."
+      : editingLead
+      ? "Update Lead"
+      : "Save Lead"}
+  </button>
+</div>
               </form>
             </div>
           </div>
@@ -943,15 +1069,32 @@ const AllLeads = () => {
   );
 };
 
-const StatCard = ({ label, value, icon: Icon, color }) => {
-  const colors = { blue: "bg-blue-50 text-blue-600", emerald: "bg-emerald-50 text-emerald-600", amber: "bg-amber-50 text-amber-600", purple: "bg-purple-50 text-purple-600" };
-  return (
-    <div className="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
-      <div className={`p-3 rounded-xl ${colors[color]}`}><Icon className="h-6 w-6" /></div>
-      <div><p className="text-[10px] font-semibold text-gray-500 uppercase tracking-widest">{label}</p><h3 className="text-2xl font-bold text-slate-700">{value}</h3></div>
-    </div>
-  );
-};
+// const StatCard = ({ label, value, icon: Icon, color }) => {
+//   const colors = {
+//     blue: "bg-blue-50 text-blue-600",
+//     emerald: "bg-emerald-50 text-emerald-600",
+//     amber: "bg-amber-50 text-amber-600",
+//     purple: "bg-purple-50 text-purple-600",
+//   };
+
+//   return (
+//     <div className="bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-100 flex items-center gap-2">
+//       <div className={`p-2 rounded-sm ${colors[color]}`}>
+//         <Icon className="h-3.5 w-3.5" />
+//       </div>
+
+//       <div>
+//         <p className="text-[11px] font-medium text-gray-500 leading-tight">
+//           {label}
+//         </p>
+
+//         <h3 className="text-base font-semibold text-slate-600 leading-tight">
+//           {value}
+//         </h3>
+//       </div>
+//     </div>
+//   );
+// };
 
 const FilterSelect = ({ label, value, options, onChange }) => (
   <div className="space-y-1">

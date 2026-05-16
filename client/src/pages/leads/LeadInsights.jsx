@@ -248,13 +248,12 @@ const LeadInsights = () => {
   const activeFilterCount = [filterRegion, filterBranch, filterRO, filterDatePreset, statusFilter !== "all" ? "status" : ""].filter(Boolean).length;
   const clearFilters = () => { setFilterRegion(""); setFilterBranch(""); setFilterRO(""); setStatusFilter("all"); setFilterDatePreset(""); setFilterDateFrom(""); setFilterDateTo(""); };
 
-  if (isLoading) return <div className="h-64 flex items-center justify-center"><Spinner /></div>;
 
   return (
     <div className="bg-muted p-6 min-h-screen font-body">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-sm text-slate-600">Leads Insights / Analytics</h1>
+          <h1 className="text-xs text-slate-600">Leads Insights / Analytics</h1>
         </div>
         <div className="flex items-center gap-2">
           {activeFilterCount > 0 && (
@@ -262,7 +261,7 @@ const LeadInsights = () => {
               onClick={clearFilters}
               className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300 bg-white"
             >
-              <XMarkIcon className="h-3.5 w-3.5" />
+              <XMarkIcon className="h-3 w-3" />
               Clear Filters
             </button>
           )}
@@ -401,7 +400,7 @@ const LeadInsights = () => {
       )}
 
       {/* ── Key Metrics ── */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
         <InsightCard label="Total Leads" value={metrics.total} icon={UsersIcon} color="primary" />
         <InsightCard label="Conv. Rate" value={`${metrics.conversionRate}%`} icon={CheckCircleIcon} color="accent" />
         <InsightCard label="Avg. Conv. Time" value={`${metrics.avgVelocity} Days`} icon={ClockIcon} color="brand" />
@@ -410,12 +409,12 @@ const LeadInsights = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
         {/* ── Conversion Funnel ── */}
-        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <FunnelIcon className="h-5 w-5 text-brand-primary" />
-            <h3 className=" text-gray-600  text-sm ">Pipeline Funnel</h3>
+        <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <FunnelIcon className="h-4 w-4 text-brand-primary" />
+            <h3 className=" text-gray-600  text-xs ">Pipeline Funnel</h3>
           </div>
-          <div className="h-80">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={funnelData} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -433,10 +432,10 @@ const LeadInsights = () => {
         </div>
 
         {/* ── RO Leaderboard ── */}
-        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <TrophyIcon className="h-5 w-5 text-brand-primary" />
-            <h3 className=" text-gray-600  text-sm ">Top Officers (Conv. Rate)</h3>
+        <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <TrophyIcon className="h-4 w-4 text-brand-primary" />
+            <h3 className=" text-gray-600  text-xs ">Top Officers (Conv. Rate)</h3>
           </div>
           <div className="space-y-4">
             {roRanking.map((ro, i) => (
@@ -446,13 +445,13 @@ const LeadInsights = () => {
                 </div>
                 <div className="flex-1">
                   <div className="flex justify-between mb-1">
-                    <span className="text-sm font-bold text-text">{ro.name}</span>
-                    <span className="text-sm font-black text-brand-primary">{ro.rate}%</span>
+                    <span className="text-xs  text-slate-600">{ro.name}</span>
+                    <span className="text-xs font-semibold text-brand-primary">{ro.rate}%</span>
                   </div>
                   <div className="w-full h-2 bg-brand-surface rounded-full overflow-hidden">
                     <div className="bg-brand-primary h-full rounded-full transition-all duration-1000" style={{ width: `${ro.rate}%` }} />
                   </div>
-                  <div className="text-xs text-slate-600 mt-1   font-semibold">{ro.converted} converted / {ro.total} total</div>
+                  <div className="text-[10px] text-slate-600 mt-1 font-semibold">{ro.converted} converted / {ro.total} total</div>
                 </div>
               </div>
             ))}
@@ -460,12 +459,12 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Lead Sources ── */}
-        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <GlobeAltIcon className="h-5 w-5 text-brand-primary" />
-            <h3 className=" text-gray-600  text-sm">Source Distribution</h3>
+        <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <GlobeAltIcon className="h-4 w-4 text-brand-primary" />
+            <h3 className=" text-gray-600  text-xs">Source Distribution</h3>
           </div>
-          <div className="h-80">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={sourceData} innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value">
@@ -481,12 +480,12 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Industry Distribution ── */}
-        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <GlobeAltIcon className="h-5 w-5 text-brand-primary" />
-            <h3 className=" text-gray-600  text-sm ">Industry Distribution</h3>
+        <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <GlobeAltIcon className="h-4 w-4 text-brand-primary" />
+            <h3 className=" text-gray-600 text-xs ">Industry Distribution</h3>
           </div>
-          <div className="h-80">
+          <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={industryData} layout="vertical" margin={{ left: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -504,10 +503,10 @@ const LeadInsights = () => {
         </div>
 
         {/* ── Status Aging Heatmap (Simplified) ── */}
-        <div className="bg-gray-50/80 p-6 rounded-3xl border border-gray-100 shadow-sm">
-          <div className="flex items-center gap-2 mb-6">
-            <ClockIcon className="h-5 w-5 text-brand-primary" />
-            <h3 className="font-semibold text-gray-600  text-sm ">Aging Tiers (Counts)</h3>
+        <div className="bg-gray-50/80 p-4 rounded-2xl border border-gray-100 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <ClockIcon className="h-4 w-4 text-brand-primary" />
+            <h3 className="font-bold text-gray-600  text-xs ">Aging Tiers (Counts)</h3>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {[
@@ -516,10 +515,10 @@ const LeadInsights = () => {
               { label: "15-30 Days", color: "bg-highlight" },
               { label: "30+ Days", color: "bg-red-500" }
             ].map(tier => (
-              <div key={tier.label} className="p-4 rounded-2xl bg-brand-surface border border-indigo-50">
-                <div className={`w-2 h-2 rounded-full ${tier.color} mb-2`}></div>
-                <div className="text-xs  text-slate-600  ">{tier.label}</div>
-                <div className="text-xl font-semibold text-slate-600 ">
+              <div key={tier.label} className="p-3 rounded-xl bg-muted border border-indigo-50">
+                <div className={`w-1.5 h-1.5 rounded-full ${tier.color} mb-1.5`}></div>
+                <div className="text-[10px] text-slate-600 ">{tier.label}</div>
+                <div className="text-lg font-bold text-slate-600 ">
                   {visibleLeads.filter(l => {
                     if (l.is_converted) return false;
                     const days = (new Date() - new Date(l.created_at)) / (1000 * 60 * 60 * 24);
@@ -546,13 +545,13 @@ const InsightCard = ({ label, value, icon: Icon, color }) => {
     brand: "bg-indigo-50 text-brand-btn",
   };
   return (
-    <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex items-center gap-4">
-      <div className={`p-4 rounded-2xl ${colors[color]}`}>
-        <Icon className="h-7 w-7" />
+    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-3">
+      <div className={`p-3 rounded-xl ${colors[color]}`}>
+        <Icon className="h-5 w-5" />
       </div>
       <div>
-        <p className="text-sm text-slate-600 mb-1 font-body">{label}</p>
-        <h3 className="text-2xl  text-slate-600 font-semibold">{value}</h3>
+        <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-0.5 font-sans">{label}</p>
+        <h3 className="text-xl text-slate-700 font-bold">{value}</h3>
       </div>
     </div>
   );

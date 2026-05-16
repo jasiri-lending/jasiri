@@ -11,6 +11,10 @@ import {
   UserPlusIcon,
   ChevronDownIcon,
   AdjustmentsHorizontalIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  ChevronDoubleLeftIcon,
+  ChevronDoubleRightIcon,
 } from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
 import { supabase } from "../../supabaseClient";
@@ -62,7 +66,7 @@ const AgingLeads = () => {
 
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage] = useState(15);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Advanced filters
   const [showFilters, setShowFilters] = useState(false);
@@ -196,6 +200,33 @@ const AgingLeads = () => {
 
   const totalPages = Math.ceil(visibleLeads.length / itemsPerPage);
 
+  // Generate page numbers for pagination
+  const getPageNumbers = () => {
+    const pageNumbers = [];
+    const maxVisiblePages = 5;
+
+    if (totalPages <= maxVisiblePages) {
+      for (let i = 1; i <= totalPages; i++) {
+        pageNumbers.push(i);
+      }
+    } else {
+      pageNumbers.push(1);
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+      if (currentPage <= 2) endPage = 4;
+      if (currentPage >= totalPages - 1) startPage = totalPages - 3;
+
+      if (startPage > 2) pageNumbers.push('...');
+      for (let i = startPage; i <= endPage; i++) {
+        pageNumbers.push(i);
+      }
+      if (endPage < totalPages - 1) pageNumbers.push('...');
+      pageNumbers.push(totalPages);
+    }
+    return pageNumbers;
+  };
+
   const activeFilterCount = [filterRegion, filterBranch, filterRO].filter(Boolean).length;
   const clearFilters = () => { setFilterRegion(""); setFilterBranch(""); setFilterRO(""); setStatusFilter("all"); setSearchTerm(""); };
 
@@ -247,23 +278,18 @@ const AgingLeads = () => {
     } finally { setIsDeleting(false); setDeleteTarget(null); }
   };
 
-  if (isLoading) return <div className="h-64 flex items-center justify-center"><Spinner /></div>;
 
   return (
-    <div className="bg-muted p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-sm  text-gray-600">Leads / Aging Leads</h1>
+          <h1 className="text-xs text-slate-600 mb-1">Leads / Aging Leads</h1>
         </div>
-
+        <div className="text-xs text-brand-primary">
+          <span className="font-medium text-brand-primary">{visibleLeads.length}</span> aging leads
+        </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard label="Total Aging" value={stats.total} icon={ClockIcon} color="amber" />
-        <StatCard label="Hot Aging" value={stats.hot} icon={UsersIcon} color="red" />
-        <StatCard label="Warm Aging" value={stats.warm} icon={UsersIcon} color="yellow" />
-        <StatCard label="Cold Aging" value={stats.cold} icon={UsersIcon} color="blue" />
-      </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-5">
         <div className="p-5 border-b border-gray-200">
@@ -271,11 +297,11 @@ const AgingLeads = () => {
             <div className="flex flex-col sm:flex-row gap-3 w-full">
               {/* Search Bar */}
               <div className="relative flex-1">
-                <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+                <MagnifyingGlassIcon className="h-3 w-3 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search aging leads..."
-                  className="w-full pl-9 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-1/2 pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -294,7 +320,7 @@ const AgingLeads = () => {
                 {activeFilterCount > 0 && (
                   <button
                     onClick={clearFilters}
-                    className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
+                    className="px-3 py-1.5 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300"
                   >
                     <XMarkIcon className="h-3.5 w-3.5" />
                     Clear
@@ -302,7 +328,7 @@ const AgingLeads = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -405,46 +431,48 @@ const AgingLeads = () => {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left">
-            <thead className="bg-[#E7F0FA] border-b">
+      {/* Table Container */}
+      <div className="bg-white rounded-sm shadow-sm border border-gray-200">
+        <div className="overflow-x-auto font-sans">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
               <tr>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Officer</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Branch</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Contact</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Business Name</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600 whitespace-nowrap">Location</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Age / Status</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Industry</th>
-                <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap">Source</th>
-                {isOfficer && <th className="px-6 py-4 text-xs font-bold text-slate-600  whitespace-nowrap text-center">Actions</th>}
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Officer</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Branch</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Contact</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Business Name</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Location</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600 cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Age</th>
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Status</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Industry</th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Source</th>
+                {isOfficer && <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Actions</th>}
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="bg-white divide-y divide-gray-200">
               {pagedLeads.map(l => (
-                <tr key={l.id} className="hover:bg-gray-50/50 transition-colors">
-                  <td className="px-6 py-4 text-sm  text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
-                  <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
-                  <td className="px-6 py-4 text-xs text-gray-500 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex flex-col items-start gap-1">
-                      <span className="px-2 py-0.5 rounded-md text-[10px] font-bold text-white uppercase" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
-                      <span className="text-[10px] font-bold text-gray-500 bg-gray-100 px-2 py-0.5 rounded-md">
-                        {Math.floor((new Date() - new Date(l.created_at)) / (1000 * 60 * 60 * 24))} Days Old
-                      </span>
-                    </div>
+                <tr key={l.id} className="hover:bg-gray-50 transition-colors">
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    <span className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
+                      {Math.floor((new Date() - new Date(l.created_at)) / (1000 * 60 * 60 * 24))} Days
+                    </span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
+                  <td className="px-3 py-2 text-center whitespace-nowrap">
+                    <span className="px-1 py-0.5 rounded-md text-xs text-white " style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
+                  </td>
+                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
                   {isOfficer && (
-                    <td className="px-6 py-4 flex items-center justify-center gap-2">
+                    <td className="px-4 py-3 flex items-center justify-center gap-2">
                        <button onClick={() => navigate("/officer/customer-form", { state: { leadData: l, fromLeads: true } })} className="bg-brand-primary text-white px-2 py-1 rounded-md text-[10px] font-bold hover:bg-brand-primary/90">Convert</button>
                        <button onClick={() => openEdit(l)} className="p-1 text-gray-400 hover:text-brand-primary transition-all"><PencilSquareIcon className="h-4 w-4" /></button>
                        <button onClick={() => setDeleteTarget(l)} className="p-1 text-gray-400 hover:text-red-500 transition-all"><TrashIcon className="h-4 w-4" /></button>
@@ -455,12 +483,101 @@ const AgingLeads = () => {
             </tbody>
           </table>
         </div>
+        {/* Pagination Section */}
         {visibleLeads.length > 0 && (
-          <div className="bg-gray-50 px-6 py-4 border-t flex items-center justify-between">
-            <div className="text-sm text-gray-500">Showing <b>{(currentPage-1)*itemsPerPage+1}-{Math.min(currentPage*itemsPerPage, visibleLeads.length)}</b> of <b>{visibleLeads.length}</b></div>
-            <div className="flex gap-1">
-              <button disabled={currentPage===1} onClick={()=>setCurrentPage(p=>p-1)} className="px-3 py-1 bg-white border rounded-lg text-xs disabled:opacity-50">Prev</button>
-              <button disabled={currentPage===totalPages} onClick={()=>setCurrentPage(p=>p+1)} className="px-3 py-1 bg-white border rounded-lg text-xs disabled:opacity-50">Next</button>
+          <div className="p-5 border-t border-gray-100 bg-gray-50/30">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+              {/* Pagination Info */}
+              <div className="text-xs text-slate-500 font-medium order-2 sm:order-1">
+                Showing <span className="text-slate-700 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-700 font-bold">{Math.min(currentPage * itemsPerPage, visibleLeads.length)}</span> of <span className="text-slate-700 font-bold">{visibleLeads.length}</span> aging leads
+              </div>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex items-center gap-1 order-1 sm:order-2">
+                  {/* First Page */}
+                  <button
+                    onClick={() => setCurrentPage(1)}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="First Page"
+                  >
+                    <ChevronDoubleLeftIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Previous Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                    disabled={currentPage === 1}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Previous Page"
+                  >
+                    <ChevronLeftIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Page Numbers */}
+                  <div className="flex items-center gap-1 mx-1">
+                    {getPageNumbers().map((pageNum, index) => (
+                      pageNum === '...' ? (
+                        <span key={`ellipsis-${index}`} className="px-2 text-xs text-gray-400 font-bold">
+                          ...
+                        </span>
+                      ) : (
+                        <button
+                          key={pageNum}
+                          onClick={() => setCurrentPage(pageNum)}
+                          className={`min-w-[32px] h-8 text-xs font-bold rounded-lg transition-all duration-200 ${currentPage === pageNum
+                            ? "bg-brand-primary text-white shadow-sm"
+                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
+                            }`}
+                        >
+                          {pageNum}
+                        </button>
+                      )
+                    ))}
+                  </div>
+
+                  {/* Next Page */}
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Next Page"
+                  >
+                    <ChevronRightIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+
+                  {/* Last Page */}
+                  <button
+                    onClick={() => setCurrentPage(totalPages)}
+                    disabled={currentPage === totalPages}
+                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    title="Last Page"
+                  >
+                    <ChevronDoubleRightIcon className="h-3.5 w-3.5 text-gray-600" />
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Items Per Page Selector */}
+            <div className="mt-4 pt-3 border-t border-gray-200">
+              <div className="flex items-center justify-end gap-2">
+                <span className="text-[11px] text-gray-500 font-medium">Items per page:</span>
+                <select
+                  value={itemsPerPage}
+                  onChange={(e) => {
+                    setItemsPerPage(Number(e.target.value));
+                    setCurrentPage(1);
+                  }}
+                  className="text-xs border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white hover:bg-gray-50 transition-colors"
+                >
+                  <option value={10}>10</option>
+                  <option value={25}>25</option>
+                  <option value={50}>50</option>
+                  <option value={100}>100</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
