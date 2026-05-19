@@ -4,6 +4,7 @@ import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
 import { useAuth } from "../../hooks/userAuth";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
+import { useWorkflow } from "../../hooks/useWorkflow";
 import {
   CheckCircleIcon,
   XCircleIcon,
@@ -82,7 +83,9 @@ const CustomerVerification = () => {
   const { profile } = useAuth();
   const toast = useToast();
   const { documentUploadEnabled, imageUploadEnabled } = useTenantFeatures();
+  const { fetchWorkflowInstance, transitionWorkflow } = useWorkflow();
   const [customer, setCustomer] = useState(null);
+  const [workflowInstance, setWorkflowInstance] = useState(null);
   const [guarantors, setGuarantors] = useState([]);
   const [securityItems, setSecurityItems] = useState([]);
   const [guarantorSecurityItems, setGuarantorSecurityItems] = useState([]);
@@ -171,6 +174,12 @@ const CustomerVerification = () => {
 
       if (customerError) throw customerError;
       setCustomer(customerData);
+
+      // Fetch workflow instance using our custom hook
+      const instanceData = await fetchWorkflowInstance(customerId, "customer_onboarding");
+      if (instanceData) {
+        setWorkflowInstance(instanceData);
+      }
 
       setVerificationData((prev) => ({
         ...prev,
@@ -667,35 +676,53 @@ const CustomerVerification = () => {
         .insert(baseData);
       if (error) throw error;
 
-      // Determine new status based on role and decision
-      let newStatus;
-      if (userRole === "branch_manager") {
-        if (
-          verificationData.finalDecision === "approved" ||
-          verificationData.finalDecision === "referred"
-        ) {
-          newStatus = "cso_review";
-        } else if (
-          verificationData.finalDecision === "pending" ||
-          verificationData.finalDecision === "edit"
-        ) {
-          newStatus = "sent_back_by_bm";
-        } else if (verificationData.finalDecision === "rejected") {
-          newStatus = "rejected";
+      // Determine action event based on decision
+      let actionEvent = "APPROVE";
+      if (verificationData.finalDecision === "pending" || verificationData.finalDecision === "edit") {
+        actionEvent = "SEND_BACK";
+      } else if (verificationData.finalDecision === "rejected") {
+        actionEvent = "REJECT";
+      }
+
+      let newStatus = "";
+
+      if (workflowInstance) {
+        const nextNode = await transitionWorkflow(workflowInstance, actionEvent);
+        if (nextNode) {
+          newStatus = nextNode.name;
         }
-      } else if (userRole === "credit_analyst_officer") {
-        if (
-          verificationData.finalDecision === "approved" ||
-          verificationData.finalDecision === "referred"
-        ) {
-          newStatus = "approved";
-        } else if (
-          verificationData.finalDecision === "pending" ||
-          verificationData.finalDecision === "edit"
-        ) {
-          newStatus = "sent_back_by_ca";
-        } else if (verificationData.finalDecision === "rejected") {
-          newStatus = "rejected";
+      }
+
+      // Backward compatibility / Fallback to hardcoded states
+      if (!newStatus) {
+        if (userRole === "branch_manager") {
+          if (
+            verificationData.finalDecision === "approved" ||
+            verificationData.finalDecision === "referred"
+          ) {
+            newStatus = "cso_review";
+          } else if (
+            verificationData.finalDecision === "pending" ||
+            verificationData.finalDecision === "edit"
+          ) {
+            newStatus = "sent_back_by_bm";
+          } else if (verificationData.finalDecision === "rejected") {
+            newStatus = "rejected";
+          }
+        } else if (userRole === "credit_analyst_officer") {
+          if (
+            verificationData.finalDecision === "approved" ||
+            verificationData.finalDecision === "referred"
+          ) {
+            newStatus = "approved";
+          } else if (
+            verificationData.finalDecision === "pending" ||
+            verificationData.finalDecision === "edit"
+          ) {
+            newStatus = "sent_back_by_ca";
+          } else if (verificationData.finalDecision === "rejected") {
+            newStatus = "rejected";
+          }
         }
       }
 

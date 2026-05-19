@@ -771,7 +771,7 @@ const OperationsDashboard = ({ userRole }) => {
       <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-5">
 
         {/* Header & Filters */}
-        <div className="flex flex-col gap-4 border-b border-gray-200 pb-4">
+        <div className="flex flex-col gap-2 pb-1">
           <div className="flex justify-between items-end">
             <div>
               <h1 className="text-sm text-gray-600 ">Operations Dashboard</h1>
@@ -782,7 +782,7 @@ const OperationsDashboard = ({ userRole }) => {
           </div>
 
           {/* Filters Row */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3  p-3 rounded-sm">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 px-1 rounded-sm">
             <FilterSelectCompact
               icon={Home}
               value={selectedRegion}

@@ -61,7 +61,7 @@ const BankReconciliations = lazy(() => import("./pages/accounting/BankReconcilia
 const Journals = lazy(() => import("./pages/accounting/Journals"));
 const Registry = lazy(() => import("./pages/registry/Registry"));
 const PendingAmendments = lazy(() => import("./pages/registry/PendingAmendments"));
-const ApprovalPending = lazy(() => import("./pages/registry/ApprovalPending"));
+const ApprovalPending = lazy(() => import("./pages/registry/PendingApprovals"));
 const CustomerTransfer = lazy(() => import("./pages/registry/CustomerTransfer"));
 const CustomerCategories = lazy(() => import("./pages/registry/CustomerCategories"));
 const CustomerEdits = lazy(() => import("./pages/registry/MainEdit.jsx"));
@@ -484,14 +484,6 @@ function MainLayout({
                         }
                       />
                       <Route
-                        path="/registry/hq-pending"
-                        element={
-                          <ProtectedRoute>
-                            <HQPending userRole={role} />
-                          </ProtectedRoute>
-                        }
-                      />
-                      <Route
                         path="/transfer"
                         element={
                           <ProtectedRoute>
@@ -505,15 +497,6 @@ function MainLayout({
                         element={
                           <ProtectedRoute>
                             <ApprovalPending userRole={role} />
-                          </ProtectedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/registry/bm-pending"
-                        element={
-                          <ProtectedRoute>
-                            <PendingBM userRole={role} />
                           </ProtectedRoute>
                         }
                       />
@@ -555,15 +538,6 @@ function MainLayout({
                         element={
                           <ProtectedRoute>
                             <ReviewEditRequest userRole={role} />
-                          </ProtectedRoute>
-                        }
-                      />
-
-                      <Route
-                        path="/registry/callbacks-pending"
-                        element={
-                          <ProtectedRoute>
-                            <CallbacksPending userRole={role} />
                           </ProtectedRoute>
                         }
                       />

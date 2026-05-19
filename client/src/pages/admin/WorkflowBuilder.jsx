@@ -13,7 +13,7 @@ import '@xyflow/react/dist/style.css';
 import { v4 as uuidv4 } from 'uuid';
 import { Save, ArrowLeft, Settings, Edit, Zap, GitBranch, Search, CheckCircle, Play, XCircle, Trash2, Plus, Info } from 'lucide-react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
-import { StartNode, ApprovalNode, ReviewNode, DecisionNode, AutoProcessNode, EndNode } from '../../components/workflow/CustomNodes';
+import { StartNode, TaskNode, EndNode } from '../../components/workflow/CustomNodes';
 import { useToast } from '../../components/Toast';
 import { supabase } from '../../supabaseClient';
 import axios from 'axios';
@@ -21,10 +21,7 @@ import { useAuth } from '../../hooks/userAuth';
 
 const nodeTypes = {
     start: StartNode,
-    approval: ApprovalNode,
-    review: ReviewNode,
-    decision: DecisionNode,
-    autoprocess: AutoProcessNode,
+    task: TaskNode,
     end: EndNode,
 };
 
@@ -34,8 +31,60 @@ const initialNodes = [
 
 const defaultEdgeOptions = {
     type: 'smoothstep',
-    animated: true,
+    animated: false,
     style: { strokeWidth: 2, stroke: '#6366f1' },
+};
+
+const getEdgeStyle = (event) => {
+    const ev = (event || '').toUpperCase();
+    if (ev.includes('REJECT') || ev.includes('CANCEL')) return { strokeWidth: 2, stroke: '#ef4444' }; // red-500
+    if (ev.includes('BACK') || ev.includes('RETURN') || ev.includes('REWORK')) return { strokeWidth: 2, stroke: '#f59e0b' }; // amber-500
+    return { strokeWidth: 2, stroke: '#6366f1' }; // indigo-500
+};
+
+const getEdgeAnimated = (event) => {
+    const ev = (event || '').toUpperCase();
+    if (ev.includes('BACK') || ev.includes('RETURN') || ev.includes('REWORK')) return true;
+    return false;
+};
+
+const getEdgeType = (event) => {
+    // The user requested orthogonal routing (like the image) which smoothstep provides perfectly.
+    return 'smoothstep';
+};
+
+const TEMPLATES = {
+    customer_onboarding: {
+        nodes: [
+            { id: 'start', type: 'start', position: { x: 250, y: 50 }, data: { label: 'Start Process', permissions: { roles: [] } } },
+            { id: 'ro-submit', type: 'task', position: { x: 250, y: 200 }, data: { label: 'RO Submission', permissions: { roles: [] }, roleName: 'Relationship Officer' } },
+            { id: 'bm-review', type: 'task', position: { x: 250, y: 350 }, data: { label: 'BM Review', permissions: { roles: [] }, roleName: 'Branch Manager' } },
+            { id: 'ca-decision', type: 'task', position: { x: 250, y: 500 }, data: { label: 'Final Decision', permissions: { roles: [] }, roleName: 'Credit Admin' } },
+            { id: 'end', type: 'end', position: { x: 250, y: 650 }, data: { label: 'End Process', permissions: { roles: [] } } },
+        ],
+        edges: [
+            { id: 'e1', source: 'start', target: 'ro-submit', type: 'smoothstep', animated: false, data: { event: 'START' }, style: getEdgeStyle('START') },
+            { id: 'e2', source: 'ro-submit', target: 'bm-review', type: 'smoothstep', animated: false, data: { event: 'SUBMIT' }, style: getEdgeStyle('SUBMIT') },
+            { id: 'e3', source: 'bm-review', target: 'ca-decision', type: 'smoothstep', animated: false, data: { event: 'APPROVE' }, style: getEdgeStyle('APPROVE') },
+            { id: 'e4', source: 'ca-decision', target: 'end', type: 'smoothstep', animated: false, data: { event: 'APPROVE' }, style: getEdgeStyle('APPROVE') },
+            { id: 'e5', source: 'bm-review', target: 'ro-submit', type: 'smoothstep', animated: true, data: { event: 'SEND_BACK' }, style: getEdgeStyle('SEND_BACK'), sourceHandle: 'left-source', targetHandle: 'left-target' },
+        ]
+    },
+    loan_application: {
+        nodes: [
+            { id: 'start', type: 'start', position: { x: 250, y: 50 }, data: { label: 'Application Start', permissions: { roles: [] } } },
+            { id: 'ro-capture', type: 'task', position: { x: 250, y: 200 }, data: { label: 'Data Capture', permissions: { roles: [] }, roleName: 'Relationship Officer' } },
+            { id: 'bm-appraisal', type: 'task', position: { x: 250, y: 350 }, data: { label: 'Manager Appraisal', permissions: { roles: [] }, roleName: 'Branch Manager' } },
+            { id: 'credit-committee', type: 'task', position: { x: 250, y: 500 }, data: { label: 'Committee Review', permissions: { roles: [] }, roleName: 'Credit Committee' } },
+            { id: 'end', type: 'end', position: { x: 250, y: 650 }, data: { label: 'Loan Finalized', permissions: { roles: [] } } },
+        ],
+        edges: [
+            { id: 'e1', source: 'start', target: 'ro-capture', type: 'smoothstep', animated: false, data: { event: 'START' }, style: getEdgeStyle('START') },
+            { id: 'e2', source: 'ro-capture', target: 'bm-appraisal', type: 'smoothstep', animated: false, data: { event: 'SUBMIT' }, style: getEdgeStyle('SUBMIT') },
+            { id: 'e3', source: 'bm-appraisal', target: 'credit-committee', type: 'smoothstep', animated: false, data: { event: 'APPROVE' }, style: getEdgeStyle('APPROVE') },
+            { id: 'e4', source: 'credit-committee', target: 'end', type: 'smoothstep', animated: false, data: { event: 'APPROVE' }, style: getEdgeStyle('APPROVE') },
+        ]
+    }
 };
 
 const WorkflowBuilder = () => {
@@ -86,9 +135,18 @@ const WorkflowBuilder = () => {
                         setWorkflowName(def.name);
                         setWorkflowType(def.type);
                         
-                        const mappedNodes = savedNodes.map(n => ({
-                            id: n.node_client_id,
-                            type: n.type.toLowerCase(),
+                        const mappedNodes = savedNodes.map(n => {
+                            const nodeTypeMap = {
+                                'approval': 'task',
+                                'review': 'task',
+                                'decision': 'task',
+                                'autoprocess': 'task',
+                                'start': 'start',
+                                'end': 'end'
+                            };
+                            return {
+                                id: n.node_client_id,
+                                type: nodeTypeMap[n.type.toLowerCase()] || 'task',
                             position: { x: n.position_x, y: n.position_y },
                             data: { 
                                 label: n.name,
@@ -99,7 +157,8 @@ const WorkflowBuilder = () => {
                                 permissions: n.permissions || {},
                                 roleName: roleData?.find(r => n.permissions?.roles?.includes(r.id))?.name,
                             }
-                        }));
+                        };
+                        });
                         
                         const mappedEdges = savedEdges.map(e => ({
                             id: e.edge_client_id,
@@ -111,9 +170,9 @@ const WorkflowBuilder = () => {
                                 roles_allowed: e.roles_allowed || [],
                                 conditions: e.workflow_conditions || []
                             },
-                            type: 'smoothstep',
-                            animated: true,
-                            style: { strokeWidth: 2, stroke: '#6366f1' },
+                            type: getEdgeType(e.event),
+                            animated: getEdgeAnimated(e.event),
+                            style: getEdgeStyle(e.event),
                         }));
 
                         setNodes(mappedNodes);
@@ -123,16 +182,104 @@ const WorkflowBuilder = () => {
                     console.error("Error loading workflow:", err);
                     toast.error("Failed to load workflow");
                 }
+            } else if (id === 'new') {
+                const searchParams = new URLSearchParams(location.search);
+                const cloneId = searchParams.get('clone');
+                
+                if (cloneId) {
+                    try {
+                        const response = await axios.get(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/workflows/${cloneId}/graph`, {
+                            headers: { Authorization: `Bearer ${session.session?.access_token}` }
+                        });
+                        
+                        if (response.data.success) {
+                            const { def, nodes: savedNodes, edges: savedEdges } = response.data.data;
+                            setWorkflowName(`${def.name} (Copy)`);
+                            setWorkflowType(def.type);
+                            
+                            const mappedNodes = savedNodes.map(n => {
+                                const nodeTypeMap = {
+                                    'approval': 'task',
+                                    'review': 'task',
+                                    'decision': 'task',
+                                    'autoprocess': 'task',
+                                    'start': 'start',
+                                    'end': 'end'
+                                };
+                                return {
+                                    id: n.node_client_id,
+                                    type: nodeTypeMap[n.type.toLowerCase()] || 'task',
+                                    position: { x: n.position_x, y: n.position_y },
+                                    data: { 
+                                        label: n.name,
+                                        description: n.description,
+                                        sla_timeout_minutes: n.sla_timeout_minutes,
+                                        escalation_node_id: n.escalation_node_id,
+                                        on_entry_actions: n.on_entry_actions || [],
+                                        permissions: n.permissions || {},
+                                        roleName: roleData?.find(r => n.permissions?.roles?.includes(r.id))?.name,
+                                    }
+                                };
+                            });
+                            
+                            const mappedEdges = savedEdges.map(e => ({
+                                id: e.edge_client_id,
+                                source: e.source_node_id,
+                                target: e.target_node_id,
+                                label: e.event,
+                                data: { 
+                                    event: e.event,
+                                    roles_allowed: e.roles_allowed || [],
+                                    conditions: e.workflow_conditions || []
+                                },
+                                type: getEdgeType(e.event),
+                                animated: getEdgeAnimated(e.event),
+                                style: getEdgeStyle(e.event),
+                            }));
+
+                            setNodes(mappedNodes);
+                            setEdges(mappedEdges);
+                        }
+                    } catch (err) {
+                        console.error("Error cloning workflow:", err);
+                        toast.error("Failed to clone workflow");
+                    }
+                } else {
+                    // Load default template if available
+                    const tpl = TEMPLATES[workflowType];
+                    if (tpl) {
+                        setNodes(tpl.nodes);
+                        setEdges(tpl.edges);
+                    }
+                }
             }
         };
         fetchData();
     }, [id]);
 
+    // Handle template switching for new drafts
+    const handleWorkflowTypeChange = (newType) => {
+        setWorkflowType(newType);
+        if (id === 'new') {
+            const tpl = TEMPLATES[newType];
+            if (tpl) {
+                if (window.confirm("Switching type will load a new template and clear current nodes. Continue?")) {
+                    setNodes(tpl.nodes);
+                    setEdges(tpl.edges);
+                    setSelectedElement(null);
+                }
+            }
+        }
+    };
+
     const onConnect = useCallback(
         (params) => setEdges((eds) => addEdge({ 
             ...params, 
             label: 'APPROVE',
-            data: { event: 'APPROVE', roles_allowed: [], conditions: [] } 
+            data: { event: 'APPROVE', roles_allowed: [], conditions: [] },
+            style: getEdgeStyle('APPROVE'),
+            type: getEdgeType('APPROVE'),
+            animated: getEdgeAnimated('APPROVE')
         }, eds)),
         [setEdges],
     );
@@ -203,7 +350,10 @@ const WorkflowBuilder = () => {
                     return { 
                         ...e, 
                         data: newData,
-                        label: key === 'event' ? value : e.label 
+                        label: key === 'event' ? value : e.label,
+                        style: key === 'event' ? getEdgeStyle(value) : e.style,
+                        type: key === 'event' ? getEdgeType(value) : e.type,
+                        animated: key === 'event' ? getEdgeAnimated(value) : e.animated
                     };
                 }
                 return e;
@@ -212,12 +362,42 @@ const WorkflowBuilder = () => {
         setSelectedElement((prev) => ({ 
             ...prev, 
             data: { ...prev.data, [key]: value },
-            label: key === 'event' ? value : prev.label 
+            label: key === 'event' ? value : prev.label,
+            style: key === 'event' ? getEdgeStyle(value) : prev.style,
+            type: key === 'event' ? getEdgeType(value) : prev.type,
+            animated: key === 'event' ? getEdgeAnimated(value) : prev.animated
         }));
+    };
+
+    const validateWorkflow = () => {
+        const errors = [];
+        const startNodes = nodes.filter(n => n.type === 'start');
+        const endNodes = nodes.filter(n => n.type === 'end');
+
+        if (startNodes.length !== 1) errors.push('Workflow must have exactly one Start node');
+        if (endNodes.length === 0) errors.push('Workflow must have at least one End node');
+
+        nodes.forEach(n => {
+            const outgoing = edges.filter(e => e.source === n.id);
+            const incoming = edges.filter(e => e.target === n.id);
+            if (n.type !== 'start' && incoming.length === 0)
+                errors.push(`"${n.data.label}" has no incoming connection`);
+            if (n.type !== 'end' && outgoing.length === 0)
+                errors.push(`"${n.data.label}" has no outgoing connection`);
+        });
+
+        return errors;
     };
 
     const handleSave = async () => {
         if (saving) return;
+
+        const validationErrors = validateWorkflow();
+        if (validationErrors.length > 0) {
+            validationErrors.forEach(err => toast.error(err));
+            return;
+        }
+
         try {
             setSaving(true);
             const { data: session } = await supabase.auth.getSession();
@@ -299,7 +479,7 @@ const WorkflowBuilder = () => {
                         <span className="text-[9px] text-slate-400 font-black uppercase tracking-tighter">Entity Type</span>
                         <select 
                             value={workflowType}
-                            onChange={(e) => setWorkflowType(e.target.value)}
+                            onChange={(e) => handleWorkflowTypeChange(e.target.value)}
                             disabled={isViewMode}
                             className={`h-8 text-[10px] font-bold text-slate-700 border-none bg-transparent focus:ring-0 py-0 px-2 transition-all ${isViewMode ? 'cursor-default opacity-80' : 'cursor-pointer hover:text-slate-900'}`}
                         >
@@ -370,10 +550,7 @@ const WorkflowBuilder = () => {
                         
                         <div className="space-y-4 overflow-y-auto pr-1">
                             <PaletteItem type="start" icon={<Play className="w-4 h-4" />} color="green" label="Start Point" description="Entry point for the process" />
-                            <PaletteItem type="approval" icon={<CheckCircle className="w-4 h-4" />} color="blue" label="Approval Step" description="Requires user authorization" />
-                            <PaletteItem type="review" icon={<Search className="w-4 h-4" />} color="amber" label="Manual Review" description="Check data accuracy" />
-                            <PaletteItem type="decision" icon={<GitBranch className="w-4 h-4" />} color="purple" label="Decision / Split" description="Conditional routing point" />
-                            <PaletteItem type="autoprocess" icon={<Zap className="w-4 h-4" />} color="indigo" label="Auto Action" description="System executed tasks" />
+                            <PaletteItem type="task" icon={<CheckCircle className="w-4 h-4" />} color="blue" label="User Task" description="Requires user action" />
                             <PaletteItem type="end" icon={<XCircle className="w-4 h-4" />} color="red" label="Process End" description="Terminal state" />
                         </div>
 
@@ -472,20 +649,28 @@ const WorkflowBuilder = () => {
                                             </PropertyField>
 
                                             <PropertyField label="Assign to Roles" description="Roles authorized for this step">
-                                                <select 
-                                                    multiple
-                                                    value={selectedElement.data.permissions?.roles || []}
-                                                    onChange={(e) => {
-                                                        const values = Array.from(e.target.selectedOptions, option => option.value);
-                                                        handleUpdateNodeData('permissions', { ...selectedElement.data.permissions, roles: values });
-                                                    }}
-                                                    className="w-full text-sm border-gray-200 rounded-xl focus:ring-brand-primary focus:border-brand-primary h-32"
-                                                >
+                                                <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1 border border-slate-100 rounded-xl p-1 bg-white">
                                                     {roles.map(r => (
-                                                        <option key={r.id} value={r.id}>{r.name}</option>
+                                                        <label key={r.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-all">
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={selectedElement.data.permissions?.roles?.includes(r.id)}
+                                                                onChange={e => {
+                                                                    const current = selectedElement.data.permissions?.roles || [];
+                                                                    const updated = e.target.checked
+                                                                        ? [...current, r.id]
+                                                                        : current.filter(id => id !== r.id);
+                                                                    handleUpdateNodeData('permissions', { ...selectedElement.data.permissions, roles: updated });
+                                                                }}
+                                                                className="rounded text-brand-primary focus:ring-brand-primary h-4 w-4"
+                                                            />
+                                                            <div className="flex flex-col">
+                                                                <span className="text-xs font-semibold text-slate-700">{r.name}</span>
+                                                                <span className="text-[10px] text-slate-400 leading-tight">{r.description || 'System Role'}</span>
+                                                            </div>
+                                                        </label>
                                                     ))}
-                                                </select>
-                                                <p className="text-[10px] text-gray-400 mt-2">Hold Ctrl to select multiple roles</p>
+                                                </div>
                                             </PropertyField>
                                         </>
                                     )}
@@ -514,12 +699,35 @@ const WorkflowBuilder = () => {
                                 /* EDGE SETTINGS */
                                 <>
                                     <PropertyField label="Trigger Event" description="The action name (e.g. APPROVE, REJECT)">
-                                        <input 
-                                            type="text" 
-                                            value={selectedElement.data.event || ''} 
-                                            onChange={(e) => handleUpdateEdgeData('event', e.target.value.toUpperCase())}
-                                            className="w-full text-sm border-gray-200 rounded-xl focus:ring-brand-primary focus:border-brand-primary py-2.5 font-mono uppercase tracking-widest"
-                                        />
+                                        <select
+                                            value={['APPROVE', 'REJECT', 'SEND_BACK', 'SUBMIT', 'CANCEL'].includes(selectedElement.data.event) ? selectedElement.data.event : 'CUSTOM'}
+                                            onChange={(e) => {
+                                                if (e.target.value !== 'CUSTOM') {
+                                                    handleUpdateEdgeData('event', e.target.value);
+                                                } else {
+                                                    handleUpdateEdgeData('event', ''); // clear it for custom input
+                                                }
+                                            }}
+                                            className="w-full text-sm border-gray-200 rounded-xl focus:ring-brand-primary focus:border-brand-primary py-2.5 mb-2"
+                                        >
+                                            <option value="APPROVE">Approve ✓</option>
+                                            <option value="REJECT">Reject ✗</option>
+                                            <option value="SEND_BACK">Send back ↩</option>
+                                            <option value="SUBMIT">Submit</option>
+                                            <option value="CANCEL">Cancel</option>
+                                            <option value="CUSTOM">Custom…</option>
+                                        </select>
+                                        
+                                        {!['APPROVE', 'REJECT', 'SEND_BACK', 'SUBMIT', 'CANCEL'].includes(selectedElement.data.event) && (
+                                            <input 
+                                                type="text" 
+                                                value={selectedElement.data.event || ''} 
+                                                onChange={(e) => handleUpdateEdgeData('event', e.target.value.toUpperCase())}
+                                                placeholder="Enter custom event"
+                                                className="w-full text-sm border-gray-200 rounded-xl focus:ring-brand-primary focus:border-brand-primary py-2.5 font-mono uppercase tracking-widest mt-2"
+                                            />
+                                        )}
+                                        <p className="text-[9px] text-gray-400 mt-1">Hint: Using 'BACK' or 'RETURN' colors the line orange. Using 'REJECT' colors it red.</p>
                                     </PropertyField>
 
                                     <PropertyField label="Conditions" description="Logic for this transition to be valid">
@@ -568,19 +776,28 @@ const WorkflowBuilder = () => {
                                     </PropertyField>
 
                                     <PropertyField label="Allowed Roles" description="Who can trigger this transition">
-                                        <select 
-                                            multiple
-                                            value={selectedElement.data.roles_allowed || []}
-                                            onChange={(e) => {
-                                                const values = Array.from(e.target.selectedOptions, option => option.value);
-                                                handleUpdateEdgeData('roles_allowed', values);
-                                            }}
-                                            className="w-full text-sm border-gray-200 rounded-xl focus:ring-brand-primary focus:border-brand-primary h-32"
-                                        >
+                                        <div className="space-y-1.5 max-h-48 overflow-y-auto custom-scrollbar pr-1 border border-slate-100 rounded-xl p-1 bg-white">
                                             {roles.map(r => (
-                                                <option key={r.id} value={r.id}>{r.name}</option>
+                                                <label key={r.id} className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 border border-transparent hover:border-slate-100 cursor-pointer transition-all">
+                                                    <input 
+                                                        type="checkbox"
+                                                        checked={selectedElement.data.roles_allowed?.includes(r.id)}
+                                                        onChange={e => {
+                                                            const current = selectedElement.data.roles_allowed || [];
+                                                            const updated = e.target.checked
+                                                                ? [...current, r.id]
+                                                                : current.filter(id => id !== r.id);
+                                                            handleUpdateEdgeData('roles_allowed', updated);
+                                                        }}
+                                                        className="rounded text-brand-primary focus:ring-brand-primary h-4 w-4"
+                                                    />
+                                                    <div className="flex flex-col">
+                                                        <span className="text-xs font-semibold text-slate-700">{r.name}</span>
+                                                        <span className="text-[10px] text-slate-400 leading-tight">{r.description || 'System Role'}</span>
+                                                    </div>
+                                                </label>
                                             ))}
-                                        </select>
+                                        </div>
                                     </PropertyField>
                                 </>
                             )}

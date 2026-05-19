@@ -282,14 +282,9 @@ const SharedSidebar = () => {
     const registryChildren = [
       { name: "Customers", href: "/registry/customers", icon: Users },
       { name: "Pending Amendments", href: isOfficer ? "/officer/customers/amendments" : "/registry/pending-amendments", icon: ClipboardList },
-      { name: "BM Pending", href: "/registry/bm-pending", icon: UserCheck },
-      { name: "Spoof Calling", href: "/registry/callbacks-pending", icon: PhoneCall },
-      { name: "HQ Pending", href: "/registry/hq-pending", icon: UserCheck },
-      { name: "Approvals Pending", href: "/registry/approvals-pending", icon: UserCheck },
+      { name: "Pending Approvals", href: "/registry/approvals-pending", icon: UserCheck },
       { name: "Customer Transfer", href: "/registry/customer-transfer", icon: Users },
-      // { name: "Customer Categories", href: "/registry/customer-categories", icon: FolderOpen },
       { name: "Customer Edits", href: "/registry/customer-edits", icon: FileSpreadsheet },
-      // { name: "Prequalified Amount Edit", href: "/registry/prequalified-amount-edit", icon: CreditCard },
       { name: "Guarantors", href: "/registry/guarantors", icon: Handshake },
       { name: "Refunds", href: "/admin/refunds", icon: DollarSign, permission: "refund.approve" }
     ];

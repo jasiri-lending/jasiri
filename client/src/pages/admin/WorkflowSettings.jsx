@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, GitBranch, CheckCircle, Settings, Eye } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, GitBranch, CheckCircle, Settings, Eye, Copy } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../hooks/userAuth';
@@ -143,16 +143,28 @@ const WorkflowSettings = () => {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-3.5">
-                                                <span className={`px-2 py-0.5 text-[9px] whitespace-nowrap rounded-md ${
-                                                    workflow.status === 'active' 
-                                                        ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
-                                                        : 'bg-slate-100 text-slate-500 border border-slate-200'
-                                                }`}>
-                                                    {workflow.status}
-                                                </span>
+                                                <div className="flex items-center space-x-2">
+                                                    <span className={`px-2 py-0.5 text-[9px] font-bold whitespace-nowrap rounded-md ${
+                                                        workflow.status === 'active' 
+                                                            ? 'bg-emerald-50 text-emerald-600 border border-emerald-100' 
+                                                            : 'bg-slate-100 text-slate-500 border border-slate-200'
+                                                    }`}>
+                                                        {workflow.status.toUpperCase()}
+                                                    </span>
+                                                    <span className="text-[9px] font-bold text-slate-400 bg-slate-50 px-1.5 py-0.5 rounded border border-slate-100">
+                                                        v{workflow.version || 1}.0
+                                                    </span>
+                                                </div>
                                             </td>
                                             <td className="px-6 py-3.5 text-right">
                                                             <div className="flex items-center justify-end space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <button 
+                                                                    onClick={() => navigate(`/workflow-setting/admin/builder/new?clone=${workflow.id}`)}
+                                                                    className="p-1.5 text-slate-400 hover:text-amber-600 hover:bg-amber-50 rounded-lg transition-all"
+                                                                    title="Clone Workflow"
+                                                                >
+                                                                    <Copy className="h-3.5 w-3.5" />
+                                                                </button>
                                                                 <button 
                                                                     onClick={() => navigate(`/workflow-setting/admin/builder/${workflow.id}?view=true`)}
                                                                     className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all"

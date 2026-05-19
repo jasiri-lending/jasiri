@@ -3,7 +3,7 @@ import { Plus, CheckCircle, Search, GitBranch, Zap, Play } from 'lucide-react';
 
 export const StartNode = ({ data, selected }) => {
     return (
-        <div className={`bg-white border-2 ${selected ? 'border-green-600 shadow-lg' : 'border-green-500'} rounded-lg p-3 shadow-md w-44 text-center transition-all relative group`}>
+        <div className={`bg-white border-2 ${selected ? 'border-green-600 shadow-lg' : 'border-green-500'} rounded-lg p-3 shadow-md w-36 text-center transition-all relative group`}>
             <div className="flex items-center justify-center mb-1.5">
                 <div className="bg-green-100 p-1 rounded-md">
                     <Play className="w-3.5 h-3.5 text-green-600 fill-current" />
@@ -17,92 +17,57 @@ export const StartNode = ({ data, selected }) => {
             <Handle 
                 type="source" 
                 position={Position.Bottom} 
-                className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center group/handle z-10"
-            >
-                <div className="w-3.5 h-3.5 bg-green-500 rounded-full flex items-center justify-center border-2 border-white shadow-sm transition-all group-hover/handle:scale-110">
-                    <Plus strokeWidth={3} className="w-2 h-2 text-white opacity-0 group-hover/handle:opacity-100" />
-                </div>
-            </Handle>
+                id="bottom-source"
+                className="!w-3 !h-3 !bg-green-500 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10"
+            />
         </div>
     );
 };
 
-export const ApprovalNode = ({ data, selected }) => {
+export const TaskNode = ({ data, selected }) => {
     return (
-        <div className={`bg-white border-2 ${selected ? 'border-blue-600 shadow-lg' : 'border-blue-400'} rounded-lg p-3 shadow-sm w-44 text-center transition-all relative`}>
-            <Handle type="target" position={Position.Top} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
+        <div className={`bg-white border-2 ${selected ? 'border-blue-600 shadow-lg' : 'border-blue-400'} rounded-lg p-3 shadow-sm w-44 text-center transition-all relative group`}>
+            {/* Top Target (Forward) */}
+            <Handle type="target" position={Position.Top} id="top-target" className="!w-3 !h-3 !bg-blue-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            
+            {/* Bottom Source (Forward) */}
+            <Handle type="source" position={Position.Bottom} id="bottom-source" className="!w-3 !h-3 !bg-blue-500 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            
+            {/* Left Source & Target (Send Back) */}
+            <Handle type="source" position={Position.Left} id="left-source" style={{ top: '30%' }} className="!w-2.5 !h-2.5 !bg-amber-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            <Handle type="target" position={Position.Left} id="left-target" style={{ top: '70%' }} className="!w-2.5 !h-2.5 !bg-amber-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            
+            {/* Right Source & Target (Send Back) */}
+            <Handle type="source" position={Position.Right} id="right-source" style={{ top: '30%' }} className="!w-2.5 !h-2.5 !bg-amber-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            <Handle type="target" position={Position.Right} id="right-target" style={{ top: '70%' }} className="!w-2.5 !h-2.5 !bg-amber-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10" />
+            
             <div className="flex items-center justify-center mb-1.5">
                 <div className="bg-blue-100 p-1 rounded-md">
                     <CheckCircle className="w-3.5 h-3.5 text-blue-600" />
                 </div>
             </div>
-            <div className="font-bold text-blue-800 text-[9px] uppercase tracking-widest">Approval</div>
+            <div className="font-bold text-blue-800 text-[9px] uppercase tracking-widest">User Task</div>
             <div className="text-[11px] text-gray-800 mt-0.5 font-bold truncate">{data.label}</div>
-            <div className="text-[9px] text-gray-400 mt-1.5 flex items-center justify-center">
-                <span className="bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{data.roleName || 'Unassigned'}</span>
+            <div className="text-[9px] mt-1.5 flex items-center justify-center">
+                <span className={`px-1.5 py-0.5 rounded border ${data.roleName ? 'bg-indigo-50 text-indigo-700 border-indigo-100 font-bold' : 'bg-gray-50 text-gray-400 border-gray-100'}`}>
+                    {data.roleName || 'Unassigned'}
+                </span>
             </div>
-            <Handle type="source" position={Position.Bottom} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
         </div>
     );
 };
 
-export const ReviewNode = ({ data, selected }) => {
-    return (
-        <div className={`bg-white border-2 ${selected ? 'border-amber-600 shadow-lg' : 'border-amber-400'} rounded-lg p-3 shadow-sm w-44 text-center transition-all relative`}>
-            <Handle type="target" position={Position.Top} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-            <div className="flex items-center justify-center mb-1.5">
-                <div className="bg-amber-100 p-1 rounded-md">
-                    <Search className="w-3.5 h-3.5 text-amber-600" />
-                </div>
-            </div>
-            <div className="font-bold text-amber-800 text-[9px] uppercase tracking-widest">Review</div>
-            <div className="text-[11px] text-gray-800 mt-0.5 font-bold truncate">{data.label}</div>
-            <div className="text-[9px] text-gray-400 mt-1.5 flex items-center justify-center">
-                <span className="bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{data.roleName || 'Unassigned'}</span>
-            </div>
-            <Handle type="source" position={Position.Bottom} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-        </div>
-    );
-};
 
-export const DecisionNode = ({ data, selected }) => {
-    return (
-        <div className={`bg-white border-2 ${selected ? 'border-purple-600 shadow-lg' : 'border-purple-400'} rounded-lg p-3 shadow-sm w-44 text-center transition-all relative`}>
-            <Handle type="target" position={Position.Top} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-            <div className="flex items-center justify-center mb-1.5">
-                <div className="bg-purple-100 p-1 rounded-md">
-                    <GitBranch className="w-3.5 h-3.5 text-purple-600" />
-                </div>
-            </div>
-            <div className="font-bold text-purple-800 text-[9px] uppercase tracking-widest">Decision</div>
-            <div className="text-[11px] text-gray-800 mt-0.5 font-bold truncate">{data.label}</div>
-            <div className="text-[9px] text-gray-400 mt-1.5 italic">Automated</div>
-            <Handle type="source" position={Position.Bottom} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-        </div>
-    );
-};
-
-export const AutoProcessNode = ({ data, selected }) => {
-    return (
-        <div className={`bg-white border-2 ${selected ? 'border-indigo-600 shadow-lg' : 'border-indigo-400'} rounded-lg p-3 shadow-sm w-44 text-center transition-all relative`}>
-            <Handle type="target" position={Position.Top} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-            <div className="flex items-center justify-center mb-1.5">
-                <div className="bg-indigo-100 p-1 rounded-md">
-                    <Zap className="w-3.5 h-3.5 text-indigo-600" />
-                </div>
-            </div>
-            <div className="font-bold text-indigo-800 text-[9px] uppercase tracking-widest">Auto Action</div>
-            <div className="text-[11px] text-gray-800 mt-0.5 font-bold truncate">{data.label}</div>
-            <div className="text-[9px] text-gray-400 mt-1.5 italic">{data.on_entry_actions?.length || 0} Tasks</div>
-            <Handle type="source" position={Position.Bottom} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
-        </div>
-    );
-};
 
 export const EndNode = ({ data, selected }) => {
     return (
-        <div className={`bg-white border-2 ${selected ? 'border-red-600 shadow-lg' : 'border-red-500'} rounded-lg p-2.5 shadow-md w-36 text-center relative`}>
-            <Handle type="target" position={Position.Top} className="!w-4 !h-4 !bg-transparent !border-none flex items-center justify-center z-10" />
+        <div className={`bg-white border-2 ${selected ? 'border-red-600 shadow-lg' : 'border-red-500'} rounded-lg p-2.5 shadow-md w-28 text-center transition-all relative group`}>
+            <Handle 
+                type="target" 
+                position={Position.Top} 
+                id="top-target"
+                className="!w-3 !h-3 !bg-red-400 !border-2 !border-white transition-opacity duration-200 opacity-0 group-hover:opacity-100 z-10"
+            />
             <div className="font-bold text-red-700 text-[9px] uppercase tracking-widest mb-0.5">End</div>
             <div className="text-[11px] text-gray-600 font-bold truncate">{data.label}</div>
         </div>
