@@ -433,7 +433,7 @@ const Guarantors = () => {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto bg-muted min-h-screen">
+    <div className="p-6 max-w-7xl mx-auto bg-muted min-h-screen font-outfit">
       <div className="mb-6">
         <div className="flex justify-between items-start">
           <div>
@@ -572,7 +572,7 @@ const Guarantors = () => {
       )}
 
       <div className="bg-white rounded-lg shadow overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto font-outfit">
           <table className="w-full min-w-[1000px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
@@ -616,7 +616,7 @@ const Guarantors = () => {
               ) : (
                 filteredGuarantors.map((guarantor) => (
                   <tr key={guarantor.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="flex flex-col min-w-[200px]">
                         <div className="font-medium text-gray-900 text-sm truncate">
                           {guarantor.Firstname} {guarantor.Middlename} {guarantor.Surname}
@@ -626,17 +626,17 @@ const Guarantors = () => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="text-gray-700 text-sm font-mono truncate max-w-[120px]">
                         {guarantor.id_number || 'N/A'}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="text-gray-700 text-sm truncate max-w-[130px]">
                         {guarantor.mobile || 'N/A'}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {guarantor.guaranteed_customers && guarantor.guaranteed_customers.length > 0 ? (
                         <div className="space-y-2 min-w-[200px]">
                           {guarantor.guaranteed_customers.map((gc, index) => (
@@ -666,7 +666,7 @@ const Guarantors = () => {
                         <div className="text-gray-400 text-sm italic">No customer linked</div>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {guarantor.customersWithUnpaidLoans && guarantor.customersWithUnpaidLoans.length > 0 ? (
                         <div className="space-y-2 min-w-[200px]">
                           {guarantor.customersWithUnpaidLoans.map((customer, index) => (
@@ -697,7 +697,7 @@ const Guarantors = () => {
                         </div>
                       )}
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="flex">
                         <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${guarantor.canConvertToCustomer
                           ? 'bg-green-100 text-green-800 border border-green-200'
@@ -717,44 +717,29 @@ const Guarantors = () => {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="text-sm text-gray-600 font-medium">
                         {calculateAge(guarantor.date_of_birth) !== 'N/A' 
                           ? `${calculateAge(guarantor.date_of_birth)} yrs` 
                           : 'N/A'}
                       </div>
                     </td>
-                    <td className="px-4 py-4">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <div className="flex justify-center">
                         <button
                           onClick={() => handleConvertToCustomer(guarantor)}
                           disabled={!guarantor.canConvertToCustomer || convertingId === guarantor.id}
-                          className={`inline-flex items-center justify-center gap-2 px-3 py-2 rounded-md text-sm font-medium transition-all whitespace-nowrap min-w-[150px] ${guarantor.canConvertToCustomer && convertingId !== guarantor.id
-                            ? 'text-white hover:shadow-md active:scale-[0.98]'
-                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                            }`}
-                          style={
-                            guarantor.canConvertToCustomer && convertingId !== guarantor.id
-                              ? { backgroundColor: "#586ab1" }
-                              : {}
-                          }
+                          className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all whitespace-nowrap ${guarantor.canConvertToCustomer && convertingId !== guarantor.id
+                            ? 'text-white bg-[#586ab1] hover:shadow-md active:scale-[0.98]'
+                            : 'bg-gray-100 text-gray-400 cursor-not-allowed'}
+                          `}
                           title={
                             !guarantor.canConvertToCustomer
                               ? 'Customer still has unpaid loans'
                               : 'Convert to customer'
                           }
                         >
-                          {convertingId === guarantor.id ? (
-                            <>
-                              <Loader2 className="w-4 h-4 animate-spin" />
-                              Converting...
-                            </>
-                          ) : (
-                            <>
-                              <UserPlus className="w-4 h-4" />
-                              Convert to Customer
-                            </>
-                          )}
+                          {convertingId === guarantor.id ? 'Converting...' : 'Convert'}
                         </button>
                       </div>
                     </td>

@@ -409,7 +409,7 @@ const CallbackPending = () => {
   if (!profile) return null;
 
   return (
-    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -634,7 +634,7 @@ const CallbackPending = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-outfit">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -676,29 +676,29 @@ const CallbackPending = () => {
                     key={customer.id}
                     className="hover:bg-gray-50 transition-colors"
                   >
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {fullName || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.mobile || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.id_number || customer.national_id || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.prequalifiedAmount ?
                         `Ksh ${Number(customer.prequalifiedAmount).toLocaleString()}` :
                         "N/A"}
                     </td>
                     {(profile?.role === 'credit_analyst_officer' || profile?.role === 'customer_service_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager') && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.users?.full_name || "N/A"}
                       </td>
                     )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.branches?.name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-700">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       {customer.regions?.name || "N/A"}
                     </td>
                     <td className="px-5 py-3.5 text-center whitespace-nowrap">
@@ -706,7 +706,7 @@ const CallbackPending = () => {
                         {/* View Customer */}
                         <button
                           onClick={() => handleView(customer)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className="text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200"
                           title="View Customer Details"
                         >
                           <EyeIcon className="h-4 w-4" />
@@ -716,7 +716,7 @@ const CallbackPending = () => {
                         {profile?.role === "customer_service_officer" && (
                           <button
                             onClick={() => handleApprove(customer.id)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow flex items-center gap-1"
+                            className="text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200 flex items-center gap-1"
                             title="Spoof Call"
                           >
                             <PhoneIcon className="h-4 w-4" />
@@ -749,7 +749,7 @@ const CallbackPending = () => {
         {/* Pagination */}
         {filteredCustomers.length > 0 && (
           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
               {/* Results Count */}
               <div className="text-sm text-gray-600">
                 Showing  <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
@@ -764,34 +764,34 @@ const CallbackPending = () => {
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="First Page"
                   >
-                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Previous Page"
                   >
-                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
                       pageNum === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
+                        <span key={`ellipsis-${index}`} className="px-2 text-[10px] text-gray-400">
                           ...
                         </span>
                       ) : (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                          className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum
                             ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                             : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
@@ -806,20 +806,20 @@ const CallbackPending = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Next Page"
                   >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Last Page"
                   >
-                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
                 </div>
               )}
@@ -832,3 +832,4 @@ const CallbackPending = () => {
 };
 
 export default CallbackPending;
+

@@ -27,6 +27,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
+import { apiFetch } from "../../utils/api";
 
 import Form, { INDUSTRIES } from "./Form";
 
@@ -1994,6 +1995,41 @@ const CustomerForm = ({ leadData: propLeadData, }) => {
 
       if (customerError) throw customerError;
       const customerId = customerData.id;
+
+      // --- Initialize workflow instance for customer onboarding ---
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_onboarding',
+            entity_id: customerId,
+            entity_type: 'customer_onboarding',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Initial customer submission'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer onboarding instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start instance:', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow for customer (lead conversion):', wfError);
+        // Non-fatal: customer record is saved.
+      }
 
       // Update lead status if this was a conversion
       if (leadData?.id) {

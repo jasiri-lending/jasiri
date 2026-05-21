@@ -17,6 +17,8 @@ import {
 import ApproveLoan from "./ApproveLoan";
 import Spinner from "../../components/Spinner";
 import { useNavigate } from "react-router-dom";
+import SharedTable from "../../components/SharedTable";
+import Pagination from "../../components/Pagination";
 
 
 const LoanPendingRm = () => {
@@ -289,45 +291,89 @@ const LoanPendingRm = () => {
     setCurrentPage(1);
   }, [searchTerm, selectedBranch, selectedRegion, selectedRO, startDate, endDate]);
 
-  const getPageNumbers = () => {
-    const pageNumbers = [];
-    const maxVisiblePages = 5;
-
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) {
-        pageNumbers.push(i);
-      }
-    } else {
-      pageNumbers.push(1);
-
-      let startPage = Math.max(2, currentPage - 1);
-      let endPage = Math.min(totalPages - 1, currentPage + 1);
-
-      if (currentPage <= 2) {
-        endPage = 4;
-      }
-
-      if (currentPage >= totalPages - 1) {
-        startPage = totalPages - 3;
-      }
-
-      if (startPage > 2) {
-        pageNumbers.push('...');
-      }
-
-      for (let i = startPage; i <= endPage; i++) {
-        pageNumbers.push(i);
-      }
-
-      if (endPage < totalPages - 1) {
-        pageNumbers.push('...');
-      }
-
-      pageNumbers.push(totalPages);
-    }
-
-    return pageNumbers;
-  };
+  // Columns definition for SharedTable
+  const columns = [
+    {
+      header: 'Loan ID',
+      render: (row) => `#${row.id}`,
+    },
+    {
+      header: 'Customer',
+      render: (row) => `${row.customers?.Firstname || ''} ${row.customers?.Middlename || ''} ${row.customers?.Surname || ''}`.trim() || 'N/A',
+    },
+    {
+      header: 'ID Number',
+      render: (row) => row.customers?.id_number || 'N/A',
+    },
+    {
+      header: 'Mobile',
+      render: (row) => row.customers?.mobile || 'N/A',
+    },
+    ...(isCreditAnalyst || isCustomerService || isRegionalManager
+      ? [{
+          header: 'Branch',
+          render: (row) => row.customers?.branches?.name || 'N/A',
+        }]
+      : []),
+    ...(isCreditAnalyst || isCustomerService || isRegionalManager
+      ? [{
+          header: 'Booked By',
+          render: (row) => getROName(row),
+        }]
+      : []),
+    {
+      header: 'Product',
+      render: (row) => row.product_name || row.product || 'N/A',
+    },
+    {
+      header: 'Amount',
+      render: (row) => row.scored_amount ? `Ksh ${Number(row.scored_amount).toLocaleString()}` : 'N/A',
+    },
+    {
+      header: 'Weeks',
+      render: (row) => row.duration_weeks || 'N/A',
+    },
+    {
+      header: 'Approved By',
+      render: (row) => (
+        <div className="flex items-center gap-1">
+          {row.bm_id && <CheckCircleIcon className="h-3 w-3 text-green-500" />}
+          <span className="text-xs text-slate-600 font-medium whitespace-nowrap">{getBMName(row)}</span>
+        </div>
+      ),
+    },
+    {
+      header: 'Approved At',
+      render: (row) => row.bm_reviewed_at ? formatDate(row.bm_reviewed_at) : 'N/A',
+    },
+    {
+      header: 'Applied Date',
+      render: (row) => row.created_at ? formatDate(row.created_at) : 'N/A',
+    },
+    {
+      header: 'Actions',
+      render: (row) => (
+        <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => handleViewLoan(row.id)}
+            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+            title="View Loan Details"
+          >
+            <EyeIcon className="h-3 w-3" />
+          </button>
+          {isRegionalManager && (
+            <button
+              onClick={() => setSelectedLoan(row)}
+              className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+              title="Review and Approve Loan"
+            >
+              <CheckCircleIcon className="h-3 w-3" />
+            </button>
+          )}
+        </div>
+      ),
+    },
+  ];
 
   const handleComplete = () => {
     setSelectedLoan(null);
@@ -596,110 +642,12 @@ const LoanPendingRm = () => {
 
         {/* Table Container */}
         <div className="overflow-x-auto font-body">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600" >Loan ID</th>
-                <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600" >Customer</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >ID Number</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Mobile</th>
-                {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Branch</th>
-                )}
-                {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Booked By</th>
-                )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600" >Product</th>
-                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600" >Amount</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Weeks</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Approved By</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Approved At</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Applied Date</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600" >Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {currentLoans.map((loan, index) => {
-                const customerName = `${loan.customers?.Firstname || ""} ${loan.customers?.Middlename || ""} ${loan.customers?.Surname || ""}`.trim();
-
-                return (
-                  <tr key={loan.id} className={`border-b border-gray-50 transition-colors hover:bg-brand-surface ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono text-slate-600" >
-                      #{loan.id}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                      {customerName || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                      {loan.customers?.id_number || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                      {loan.customers?.mobile || "N/A"}
-                    </td>
-                    {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                        {loan.customers?.branches?.name || "N/A"}
-                      </td>
-                    )}
-                    {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                        {getROName(loan)}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                      {loan.product_name || loan.product || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600" >
-                      {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600" >
-                      {loan.duration_weeks || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1">
-                        {loan.bm_id && <CheckCircleIcon className="h-4 w-4 text-green-500" />}
-                        <span className="text-xs text-slate-600 font-medium whitespace-nowrap">
-                          {getBMName(loan)}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap">
-                      <div className="text-xs text-gray-600">
-                        {loan.bm_reviewed_at ? formatDate(loan.bm_reviewed_at) : "N/A"}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600" >
-                      {loan.created_at ? formatDate(loan.created_at) : "N/A"}
-                    </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* View Button - Available for all roles */}
-                        <button
-                          onClick={() => handleViewLoan(loan.id)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
-                          title="View Loan Details"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-
-                        {/* Verify/Approve Button - Only for regional managers */}
-                        {isRegionalManager && (
-                          <button
-                            onClick={() => setSelectedLoan(loan)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Review and Approve Loan"
-                          >
-                            <CheckCircleIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          {/* Shared Table */}
+          <SharedTable
+            columns={columns}
+            data={currentLoans}
+            rowKey="id"
+          />
         </div>
 
         {/* No Results */}
@@ -724,93 +672,24 @@ const LoanPendingRm = () => {
         {/* Pagination */}
         {filteredLoans.length > 0 && (
           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              {/* Results Count */}
-              <div className="text-sm text-gray-600">
-                Showing <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
-                <span className="font-semibold text-gray-800">{Math.min(endIndex, filteredLoans.length)}</span> of{" "}
-                <span className="font-semibold text-gray-800">{filteredLoans.length}</span> results
-              </div>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex items-center gap-1.5">
-                  {/* First Page */}
-                  <button
-                    onClick={() => setCurrentPage(1)}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
-                    title="First Page"
-                  >
-                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
-                  </button>
-
-                  {/* Previous Page */}
-                  <button
-                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
-                    title="Previous Page"
-                  >
-                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
-                  </button>
-
-                  {/* Page Numbers */}
-                  <div className="flex items-center gap-1 mx-2">
-                    {getPageNumbers().map((pageNum, index) => (
-                      pageNum === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
-                          ...
-                        </span>
-                      ) : (
-                        <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
-                            ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
-                            : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
-                            }`}
-                        >
-                          {pageNum}
-                        </button>
-                      )
-                    ))}
-                  </div>
-
-                  {/* Next Page */}
-                  <button
-                    onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
-                    title="Next Page"
-                  >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
-                  </button>
-
-                  {/* Last Page */}
-                  <button
-                    onClick={() => setCurrentPage(totalPages)}
-                    disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
-                    title="Last Page"
-                  >
-                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
-                  </button>
-                </div>
-              )}
-            </div>
+            <Pagination
+              totalItems={filteredLoans.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
 
             {/* Items Per Page Selector */}
             <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="flex items-center justify-end gap-2">
-                <span className="text-sm text-gray-600">Items per page:</span>
+                <span className="text-[10px] text-gray-600">Items per page:</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
                     // Handle items per page change
                     console.log("Items per page changed to:", e.target.value);
                   }}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
+                  className="text-[10px] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>

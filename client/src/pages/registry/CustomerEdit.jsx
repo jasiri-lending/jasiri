@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   MagnifyingGlassIcon,
@@ -25,6 +25,7 @@ import { supabase } from "../../supabaseClient.js";
 import { useAuth } from "../../hooks/userAuth.js";
 import { usePermissions } from "../../hooks/usePermissions.js";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures.js";
+import { apiFetch } from "../../utils/api";
 
 function CustomerEdits() {
   const navigate = useNavigate();
@@ -321,11 +322,48 @@ function CustomerEdits() {
         created_at: new Date().toISOString()
       };
 
-      const { error: insertError } = await supabase
+      const { data: editData, error: insertError } = await supabase
         .from('customer_phone_id_edit_requests')
-        .insert([editRequestData]);
+        .insert([editRequestData])
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Start a customer_edits workflow instance for this request
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_edits',
+            entity_id: editData.id,
+            entity_type: 'customer_edits',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Customer edit request submitted'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer edits instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start customer_edits instance:', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow for customer edit:', wfError);
+        // Non-fatal: edit request is saved.
+      }
 
       alert('Edit request submitted successfully!');
 
@@ -688,7 +726,7 @@ function CustomerEdits() {
   }
 
   return (
-    <div className="min-h-screen bg-muted font-sans">
+    <div className="min-h-screen bg-muted font-outfit">
 
       {/* Breadcrumb Header */}
       <div className="max-w-7xl mx-auto px-4 md:px-6 pt-6">
@@ -950,7 +988,7 @@ function CustomerEdits() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search requests..."
-                className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-sans"
+                className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-outfit"
               />
             </div>
 
@@ -961,7 +999,7 @@ function CustomerEdits() {
                   <select
                     value={statusFilter}
                     onChange={(e) => setStatusFilter(e.target.value)}
-                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-sans"
+                    className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-outfit"
                   >
                     <option value="all">All Access Records</option>
                     <option value="pending_branch_manager">Pending BM Action</option>
@@ -979,7 +1017,7 @@ function CustomerEdits() {
 
           {/* Table Area */}
           <div className="overflow-x-auto min-h-[400px]">
-            <table className="w-full border-collapse font-sans">
+            <table className="w-full border-collapse font-outfit">
               <thead>
                 <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Customer</th>
@@ -1027,7 +1065,7 @@ function CustomerEdits() {
 
                     return (
                       <tr key={request.id} className={`group hover:bg-gray-100/50 transition-all border-b border-gray-100 ${idx % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center transition-transform group-hover:scale-110">
                               <UserIcon className="w-4 h-4 text-slate-400" />
@@ -1040,26 +1078,26 @@ function CustomerEdits() {
                             </div>
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                           {request.current_mobile || '---'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`text-sm ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1] font-semibold' : 'text-slate-400'}`}>
                             {request.new_mobile || '---'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                           {request.current_id_number || '---'}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <span className={`text-sm ${request.current_id_number !== request.new_id_number ? 'text-indigo-600 font-semibold' : 'text-slate-400'}`}>
                             {request.new_id_number || '---'}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           {getStatusBadge(request.status)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div className="text-sm text-slate-600 whitespace-nowrap">
                             {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
@@ -1067,13 +1105,13 @@ function CustomerEdits() {
                             {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
-                        <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                           {request.created_by_user?.full_name || '—'}
                         </td>
-                        <td className="px-4 py-3 text-right">
+                        <td className="px-4 py-3 text-right whitespace-nowrap">
                           <button
                             onClick={() => navigate(`/registry/customer-edits/review/${request.id}/phone_id`)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                            className="text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200"
                             title="Quick Review"
                           >
                             <EyeIcon className="h-4 w-4" />
@@ -1093,3 +1131,5 @@ function CustomerEdits() {
 }
 
 export default CustomerEdits;
+
+

@@ -501,7 +501,7 @@ const PromiseToPay = () => {
             <div className="text-center py-16 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl border-2 border-dashed border-gray-300">
               <Calendar className="h-16 w-16 text-gray-400 mx-auto mb-4" />
               <p className="text-gray-600 font-medium text-lg">No promises recorded yet</p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-xs text-slate-600 mt-2">
                 Click "New Promise" above to record a promise to pay
               </p>
             </div>
@@ -545,10 +545,10 @@ const PromiseToPay = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {ptp.interaction_type || "N/A"}
                       </td>
-                      <td className="px-6 py-4 max-w-md">
+                      <td className="px-6 py-4 max-w-md whitespace-nowrap">
                         <div className="text-sm text-gray-600 line-clamp-3 overflow-hidden" title={ptp.remarks}>
                           {ptp.remarks || "-"}
                         </div>

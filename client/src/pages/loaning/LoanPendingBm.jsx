@@ -18,6 +18,7 @@ import ApproveLoan from "./ApproveLoan";
 import Spinner from "../../components/Spinner";
 import { useNavigate } from "react-router-dom";
 
+
 const LoanPendingBm = () => {
   const { profile, loading: authLoading } = useAuth();
   const hasFetchedData = useRef(false);
@@ -599,97 +600,7 @@ const LoanPendingBm = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-body">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600" >Loan ID</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Customer</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">ID Number</th>
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Mobile</th>
-                {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                  <th className="px-4 py-3 text-left text-xs whitespace-nowrap text-slate-600">Branch</th>
-                )}
-                {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                  <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Booked By</th>
-                )}
-                <th className="px-4 py-3 text-left text-xs tracking-wider whitespace-nowrap text-slate-600">Product</th>
-                <th className="px-4 py-3 text-right text-xs tracking-wider whitespace-nowrap text-slate-600">Amount</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Weeks</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Applied Date</th>
-                <th className="px-4 py-3 text-center text-xs tracking-wider whitespace-nowrap text-slate-600">Actions</th>
-              </tr>
-            </thead>
 
-            <tbody>
-              {currentLoans.map((loan, index) => {
-                const customerName = `${loan.customers?.Firstname || ""} ${loan.customers?.Middlename || ""} ${loan.customers?.Surname || ""}`.trim();
-
-                return (
-                  <tr key={loan.id} className={`border-b border-gray-50 transition-colors hover:bg-brand-surface ${index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'}`}>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap font-mono text-slate-600" >
-                      #{loan.id}
-                    </td>
-                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
-                      {customerName || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                      {loan.customers?.id_number || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                      {loan.customers?.mobile || "N/A"}
-                    </td>
-                    {(isCreditAnalyst || isCustomerService || isRegionalManager) && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {loan.customers?.branches?.name || "N/A"}
-                      </td>
-                    )}
-                    {(isCreditAnalyst || isCustomerService || isRegionalManager || isBranchManager) && (
-                      <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                        {getROName(loan)}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-slate-600">
-                      {loan.product_name || loan.product || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-right text-slate-600">
-                      {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600">
-                      {loan.duration_weeks || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-center whitespace-nowrap text-slate-600">
-                      {loan.created_at ? new Date(loan.created_at).toLocaleDateString("en-GB") : "N/A"}
-                    </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        {/* View Button - Available for all roles */}
-                        <button
-                          onClick={() => handleViewLoan(loan.id)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
-                          title="View Loan Details"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-
-                        {/* Verify/Approve Button - Only for branch managers */}
-                        {isBranchManager && (
-                          <button
-                            onClick={() => setSelectedLoan(loan)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
-                            title="Review and Approve Loan"
-                          >
-                            <CheckCircleIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
 
         {/* No Results */}
         {filteredLoans.length === 0 && (
@@ -713,7 +624,7 @@ const LoanPendingBm = () => {
         {/* Pagination */}
         {filteredLoans.length > 0 && (
           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
               {/* Results Count */}
               <div className="text-sm text-gray-600">
                 Showing <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
@@ -728,34 +639,34 @@ const LoanPendingBm = () => {
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="First Page"
                   >
-                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Previous Page"
                   >
-                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
                       pageNum === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
+                        <span key={`ellipsis-${index}`} className="px-2 text-[10px] text-gray-400">
                           ...
                         </span>
                       ) : (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                          className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum
                             ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                             : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
@@ -770,20 +681,20 @@ const LoanPendingBm = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Next Page"
                   >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Last Page"
                   >
-                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
                 </div>
               )}
@@ -792,13 +703,13 @@ const LoanPendingBm = () => {
             {/* Items Per Page Selector */}
             <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="flex items-center justify-end gap-2">
-                <span className="text-sm text-gray-600">Items per page:</span>
+                <span className="text-[10px] text-gray-600">Items per page:</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
                     console.log("Items per page changed to:", e.target.value);
                   }}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
+                  className="text-[10px] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white hover:bg-gray-50 transition-colors"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>

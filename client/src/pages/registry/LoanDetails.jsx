@@ -251,28 +251,28 @@ const LoanDetails = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">#</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Due Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Paid Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Days Overdue</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">#</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Due Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Due Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Paid Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Status</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Days Overdue</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {loanInstallments.map((installment) => (
                         <tr key={installment.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">{installment.installment_number}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{installment.installment_number}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                             {formatDate(installment.due_date)}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-gray-900">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                             {formatCurrency(installment.due_amount)}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-green-600">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                             {formatCurrency(installment.paid_amount)}
                           </td>
-                          <td className="px-4 py-3 text-sm">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                             <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${installment.status === 'paid'
                                 ? 'bg-green-100 text-green-800'
                                 : installment.status === 'partial'
@@ -284,7 +284,7 @@ const LoanDetails = () => {
                               {installment.status}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                             {installment.days_overdue > 0 ? (
                               <span className="text-red-600 font-medium">{installment.days_overdue} days</span>
                             ) : (
@@ -316,33 +316,33 @@ const LoanDetails = () => {
                   <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Method</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Receipt</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Phone</th>
-                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Date</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Amount</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Method</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Receipt</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Phone</th>
+                        <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Type</th>
                       </tr>
                     </thead>
                     <tbody className="bg-white divide-y divide-gray-200">
                       {loanPayments.map((payment) => (
                         <tr key={payment.id} className="hover:bg-gray-50">
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                             {formatDateTime(payment.paid_at)}
                           </td>
-                          <td className="px-4 py-3 text-sm font-medium text-green-600">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                             {formatCurrency(payment.paid_amount)}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 capitalize">
+                          <td className="px-4 py-3 text-xs text-slate-600 capitalize whitespace-nowrap">
                             {payment.payment_method?.replace('_', ' ') || "N/A"}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900 font-mono text-xs">
+                          <td className="px-4 py-3 text-xs text-slate-600 font-mono text-xs whitespace-nowrap">
                             {payment.mpesa_receipt || "-"}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                             {payment.phone_number || "-"}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-600 capitalize">
+                          <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                             {payment.payment_type || "-"}
                           </td>
                         </tr>
@@ -350,8 +350,8 @@ const LoanDetails = () => {
                     </tbody>
                     <tfoot className="bg-gray-50">
                       <tr>
-                        <td className="px-4 py-3 text-sm font-semibold text-gray-900">Total</td>
-                        <td className="px-4 py-3 text-sm font-bold text-green-600">{formatCurrency(totalPaid)}</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">Total</td>
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">{formatCurrency(totalPaid)}</td>
                         <td colSpan="4"></td>
                       </tr>
                     </tfoot>

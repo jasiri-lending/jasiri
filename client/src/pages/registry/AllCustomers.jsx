@@ -505,7 +505,7 @@ const AllCustomers = () => {
   if ((profile?.role === 'regional_manager' && !profile?.region_id) ||
     (profile?.role === 'branch_manager' && !profile?.branch_id)) {
     return (
-      <div className="bg-muted p-6 min-h-screen font-sans">
+      <div className="bg-muted p-6 min-h-screen font-outfit">
         <div className="bg-white shadow-lg rounded-xl p-8 text-center">
           <p className="text-red-600 text-sm font-medium">
             Error: Your profile is missing necessary information. Please contact your administrator.
@@ -518,7 +518,7 @@ const AllCustomers = () => {
 
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -760,7 +760,7 @@ const AllCustomers = () => {
 
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-outfit">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -917,8 +917,8 @@ const AllCustomers = () => {
 
         {/* Pagination */}
         {filteredCustomers.length > 0 && (
-          <div className="px-5 py-2 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="px-5 py-2 border-t border-gray-200 bg-gray-50 font-outfit text-[10px]">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
               {/* Results Count */}
              
 
@@ -929,34 +929,34 @@ const AllCustomers = () => {
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="First Page"
                   >
-                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Previous Page"
                   >
-                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
                       pageNum === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
+                        <span key={`ellipsis-${index}`} className="px-2 text-[10px] text-gray-400">
                           ...
                         </span>
                       ) : (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                          className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum
                             ? "bg-brand-secondary text-white shadow-sm"
                             : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
@@ -971,20 +971,20 @@ const AllCustomers = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Next Page"
                   >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Last Page"
                   >
-                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
                 </div>
               )}
@@ -993,14 +993,14 @@ const AllCustomers = () => {
             {/* Items Per Page Selector */}
             <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="flex items-center justify-end gap-2">
-                <span className="text-sm text-gray-600">Items per page:</span>
+                <span className="text-[10px] text-gray-600">Items per page:</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
                     setItemsPerPage(Number(e.target.value));
                     setCurrentPage(1);
                   }}
-                  className="text-sm border border-gray-300 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-brand-secondary focus:border-brand-surface bg-white hover:bg-gray-50 transition-colors"
+                  className="text-[10px] border border-gray-300 rounded px-2 py-1 focus:outline-none focus:ring-2 focus:ring-brand-secondary focus:border-brand-surface bg-white hover:bg-gray-50 transition-colors"
                 >
                   <option value={10}>10</option>
                   <option value={25}>25</option>
@@ -1017,3 +1017,4 @@ const AllCustomers = () => {
 };
 
 export default AllCustomers;
+

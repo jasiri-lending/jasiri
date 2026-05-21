@@ -550,7 +550,7 @@ const ApprovalPending = () => {
   // Check permission
   if (!hasPermission()) {
     return (
-      <div className="h-full bg-muted p-6 min-h-screen font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen font-outfit">
         <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r from-red-100 to-red-200 flex items-center justify-center">
             <XMarkIcon className="h-8 w-8 text-red-600" />
@@ -565,7 +565,7 @@ const ApprovalPending = () => {
   }
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -812,7 +812,7 @@ const ApprovalPending = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-outfit">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -875,27 +875,27 @@ const ApprovalPending = () => {
                       key={customer.id}
                       className="hover:bg-gray-50 transition-colors"
                     >
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600 capitalize">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {fullName}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.mobile || customer.phone_number || "N/A"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.id_number || customer.national_id || "N/A"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-center text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.prequalifiedAmount ? Number(customer.prequalifiedAmount).toLocaleString() : "0"}
                       </td>
                       {(profile?.role === 'credit_analyst_officer' || profile?.role === 'regional_manager' || profile?.role === 'branch_manager' || profile?.role === 'customer_service_officer') && (
-                        <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                           {customer.users?.full_name || "N/A"}
                         </td>
                       )}
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.branches?.name || (Array.isArray(customer.branches) ? customer.branches[0]?.name : null) || customer.Branch || "N/A"}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.regions?.name || (Array.isArray(customer.regions) ? customer.regions[0]?.name : null) || customer.Region || "N/A"}
                       </td>
                       <td className="px-4 py-3 whitespace-nowrap text-center">
@@ -950,7 +950,7 @@ const ApprovalPending = () => {
         {/* Pagination */}
         {filteredCustomers.length > 0 && (
           <div className="px-5 py-4 border-t border-gray-200 bg-gray-50">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
               {/* Results Count */}
               <div className="text-sm text-gray-600">
                 Showing  <span className="font-semibold text-gray-800">{startIndex + 1}</span> to{" "}
@@ -965,34 +965,34 @@ const ApprovalPending = () => {
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="First Page"
                   >
-                    <ChevronDoubleLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Previous Page */}
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Previous Page"
                   >
-                    <ChevronLeftIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronLeftIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Page Numbers */}
                   <div className="flex items-center gap-1 mx-2">
                     {getPageNumbers().map((pageNum, index) => (
                       pageNum === '...' ? (
-                        <span key={`ellipsis-${index}`} className="px-3 text-sm text-gray-400">
+                        <span key={`ellipsis-${index}`} className="px-2 text-[10px] text-gray-400">
                           ...
                         </span>
                       ) : (
                         <button
                           key={pageNum}
                           onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-1.5 text-sm rounded-lg transition-all duration-200 ${currentPage === pageNum
+                          className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum
                             ? "bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm"
                             : "text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400"
                             }`}
@@ -1007,20 +1007,20 @@ const ApprovalPending = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Next Page"
                   >
-                    <ChevronRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
 
                   {/* Last Page */}
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Last Page"
                   >
-                    <ChevronDoubleRightIcon className="h-4 w-4 text-gray-600" />
+                    <ChevronDoubleRightIcon className="h-3 w-3 text-gray-600" />
                   </button>
                 </div>
               )}
@@ -1033,3 +1033,4 @@ const ApprovalPending = () => {
 };
 
 export default ApprovalPending;
+

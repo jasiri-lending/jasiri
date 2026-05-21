@@ -1923,20 +1923,39 @@ const AddCustomer = () => {
       if (customerError) throw customerError;
       const customerId = customerData.id;
 
-      // Initiate workflow for the new customer
+      // Initiate workflow for the new customer (customer_onboarding type)
       try {
-        await apiFetch('/api/workflows/start', {
+        const wfRes = await apiFetch('/api/workflows/start', {
           method: 'POST',
           body: JSON.stringify({
+            workflow_type: 'customer_onboarding',
             entity_id: customerId,
-            entity_type: 'customer',
-            tenant_id: profile?.tenant_id
+            entity_type: 'customer_onboarding',
           })
         });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Initial customer submission'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer onboarding instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn("[Workflow] Could not start instance:", wfErr.error || wfRes.status);
+        }
       } catch (wfError) {
         console.error("Failed to start workflow for customer:", wfError);
-        // We don't throw here to avoid failing the whole submission if workflow initiation fails, 
-        // but in a production app you might want more robust error handling.
+        // Non-fatal: customer record is saved; workflow can be re-triggered if needed.
       }
 
       // NOW wait for secondary uploads to complete (they were running in background)

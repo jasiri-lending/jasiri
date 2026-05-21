@@ -404,7 +404,7 @@ const LoanBookingForm = ({ customerData }) => {
       if (newLoan) {
         // Initiate workflow for the new loan
         try {
-          await apiFetch('/api/workflows/start', {
+          const wfRes = await apiFetch('/api/workflows/start', {
             method: 'POST',
             body: JSON.stringify({
               entity_id: newLoan.id,
@@ -412,6 +412,24 @@ const LoanBookingForm = ({ customerData }) => {
               tenant_id: profile?.tenant_id
             })
           });
+          
+          if (wfRes.ok) {
+            const wfData = await wfRes.json();
+            if (wfData.instance && wfData.instance.id) {
+              const actionRes = await apiFetch('/api/workflows/action', {
+                method: 'POST',
+                body: JSON.stringify({
+                  instance_id: wfData.instance.id,
+                  event: 'SUBMIT',
+                  comments: 'Loan submitted for review'
+                })
+              });
+              if (!actionRes.ok) {
+                const actionErr = await actionRes.json().catch(() => ({}));
+                console.error('[Workflow] Failed to SUBMIT loan instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+              }
+            }
+          }
         } catch (wfError) {
           console.error("Failed to start workflow for loan:", wfError);
         }

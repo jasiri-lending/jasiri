@@ -138,26 +138,26 @@ const ApprovedTransfersList = ({ onExecute, currentUser }) => {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">From Branch</p>
-                      <p className="text-sm text-gray-900">{transfer.current_branch?.name}</p>
+                      <p className="text-xs text-slate-600">{transfer.current_branch?.name}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">To Branch</p>
-                      <p className="text-sm text-gray-900">{transfer.new_branch?.name}</p>
+                      <p className="text-xs text-slate-600">{transfer.new_branch?.name}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">From Officer</p>
-                      <p className="text-sm text-gray-900">{transfer.current_officer?.full_name}</p>
+                      <p className="text-xs text-slate-600">{transfer.current_officer?.full_name}</p>
                     </div>
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">To Officer</p>
-                      <p className="text-sm text-gray-900">{transfer.new_officer?.full_name}</p>
+                      <p className="text-xs text-slate-600">{transfer.new_officer?.full_name}</p>
                     </div>
                   </div>
 
                   {transfer.remarks && (
                     <div>
                       <p className="text-xs font-medium text-gray-500 uppercase mb-1">Remarks</p>
-                      <p className="text-sm text-gray-900 bg-white p-3 rounded border">
+                      <p className="text-xs text-slate-600 bg-white p-3 rounded border">
                         {transfer.remarks}
                       </p>
                     </div>
@@ -217,7 +217,7 @@ const ApprovedTransfersList = ({ onExecute, currentUser }) => {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {transfer.transfer_items?.map((item, index) => (
                           <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 whitespace-nowrap">
                               <div>
                                 <p className="font-medium text-gray-900">
                                   {item.customer?.Firstname} {item.customer?.Surname}
@@ -225,8 +225,8 @@ const ApprovedTransfersList = ({ onExecute, currentUser }) => {
                                 <p className="text-xs text-gray-500">{item.customer?.mobile}</p>
                               </div>
                             </td>
-                            <td className="px-4 py-3">{item.customer?.id_number}</td>
-                            <td className="px-4 py-3">
+                            <td className="px-4 py-3 whitespace-nowrap">{item.customer?.id_number}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">
                               <div className="flex items-center gap-2">
                                 <span className="text-xs font-medium text-gray-900">
                                   {transfer.current_branch?.name}

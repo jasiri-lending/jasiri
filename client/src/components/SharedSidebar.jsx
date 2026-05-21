@@ -6,7 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   ChevronDown,
-  X,
+  XCircle,
   Menu,
   Settings,
   Sliders,
@@ -364,7 +364,7 @@ const SharedSidebar = () => {
 
 
   const sidebarStyles = {
-    bg: "bg-muted/10", // Light bluish-gray from tailwind config
+    bg: "bg-muted/20", // Light bluish-gray from tailwind config
     text: "text-slate-600",
     activeText: "text-brand-primary",
     hoverBg: "hover:bg-brand-primary/10",
@@ -387,21 +387,21 @@ const SharedSidebar = () => {
         </button>
 
         {isMobileOpen && (
-          <div className="fixed inset-0 bg-stone-900/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileOpen(false)} />
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileOpen(false)} />
         )}
 
-        <div className={`fixed inset-y-0 left-0 w-64 ${sidebarStyles.bg} shadow-2xl z-50 flex flex-col transform transition-transform duration-300 font-sans ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+        <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 flex flex-col  font-outfit text-8px ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
           <div className="flex items-center justify-between px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
-            <div className="flex items-center justify-center w-full h-full relative">
-              <img 
-                src="/jasirif.png" 
-                alt="Jasiri Logo" 
-                style={{ height: '96px', width: 'auto', imageRendering: 'crisp-edges', display: 'block', position: 'absolute' }}
+            <div className="flex items-center justify-start w-full h-full relative pl-4">
+              <img
+                src="/jasiri_f.png"
+                alt="Jasiri Logo"
+                style={{ height: '120px', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
               />
             </div>
 
             <button onClick={() => setIsMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-black/5 transition-colors">
-              <X className="h-5 w-5 text-slate-500" />
+              <XCircle className="h-5 w-5 text-slate-500" />
             </button>
           </div>
 
@@ -441,7 +441,7 @@ const SharedSidebar = () => {
                       </button>
 
                       {expandedItems[item.name] && (
-                        <div className="ml-5 pl-4 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
+                        <div className="ml-2 pl-2 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
                           {item.children.map((child) => {
                             const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
                             return (
@@ -449,7 +449,7 @@ const SharedSidebar = () => {
                                 key={child.name}
                                 to={child.href}
                                 onClick={handleNavClick}
-                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[12px] ${
+                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 text-[12px] ${
                                   isChildActive
                                     ? "text-brand-primary bg-brand-primary/10 font-semibold"
                                     : "text-slate-600 hover:text-slate-900 hover:bg-black/5 font-medium"
@@ -458,7 +458,7 @@ const SharedSidebar = () => {
                                 <child.icon className={`h-4 w-4 mr-2.5 shrink-0 transition-opacity duration-300 ${
                                   isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-500 opacity-70 group-hover:opacity-100'
                                 }`} />
-                                <span className="truncate">{child.name}</span>
+                                <span className="leading-tight">{child.name}</span>
                               </NavLink>
                             );
                           })}
@@ -474,7 +474,7 @@ const SharedSidebar = () => {
                           `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? "text-brand-primary font-semibold" 
-                              : "text-slate-700 hover:bg-black/5 font-semibold"
+                              : "text-slate-600 hover:bg-black/5 font-semibold"
                           }`
                         }
                       >
@@ -491,7 +491,7 @@ const SharedSidebar = () => {
                   )}
                   {/* Horizontal Separator Line - Visible only between modules */}
                   {index < navigation.length - 1 && (
-                    <div className="mx-4 my-1.5 border-b border-slate-300/80" />
+                    <div className="my-1.5 border-b border-slate-300/80" />
                   )}
                 </div>
               );
@@ -504,25 +504,33 @@ const SharedSidebar = () => {
 
   // Desktop Sidebar
   return (
-    <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-sans ${isCollapsed ? "w-16" : "w-60"} flex-shrink-0 relative flex flex-col overflow-hidden`}>
-      <div className="flex items-center px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
-        {!isCollapsed && (
-          <div className="flex items-center justify-center w-full h-full relative">
-            <img 
-              src="/jasirif.png" 
-              alt="Jasiri Logo" 
-              style={{ height: '176px', width: 'auto', imageRendering: 'crisp-edges', display: 'block', position: 'absolute' }}
-            />
-          </div>
-        )}
+    <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-outfit text-8px ${isCollapsed ? "w-16" : "w-52"} flex-shrink-0 relative flex flex-col overflow-hidden`}>
+    <div className="flex items-center px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
+  {!isCollapsed && (
+    <div className="flex items-center justify-center w-full h-full">
+      <img
+        src="/jasiri_f.png"
+        alt="Jasiri Logo"
+        className="h-40 w-auto object-contain"
+      />
+    </div>
+  )}
 
-        <button
-          onClick={toggleSidebar}
-          className={`p-1.5  transition-all duration-200   text-primary hover:text-brand-primary ${isCollapsed ? "absolute left-1/2 -translate-x-1/2" : "absolute right-4"}`}
-        >
-          {isCollapsed ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
-        </button>
-      </div>
+  <button
+    onClick={toggleSidebar}
+    className={`p-1.5 transition-all duration-200 text-primary hover:text-brand-primary ${
+      isCollapsed
+        ? "absolute left-1/2 -translate-x-1/2"
+        : "absolute right-4"
+    }`}
+  >
+    {isCollapsed ? (
+      <ChevronRight className="h-6 w-6" />
+    ) : (
+      <ChevronLeft className="h-6 w-6" />
+    )}
+  </button>
+</div>
 
       <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 py-4 space-y-1.5 custom-scrollbar">            {navigation.map((item, index) => {
               const isParentActive = item.children?.some(
@@ -538,7 +546,7 @@ const SharedSidebar = () => {
                         className={`group w-full flex items-center justify-between px-3 py-2.5 rounded-lg transition-all duration-200 ${
                           (isParentActive || expandedItems[item.name]) && !isCollapsed
                             ? "text-brand-primary"
-                            : "text-slate-700 hover:bg-black/5"
+                            : "text-slate-600 hover:bg-black/5"
                         } ${isCollapsed ? "justify-center" : ""}`}
                       >
                         <div className="flex items-center">
@@ -563,14 +571,14 @@ const SharedSidebar = () => {
                       </button>
 
                       {!isCollapsed && expandedItems[item.name] && (
-                        <div className="ml-5 pl-4 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
+                        <div className="ml-2 pl-2 mt-1 space-y-0.5 border-l border-slate-200 animate-in slide-in-from-top-1 duration-300">
                           {item.children.map((child) => {
                             const isChildActive = location.pathname === child.href || location.pathname.startsWith(child.href + "/");
                             return (
                               <NavLink
                                 key={child.name}
                                 to={child.href}
-                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 whitespace-nowrap text-[12px] ${
+                                className={`group flex items-center px-3 py-2 rounded-md transition-all duration-200 text-[12px] ${
                                   isChildActive
                                     ? "text-brand-primary bg-brand-primary/10 font-semibold"
                                     : "text-slate-600 hover:text-slate-900 hover:bg-black/5 font-medium"
@@ -579,7 +587,7 @@ const SharedSidebar = () => {
                                 <child.icon className={`h-4 w-4 mr-2.5 shrink-0 transition-opacity duration-300 ${
                                   isChildActive ? 'text-brand-primary opacity-100' : 'text-slate-500 opacity-70 group-hover:opacity-100'
                                 }`} />
-                                <span className="truncate">{child.name}</span>
+                                <span className="leading-tight">{child.name}</span>
                               </NavLink>
                             );
                           })}
@@ -594,7 +602,7 @@ const SharedSidebar = () => {
                           `group flex items-center px-3 py-2.5 rounded-lg transition-all duration-200 ${
                             isActive 
                               ? "text-brand-primary font-semibold" 
-                              : "text-slate-700 hover:bg-black/5 font-semibold"
+                              : "text-slate-600 hover:bg-black/5 font-semibold"
                           } ${isCollapsed ? "justify-center" : ""}`
                         }
                       >

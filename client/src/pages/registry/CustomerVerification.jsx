@@ -911,7 +911,7 @@ const CustomerVerification = () => {
         ) : (
           <div className="w-full h-48 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-gray-50 hover:bg-gray-100 transition-colors">
             <Icon className="h-12 w-12 text-gray-400 mb-2" />
-            <span className="text-sm text-gray-500 font-medium">
+            <span className="text-xs text-slate-600 font-medium">
               {placeholder}
             </span>
           </div>
@@ -1359,31 +1359,31 @@ const CustomerVerification = () => {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <p className="text-sm text-gray-500">Business Name</p>
+                  <p className="text-xs text-slate-600">Business Name</p>
                   <p className="font-semibold text-gray-900">
                     {customer.business_name || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Business Type</p>
+                  <p className="text-xs text-slate-600">Business Type</p>
                   <p className="font-semibold text-gray-900">
                     {customer.business_type || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Industry</p>
+                  <p className="text-xs text-slate-600">Industry</p>
                   <p className="font-semibold text-gray-900">
                     {customer.industry || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Location</p>
+                  <p className="text-xs text-slate-600">Location</p>
                   <p className="font-semibold text-gray-900">
                     {customer.business_location || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Year Established</p>
+                  <p className="text-xs text-slate-600">Year Established</p>
                   <p className="font-semibold text-gray-900">
                     {customer.year_established
                       ? new Date(
@@ -1397,19 +1397,19 @@ const CustomerVerification = () => {
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Road</p>
+                  <p className="text-xs text-slate-600">Road</p>
                   <p className="font-semibold text-gray-900">
                     {customer.road || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Landmark</p>
+                  <p className="text-xs text-slate-600">Landmark</p>
                   <p className="font-semibold text-gray-900">
                     {customer.landmark || "Not provided"}
                   </p>
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Daily Sales</p>
+                  <p className="text-xs text-slate-600">Daily Sales</p>
                   <p className="font-semibold text-gray-900">
                     {customer.daily_Sales || "Not provided"}
                   </p>
@@ -1920,7 +1920,7 @@ const CustomerVerification = () => {
                             <span className="text-sm font-medium text-gray-600">
                               Description:
                             </span>
-                            <p className="text-sm text-gray-900 mt-1">
+                            <p className="text-xs text-slate-600 mt-1">
                               {item.description}
                             </p>
                           </div>
@@ -2059,7 +2059,7 @@ const CustomerVerification = () => {
                             <span className="text-sm font-medium text-gray-600">
                               Description:
                             </span>
-                            <p className="text-sm text-gray-900 mt-1">
+                            <p className="text-xs text-slate-600 mt-1">
                               {item.description}
                             </p>
                           </div>
@@ -2189,7 +2189,7 @@ const CustomerVerification = () => {
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           {nok.company_name && (
                             <div>
-                              <p className="text-sm text-gray-500">Company Name</p>
+                              <p className="text-xs text-slate-600">Company Name</p>
                               <p className="font-semibold text-gray-900">
                                 {nok.company_name}
                               </p>
@@ -2197,7 +2197,7 @@ const CustomerVerification = () => {
                           )}
                           {nok.salary && (
                             <div>
-                              <p className="text-sm text-gray-500">Salary</p>
+                              <p className="text-xs text-slate-600">Salary</p>
                               <p className="font-semibold text-gray-900">
                                 KES {nok.salary.toLocaleString()}
                               </p>
@@ -2205,7 +2205,7 @@ const CustomerVerification = () => {
                           )}
                           {nok.business_name && (
                             <div>
-                              <p className="text-sm text-gray-500">Business Name</p>
+                              <p className="text-xs text-slate-600">Business Name</p>
                               <p className="font-semibold text-gray-900">
                                 {nok.business_name}
                               </p>
@@ -2213,7 +2213,7 @@ const CustomerVerification = () => {
                           )}
                           {nok.business_income && (
                             <div>
-                              <p className="text-sm text-gray-500">Business Income</p>
+                              <p className="text-xs text-slate-600">Business Income</p>
                               <p className="font-semibold text-gray-900">
                                 KES {nok.business_income.toLocaleString()}
                               </p>

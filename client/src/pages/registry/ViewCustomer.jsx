@@ -222,7 +222,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
         ) : (
           <div className="w-full h-48 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center bg-gray-50">
             <Icon className="h-12 w-12 text-gray-400 mb-2" />
-            <span className="text-sm text-gray-500 font-medium">{placeholder}</span>
+            <span className="text-xs text-slate-600 font-medium">{placeholder}</span>
           </div>
         )}
       </div>
@@ -723,7 +723,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                           {item.description && (
                             <div>
                               <p className="text-sm font-medium text-gray-600">Description:</p>
-                              <p className="text-sm text-gray-900 mt-1">{item.description}</p>
+                              <p className="text-xs text-slate-600 mt-1">{item.description}</p>
                             </div>
                           )}
                         </div>
@@ -789,7 +789,7 @@ const ViewCustomer = ({ customer: initialCustomer, onClose }) => {
                           {item.description && (
                             <div>
                               <p className="text-sm font-medium text-gray-600">Description:</p>
-                              <p className="text-sm text-gray-900 mt-1">{item.description}</p>
+                              <p className="text-xs text-slate-600 mt-1">{item.description}</p>
                             </div>
                           )}
                         </div>

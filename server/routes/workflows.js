@@ -1,6 +1,6 @@
 import express from "express";
 import { supabaseAdmin } from "../supabaseClient.js";
-import { startWorkflow, performAction } from "../services/workflowEngine.js";
+import { startWorkflow, performAction, normalizeEntityId, denormalizeEntityId } from "../services/workflowEngine.js";
 import { verifySupabaseToken } from "../middleware/authMiddleware.js";
 
 const router = express.Router();
@@ -196,6 +196,7 @@ router.post("/start", verifySupabaseToken, async (req, res) => {
         );
         res.json({ success: true, instance });
     } catch (err) {
+        console.error(`❌ [Workflow Start Error] Type: ${workflow_type}, Entity: ${entity_id}:`, err.message);
         res.status(400).json({ success: false, error: err.message });
     }
 });
@@ -216,6 +217,7 @@ router.post("/action", verifySupabaseToken, async (req, res) => {
         );
         res.json({ success: true, instance: updated });
     } catch (err) {
+        console.error(`❌ [Workflow Action Error] Instance: ${instance_id}, Event: ${event}:`, err.message);
         res.status(400).json({ success: false, error: err.message });
     }
 });
@@ -224,6 +226,7 @@ router.post("/action", verifySupabaseToken, async (req, res) => {
 router.get("/status/:entity_type/:entity_id", verifySupabaseToken, async (req, res) => {
     const { entity_id, entity_type } = req.params;
     try {
+        const normalizedEntityId = normalizeEntityId(entity_id);
         const { data: instance, error } = await supabaseAdmin
             .from("workflow_instances")
             .select(`
@@ -231,7 +234,7 @@ router.get("/status/:entity_type/:entity_id", verifySupabaseToken, async (req, r
                 workflow_nodes(*),
                 workflow_instance_history(*)
             `)
-            .eq("entity_id", entity_id)
+            .eq("entity_id", normalizedEntityId)
             .eq("entity_type", entity_type)
             .order("created_at", { ascending: false })
             .limit(1)
@@ -242,6 +245,8 @@ router.get("/status/:entity_type/:entity_id", verifySupabaseToken, async (req, r
         if (!instance) {
             return res.json({ success: true, data: null });
         }
+
+        instance.entity_id = denormalizeEntityId(instance.entity_id);
 
         // Get available actions for the current node
         const { data: actions, error: actionsError } = await supabaseAdmin

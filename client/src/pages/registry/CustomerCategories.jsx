@@ -154,8 +154,8 @@ const CustomerCategories = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="text-sm font-medium text-gray-900">{category.name}</div>
                   </td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm text-gray-500">{category.description}</div>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="text-xs text-slate-600">{category.description}</div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-blue-100 text-blue-800">
@@ -170,7 +170,7 @@ const CustomerCategories = () => {
                       {category.status}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                     <button
                       onClick={() => toggleStatus(category.id)}
                       className={`mr-3 ${category.status === 'Active'

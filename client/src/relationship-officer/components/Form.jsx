@@ -246,7 +246,7 @@ const Form = ({
   const canEditField = disabled === false;
 
   const content = (
-    <div className="min-h-screen bg-muted pt-6 pb-12 px-4 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-white pt-6 pb-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto">
         {/* Navigation Tabs */}
         <div className="bg-gray-100 backdrop-blur-md rounded-lg p-2 mb-2 border border-white/50 flex items-center gap-2">
@@ -387,7 +387,7 @@ const Form = ({
                         <div key={file.key} className="p-4 border border-brand-surface rounded-xl bg-muted">
                           <label className="block text-xs text-slate-600 mb-3 ">{file.label}</label>
                           <div className="flex gap-2">
-                            <label className="flex-1 flex items-center text-xs justify-center gap-2 px-1 py-0.5 bg-brand-primary border border-gray-200 text-white rounded-sm cursor-pointer hover:bg-brand-surface transition ">
+                            <label className="flex-1 flex items-center text-xs justify-center gap-2 px-1 py-0.5 bg-brand-primary border border-gray-200 text-white rounded-lg cursor-pointer hover:bg-brand-secondary transition ">
                               <ArrowUpTrayIcon className="w-3 h-3" />
                               {existingImages[file.key] ? "Replace" : "Upload"}
                               <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />
@@ -465,7 +465,7 @@ const Form = ({
                       <BuildingOffice2Icon className="w-5 h-5" /> Business Images
                     </h3>
                     <div className="flex gap-4 mb-6">
-                      <label className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs rounded-sm cursor-pointer hover:bg-brand-secondary transition  ">
+                      <label className="flex items-center gap-2 px-3 py-1.5 bg-brand-primary text-white text-xs rounded-lg cursor-pointer hover:bg-brand-secondary transition  ">
                         <ArrowUpTrayIcon className="w-3 h-3" /> Add Business Images
                         <input type="file" accept="image/*" multiple onChange={handleBusinessImages} className="hidden" />
                       </label>
@@ -560,12 +560,12 @@ const Form = ({
                         <div className="mt-6">
                           <label className=" text-xs mb-2 text-slate-699">Security Images</label>
                           <div className="flex gap-3 mb-3">
-                            <label className="flex items-center justify-center gap-3 px-1.5 py-0.5 text-xs bg-brand-primary text-white rounded-sm cursor-pointer hover:bg-brand-secondary ">
-                              <ArrowUpTrayIcon className="w-4 h-4" /> Upload Security Images
+                            <label className="flex items-center justify-center gap-3 px-1.5 py-0.5 text-xs bg-brand-primary text-white rounded-lg cursor-pointer hover:bg-brand-secondary ">
+                              <ArrowUpTrayIcon className="w-2 h-2" /> Upload Security Images
                               <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                             </label>
                             <label className="flex md:hidden items-center justify-center gap-2 px-6 py-3 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary font-medium">
-                              <CameraIcon className="w-5 h-5" /> Camera
+                              <CameraIcon className="w-4 h-4" /> Camera
                               <input type="file" accept="image/*" capture="environment" multiple onChange={(e) => handleMultipleFiles(e, index, setSecurityItemImages)} className="hidden" />
                             </label>
                           </div>
@@ -809,8 +809,8 @@ const Form = ({
                         <div className="mt-6">
                           <label className=" text-sm font-medium mb-3 text-slate-600">Item Images</label>
                           <div className="flex gap-3 mb-4">
-                            <label className="flex items-center justify-center gap-2 px-1 py-0.5 bg-brand-primary text-white text-xs rounded-sm cursor-pointer hover:bg-brand-secondary/20 transition font-medium border border-brand-surface">
-                              <ArrowUpTrayIcon className="w-4 h-4" /> Upload
+                            <label className="flex items-center justify-center gap-2 px-1 py-0.5 bg-brand-primary text-white text-xs rounded-lg cursor-pointer hover:bg-brand-secondary transition  border border-brand-surface">
+                              <ArrowUpTrayIcon className="w-2 h-2" /> Upload
                               <input type="file" accept="image/*" multiple onChange={(e) => handleMultipleFiles(e, index, setGuarantorSecurityImages)} className="hidden" />
                             </label>
                             <label className="flex md:hidden items-center justify-center gap-2 px-4 py-2 bg-brand-btn text-white rounded-lg cursor-pointer hover:bg-brand-primary transition-all duration-200">
@@ -966,7 +966,7 @@ const Form = ({
                     <div key={file.key} className="flex flex-col items-start p-4 border border-brand-surface rounded-xl bg-muted shadow-sm hover:shadow-md transition">
                       <label className="block text-sm font-medium text-brand-primary mb-3">{file.label}</label>
                       <div className="flex flex-col sm:flex-row gap-3 w-full">
-                        <label className="flex-1 flex items-center justify-center gap-2 px-3 py-1.5 bg-brand-primary text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary/20 transition">
+                        <label className="flex-1 flex items-center justify-center gap-2 px-2 py-0.5 bg-brand-primary text-white rounded-lg shadow-sm cursor-pointer hover:bg-brand-secondary transition">
                           <ArrowUpTrayIcon className="w-4 h-4" />
                           <span className="text-sm text-white">{existingImages[file.key] ? "Replace" : "Upload"}</span>
                           <input type="file" accept="image/*" onChange={(e) => handleFileUpload(e, file.handler, file.key)} className="hidden" />

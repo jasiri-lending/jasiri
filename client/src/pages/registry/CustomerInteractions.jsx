@@ -691,7 +691,7 @@ const CustomerInteractions = () => {
               <p className="text-gray-600 font-medium">
                 No interactions recorded
               </p>
-              <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+              <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
                 Click "Add Interaction" to record your first customer interaction
               </p>
             </div>
@@ -720,7 +720,7 @@ const CustomerInteractions = () => {
               <p className="text-gray-600 font-medium">
                 No approval history found
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs text-slate-600 mt-1">
                 This customer has no verification records yet
               </p>
             </div>
@@ -898,7 +898,7 @@ const CustomerInteractions = () => {
                 <div className="text-center py-8 bg-muted border border-dashed border-gray-300 rounded-xl">
                   <AdjustmentsHorizontalIcon className="h-12 w-12 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-600 font-medium">No limit adjustments recorded</p>
-                  <p className="text-sm text-gray-500 mt-1">Adjust the loan limit to see history here</p>
+                  <p className="text-xs text-slate-600 mt-1">Adjust the loan limit to see history here</p>
                 </div>
               ) : (
                 interactions
@@ -927,7 +927,7 @@ const CustomerInteractions = () => {
             <div className="text-center py-12 bg-muted border border-dashed border-gray-300 rounded-xl">
               <ChartBarSquareIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
               <p className="text-gray-600 font-medium">No scored amounts recorded</p>
-              <p className="text-sm text-gray-500 mt-1">
+              <p className="text-xs text-slate-600 mt-1">
                 This customer has no loan scoring records yet
               </p>
             </div>

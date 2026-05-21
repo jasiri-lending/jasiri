@@ -1485,7 +1485,7 @@ const NonPerformingLoansReport = () => {
 
               {/* PAGINATION */}
               {pagination.totalPages > 1 && (
-                <div className="bg-slate-50/50 px-6 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="bg-slate-50/50 px-6 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-4">
                   <div className="text-sm font-medium text-slate-500">
                     Showing{" "}
                     <span className="font-bold text-slate-700">

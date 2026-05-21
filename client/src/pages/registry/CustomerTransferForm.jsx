@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/userAuth.js';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
 import { useToast } from '../../components/Toast.jsx';
+import { apiFetch } from '../../utils/api';
 
 // Import the missing components (create these files separately)
 import PendingTransfersList from './PendingTransfersList';
@@ -194,6 +195,41 @@ const CustomerTransferForm = () => {
         });
 
       if (logError) throw logError;
+
+      // Start a customer_transfer workflow instance for this request
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_transfer',
+            entity_id: transferRequest.id,
+            entity_type: 'customer_transfer',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Transfer request submitted'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer transfer instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start customer_transfer instance:', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow for transfer:', wfError);
+        // Non-fatal: transfer request is saved.
+      }
 
       toast.success(`Transfer request initiated successfully! Awaiting ${workflowRoles.confirm} approval.`);
       navigate('/customer-transfers/pending');
@@ -457,7 +493,7 @@ const CustomerTransferForm = () => {
     return (
       <div className="text-center py-8">
         <p className="text-gray-600">You don't have permission to access this feature.</p>
-        <p className="text-sm text-gray-500 mt-2">Please contact your administrator.</p>
+        <p className="text-xs text-slate-600 mt-2">Please contact your administrator.</p>
       </div>
     );
   };
@@ -675,10 +711,10 @@ const CustomerTransferForm = () => {
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{customer.id_number}</span>
+                              <span className="text-xs text-slate-600">{customer.id_number}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm text-gray-900">{customer.mobile}</span>
+                              <span className="text-xs text-slate-600">{customer.mobile}</span>
                             </td>
                           </tr>
                         ))
@@ -731,10 +767,10 @@ const CustomerTransferForm = () => {
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-900">{customer.id_number}</span>
+                                <span className="text-xs text-slate-600">{customer.id_number}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm text-gray-900">{customer.mobile}</span>
+                                <span className="text-xs text-slate-600">{customer.mobile}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <button

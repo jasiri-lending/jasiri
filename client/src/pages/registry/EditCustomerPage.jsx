@@ -27,6 +27,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { useTenantFeatures } from "../../hooks/useTenantFeatures";
 import LocationPicker from "../../relationship-officer/components/LocationPicker";
 import imageCompression from "browser-image-compression";
+import { apiFetch } from "../../utils/api";
 
 import Form, { INDUSTRIES } from "../../relationship-officer/components/Form";
 
@@ -1386,6 +1387,41 @@ const EditCustomerPage = () => {
           }
         })()
       ]);
+
+      // Initialize / upsert workflow instance (upsert engine handles re-submission safely)
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_onboarding',
+            entity_id: customerId,
+            entity_type: 'customer_onboarding',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Customer record re-submitted'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer onboarding instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start instance (EditCustomerPage):', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow (EditCustomerPage):', wfError);
+        // Non-fatal: customer record is already saved.
+      }
 
       toast.success("Customer record updated successfully!");
       navigate("/registry/customers");

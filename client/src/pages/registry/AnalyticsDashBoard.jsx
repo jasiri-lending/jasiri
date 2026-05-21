@@ -1066,7 +1066,7 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center gap-3">
             <DollarSign className="w-3 h-3 text-emerald-600" />
             <div>
-              <p className="text-sm text-gray-500">Total Disbursed</p>
+              <p className="text-xs text-slate-600">Total Disbursed</p>
               <p className="text-2xl text-emerald-600 font-bold">{formatCurrencyCompact(totalDisbursed)}</p>
             </div>
           </div>
@@ -1076,7 +1076,7 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center gap-3">
             <CreditCard className="w-5 h-5 text-amber-600" />
             <div>
-              <p className="text-sm text-gray-500">Total Loans</p>
+              <p className="text-xs text-slate-600">Total Loans</p>
               <p className="text-2xl font-bold" style={{ color: "#586ab1" }}>{totalLoans}</p>
             </div>
           </div>
@@ -1086,7 +1086,7 @@ const AnalyticsDashboard = () => {
           <div className="flex items-center gap-3">
             <Building className="w-5 h-5 text-violet-600" />
             <div>
-              <p className="text-sm text-gray-500">Active Branches</p>
+              <p className="text-xs text-slate-600">Active Branches</p>
               <p className="text-2xl text-amber-600 font-bold">{totalBranches}</p>
             </div>
           </div>
@@ -1095,7 +1095,7 @@ const AnalyticsDashboard = () => {
         <div className={`rounded-xl shadow-sm border border-gray-200 p-4 ${status.bg}`}>
           <div className="flex items-center gap-3">
             <div>
-              <p className="text-sm text-gray-500">Avg Collection Rate</p>
+              <p className="text-xs text-slate-600">Avg Collection Rate</p>
               <p className={`text-2xl font-bold ${status.color}`}>
                 {avgCollectionRate}%
               </p>
@@ -1117,7 +1117,7 @@ const AnalyticsDashboard = () => {
               <PieChartIcon className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Product Type Distribution</h3>
             </div>
-            <span className="text-sm text-gray-500">By count & amount</span>
+            <span className="text-xs text-slate-600">By count & amount</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1142,7 +1142,7 @@ const AnalyticsDashboard = () => {
               <Building className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Branch Performance</h3>
             </div>
-            <span className="text-sm text-gray-500">Disbursed vs Collected</span>
+            <span className="text-xs text-slate-600">Disbursed vs Collected</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1167,7 +1167,7 @@ const AnalyticsDashboard = () => {
               <Globe className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Region Performance</h3>
             </div>
-            <span className="text-sm text-gray-500">Market share by region</span>
+            <span className="text-xs text-slate-600">Market share by region</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1191,7 +1191,7 @@ const AnalyticsDashboard = () => {
               <TrendingUp className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Repayment Trends</h3>
             </div>
-            <span className="text-sm text-gray-500">Collection over time</span>
+            <span className="text-xs text-slate-600">Collection over time</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1214,7 +1214,7 @@ const AnalyticsDashboard = () => {
               <Briefcase className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Business Types Analysis</h3>
             </div>
-            <span className="text-sm text-gray-500">Most common business types</span>
+            <span className="text-xs text-slate-600">Most common business types</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1238,7 +1238,7 @@ const AnalyticsDashboard = () => {
               <Users className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Age & Gender Distribution</h3>
             </div>
-            <span className="text-sm text-gray-500">Across guarantors</span>
+            <span className="text-xs text-slate-600">Across guarantors</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1265,7 +1265,7 @@ const AnalyticsDashboard = () => {
                 Payer Type Analysis
               </h3>
             </div>
-            <div className="text-sm text-gray-500">
+            <div className="text-xs text-slate-600">
               <div className="flex items-center gap-2">
                 <DollarSign className="w-4 h-4" />
                 <span>
@@ -1384,7 +1384,7 @@ const AnalyticsDashboard = () => {
               <Repeat className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Customer Loyalty Analysis</h3>
             </div>
-            <span className="text-sm text-gray-500">Repeat vs First-time</span>
+            <span className="text-xs text-slate-600">Repeat vs First-time</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1469,7 +1469,7 @@ const AnalyticsDashboard = () => {
               <Receipt className="w-6 h-6" style={{ color: HEADER_COLOR }} />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Daily Collection Trend</h3>
             </div>
-            <span className="text-sm text-gray-500">Last 30 days</span>
+            <span className="text-xs text-slate-600">Last 30 days</span>
           </div>
           <div className="h-80">
             <ResponsiveContainer width="100%" height="100%">
@@ -1500,7 +1500,7 @@ const AnalyticsDashboard = () => {
               <Clock className="w-6 h-6 text-red-600" />
               <h3 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Top Overdue Loans</h3>
             </div>
-            <span className="text-sm text-gray-500">Highest outstanding</span>
+            <span className="text-xs text-slate-600">Highest outstanding</span>
           </div>
           <div className="h-80">
             <div className="space-y-3">
@@ -1515,12 +1515,12 @@ const AnalyticsDashboard = () => {
                     </div>
                     <div>
                       <p className="font-medium">Loan #{loan.loanId}</p>
-                      <p className="text-sm text-gray-500">{loan.percentage}% overdue</p>
+                      <p className="text-xs text-slate-600">{loan.percentage}% overdue</p>
                     </div>
                   </div>
                   <div className="text-right">
                     <p className="font-bold text-red-600">{formatCurrencyCompact(loan.overdueAmount)}</p>
-                    <p className="text-sm text-gray-500">of {formatCurrencyCompact(loan.totalAmount)}</p>
+                    <p className="text-xs text-slate-600">of {formatCurrencyCompact(loan.totalAmount)}</p>
                   </div>
                 </div>
               ))}

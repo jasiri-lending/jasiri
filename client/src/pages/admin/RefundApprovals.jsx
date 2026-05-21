@@ -68,7 +68,7 @@ const RefundApprovals = () => {
   }
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -122,7 +122,7 @@ const RefundApprovals = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto">
+        <div className="overflow-x-auto font-outfit">
           {filteredRefunds.length === 0 ? (
             <div className="p-20 text-center">
               <div className="w-16 h-16 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4 border border-slate-100">

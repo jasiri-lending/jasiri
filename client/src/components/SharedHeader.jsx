@@ -45,7 +45,7 @@ const SharedHeader = ({ onMenuClick }) => {
   // Render skeleton while loading
   if (isLoading) {
     return (
-      <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-brand-surface/10">
+      <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-brand-surface/10 font-outfit">
         <div className="flex items-center justify-end px-4 lg:px-6 py-3">
           <div className="flex items-center space-x-4 lg:space-x-6">
             <div className="hidden md:block">
@@ -65,7 +65,7 @@ const SharedHeader = ({ onMenuClick }) => {
   }
 
   return (
-    <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-muted/10 h-[76px]">
+    <header className="border-b border-brand-secondary/20 sticky top-0 z-30 bg-muted/20 h-[76px] font-outfit text-8px">
       <div className="flex items-center justify-between px-4 lg:px-6 py-3">
         {/* Left Section - Menu Button and Admin Badge */}
         <div className="flex items-center space-x-4">
@@ -80,7 +80,7 @@ const SharedHeader = ({ onMenuClick }) => {
           {isAdmin && (
             <div className="flex items-center space-x-2 px-3 py-1.5 bg-white/80 rounded-lg border border-brand-secondary/20">
               <Shield className="h-4 w-4 text-brand-primary" />
-              <span className="text-sm font-semibold hidden sm:inline text-brand-primary">
+              <span className="text-sm font-outfit hidden sm:inline text-brand-primary">
                 {isSuperAdmin ? "Super Admin Panel" : "Admin Panel"}
               </span>
             </div>
@@ -93,7 +93,7 @@ const SharedHeader = ({ onMenuClick }) => {
           {tenant && !isSuperAdmin && (
             <div className="hidden md:block">
               <h1
-                className="text-sm lg:text-sm font-medium truncate text-brand-primary"
+                className="text-sm lg:text-sm font-medium truncate font-outfit text-slate-600 uppercase"
                 title={tenant?.company_name || 'Company'}
               >
                 {tenant?.company_name || 'Company'}
@@ -109,7 +109,7 @@ const SharedHeader = ({ onMenuClick }) => {
               className="p-2 rounded-lg hover:bg-brand-secondary/10 focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2 transition-all duration-200"
               aria-label="Settings"
             >
-              <Settings className="h-5 w-5 text-brand-primary" />
+              <Settings className="h-4 w-4 text-brand-primary" />
             </button> */}
 
             {/* Help Button */}
@@ -127,7 +127,7 @@ const SharedHeader = ({ onMenuClick }) => {
               className="p-2 rounded-lg hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all duration-200"
               aria-label="Logout"
             >
-              <LogOut className="h-5 w-5 text-red-600" />
+              <LogOut className="h-4 w-4 text-red-600" />
             </button>
 
             {/* Profile Button - Simplified version */}
@@ -145,21 +145,18 @@ const SharedHeader = ({ onMenuClick }) => {
                       className="h-8 w-8 lg:h-9 lg:w-9 rounded-full border-2 border-white shadow-sm"
                     />
                   ) : (
-                    <div className="h-8 w-8 lg:h-9 lg:w-9 rounded-full flex items-center justify-center shadow-sm bg-white border border-brand-primary/20">
-                      <UserCircle className="h-5 w-5 lg:h-6 lg:w-6 text-brand-primary" />
+                    <div className=" flex items-center justify-center ">
+                      <UserCircle className="h-3 w-3 lg:h-4 lg:w-4 text-brand-primary" />
                     </div>
                   )}
-                  <div className="absolute -bottom-1 -right-1">
-                    <div className={`w-3 h-3 rounded-full border-2 border-white ${profile?.status === 'online' ? 'bg-green-500' : 'bg-gray-300'
-                      }`} />
-                  </div>
+                 
                 </div>
 
                 <div className="hidden md:flex flex-col items-start text-left max-w-[120px] lg:max-w-[160px]">
-                  <span className="font-semibold text-brand-primary text-sm leading-tight truncate w-full">
+                  <span className=" text-brand-primary font-outfit text-[12px] w-full">
                     {profile?.full_name || 'User'}
                   </span>
-                  <span className="text-xs text-brand-primary/70 leading-tight truncate w-full">
+                  <span className="text-[10px] text-slate-600  truncate w-full">
                     {getRoleDisplayName(profile?.role)}
                   </span>
                 </div>

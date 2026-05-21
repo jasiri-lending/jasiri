@@ -486,7 +486,7 @@ const AgingLeads = () => {
         {/* Pagination Section */}
         {visibleLeads.length > 0 && (
           <div className="p-5 border-t border-gray-100 bg-gray-50/30">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
               {/* Pagination Info */}
               <div className="text-xs text-slate-500 font-medium order-2 sm:order-1">
                 Showing <span className="text-slate-700 font-bold">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="text-slate-700 font-bold">{Math.min(currentPage * itemsPerPage, visibleLeads.length)}</span> of <span className="text-slate-700 font-bold">{visibleLeads.length}</span> aging leads
@@ -499,7 +499,7 @@ const AgingLeads = () => {
                   <button
                     onClick={() => setCurrentPage(1)}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="First Page"
                   >
                     <ChevronDoubleLeftIcon className="h-3.5 w-3.5 text-gray-600" />
@@ -509,7 +509,7 @@ const AgingLeads = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Previous Page"
                   >
                     <ChevronLeftIcon className="h-3.5 w-3.5 text-gray-600" />
@@ -541,7 +541,7 @@ const AgingLeads = () => {
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Next Page"
                   >
                     <ChevronRightIcon className="h-3.5 w-3.5 text-gray-600" />
@@ -551,7 +551,7 @@ const AgingLeads = () => {
                   <button
                     onClick={() => setCurrentPage(totalPages)}
                     disabled={currentPage === totalPages}
-                    className="p-2 rounded-lg hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
+                    className="p-1.5 rounded hover:bg-white disabled:opacity-30 disabled:cursor-not-allowed transition-all duration-200 border border-gray-300 hover:border-gray-400 disabled:hover:border-gray-300"
                     title="Last Page"
                   >
                     <ChevronDoubleRightIcon className="h-3.5 w-3.5 text-gray-600" />

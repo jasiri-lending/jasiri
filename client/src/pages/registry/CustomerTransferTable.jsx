@@ -221,31 +221,31 @@ const CustomerTransferTable = () => {
                   ) : (
                     transfers.map((transfer, index) => (
                       <tr key={transfer.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {index + 1}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {transfer.current_branch?.name}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {transfer.current_officer?.Firstname} {transfer.current_officer?.Surname}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {transfer.new_branch?.name}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {transfer.new_officer?.Firstname} {transfer.new_officer?.Surname}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {getStatusBadge(transfer.status)}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-900">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {transfer.created_by_user?.Firstname} {transfer.created_by_user?.Surname}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
+                      <td className="px-4 py-3 whitespace-nowrap text-xs text-slate-600">
                         {new Date(transfer.created_at).toLocaleDateString()}
                       </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-sm text-center">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         <button
                           className="text-blue-600 hover:text-blue-800 font-medium"
                         >
@@ -525,7 +525,7 @@ const CustomerTransferForm = ({ currentUser, onClose, onSuccess }) => {
                     ) : (
                       filteredCustomers.map(customer => (
                         <tr key={customer.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-3 whitespace-nowrap">
                             <input
                               type="checkbox"
                               checked={selectedCustomers.includes(customer.id)}
@@ -533,12 +533,12 @@ const CustomerTransferForm = ({ currentUser, onClose, onSuccess }) => {
                               className="h-4 w-4 text-blue-600 rounded"
                             />
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                             {customer.Firstname} {customer.Middlename} {customer.Surname}
                           </td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{customer.id_number}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{customer.mobile}</td>
-                          <td className="px-4 py-3 text-sm text-gray-900">{customer.branch?.name}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{customer.id_number}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{customer.mobile}</td>
+                          <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">{customer.branch?.name}</td>
                         </tr>
                       ))
                     ) }

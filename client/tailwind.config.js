@@ -9,6 +9,10 @@ export default {
       fontFamily: {
         body: ["Inter", "sans-serif"],       // Clean and readable font
         heading: ["Poppins", "sans-serif"],  // Modern for headings
+        outfit: ["Outfit", "sans-serif"],
+      },
+      fontSize: {
+        "8px": "8px",
       },
       colors: {
         primary: "#1E3A8A",     // Navy Blue – Trust & Stability

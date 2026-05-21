@@ -468,7 +468,7 @@ const CustomerTransfer = () => {
                             #{transfer.id.slice(0, 8)}
                           </span>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div>
                             <p className="text-sm font-medium text-gray-900">
                               {transfer.current_branch?.name}
@@ -478,7 +478,7 @@ const CustomerTransfer = () => {
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <div>
                             <p className="text-sm font-medium text-gray-900">
                               {transfer.new_branch?.name}
@@ -488,7 +488,7 @@ const CustomerTransfer = () => {
                             </p>
                           </div>
                         </td>
-                        <td className="px-4 py-3">
+                        <td className="px-4 py-3 whitespace-nowrap">
                           <button
                             onClick={() => toggleExpandTransfer(transfer.id)}
                             className="inline-flex items-center gap-1 text-brand-btn hover:text-brand-btn-hover font-semibold text-sm transition-colors"
@@ -512,7 +512,7 @@ const CustomerTransfer = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div>
-                            <p className="text-sm text-gray-900">
+                            <p className="text-xs text-slate-600">
                               {transfer.branch_manager?.full_name}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -521,7 +521,7 @@ const CustomerTransfer = () => {
                           </div>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm text-gray-500">
+                          <span className="text-xs text-slate-600">
                             {formatDate(transfer.created_at)}
                           </span>
                         </td>

@@ -31,6 +31,7 @@ import {
 } from "@heroicons/react/24/outline";
 
 import { supabase } from "../../supabaseClient.js";
+import { apiFetch } from "../../utils/api";
 
 function CustomerDetailsEdit() {
   const navigate = useNavigate();
@@ -908,11 +909,48 @@ function CustomerDetailsEdit() {
         editRequestData.current_values = currentData;
       }
 
-      const { error: insertError } = await supabase
+      const { data: editData, error: insertError } = await supabase
         .from('customer_detail_edit_requests')
-        .insert([editRequestData]);
+        .insert([editRequestData])
+        .select('id')
+        .single();
 
       if (insertError) throw insertError;
+
+      // Start a customer_edits workflow instance for this detail edit request
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_edits',
+            entity_id: editData.id,
+            entity_type: 'customer_detail_edits',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Detail edits request submitted'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer detail edits instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start customer_edits instance:', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow for detail edit:', wfError);
+        // Non-fatal: edit request is saved.
+      }
 
       alert(`Edit request for ${section.replace(/([A-Z])/g, ' $1')} submitted successfully!`);
 
@@ -2290,12 +2328,12 @@ function CustomerDetailsEdit() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Customer</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Section</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Requested By</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -2305,7 +2343,7 @@ function CustomerDetailsEdit() {
                         className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
                         onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
                       >
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
                               <UserIcon className="w-4 h-4 text-slate-400" />
@@ -2315,11 +2353,11 @@ function CustomerDetailsEdit() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize whitespace-nowrap">
                           {sections.find(s => s.id === request.section_type)?.label || request.section_type}
                         </td>
-                        <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">{getStatusBadge(request.status)}</td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="text-[10px] text-slate-600 font-medium">
                             {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
@@ -2327,10 +2365,10 @@ function CustomerDetailsEdit() {
                             {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium whitespace-nowrap">
                           {request.created_by_user?.full_name || '—'}
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <button
                             className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
                             title="Review Request"
@@ -2516,12 +2554,12 @@ function CustomerDetailsEdit() {
                 <table className="w-full text-left text-xs">
                   <thead>
                     <tr style={{ backgroundColor: '#E7F0FA' }} className="border-b border-slate-100">
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Customer</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Section</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Status</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Date</th>
-                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Requested By</th>
-                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider">Actions</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Customer</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Section</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Status</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Date</th>
+                      <th className="px-5 py-3 text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Requested By</th>
+                      <th className="px-5 py-3 text-right text-[10px] font-semibold text-slate-600 uppercase tracking-wider whitespace-nowrap">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-50">
@@ -2531,7 +2569,7 @@ function CustomerDetailsEdit() {
                         className={`hover:bg-gray-100/50 transition-all cursor-pointer group ${idx % 2 === 0 ? '' : 'bg-gray-50/50'}`}
                         onClick={() => navigate(`/registry/customer-edits/review/${request.id}/other_details`)}
                       >
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-slate-100 flex items-center justify-center group-hover:scale-110 transition-transform">
                               <UserIcon className="w-4 h-4 text-slate-400" />
@@ -2541,11 +2579,11 @@ function CustomerDetailsEdit() {
                             </span>
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize">
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium capitalize whitespace-nowrap">
                           {sections.find(s => s.id === request.section_type)?.label || request.section_type}
                         </td>
-                        <td className="px-5 py-3.5">{getStatusBadge(request.status)}</td>
-                        <td className="px-5 py-3.5">
+                        <td className="px-5 py-3.5 whitespace-nowrap">{getStatusBadge(request.status)}</td>
+                        <td className="px-5 py-3.5 whitespace-nowrap">
                           <div className="text-[10px] text-slate-600 font-medium">
                             {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                           </div>
@@ -2553,10 +2591,10 @@ function CustomerDetailsEdit() {
                             {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                           </div>
                         </td>
-                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium">
+                        <td className="px-5 py-3.5 text-[10px] text-slate-500 font-medium whitespace-nowrap">
                           {request.created_by_user?.full_name || '—'}
                         </td>
-                        <td className="px-5 py-3.5 text-right">
+                        <td className="px-5 py-3.5 text-right whitespace-nowrap">
                           <button
                             className="p-1.5 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all shadow-sm"
                             title="Review Request"

@@ -185,16 +185,16 @@ const PendingTransfersList = ({ onApprove, onReject, currentUser }) => {
                       <tbody className="bg-white divide-y divide-gray-200">
                         {transfer.transfer_items?.slice(0, 5).map((item, index) => (
                           <tr key={item.id || index} className="hover:bg-gray-50 transition-colors">
-                            <td className="px-4 py-2">
+                            <td className="px-4 py-2 whitespace-nowrap">
                               {item.customer?.Firstname} {item.customer?.Surname}
                             </td>
-                            <td className="px-4 py-2">{item.customer?.id_number}</td>
-                            <td className="px-4 py-2">{item.customer?.mobile}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{item.customer?.id_number}</td>
+                            <td className="px-4 py-2 whitespace-nowrap">{item.customer?.mobile}</td>
                           </tr>
                         ))}
                         {transfer.transfer_items?.length > 5 && (
                           <tr>
-                            <td colSpan="3" className="px-4 py-2 text-center text-sm text-gray-500">
+                            <td colSpan="3" className="px-4 py-2 text-center text-xs text-slate-600">
                               ... and {transfer.transfer_items.length - 5} more customers
                             </td>
                           </tr>

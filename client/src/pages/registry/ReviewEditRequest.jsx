@@ -19,6 +19,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useTenantFeatures } from '../../hooks/useTenantFeatures';
 import { useToast } from '../../components/Toast';
 import Spinner from '../../components/Spinner';
+import { useWorkflow } from '../../hooks/useWorkflow';
 
 const ReviewEditRequest = () => {
     const { requestId, requestType } = useParams();
@@ -27,17 +28,31 @@ const ReviewEditRequest = () => {
     const { imageUploadEnabled } = useTenantFeatures();
     const navigate = useNavigate();
     const toast = useToast();
+    const { fetchWorkflowInstance, transitionWorkflow, isUserAuthorized } = useWorkflow();
 
     const [loading, setLoading] = useState(true);
     const [processing, setProcessing] = useState(false);
     const [request, setRequest] = useState(null);
     const [customer, setCustomer] = useState(null);
+    const [workflowInstance, setWorkflowInstance] = useState(null);
 
     useEffect(() => {
-        if (requestId && requestType) {
+        if (profile && requestId && requestType) {
             fetchData();
+            getWorkflow();
         }
-    }, [requestId, requestType]);
+    }, [profile, requestId, requestType]);
+
+    const getWorkflow = async () => {
+        try {
+            const type = requestType === 'phone_id' ? 'customer_edits' : 'customer_detail_edits';
+            const inst = await fetchWorkflowInstance(requestId, type);
+            setWorkflowInstance(inst);
+        } catch (e) {
+            console.warn('No active workflow instance found for this edit request:', e);
+        }
+    };
+
 
     const fetchData = async () => {
         try {
@@ -240,16 +255,36 @@ const ReviewEditRequest = () => {
 
             const updateData = { status: newStatus };
             const now = new Date().toISOString();
+            const isWfAuthorized = workflowInstance ? isUserAuthorized(workflowInstance) : true;
 
-            if (newStatus === 'confirmed' && hasPermission('amendments.confirm')) {
+            if (newStatus === 'confirmed' && (isWfAuthorized && (workflowInstance || hasPermission('amendments.confirm')))) {
+                if (workflowInstance) {
+                    const nextNode = await transitionWorkflow(workflowInstance, 'APPROVE');
+                    if (!nextNode) throw new Error('Failed to transition workflow instance');
+                }
                 updateData.confirmed_by = profile.id;
                 updateData.confirmed_at = now;
-            } else if (newStatus === 'approved' && hasPermission('amendments.authorize')) {
+            } else if (newStatus === 'approved' && (isWfAuthorized && (workflowInstance || hasPermission('amendments.authorize')))) {
+                if (workflowInstance) {
+                    const nextNode = await transitionWorkflow(workflowInstance, 'APPROVE');
+                    if (!nextNode) throw new Error('Failed to transition workflow instance');
+                }
                 updateData.approved_by = profile.id;
                 updateData.approved_at = now;
                 // Apply changes to target tables
                 await applyApprovedChanges();
-            } else if (newStatus.includes('rejected') && (hasPermission('amendments.confirm') || hasPermission('amendments.authorize'))) {
+            } else if (newStatus.includes('rejected') && (isWfAuthorized && (workflowInstance || hasPermission('amendments.confirm') || hasPermission('amendments.authorize')))) {
+                if (workflowInstance) {
+                    try {
+                        await transitionWorkflow(workflowInstance, 'REJECT');
+                    } catch (wfErr) {
+                        console.log('No reject edge found, completing workflow instance directly.');
+                        await supabase
+                            .from('workflow_instances')
+                            .update({ status: 'completed', updated_at: new Date().toISOString() })
+                            .eq('id', workflowInstance.id);
+                    }
+                }
                 updateData.rejected_by = profile.id;
                 updateData.rejected_at = now;
                 updateData.status = 'rejected';
@@ -277,11 +312,21 @@ const ReviewEditRequest = () => {
     };
 
     const canConfirm = () => {
-        return hasPermission('amendments.confirm') && request?.status === 'pending_branch_manager';
+        const isWfAuthorized = workflowInstance ? isUserAuthorized(workflowInstance) : true;
+        return isWfAuthorized && (
+            workflowInstance
+                ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && request?.status === 'pending_branch_manager')
+                : (hasPermission('amendments.confirm') && request?.status === 'pending_branch_manager')
+        );
     };
 
     const canApprove = () => {
-        return hasPermission('amendments.authorize') && request?.status === 'confirmed';
+        const isWfAuthorized = workflowInstance ? isUserAuthorized(workflowInstance) : true;
+        return isWfAuthorized && (
+            workflowInstance
+                ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && request?.status === 'confirmed')
+                : (hasPermission('amendments.authorize') && request?.status === 'confirmed')
+        );
     };
 
     const getStatusBadge = (status) => {

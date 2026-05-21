@@ -24,6 +24,7 @@ import { useToast } from "../../components/Toast";
 import { checkUniqueValue } from "../../utils/Unique";
 import LocationPicker from "./LocationPicker";
 import imageCompression from "browser-image-compression";
+import { apiFetch } from "../../utils/api";
 import Form from "./Form";
 
 // Kenya's 47 counties
@@ -1860,6 +1861,42 @@ const CustomerDraft = () => {
       }
 
       await Promise.all(childOps);
+
+      // --- Initialize / re-init workflow instance for customer onboarding ---
+      // Uses upsert on the server so drafts being re-submitted are handled safely.
+      try {
+        const wfRes = await apiFetch('/api/workflows/start', {
+          method: 'POST',
+          body: JSON.stringify({
+            workflow_type: 'customer_onboarding',
+            entity_id: customerId,
+            entity_type: 'customer_onboarding',
+          })
+        });
+        if (wfRes.ok) {
+          const wfData = await wfRes.json();
+          if (wfData.instance && wfData.instance.id) {
+            const actionRes = await apiFetch('/api/workflows/action', {
+              method: 'POST',
+              body: JSON.stringify({
+                instance_id: wfData.instance.id,
+                event: 'SUBMIT',
+                comments: 'Draft submitted'
+              })
+            });
+            if (!actionRes.ok) {
+              const actionErr = await actionRes.json().catch(() => ({}));
+              console.error('[Workflow] Failed to SUBMIT customer onboarding instance. Ensure user has the correct role permissions.', actionErr.error || actionRes.status);
+            }
+          }
+        } else {
+          const wfErr = await wfRes.json().catch(() => ({}));
+          console.warn('[Workflow] Could not start instance for draft submission:', wfErr.error || wfRes.status);
+        }
+      } catch (wfError) {
+        console.error('Failed to start workflow for customer (draft submit):', wfError);
+        // Non-fatal: customer record is already saved.
+      }
 
       toast.success("Application submitted successfully!");
       navigate("/registry/customers");

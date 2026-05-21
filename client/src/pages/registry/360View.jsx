@@ -1106,12 +1106,12 @@ const Customer360View = () => {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">#</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Due Date</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Amount Due</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Paid</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Status</th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600 ">Alerts</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">#</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">Due Date</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">Amount Due</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">Paid</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">Status</th>
+                      <th className="px-4 py-3 text-left text-xs font-medium text-gray-600  whitespace-nowrap">Alerts</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
@@ -1120,16 +1120,16 @@ const Customer360View = () => {
                         key={installment.id}
                         className="hover:bg-gray-50"
                       >
-                        <td className="px-4 py-3 text-xs text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                           {installment.installment_number}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                           {new Date(installment.due_date).toLocaleDateString()}
                         </td>
-                        <td className="px-4 py-3 text-xs text-slate-600">
+                        <td className="px-4 py-3 text-xs text-slate-600 whitespace-nowrap">
                           {formatCurrency(installment.due_amount)}
                         </td>
-                        <td className="px-4 py-3 text-xs font-semibold">
+                        <td className="px-4 py-3 text-xs font-semibold whitespace-nowrap">
                           <span className={parseFloat(installment.paid_amount) > 0 ? 'text-emerald-600' : 'text-slate-400'}>
                             {formatCurrency(installment.paid_amount || 0)}
                           </span>
@@ -1148,7 +1148,7 @@ const Customer360View = () => {
                             {installment.status}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-sm">
+                        <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                           {installment.days_overdue > 0 ? (
                             <span className="text-[10px] font-black text-rose-600 bg-rose-50 px-2 py-1 rounded border border-rose-100">
                               {installment.days_overdue} Days Late
@@ -1302,25 +1302,25 @@ const Customer360View = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {disbursedPayments.slice((repayPage - 1) * PAGE_SIZE, repayPage * PAGE_SIZE).map((payment) => (
                     <tr key={payment.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3 text-xs  text-brand-primary">
+                      <td className="px-4 py-3 text-xs  text-brand-primary whitespace-nowrap">
                         Loan {getLoanIndex(payment.loan_id)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                         {new Date(payment.paid_at).toLocaleString()}
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium text-green-600">
+                      <td className="px-4 py-3 text-xs font-medium text-green-600 whitespace-nowrap">
                         {formatCurrency(payment.paid_amount)}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600 capitalize">
+                      <td className="px-4 py-3 text-xs text-gray-600 capitalize whitespace-nowrap">
                         {payment.payment_method?.replace("_", " ") || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                         {payment.payment_type || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-xs text-gray-600">
+                      <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
                         {payment.mpesa_receipt || "N/A"}
                       </td>
-                      <td className="px-4 py-3 text-xs font-medium text-gray-600">
+                      <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
                         {formatCurrency(payment.balance_after)}
                       </td>
                     </tr>
@@ -1402,13 +1402,13 @@ const Customer360View = () => {
                 {new Date(txn.created_at).toLocaleString()}
               </td>
 
-              <td className="px-4 py-3 text-sm text-slate-600">
+              <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                 <div className="max-w-xs overflow-hidden text-ellipsis text-xs whitespace-nowrap" title={txn.narration || txn.description}>
                   {txn.narration || txn.description || "—"}
                 </div>
               </td>
 
-              <td className="px-4 py-3 text-sm whitespace-nowrap">
+              <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                 <span
                   className={`inline-flex px-2 py-1 text-xs  rounded-full ${parseFloat(txn.credit || 0) > 0 || txn.type === "credit" || txn.transaction_type === "credit"
                     ? "text-green-600"
@@ -1479,13 +1479,13 @@ const Customer360View = () => {
                         ? new Date(txn.transaction_time).toLocaleString()
                         : new Date(txn.created_at).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-xs font-mono text-gray-600">
+                    <td className="px-4 py-3 text-xs font-mono text-gray-600 whitespace-nowrap">
                       {txn.transaction_id || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-xs font-medium text-gray-600">
+                    <td className="px-4 py-3 text-xs font-medium text-gray-600 whitespace-nowrap">
                       {(txn.amount)}
                     </td>
-                    <td className="px-4 py-3 text-xs text-gray-600 capitalize">
+                    <td className="px-4 py-3 text-xs text-gray-600 capitalize whitespace-nowrap">
                       {txn.description
                         ? txn.description.includes("Credited to wallet - no active loan")
                           ? "Credited to wallet"
@@ -1497,7 +1497,7 @@ const Customer360View = () => {
 
 
 
-                    <td className="px-4 py-3 text-sm">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                       <span
                         className={`inline-flex px-2 py-1 text-xs  rounded-sm ${txn.status === "applied"
                           ? "bg-green-100 text-green-800"
@@ -1988,7 +1988,7 @@ const Customer360View = () => {
             <p className="text-gray-600 font-medium">
               No interactions recorded
             </p>
-            <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+            <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
               Click "Add Interaction" to record your first customer interaction
             </p>
           </div>
@@ -2380,7 +2380,7 @@ const Customer360View = () => {
           <div className="text-center py-12 bg-white border border-dashed border-gray-300 rounded-xl">
             <ChatBubbleLeftRightIcon className="h-16 w-16 text-gray-300 mx-auto mb-3" />
             <p className="text-gray-600 font-medium">No SMS messages sent yet</p>
-            <p className="text-sm text-gray-500 mt-1 max-w-sm mx-auto">
+            <p className="text-xs text-slate-600 mt-1 max-w-sm mx-auto">
               Click "Send SMS" to compose your first message
             </p>
           </div>
@@ -2635,7 +2635,7 @@ const Customer360View = () => {
                 <tbody className="bg-white divide-y divide-gray-200">
                   {ptps.slice((ptpPage - 1) * PAGE_SIZE, ptpPage * PAGE_SIZE).map((ptp) => (
                     <tr key={ptp.id} className="hover:bg-gray-50 transition">
-                      <td className="px-3 py-3 text-sm text-slate-600">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         <div className="flex items-center gap-2">
                           <CalendarIcon className="h-4 w-4 text-brand-primary" />
                           {new Date(ptp.promised_date).toLocaleDateString("en-GB")}
@@ -2660,17 +2660,17 @@ const Customer360View = () => {
                       </td>
 
                       {/* ✅ Improved Remarks Cell */}
-                      <td className="px-3 py-3 align-top">
+                      <td className="px-3 py-3 align-top whitespace-nowrap">
                         <div className="text-sm text-gray-600 whitespace-normal break-words leading-relaxed">
                           {ptp.remarks || "-"}
                         </div>
                       </td>
 
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         {getStatusBadge(ptp.status)}
                       </td>
 
-                      <td className="px-3 py-3 text-center">
+                      <td className="px-3 py-3 text-center whitespace-nowrap">
                         {ptp.status === "pending" ? (
                           <div className="flex justify-center gap-2">
                             <button

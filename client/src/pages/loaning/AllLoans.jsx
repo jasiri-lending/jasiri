@@ -16,6 +16,8 @@ import {
 } from "@heroicons/react/24/outline";
 import { useNavigate } from "react-router-dom";
 import Spinner from "../../components/Spinner";
+import { SharedTable } from "../../components/SharedTable";
+import { Pagination } from "../../components/Pagination";
 
 const AllLoans = () => {
   const { profile } = useAuth();
@@ -361,7 +363,7 @@ const AllLoans = () => {
     "appearance-none bg-white text-text transition-all duration-200";
 
   return (
-    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-body">
+    <div className="h-full bg-muted transition-all duration-300 p-6 min-h-screen font-body font-outfit text-gray-800">
 
       {/* ── Page Header ── */}
       <div className="flex items-center justify-between mb-6">
@@ -619,104 +621,34 @@ const AllLoans = () => {
           )}
         </div>
 
-        {/* ── Table ── */}
-        <div className="overflow-x-auto font-body">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-gray-100" style={{ backgroundColor: '#E7F0FA' }}>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Customer</th>
-                <th className="px-4 py-3 text-left text-xs   whitespace-nowrap text-slate-600">ID Number</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Mobile</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Region</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Branch</th>
-                {!isRelationshipOfficer && (
-                  <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Booked By</th>
-                )}
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Product</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Amount</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Weeks</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Status</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Date</th>
-                <th className="px-4 py-3 text-left text-xs  whitespace-nowrap text-slate-600">Actions</th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {currentLoans.map((loan, index) => {
-                const customer = customers[loan.customer_id];
-                const statusInfo = getStatusBadge(loan);
-
-                return (
-                  <tr
-                    key={loan.id}
-                    className={`border-b border-gray-50 transition-colors hover:bg-brand-surface ${
-                      index % 2 === 0 ? 'bg-white' : 'bg-gray-50/40'
-                    }`}
-                  >
-                    <td className="px-4 py-3 text-xs font-body  whitespace-nowrap text-slate-500">
-                      {customer?.fullName || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-500">
-                      {customer?.idNumber || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-500">
-                      {customer?.mobile || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-600">
-                      {loan.regionName}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-600">
-                      {loan.branchName}
-                    </td>
-                    {!isRelationshipOfficer && (
-                      <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-600">
-                        {loan.bookedByName}
-                      </td>
-                    )}
-                    <td className="px-4 py-3 text-xs font-body whitespace-nowrap text-gray-600">
-                      {loan.product_name || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body font-semibold whitespace-nowrap text-right text-slate-600">
-                      {loan.scored_amount ? `Ksh ${Number(loan.scored_amount).toLocaleString()}` : "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body text-center whitespace-nowrap text-gray-600">
-                      {loan.duration_weeks || "N/A"}
-                    </td>
-                    <td className="px-4 py-3 text-center whitespace-nowrap">
-                      <span
-                        className="inline-block px-3 py-1 rounded-full text-xs  whitespace-nowrap "
-                        style={{ backgroundColor: statusInfo.bg, color: 'white' }}
-                      >
-                        {statusInfo.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs font-body text-center whitespace-nowrap text-gray-500">
-                      {loan.created_at ? new Date(loan.created_at).toLocaleDateString("en-GB") : "N/A"}
-                    </td>
-                    <td className="px-5 py-3.5 text-center whitespace-nowrap">
-                      <div className="flex items-center justify-center gap-1.5">
-                        <button
-                          onClick={() => handleViewLoan(loan.id)}
-                          className="p-2 rounded-lg bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 hover:border-green-300 transition-all duration-200"
-                          title="View Loan Details"
-                        >
-                          <EyeIcon className="h-4 w-4" />
-                        </button>
-                        <button
-                          onClick={() => handleAddInteraction(loan.id)}
-                          className="p-2 rounded-lg bg-brand-surface border border-brand-secondary text-brand-primary hover:bg-blue-100 hover:text-primary hover:border-brand-primary transition-all duration-200"
-                          title="Add Interaction"
-                        >
-                          <ChatBubbleLeftRightIcon className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+        <SharedTable
+  columns={[
+    { header: 'Customer', render: (row) => customers[row.customer_id]?.fullName || 'N/A' },
+    { header: 'ID Number', render: (row) => customers[row.customer_id]?.idNumber || 'N/A' },
+    { header: 'Mobile', render: (row) => customers[row.customer_id]?.mobile || 'N/A' },
+    { header: 'Region', accessor: 'regionName' },
+    { header: 'Branch', accessor: 'branchName' },
+    { header: 'Booked By', render: (row) => row.bookedByName, condition: !isRelationshipOfficer },
+    { header: 'Product', accessor: 'product_name' },
+    { header: 'Amount', render: (row) => row.scored_amount ? `Ksh ${Number(row.scored_amount).toLocaleString()}` : 'N/A' },
+    { header: 'Weeks', accessor: 'duration_weeks' },
+    { header: 'Status', render: (row) => {
+        const info = getStatusBadge(row);
+        return <span className="inline-block px-3 py-1 rounded-full text-xs" style={{ backgroundColor: info.bg, color: 'white' }}>{info.label}</span>;
+      }
+    },
+    { header: 'Date', render: (row) => row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : 'N/A' },
+    { header: 'Actions', render: (row) => (
+        <div className="flex items-center justify-center gap-1.5">
+          <button onClick={() => handleViewLoan(row.id)} className="p-2 rounded-lg bg-green-50 border border-green-200 text-green-600 hover:bg-green-100 hover:text-green-700 hover:border-green-300 transition-all duration-200" title="View Loan Details"><EyeIcon className="h-3 w-3" /></button>
+          <button onClick={() => handleAddInteraction(row.id)} className="p-2 rounded-lg bg-brand-surface border border-brand-secondary text-brand-primary hover:bg-blue-100 hover:text-primary hover:border-brand-primary transition-all duration-200" title="Add Interaction"><ChatBubbleLeftRightIcon className="h-3 w-3" /></button>
         </div>
+      )
+    },
+  ]}
+  data={currentLoans}
+  rowKey="id"
+/>
 
         {/* No Results */}
         {filteredLoans.length === 0 && (
@@ -736,7 +668,7 @@ const AllLoans = () => {
         {/* ── Pagination ── */}
         {filteredLoans.length > 0 && (
           <div className="px-5 py-4 border-t border-gray-100 bg-gray-50/60 rounded-b-2xl">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
 
               {/* Results Count */}
               <div className="text-xs font-body text-gray-500">

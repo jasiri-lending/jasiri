@@ -1,5 +1,29 @@
 import { supabaseAdmin } from "../supabaseClient.js";
 
+export const normalizeEntityId = (id) => {
+    if (!id) return id;
+    const strId = String(id);
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidRegex.test(strId)) {
+        return strId.toLowerCase();
+    }
+    if (/^\d+$/.test(strId)) {
+        const hex = Number(strId).toString(16).padStart(12, '0');
+        return `00000000-0000-4000-a000-${hex}`;
+    }
+    return strId;
+};
+
+export const denormalizeEntityId = (uuidStr) => {
+    if (!uuidStr) return uuidStr;
+    const str = String(uuidStr).toLowerCase();
+    if (str.startsWith('00000000-0000-4000-a000-')) {
+        const hex = str.split('-').pop();
+        return parseInt(hex, 16);
+    }
+    return uuidStr;
+};
+
 /**
  * Action Registry
  * Register automated tasks that can be triggered on node entry.
@@ -114,18 +138,18 @@ export const startWorkflow = async (tenant_id, workflow_type, entity_id, entity_
         throw new Error(`Target node not found for START transition`);
     }
 
-    // 4. Create the workflow instance
+    // 4. Create the workflow instance (upsert to handle draft→submit re-submission)
     const { data: instance, error: instanceError } = await supabaseAdmin
         .from('workflow_instances')
-        .insert({
+        .upsert({
             tenant_id,
             workflow_id: workflowDef.id,
-            entity_id,
+            entity_id: normalizeEntityId(entity_id),
             entity_type,
             current_node_id: nextNode.id,
-            context: initial_context,
-            overall_status: 'in_progress'
-        })
+            status: 'in_progress',
+            updated_at: new Date().toISOString()
+        }, { onConflict: 'tenant_id,entity_type,entity_id' })
         .select()
         .single();
 
@@ -155,6 +179,10 @@ export const startWorkflow = async (tenant_id, workflow_type, entity_id, entity_
         }
     }
 
+    if (instance) {
+        instance.entity_id = denormalizeEntityId(instance.entity_id);
+    }
+
     return instance;
 };
 
@@ -171,8 +199,8 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         throw new Error(`Workflow instance not found`);
     }
 
-    if (instance.overall_status !== 'in_progress') {
-        throw new Error(`Workflow instance is already ${instance.overall_status}`);
+    if (instance.status !== 'in_progress') {
+        throw new Error(`Workflow instance is already ${instance.status}`);
     }
 
     const currentNode = instance.workflow_nodes;
@@ -237,12 +265,12 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         throw new Error(`Target state not found`);
     }
 
-    // 5. Determine overall status
-    let overall_status = 'in_progress';
+    // 5. Determine status
+    let status = 'in_progress';
     if (nextNode.type === 'END') {
-        overall_status = event === 'REJECT' ? 'rejected' : 'completed';
+        status = event === 'REJECT' ? 'rejected' : 'completed';
     } else if (event === 'CANCEL') {
-        overall_status = 'cancelled';
+        status = 'cancelled';
     }
 
     // 6. Update the instance
@@ -250,8 +278,7 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         .from('workflow_instances')
         .update({
             current_node_id: nextNode.id,
-            context: currentContext,
-            overall_status,
+            status,
             updated_at: new Date().toISOString()
         })
         .eq('id', instance_id)
@@ -286,6 +313,10 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
                 }
             }
         }
+    }
+
+    if (updatedInstance) {
+        updatedInstance.entity_id = denormalizeEntityId(updatedInstance.entity_id);
     }
 
     return updatedInstance;

@@ -2,6 +2,30 @@ import { useState, useCallback, useEffect } from "react";
 import { supabase } from "../supabaseClient";
 import { useAuth } from "./userAuth";
 
+export const normalizeEntityId = (id) => {
+  if (!id) return id;
+  const strId = String(id);
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (uuidRegex.test(strId)) {
+    return strId.toLowerCase();
+  }
+  if (/^\d+$/.test(strId)) {
+    const hex = Number(strId).toString(16).padStart(12, '0');
+    return `00000000-0000-4000-a000-${hex}`;
+  }
+  return strId;
+};
+
+export const denormalizeEntityId = (uuidStr) => {
+  if (!uuidStr) return uuidStr;
+  const str = String(uuidStr).toLowerCase();
+  if (str.startsWith('00000000-0000-4000-a000-')) {
+    const hex = str.split('-').pop();
+    return parseInt(hex, 16);
+  }
+  return uuidStr;
+};
+
 export function useWorkflow() {
   const { profile } = useAuth();
   const [userRoleIds, setUserRoleIds] = useState([]);
@@ -17,13 +41,13 @@ export function useWorkflow() {
       try {
         const { data: roleData } = await supabase
           .from("roles")
-          .select("id, name, code")
+          .select("id, name, base_role")
           .eq("tenant_id", profile.tenant_id);
 
         if (roleData) {
           const matchedRoles = roleData.filter(r => 
             r.name.toLowerCase() === profile.role.toLowerCase() || 
-            r.code?.toLowerCase() === profile.role.toLowerCase()
+            r.base_role?.toLowerCase() === profile.role.toLowerCase()
           );
           setUserRoleIds(matchedRoles.map(r => r.id));
         }
@@ -43,29 +67,33 @@ export function useWorkflow() {
   const fetchWorkflowInstance = useCallback(async (entityId, entityType) => {
     if (!profile?.tenant_id) return null;
     try {
+      const normalizedEntityId = normalizeEntityId(entityId);
       const { data, error } = await supabase
         .from("workflow_instances")
         .select(`
           *,
-          current_node:current_node_id (
+          current_node:workflow_nodes!current_node_id (
             id,
             node_client_id,
             name,
             type,
             permissions
           ),
-          workflow_definitions:workflow_id (
+          workflow_definitions!workflow_id (
             id,
             name,
             type
           )
         `)
         .eq("tenant_id", profile.tenant_id)
-        .eq("entity_id", entityId)
+        .eq("entity_id", normalizedEntityId)
         .eq("entity_type", entityType)
         .maybeSingle();
 
       if (error) throw error;
+      if (data) {
+        data.entity_id = denormalizeEntityId(data.entity_id);
+      }
       return data;
     } catch (err) {
       console.error("Error fetching workflow instance:", err);

@@ -1,4 +1,4 @@
-﻿import { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import {
   MagnifyingGlassIcon,
   PhoneIcon,
@@ -459,7 +459,7 @@ function CustomerEdits() {
                 <h3 className="text-sm font-semibold text-slate-700 tracking-tight">Review Record Amendment</h3>
                 <div className="flex items-center gap-2 text-[10px] font-medium text-slate-400 uppercase tracking-widest mt-0.5">
                   <span>{customerName}</span>
-                  <span className="text-slate-300">•</span>
+                  <span className="text-slate-300">�</span>
                   <span>ID: {request.customer?.id_number || 'N/A'}</span>
                 </div>
               </div>
@@ -660,7 +660,7 @@ if (!profile) {
 }
 
 return (
-  <div className="min-h-screen bg-muted font-sans">
+  <div className="min-h-screen bg-muted font-outfit">
     {viewingRequest && (
       <ViewRequestModal
         request={viewingRequest}
@@ -926,7 +926,7 @@ return (
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search requests..."
-              className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-sans"
+              className="w-full bg-white border border-slate-200 rounded-lg py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all text-slate-600 font-outfit"
             />
           </div>
 
@@ -937,7 +937,7 @@ return (
                 <select
                   value={statusFilter}
                   onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-sans"
+                  className="w-full pl-9 pr-8 py-2 bg-white border border-slate-200 rounded-lg focus:outline-none focus:ring-4 focus:ring-[#586ab1]/10 focus:border-[#586ab1] transition-all appearance-none text-slate-600 font-medium text-xs cursor-pointer font-outfit"
                 >
                   <option value="all">All Access Records</option>
                   <option value="pending_branch_manager">Pending BM Action</option>
@@ -955,7 +955,7 @@ return (
 
         {/* Table Area */}
         <div className="overflow-x-auto min-h-[400px]">
-          <table className="w-full border-collapse font-sans">
+          <table className="w-full border-collapse font-outfit">
             <thead>
               <tr className="border-b" style={{ backgroundColor: '#E7F0FA' }}>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap uppercase tracking-wider">Customer</th>
@@ -1002,7 +1002,7 @@ return (
 
                   return (
                     <tr key={request.id} className={`group hover:bg-gray-100/50 transition-all border-b border-gray-100 ${idx % 2 === 0 ? '' : 'bg-gray-50'}`}>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-3">
                           <div className="w-8 h-8 bg-white rounded-lg shadow-sm border border-gray-100 flex items-center justify-center transition-transform group-hover:scale-110">
                             <UserIcon className="w-4 h-4 text-slate-400" />
@@ -1015,26 +1015,26 @@ return (
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {request.current_mobile || '---'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`text-sm ${request.current_mobile !== request.new_mobile ? 'text-[#586ab1] font-semibold' : 'text-slate-400'}`}>
                           {request.new_mobile || '---'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-sm text-slate-600 whitespace-nowrap">
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {request.current_id_number || '---'}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <span className={`text-sm ${request.current_id_number !== request.new_id_number ? 'text-indigo-600 font-semibold' : 'text-slate-400'}`}>
                           {request.new_id_number || '---'}
                         </span>
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         {getStatusBadge(request.status)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 whitespace-nowrap">
                         <div className="text-sm text-slate-600 whitespace-nowrap">
                           {new Date(request.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                         </div>
@@ -1042,10 +1042,10 @@ return (
                           {new Date(request.created_at).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-right">
+                      <td className="px-4 py-3 text-right whitespace-nowrap">
                         <button
                           onClick={() => setViewingRequest(request)}
-                          className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                          className="text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200"
                           title="Quick Review"
                         >
                           <EyeIcon className="h-4 w-4" />
@@ -1065,4 +1065,6 @@ return (
 }
 
 export default CustomerEdits;
+
+
 

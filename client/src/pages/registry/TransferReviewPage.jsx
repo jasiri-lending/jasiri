@@ -5,6 +5,7 @@ import { useAuth } from '../../hooks/userAuth.js';
 import { usePermissions } from '../../hooks/usePermissions';
 import { useToast } from '../../components/Toast.jsx';
 import Spinner from '../../components/Spinner.jsx';
+import { useWorkflow } from '../../hooks/useWorkflow';
 
 // Format a role slug into a readable label, e.g. 'branch_manager' → 'Branch Manager'
 const formatRole = (role) =>
@@ -16,16 +17,30 @@ const TransferReviewPage = () => {
   const { profile } = useAuth();
   const { hasPermission } = usePermissions();
   const toast = useToast();
+  const { fetchWorkflowInstance, transitionWorkflow, isUserAuthorized } = useWorkflow();
 
   const [transfer, setTransfer] = useState(null);
+  const [workflowInstance, setWorkflowInstance] = useState(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
   const [showRejectInput, setShowRejectInput] = useState(false);
 
   useEffect(() => {
-    if (profile && transferId) fetchTransfer();
+    if (profile && transferId) {
+      fetchTransfer();
+      getWorkflow();
+    }
   }, [profile, transferId]);
+
+  const getWorkflow = async () => {
+    try {
+      const inst = await fetchWorkflowInstance(transferId, 'customer_transfer');
+      setWorkflowInstance(inst);
+    } catch (e) {
+      console.warn('No active workflow instance found for this transfer:', e);
+    }
+  };
 
   const fetchTransfer = async () => {
     try {
@@ -76,17 +91,26 @@ const TransferReviewPage = () => {
 
   // ─── Approve (transfers.confirm) ───────────────────────────────────────────
   const handleApprove = async () => {
-    if (!hasPermission('transfers.confirm')) {
+    if (!hasPermission('transfers.confirm') && !isUserAuthorized(workflowInstance)) {
       toast.error('You do not have permission to approve transfers.');
       return;
     }
     setActionLoading(true);
     try {
+      let targetStatus = 'approved';
+      if (workflowInstance) {
+        const nextNode = await transitionWorkflow(workflowInstance, 'APPROVE');
+        if (!nextNode) {
+          throw new Error('Failed to transition workflow instance');
+        }
+        targetStatus = nextNode.type === 'END' || nextNode.type === 'end' ? 'completed' : 'approved';
+      }
+
       const { error: updateError } = await supabase
         .from('customer_transfer_requests')
         .update({
           regional_manager_id: profile.id,
-          status: 'approved',
+          status: targetStatus,
           updated_at: new Date().toISOString()
         })
         .eq('id', transferId)
@@ -116,7 +140,7 @@ const TransferReviewPage = () => {
 
   // ─── Reject (transfers.confirm) ────────────────────────────────────────────
   const handleReject = async () => {
-    if (!hasPermission('transfers.confirm')) {
+    if (!hasPermission('transfers.confirm') && !isUserAuthorized(workflowInstance)) {
       toast.error('You do not have permission to reject transfers.');
       return;
     }
@@ -126,6 +150,18 @@ const TransferReviewPage = () => {
     }
     setActionLoading(true);
     try {
+      if (workflowInstance) {
+        try {
+          await transitionWorkflow(workflowInstance, 'REJECT');
+        } catch (wfErr) {
+          console.log('No reject edge found, completing workflow instance directly.');
+          await supabase
+            .from('workflow_instances')
+            .update({ status: 'completed', updated_at: new Date().toISOString() })
+            .eq('id', workflowInstance.id);
+        }
+      }
+
       const { error: updateError } = await supabase
         .from('customer_transfer_requests')
         .update({
@@ -159,12 +195,19 @@ const TransferReviewPage = () => {
 
   // ─── Execute (transfers.authorize) ─────────────────────────────────────────
   const handleExecute = async () => {
-    if (!hasPermission('transfers.authorize')) {
+    if (!hasPermission('transfers.authorize') && !isUserAuthorized(workflowInstance)) {
       toast.error('You do not have permission to execute transfers.');
       return;
     }
     setActionLoading(true);
     try {
+      if (workflowInstance) {
+        const nextNode = await transitionWorkflow(workflowInstance, 'APPROVE');
+        if (!nextNode) {
+          throw new Error('Failed to transition workflow instance');
+        }
+      }
+
       const customerIds = transfer.transfer_items.map(i => i.customer.id || i.customer_id).filter(Boolean);
 
       // Update customers
@@ -244,10 +287,21 @@ const TransferReviewPage = () => {
     );
   }
 
+
   if (!transfer) return null;
 
-  const canApproveReject = hasPermission('transfers.confirm') && transfer.status === 'pending_approval';
-  const canExecute = hasPermission('transfers.authorize') && transfer.status === 'approved';
+  const isWfAuthorized = workflowInstance ? isUserAuthorized(workflowInstance) : true;
+
+  const canApproveReject = isWfAuthorized && (
+    workflowInstance
+      ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && transfer.status === 'pending_approval')
+      : (hasPermission('transfers.confirm') && transfer.status === 'pending_approval')
+  );
+  const canExecute = isWfAuthorized && (
+    workflowInstance
+      ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && transfer.status === 'approved')
+      : (hasPermission('transfers.authorize') && transfer.status === 'approved')
+  );
 
   return (
     <div className="min-h-screen bg-muted p-4 md:p-6">
@@ -268,7 +322,7 @@ const TransferReviewPage = () => {
             <h1 className="text-lg font-semibold text-slate-700">
               Transfer Request <span className="font-mono text-slate-500">#{transfer.id.slice(0, 8).toUpperCase()}</span>
             </h1>
-            <p className="text-sm text-gray-500 mt-0.5">Submitted on {formatDate(transfer.created_at)}</p>
+            <p className="text-xs text-slate-600 mt-0.5">Submitted on {formatDate(transfer.created_at)}</p>
           </div>
 
           {/* Status pill */}
@@ -293,7 +347,7 @@ const TransferReviewPage = () => {
             <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
               <p className="text-xs text-gray-400 uppercase font-semibold mb-1">From Branch</p>
               <p className="font-bold text-gray-900">{transfer.current_branch?.name}</p>
-              <p className="text-sm text-gray-500 mt-1">{transfer.current_officer?.full_name}</p>
+              <p className="text-xs text-slate-600 mt-1">{transfer.current_officer?.full_name}</p>
             </div>
 
             <div className="flex items-center justify-center">
@@ -307,7 +361,7 @@ const TransferReviewPage = () => {
             <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
               <p className="text-xs text-gray-400 uppercase font-semibold mb-1">To Branch</p>
               <p className="font-bold text-gray-900">{transfer.new_branch?.name}</p>
-              <p className="text-sm text-gray-500 mt-1">{transfer.new_officer?.full_name}</p>
+              <p className="text-xs text-slate-600 mt-1">{transfer.new_officer?.full_name}</p>
             </div>
           </div>
 
@@ -366,15 +420,15 @@ const TransferReviewPage = () => {
               <tbody className="bg-white divide-y divide-gray-100">
                 {transfer.transfer_items?.map((item, idx) => (
                   <tr key={item.id || idx} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-3 text-sm text-gray-400">{idx + 1}</td>
-                    <td className="px-6 py-3">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">{idx + 1}</td>
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <p className="text-sm font-medium text-gray-900">
                         {item.customer?.Firstname} {item.customer?.Middlename || ''} {item.customer?.Surname}
                       </p>
                     </td>
-                    <td className="px-6 py-3 text-sm text-gray-700">{item.customer?.id_number}</td>
-                    <td className="px-6 py-3 text-sm text-gray-700">{item.customer?.mobile}</td>
-                    <td className="px-6 py-3">
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">{item.customer?.id_number}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">{item.customer?.mobile}</td>
+                    <td className="px-6 py-3 whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
                         <span className="text-xs text-gray-500">{transfer.current_branch?.name}</span>
                         <svg className="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -399,7 +399,7 @@ const PendingAmendments = () => {
   // Support check
   if (!config) {
     return (
-      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center font-sans">
+      <div className="h-full bg-muted p-6 min-h-screen flex items-center justify-center font-outfit">
         <div className="text-center p-8 bg-white rounded-xl shadow-sm border border-gray-200 max-w-md">
           <ExclamationTriangleIcon className="h-12 w-12 text-amber-500 mx-auto mb-4" />
           <h2 className="text-lg font-semibold text-gray-800 mb-2">Access Restricted</h2>
@@ -419,7 +419,7 @@ const PendingAmendments = () => {
   }
 
   return (
-    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="h-full bg-muted text-gray-800 border-r border-gray-200 transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
@@ -672,7 +672,7 @@ const PendingAmendments = () => {
         </div>
 
         {/* Table Container */}
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-outfit">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -730,22 +730,22 @@ const PendingAmendments = () => {
                       className="hover:bg-gray-50 transition-colors"
                     >
                       {/* Name */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {getFullName(customer) || "N/A"}
                       </td>
 
                       {/* ID Number */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.id_number || "N/A"}
                       </td>
 
                       {/* Contact Info */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customer.mobile || "N/A"}
                       </td>
 
                       {/* Last Updated */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         <div>
                           <div className="font-normal">
                             {customer.edited_at
@@ -779,17 +779,17 @@ const PendingAmendments = () => {
                       </td>
 
                       {/* Branch */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customerDetail.branch || "Loading..."}
                       </td>
 
                       {/* Region */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customerDetail.region || "Loading..."}
                       </td>
 
                       {/* RO Name */}
-                      <td className="px-4 py-3 text-sm whitespace-nowrap" style={{ color: '#0D2440' }}>
+                      <td className="px-4 py-3 text-xs whitespace-nowrap text-slate-600">
                         {customerDetail.roName || "Loading..."}
                       </td>
 
@@ -798,7 +798,7 @@ const PendingAmendments = () => {
                         <div className="flex items-center justify-center gap-1.5">
                           <button
                             onClick={() => handleViewChanges(customer)}
-                            className="p-2 rounded-lg bg-gradient-to-r from-green-50 to-green-100 border border-green-200 text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200 shadow-sm hover:shadow"
+                            className="text-green-600 hover:from-green-100 hover:to-green-200 hover:text-green-700 hover:border-green-300 transition-all duration-200"
                             title="View Changes"
                           >
                             <EyeIcon className="h-4 w-4" />
@@ -806,7 +806,7 @@ const PendingAmendments = () => {
                           {!statusInfo.isROActionNeeded && (
                             <button
                               onClick={() => handleApproveAmendment(customer)}
-                              className="p-2 rounded-lg bg-gradient-to-r from-blue-50 to-blue-100 border border-blue-200 text-blue-600 hover:from-blue-100 hover:to-blue-200 hover:text-blue-700 hover:border-blue-300 transition-all duration-200 shadow-sm hover:shadow"
+                              className="text-brand-primary hover:from-blue-50 hover:to-blue-100 hover:text-brand-primary hover:border-brand-secondary/50 transition-all duration-200"
                               title="Approve Changes"
                             >
                               <CheckCircleIcon className="h-4 w-4" />
@@ -894,3 +894,4 @@ const PendingAmendments = () => {
 };
 
 export default PendingAmendments;
+

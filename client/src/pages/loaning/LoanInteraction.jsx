@@ -172,7 +172,7 @@ const LoanInteraction = () => {
 
   const getInteractionIcon = (type) => {
     const interaction = interactionTypes.find(t => t.value === type);
-    if (!interaction) return <ChatBubbleLeftRightIcon className="h-4 w-4 text-gray-600" />;
+    if (!interaction) return <ChatBubbleLeftRightIcon className="h-3 w-3 text-gray-600" />;
 
     const Icon = interaction.icon;
     return <Icon className={`h-4 w-4 ${interaction.color}`} />;
@@ -226,7 +226,7 @@ const LoanInteraction = () => {
                 className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
                 aria-label="Go back"
               >
-                <ArrowLeftIcon className="h-4 w-4 text-gray-600" />
+                <ArrowLeftIcon className="h-3 w-3 text-gray-600" />
               </button>
               <div className="flex items-center gap-2">
                 <div className="p-2 bg-[#586ab1]/10 rounded-lg">
@@ -369,7 +369,7 @@ const LoanInteraction = () => {
             {/* Interactions List */}
             <div className="bg-white rounded-lg shadow-sm p-4 border border-gray-200">
               <h3 className="text-sm font-semibold text-gray-800 flex items-center gap-2 mb-4">
-                <ClockIcon className="h-4 w-4 text-gray-600" />
+                <ClockIcon className="h-3 w-3 text-gray-600" />
                 Interaction History ({interactions.length})
               </h3>
 

@@ -288,13 +288,13 @@ export const TablePagination = ({
   return (
     <div style={{
       display: 'flex',
-      justifyContent: 'space-between',
+      justifyContent: 'flex-end',
       alignItems: 'center',
-      padding: theme.spacing.md,
+      padding: theme.spacing.sm,
       borderTop: `1px solid ${theme.colors.neutral[200]}`,
       backgroundColor: theme.colors.neutral[50]
-    }}>
-      <div style={{ color: theme.colors.neutral[600], fontSize: theme.typography.sizes.sm }}>
+    }} className="font-outfit text-[10px] gap-4">
+      <div style={{ color: theme.colors.neutral[600], fontSize: '10px' }}>
         Showing <strong>{Math.min((currentPage - 1) * pageSize + 1, totalItems)}</strong> to{' '}
         <strong>{Math.min(currentPage * pageSize, totalItems)}</strong> of{' '}
         <strong>{totalItems}</strong> entries
