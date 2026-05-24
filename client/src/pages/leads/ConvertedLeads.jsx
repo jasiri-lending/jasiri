@@ -13,7 +13,9 @@ import {
   ChevronRightIcon,
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
+  XCircleIcon,
 } from "@heroicons/react/24/outline";
+import { XCircleIcon as XCircleSolidIcon } from "@heroicons/react/24/solid";
 import { useAuth } from "../../hooks/userAuth";
 import { supabase } from "../../supabaseClient";
 import { useToast } from "../../components/Toast";
@@ -39,6 +41,7 @@ const ConvertedLeads = () => {
   const [filterRegion, setFilterRegion] = useState("");
   const [filterBranch, setFilterBranch] = useState("");
   const [filterRO, setFilterRO] = useState("");
+  const [isMobileOpen, setIsMobileOpen] = useState(false);
 
   const [regions, setRegions] = useState([]);
   const [branches, setBranches] = useState([]);
@@ -188,7 +191,7 @@ const ConvertedLeads = () => {
 
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted p-6 min-h-screen font-outfit" style={{fontFamily: "'Outfit', sans-serif"}}>
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xs text-slate-600 mb-1">Leads / Converted Leads</h1>
@@ -200,16 +203,16 @@ const ConvertedLeads = () => {
 
 
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 mb-5">
-        <div className="p-5 border-b border-gray-200">
-          <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
-            <div className="flex flex-col sm:flex-row gap-3 w-full">
+        <div className="p-5 border-b border-gray-200">{isMobileOpen && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileOpen(false)} />
+        )}    <div className="flex flex-col sm:flex-row gap-3 w-full">
               {/* Search Bar */}
               <div className="relative flex-1">
                 <MagnifyingGlassIcon className="h-3 w-3 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
                 <input
                   type="text"
                   placeholder="Search converted leads..."
-                  className="w-1/2 pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-1/2 pl-9 pr-8 py-1.5 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -236,7 +239,7 @@ const ConvertedLeads = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-xs transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -258,7 +261,7 @@ const ConvertedLeads = () => {
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Region</label>
                     <div className="relative">
-                      <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                      <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                         <option value="" className="text-gray-400">All Regions</option>
                         {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                       </select>
@@ -270,7 +273,7 @@ const ConvertedLeads = () => {
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Branch</label>
                     <div className="relative">
-                      <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                      <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                         <option value="" className="text-gray-400">All Branches</option>
                         {branches.filter(b => !filterRegion || b.region_id?.toString() === filterRegion.toString()).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                       </select>
@@ -282,7 +285,7 @@ const ConvertedLeads = () => {
                   <div>
                     <label className="block text-xs text-gray-600 mb-1">Officer</label>
                     <div className="relative">
-                      <select value={filterRO} onChange={e => setFilterRO(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                      <select value={filterRO} onChange={e => setFilterRO(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                         <option value="" className="text-gray-400">All Officers</option>
                         {officers.filter(o => {
                           if (!filterBranch) return true;
@@ -297,7 +300,7 @@ const ConvertedLeads = () => {
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">Status</label>
                   <div className="relative">
-                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                       <option value="all" className="text-gray-400">All Statuses</option>
                       <option value="Hot">Hot</option>
                       <option value="Warm">Warm</option>
@@ -337,13 +340,12 @@ const ConvertedLeads = () => {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Table Container */}
-      <div className="bg-white rounded-sm shadow-sm border border-gray-200">
-        <div className="overflow-x-auto font-sans">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+{/* Table Container */}
+<div className="bg-white rounded-sm shadow-sm border border-gray-200 font-outfit">
+  <div className="overflow-x-auto font-outfit">
+          <table className="min-w-full divide-y divide-gray-200 font-outfit">
+            <thead className="bg-gray-50 font-outfit">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Officer</th>
@@ -357,21 +359,21 @@ const ConvertedLeads = () => {
                 <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Source</th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 font-outfit">
               {pagedLeads.map(l => (
                 <tr key={l.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.mobile}</td>
+                  <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{l.business_name}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.business_location}</td>
                   <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-center">
                     <span className="px-2 py-0.5 rounded-full text-[8px]  text-white whitespace-nowrap" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
                 </tr>
               ))}
             </tbody>
@@ -457,7 +459,7 @@ const ConvertedLeads = () => {
             {/* Items Per Page Selector */}
             <div className="mt-4 pt-3 border-t border-gray-200">
               <div className="flex items-center justify-end gap-2">
-                <span className="text-[11px] text-gray-500 font-medium">Items per page:</span>
+                <span className="text-xs text-gray-500 font-medium">Items per page:</span>
                 <select
                   value={itemsPerPage}
                   onChange={(e) => {
@@ -493,7 +495,7 @@ const StatCard = ({ label, value, icon: Icon, color }) => {
 const FilterSelect = ({ label, value, options, onChange }) => (
   <div className="space-y-1">
     <label className="text-xs font-bold text-gray-500 uppercase tracking-widest">{label}</label>
-    <select value={value} onChange={onChange} className="w-full bg-gray-50 border-none rounded-xl px-3 py-2.5 text-sm outline-none cursor-pointer">
+    <select value={value} onChange={onChange} className="w-full bg-gray-50 border-none rounded-xl px-3 py-2.5 text-xs outline-none cursor-pointer">
       <option value="">All {label}s</option>
       {options.map(o => <option key={o.id} value={o.id}>{o.name || o.full_name}</option>)}
     </select>

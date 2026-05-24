@@ -490,16 +490,16 @@ const AllLeads = () => {
 
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1">
+          <h1 className="text-xs font-outfit font-semibold text-slate-600 mb-1">
             Leads / All Leads
           </h1>
         </div>
         <div className="text-xs text-brand-primary">
-          <span className="font-medium text-brand-primary">{visibleLeads.length}</span> leads
+          <span className="font-medium text-brand-primary font-outfit">{visibleLeads.length}</span> leads
         </div>
       </div>
 
@@ -515,7 +515,7 @@ const AllLeads = () => {
                 <input
                   type="text"
                   placeholder="Search by name, mobile, or business..."
-                  className="w-1/2 pl-9 pr-8 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
+                  className="w-1/2 pl-9 pr-8 py-1 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 transition-all duration-200 bg-white"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -551,7 +551,7 @@ const AllLeads = () => {
                 )}
                 <button
                   onClick={() => setShowFilters(!showFilters)}
-                  className="px-3 py-1.5 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
+                  className="px-3 py-1 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 hover:text-gray-900"
                 >
                   <AdjustmentsHorizontalIcon className="h-4 w-4" />
                   Filters
@@ -689,40 +689,40 @@ const AllLeads = () => {
 
       {/* Table */}
       <div className="bg-white rounded-sm shadow-sm border border-gray-200">
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto w-full">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-gray-50 font-outfit  ">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Officer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Branch</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Contact</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Business Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Location</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600 cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
-                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Status</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Industry</th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">Source</th>
-                {isOfficer && <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">Actions</th>}
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Name</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Officer</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Branch</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Contact</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Business Name</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Location</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Type</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600 cursor-pointer" onClick={() => setSortConfig(s => ({ key: "created_at", direction: s.direction === "asc" ? "desc" : "asc" }))}>Created ↕</th>
+                <th className="px-4 py-3 text-center text-sm font-medium whitespace-nowrap text-slate-600">Status</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Industry</th>
+                <th className="px-4 py-3 text-left text-sm font-medium whitespace-nowrap text-slate-600">Source</th>
+                {isOfficer && <th className="px-4 py-3 text-center text-sm font-medium whitespace-nowrap text-slate-600">Actions</th>}
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-white divide-y divide-gray-200 font-outfit">
               {pagedLeads.map(l => (
                 <tr key={l.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_type}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.mobile}</td>
+                  <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{l.business_name}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.business_location}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.business_type}</td>
                   <td className="px-4 py-3 text-xs text-gray-500 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className="px-2.5 py-0.5 rounded-sm text-[8px]  text-white  whitespace-nowrap" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
+                    <span className="px-2.5 py-0.5 rounded-sm text-xs text-white whitespace-nowrap" style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
                   {isOfficer && (
                     <td className="px-3 py-1.5 flex items-center justify-center gap-2">
                       <button onClick={() => navigate("/officer/customer-form", { state: { leadData: l, fromLeads: true } })} disabled={l.is_converted} className={`px-1 py-0.5 rounded-lg text-xs  ${l.is_converted ? "bg-emerald-50 text-emerald-600" : "bg-brand-primary text-white hover:bg-brand-primary/90"}`}>{l.is_converted ? "Converted" : "Convert"}</button>

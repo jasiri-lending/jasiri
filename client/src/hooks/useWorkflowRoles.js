@@ -52,6 +52,7 @@ export const useWorkflowRoles = () => {
 
             if (data) {
                 data.forEach(role => {
+                    if (role.name === 'admin') return; // Skip admin from display labels
                     role.role_permissions?.forEach(rp => {
                         const permName = rp.permissions?.name;
                         const step = permMap[permName];

@@ -4,12 +4,14 @@ import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { useAuth } from '../../hooks/userAuth';
 import { supabase } from '../../supabaseClient';
+import { useToast } from '../../components/Toast';
 
 const WorkflowSettings = () => {
     const [workflows, setWorkflows] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
     const navigate = useNavigate();
     const { user } = useAuth();
+    const { success: toastSuccess, error: toastError } = useToast();
 
     useEffect(() => {
         const fetchWorkflows = async () => {
@@ -180,22 +182,31 @@ const WorkflowSettings = () => {
                                                                     <Edit className="h-3.5 w-3.5" />
                                                                 </button>
                                                     <button 
-                                                        onClick={async () => {
-                                                            if (window.confirm("Delete this workflow?")) {
-                                                                try {
-                                                                    const { data: session } = await supabase.auth.getSession();
-                                                                    await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/workflows/${workflow.id}`, {
-                                                                        headers: { Authorization: `Bearer ${session.session?.access_token}` }
-                                                                    });
-                                                                    setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
-                                                                } catch (err) { console.error(err); }
-                                                            }
-                                                        }}
-                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                                                    >
-                                                        <Trash2 className="h-3.5 w-3.5" />
-                                                    </button>
-                                                </div>
+                                                         onClick={async () => {
+                                                             if (window.confirm("Are you sure you want to delete this workflow? This will also delete all associated workflow instances and history.")) {
+                                                                 try {
+                                                                     const { data: session } = await supabase.auth.getSession();
+                                                                     const response = await axios.delete(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/workflows/${workflow.id}`, {
+                                                                         headers: { Authorization: `Bearer ${session.session?.access_token}` }
+                                                                     });
+                                                                     if (response.data.success) {
+                                                                         setWorkflows(prev => prev.filter(w => w.id !== workflow.id));
+                                                                         toastSuccess("Workflow deleted successfully");
+                                                                     } else {
+                                                                         toastError(response.data.error || "Failed to delete workflow");
+                                                                     }
+                                                                 } catch (err) { 
+                                                                     console.error(err); 
+                                                                     toastError(err.response?.data?.error || err.message || "An error occurred while deleting the workflow");
+                                                                 }
+                                                             }
+                                                         }}
+                                                         className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                                         title="Delete Workflow"
+                                                     >
+                                                         <Trash2 className="h-3.5 w-3.5" />
+                                                     </button>
+                                                 </div>
                                             </td>
                                         </tr>
                                     );

@@ -522,7 +522,7 @@ const AllCustomers = () => {
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xs text-slate-600 mb-1 ">
+          <h1 className="text-xs font-outfit font-semibold text-slate-600 mb-1 ">
             Registry / All Customers
           </h1>
         </div>

@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabaseClient';
 import { useAuth } from '../../hooks/userAuth.js';
 import { usePermissions } from '../../hooks/usePermissions';
-import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
+
+import { useWorkflow } from '../../hooks/useWorkflow';
 import { useToast } from '../../components/Toast.jsx';
 import { apiFetch } from '../../utils/api';
 
@@ -29,8 +30,16 @@ const CustomerTransferForm = () => {
   const [selectedCustomers, setSelectedCustomers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [customerSearch, setCustomerSearch] = useState('');
-  const workflowRoles = useWorkflowRoles();
+
+  const { fetchWorkflowStepsByType } = useWorkflow();
   const toast = useToast();
+  
+  const [workflowSteps, setWorkflowSteps] = useState([]);
+  // Derive role names for toast messages based on fetched workflow steps
+  const workflowRoles = {
+    confirm: workflowSteps.find(s => s.role && s.role.toLowerCase().includes('regional_manager'))?.name || 'Confirm',
+    authorize: workflowSteps.find(s => s.role && s.role.toLowerCase().includes('admin'))?.name || 'Authorize'
+  };
 
   // --- Helper Functions ---
 
@@ -101,8 +110,9 @@ const CustomerTransferForm = () => {
   useEffect(() => {
     if (profile) {
       fetchBranches();
+      fetchWorkflowStepsByType('customer_transfer').then(steps => setWorkflowSteps(steps));
     }
-  }, [profile]);
+  }, [profile, fetchWorkflowStepsByType]);
 
   useEffect(() => {
     if (formData.currentBranch) {
@@ -499,55 +509,22 @@ const CustomerTransferForm = () => {
   };
 
   const renderBranchManagerForm = () => {
-    const isStep1Active = true; // Branch manager is always at step 1
-    const isStep2Active = false; // Not yet approved
-    const isStep3Active = false; // Not yet executed
 
     return (
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="p-8">
-          {/* Workflow Indicator */}
-          <div className="mb-8">
-            <h2 className="text-sm  text-gray-600 mb-4">Transfer Workflow</h2>
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isStep1Active ? 'bg-primary text-white' : 'bg-gray-200'}`}>
-                  <span className="font-bold">1</span>
-                </div>
-                <span className="text-sm font-semibold mt-2">Initiate</span>
-                <span className="text-xs text-gray-500">{workflowRoles.initiate}</span>
-              </div>
-              <div className="flex-1 h-1 bg-gray-300 mx-4"></div>
-              <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isStep2Active ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
-                  <span className="font-bold">2</span>
-                </div>
-                <span className="text-sm font-semibold mt-2">Approve</span>
-                <span className="text-xs text-gray-500">{workflowRoles.confirm}</span>
-              </div>
-              <div className="flex-1 h-1 bg-gray-300 mx-4"></div>
-              <div className="flex flex-col items-center">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center ${isStep3Active ? 'bg-green-600 text-white' : 'bg-gray-200'}`}>
-                  <span className="font-bold">3</span>
-                </div>
-                <span className="text-sm font-semibold mt-2">Execute</span>
-                <span className="text-xs text-gray-500">{workflowRoles.authorize}</span>
-              </div>
-            </div>
-          </div>
-
           {/* Transfer Details Section */}
           <div className="mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Current Branch */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-normal text-gray-700 mb-2">
                   Current Branch <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.currentBranch}
                   onChange={(e) => setFormData({ ...formData, currentBranch: e.target.value, currentOfficer: '' })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-1 focus:ring-slate-400 focus:border-slate-400 transition-all text-gray-900"
                   required
                 >
                   <option value="">Select Current Branch</option>
@@ -559,14 +536,14 @@ const CustomerTransferForm = () => {
 
               {/* Current Officer */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Current Officer <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.currentOfficer}
                   onChange={(e) => setFormData({ ...formData, currentOfficer: e.target.value })}
                   disabled={!formData.currentBranch}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="">{formData.currentBranch ? 'Select Current Officer' : 'Select branch first'}</option>
@@ -583,13 +560,13 @@ const CustomerTransferForm = () => {
 
               {/* New Branch */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   New Branch <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.newBranch}
                   onChange={(e) => setFormData({ ...formData, newBranch: e.target.value, newOfficer: '' })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all text-gray-900"
                   required
                 >
                   <option value="">Select New Branch</option>
@@ -601,14 +578,14 @@ const CustomerTransferForm = () => {
 
               {/* New Officer */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   New Officer <span className="text-red-500">*</span>
                 </label>
                 <select
                   value={formData.newOfficer}
                   onChange={(e) => setFormData({ ...formData, newOfficer: e.target.value })}
                   disabled={!formData.newBranch}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-200 focus:border-primary-300 transition-all text-gray-900 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   required
                 >
                   <option value="">{formData.newBranch ? 'Select New Officer' : 'Select branch first'}</option>
@@ -628,36 +605,44 @@ const CustomerTransferForm = () => {
           {/* Customer Selection Section */}
           {formData.currentBranch && formData.currentOfficer && (
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <h2 className="text-sm font-semibold font-outfit text-gray-600 mb-6 flex items-center gap-2">
+                <svg className="w-4 h-4 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
                 </svg>
                 Select Customers <span className="text-red-500">*</span>
               </h2>
 
               {/* Search Bar */}
-              <div className="mb-4">
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search customers by name, ID number, or phone..."
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    className="w-full pl-11 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all"
-                  />
-                  <svg
-                    className="absolute left-3.5 top-3.5 h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                </div>
-              </div>
+            <div className="mb-4">
+  <div className="relative">
+    <input
+      type="text"
+      placeholder="Search customers by name, ID number, or phone..."
+      value={customerSearch}
+      onChange={(e) => setCustomerSearch(e.target.value)}
+      className="w-full pl-11 pr-3 py-2 text-sm border border-gray-300 rounded-lg bg-white text-gray-700 placeholder:text-gray-400 outline-none transition-all focus:border-slate-400 focus:ring-1 focus:ring-slate-200"
+    />
+
+    <div className="absolute left-3 top-1/2 -translate-y-1/2 flex items-center justify-center w-5 h-5 text-slate-500">
+      <svg
+        className="h-4 w-4"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+      </svg>
+    </div>
+  </div>
+</div>
 
               {/* Customer Selection Table */}
-              <div className="border border-gray-200 rounded-lg overflow-hidden mb-6">
+              <div className="border border-brand-primary rounded-lg overflow-hidden mb-6">
                 <div className="max-h-96 overflow-y-auto">
                   <table className="w-full">
                     <thead className="bg-gradient-to-r from-gray-50 to-gray-100 sticky top-0">
@@ -667,16 +652,16 @@ const CustomerTransferForm = () => {
                             type="checkbox"
                             checked={filteredCustomers.length > 0 && selectedCustomers.length === filteredCustomers.length}
                             onChange={handleToggleSelectAll}
-                            className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                            className="h-5 w-5 text-brand-primary rounded focus:ring-offset-brand-secondary cursor-pointer"
                           />
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        <th className="px-4 py-2 text-left text-xs font-outfit  text-gray-600  whitespace-nowrap">
                           Customer Name
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        <th className="px-4 py-2 text-left text-xs font-outfit text-gray-600  whitespace-nowrap">
                           ID Number
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                        <th className="px-4 py-2 text-left text-xs font-outfit text-gray-600  whitespace-nowrap">
                           Phone Number
                         </th>
                       </tr>
@@ -702,19 +687,19 @@ const CustomerTransferForm = () => {
                                 type="checkbox"
                                 checked={selectedCustomers.includes(customer.id)}
                                 onChange={() => handleToggleCustomerSelection(customer.id)}
-                                className="h-5 w-5 text-blue-600 rounded focus:ring-blue-500 cursor-pointer"
+                                className="h-5 w-5 text-brand-primary rounded focus:ring-offset-brand-secondary cursor-pointer"
                               />
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-sm font-medium text-gray-900">
+                              <span className="text-sm font-outfit text-gray-600">
                                 {customer.Firstname} {customer.Middlename || ''} {customer.Surname}
                               </span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-xs text-slate-600">{customer.id_number}</span>
+                              <span className="text-xs font-outfit text-slate-600">{customer.id_number}</span>
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
-                              <span className="text-xs text-slate-600">{customer.mobile}</span>
+                              <span className="text-xs text-slate-600 font-outfit">{customer.mobile}</span>
                             </td>
                           </tr>
                         ))
@@ -728,12 +713,12 @@ const CustomerTransferForm = () => {
               {selectedCustomers.length > 0 && (
                 <div className="mb-6">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <h3 className="text-sm font-outfit text-gray-600 flex items-center gap-2">
                       <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                       </svg>
                       Selected Customers for Transfer
-                      <span className="bg-green-100 text-green-800 text-sm font-semibold px-3 py-1 rounded-full">
+                      <span className=" text-accent  text-sm font-outfit px-3 py-1 ">
                         {selectedCustomers.length} customer{selectedCustomers.length !== 1 ? 's' : ''}
                       </span>
                     </h3>
@@ -744,16 +729,16 @@ const CustomerTransferForm = () => {
                       <table className="w-full">
                         <thead>
                           <tr className="bg-gradient-to-r from-green-100 to-green-200 border-b border-green-300">
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                            <th className="px-4 py-2 text-left text-xs font-outfit text-gray-600  whitespace-nowrap">
                               Customer Name
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                            <th className="px-4 py-2 text-left text-xs font-outfit text-gray-600  whitespace-nowrap">
                               ID Number
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-600  whitespace-nowrap">
                               Phone Number
                             </th>
-                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-700 uppercase tracking-wider whitespace-nowrap">
+                            <th className="px-6 py-3 text-left text-xs font-bold text-gray-600  whitespace-nowrap">
                               Action
                             </th>
                           </tr>
@@ -762,20 +747,20 @@ const CustomerTransferForm = () => {
                           {selectedCustomerObjects.map(customer => (
                             <tr key={customer.id} className="hover:bg-green-100 transition-colors">
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-sm font-medium text-gray-900">
+                                <span className="text-sm font-outfit text-gray-600">
                                   {customer.Firstname} {customer.Middlename || ''} {customer.Surname}
                                 </span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-xs text-slate-600">{customer.id_number}</span>
+                                <span className="text-xs font-outfit text-slate-600">{customer.id_number}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
-                                <span className="text-xs text-slate-600">{customer.mobile}</span>
+                                <span className="text-xs font-outfit text-slate-600">{customer.mobile}</span>
                               </td>
                               <td className="px-6 py-4 whitespace-nowrap">
                                 <button
                                   onClick={() => handleToggleCustomerSelection(customer.id)}
-                                  className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 font-semibold text-sm transition-colors"
+                                  className="inline-flex items-center gap-1 text-red-600 hover:text-red-800 font-outfit text-sm transition-colors"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -796,13 +781,13 @@ const CustomerTransferForm = () => {
 
           {/* Remarks field */}
           <div className="mb-6">
-            <label className="block text-sm font-semibold text-gray-700 mb-2">
+            <label className="text-sm font-outfit text-gray-600 mb-2">
               Remarks (Optional)
             </label>
             <textarea
               value={formData.remarks}
               onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-gray-900"
+    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg text-gray-600 placeholder:text-gray-400 outline-none transition-all resize-none focus:border-slate-400 focus:ring-1 focus:ring-slate-200"
               rows="3"
               placeholder="Add remarks for the transfer request..."
             />
@@ -813,7 +798,7 @@ const CustomerTransferForm = () => {
           <button
             type="button"
             onClick={() => navigate('/customer-transfers')}
-            className="px-6 py-2 border-2 border-gray-300 rounded-lg text-gray-700 font-semibold hover:bg-gray-100 transition-all text-sm"
+            className="px-3 py-1.5 border-2 border-gray-300 rounded-lg text-gray-700 font-outfit hover:bg-gray-100 transition-all text-xs"
           >
             Cancel
           </button>
@@ -821,7 +806,7 @@ const CustomerTransferForm = () => {
             type="button"
             onClick={handleInitiateTransfer}
             disabled={loading || selectedCustomers.length === 0}
-            className="px-6 py-2 bg-brand-btn text-white rounded-lg font-semibold hover:bg-brand-btn-hover disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 text-sm"
+            className="px-3 py-1.5 bg-brand-btn text-white rounded-lg font-semibold hover:bg-brand-btn-hover disabled:bg-gray-400 disabled:cursor-not-allowed shadow-md hover:shadow-lg transition-all duration-200 flex items-center gap-2 text-xs"
           >
             {loading ? (
               <>
@@ -836,7 +821,7 @@ const CustomerTransferForm = () => {
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
-                Initiate Transfer Request
+                {(() => { const activeStep = workflowSteps.find(s => s.isActive); return activeStep ? activeStep.name : 'Submit Transfer'; })()}
               </>
             )}
           </button>
@@ -846,15 +831,13 @@ const CustomerTransferForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-muted p-6">
+    <div className="min-h-screen bg-muted p-6 font-outfit">
+      <div>
+        <h1 className="text-sm font-outfit text-gray-600 mb-3">Customer Transfer</h1>
+      </div>
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <h2 className="text-sm  text-gray-600">
-            {profile?.role === 'branch_manager' && 'Initiate Transfer Request'}
-            {profile?.role === 'regional_manager' && 'Approve Transfers'}
-            {profile?.role === 'credit_analyst_officer' && ''}
-          </h2>
-        </div>
+       
+
 
         {renderFormBasedOnRole()}
       </div>

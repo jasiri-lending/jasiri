@@ -387,7 +387,7 @@ const SharedSidebar = () => {
         </button>
 
         {isMobileOpen && (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-40 transition-opacity" onClick={() => setIsMobileOpen(false)} />
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-60 transition-opacity" onClick={() => setIsMobileOpen(false)} />
         )}
 
         <div className={`fixed inset-y-0 left-0 w-64 bg-white shadow-2xl z-50 flex flex-col  font-outfit text-8px ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
@@ -400,8 +400,8 @@ const SharedSidebar = () => {
               />
             </div>
 
-            <button onClick={() => setIsMobileOpen(false)} className="p-1.5 rounded-lg hover:bg-black/5 transition-colors">
-              <XCircle className="h-5 w-5 text-slate-500" />
+            <button onClick={() => setIsMobileOpen(false)} className="p-1.5 rounded-full hover:bg-black/10 transition-colors">
+              <XCircle className="h-5 w-5 text-slate-600" />
             </button>
           </div>
 
@@ -504,7 +504,7 @@ const SharedSidebar = () => {
 
   // Desktop Sidebar
   return (
-    <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-outfit text-8px ${isCollapsed ? "w-16" : "w-52"} flex-shrink-0 relative flex flex-col overflow-hidden`}>
+    <div className={`h-full ${sidebarStyles.bg} border-r border-black/5 transition-all duration-300 font-outfit text-8px ${isCollapsed ? "w-16" : "w-52"} flex-shrink-0 relative flex flex-col overflow-hidden z-50`}>
     <div className="flex items-center px-4 border-b border-black/5 flex-shrink-0 h-[76px] relative">
   {!isCollapsed && (
     <div className="flex items-center justify-center w-full h-full">

@@ -197,6 +197,7 @@ const ApprovalPending = () => {
           )
         `)
         .eq('tenant_id', profile.tenant_id)
+        .eq('workflow_type', 'customer_onboarding')
         .in("status", [
           'bm_review',
           'ca_review',

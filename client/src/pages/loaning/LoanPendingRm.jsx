@@ -17,8 +17,8 @@ import {
 import ApproveLoan from "./ApproveLoan";
 import Spinner from "../../components/Spinner";
 import { useNavigate } from "react-router-dom";
-import SharedTable from "../../components/SharedTable";
-import Pagination from "../../components/Pagination";
+import { SharedTable } from "../../components/SharedTable";
+import { Pagination } from "../../components/Pagination";
 
 
 const LoanPendingRm = () => {

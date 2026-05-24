@@ -579,7 +579,7 @@ const Form = ({
                             ))}
                             {securityItemImages[index]?.map((img, imgIdx) => (
                               <div key={`new-sec-${index}-${imgIdx}`} className="relative group">
-                                <img src={img instanceof File ? URL.createObjectURL(img) : img} alt={`New Security ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-brand-primary shadow-sm" />
+                                <img src={img instanceof Blob ? URL.createObjectURL(img) : img} alt={`New Security ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-brand-primary shadow-sm" />
                                 <div className="absolute top-1 left-1 bg-green-600 text-white text-[10px] px-1.5 rounded-md">New</div>
                                 <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setSecurityItemImages)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md"><XMarkIcon className="w-3 h-3" /></button>
                               </div>
@@ -828,7 +828,7 @@ const Form = ({
                             ))}
                             {guarantorSecurityImages[index]?.map((img, imgIdx) => (
                               <div key={`new-gsec-${index}-${imgIdx}`} className="relative group">
-                                <img src={img instanceof File ? URL.createObjectURL(img) : img} alt={`New Guarantor Security ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-brand-primary shadow-sm" />
+                                <img src={img instanceof Blob ? URL.createObjectURL(img) : img} alt={`New Guarantor Security ${index + 1}`} className="w-full h-32 object-cover rounded-lg border border-brand-primary shadow-sm" />
                                 <div className="absolute top-1 left-1 bg-green-600 text-white text-[10px] px-1.5 rounded-md">New</div>
                                 <button type="button" onClick={() => handleRemoveMultipleFile(index, imgIdx, setGuarantorSecurityImages)} className="absolute top-1 right-1 bg-red-600 text-white rounded-full p-1 opacity-0 group-hover:opacity-100 transition shadow-md"><XMarkIcon className="w-4 h-4" /></button>
                               </div>

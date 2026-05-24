@@ -41,6 +41,7 @@ const PendingTransfersList = ({ onApprove, onReject, currentUser }) => {
             )
           )
         `)
+        .eq('type', 'customer_onboarding')
         .eq('status', 'pending_approval')
         .eq('tenant_id', currentUser?.tenant_id)
         .order('created_at', { ascending: false });

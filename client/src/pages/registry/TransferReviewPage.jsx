@@ -6,6 +6,9 @@ import { usePermissions } from '../../hooks/usePermissions';
 import { useToast } from '../../components/Toast.jsx';
 import Spinner from '../../components/Spinner.jsx';
 import { useWorkflow } from '../../hooks/useWorkflow';
+import { useWorkflowRoles } from '../../hooks/useWorkflowRoles';
+
+
 
 // Format a role slug into a readable label, e.g. 'branch_manager' → 'Branch Manager'
 const formatRole = (role) =>
@@ -18,6 +21,7 @@ const TransferReviewPage = () => {
   const { hasPermission } = usePermissions();
   const toast = useToast();
   const { fetchWorkflowInstance, transitionWorkflow, isUserAuthorized } = useWorkflow();
+  const { initiate, confirm, authorize, loading: rolesLoading } = useWorkflowRoles();
 
   const [transfer, setTransfer] = useState(null);
   const [workflowInstance, setWorkflowInstance] = useState(null);
@@ -292,100 +296,94 @@ const TransferReviewPage = () => {
 
   const isWfAuthorized = workflowInstance ? isUserAuthorized(workflowInstance) : true;
 
-  const canApproveReject = isWfAuthorized && (
-    workflowInstance
-      ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && transfer.status === 'pending_approval')
-      : (hasPermission('transfers.confirm') && transfer.status === 'pending_approval')
-  );
-  const canExecute = isWfAuthorized && (
-    workflowInstance
-      ? (workflowInstance.current_node?.type === 'APPROVAL' && workflowInstance.status === 'in_progress' && transfer.status === 'approved')
-      : (hasPermission('transfers.authorize') && transfer.status === 'approved')
-  );
+  // Determine if the current user can approve/reject the transfer
+  // Determine if the current user can approve/reject the transfer
+  const canApproveReject = (
+    (workflowInstance &&
+      workflowInstance.current_node?.type === 'APPROVAL' &&
+      workflowInstance.status === 'in_progress' &&
+      transfer?.status === 'pending_approval' &&
+      isUserAuthorized(workflowInstance)
+    ) || (
+      !workflowInstance &&
+      hasPermission('transfers.confirm') &&
+      transfer?.status === 'pending_approval'
+    )
+  ) && !rolesLoading;
+
+  // Determine if the current user can execute the transfer after approval
+  const canExecute = (
+    (workflowInstance &&
+      workflowInstance.current_node?.type === 'APPROVAL' &&
+      workflowInstance.status === 'in_progress' &&
+      transfer?.status === 'approved' &&
+      isUserAuthorized(workflowInstance)
+    ) || (
+      !workflowInstance &&
+      hasPermission('transfers.authorize') &&
+      transfer?.status === 'approved'
+    )
+  ) && !rolesLoading;
 
   return (
     <div className="min-h-screen bg-muted p-4 md:p-6">
       <div className="max-w-5xl mx-auto space-y-5">
 
         {/* ── Header ── */}
-        <div className="flex items-center justify-between">
-          <div>
-            <button
-              onClick={() => navigate('/registry/customer-transfer')}
-              className="inline-flex items-center gap-1 text-sm text-slate-500 hover:text-slate-800 mb-2 transition-colors"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              Back to Transfers
-            </button>
-            <h1 className="text-lg font-semibold text-slate-700">
-              Transfer Request <span className="font-mono text-slate-500">#{transfer.id.slice(0, 8).toUpperCase()}</span>
-            </h1>
-            <p className="text-xs text-slate-600 mt-0.5">Submitted on {formatDate(transfer.created_at)}</p>
-          </div>
-
-          {/* Status pill */}
-          <span className={`inline-flex px-4 py-1.5 rounded-full text-xs font-bold tracking-wide border ${
-            transfer.status === 'pending_approval' ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
-            transfer.status === 'approved'         ? 'bg-green-50  text-green-700  border-green-300'  :
-            transfer.status === 'completed'        ? 'bg-blue-50   text-blue-700   border-blue-300'   :
-            transfer.status === 'rejected'         ? 'bg-red-50    text-red-700    border-red-300'    :
-            'bg-gray-100 text-gray-700 border-gray-300'
-          }`}>
-            {transfer.status === 'pending_approval' ? 'Pending Approval' :
-             transfer.status?.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())}
-          </span>
-        </div>
+       
 
         {/* ── Transfer Route ── */}
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-6">
-          <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-4">Transfer Details</h2>
+          <h2 className="text-sm font-semibold text-gray-600 font-outfit  mb-4">Transfer Details</h2>
 
           {/* From → To visual */}
           <div className="flex flex-col sm:flex-row items-center gap-4 mb-6">
             <div className="flex-1 bg-slate-50 border border-slate-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">From Branch</p>
-              <p className="font-bold text-gray-900">{transfer.current_branch?.name}</p>
+              <p className="text-xs text-gray-400 font-outfit mb-1">From Branch</p>
+              <p className="font-outfit text-sm text-brand-primary">{transfer.current_branch?.name}</p>
               <p className="text-xs text-slate-600 mt-1">{transfer.current_officer?.full_name}</p>
             </div>
 
             <div className="flex items-center justify-center">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <svg className="w-5 h-5 text-brand-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                 </svg>
               </div>
             </div>
 
             <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4 text-center">
-              <p className="text-xs text-gray-400 uppercase font-semibold mb-1">To Branch</p>
-              <p className="font-bold text-gray-900">{transfer.new_branch?.name}</p>
+              <p className="text-xs text-gray-600  mb-1">To Branch</p>
+              <p className="font-outfit text-sm text-brand-primary">{transfer.new_branch?.name}</p>
               <p className="text-xs text-slate-600 mt-1">{transfer.new_officer?.full_name}</p>
             </div>
           </div>
 
-          {/* Initiated by */}
-          <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
-            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-            </div>
-            <div>
-              <p className="text-xs text-gray-500">Initiated By ({formatRole(transfer.branch_manager?.role)})</p>
-              <p className="text-sm font-semibold text-gray-800">{transfer.branch_manager?.full_name}</p>
-            </div>
-            {transfer.regional_manager && (
+
+
+  {/* Initiated By */}
+        {/* Initiated By */}
+      <div className="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-lg px-4 py-3">
+        <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0">
+          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          </svg>
+        </div>
+        <div>
+          {/* Determine the primary initiator (branch manager preferred) */}
+          {(() => {
+            const initiator = transfer.branch_manager || transfer.regional_manager;
+            const roleSlug = initiator?.role || (transfer.branch_manager ? 'branch_manager' : 'regional_manager');
+            return (
               <>
-                <div className="mx-2 text-gray-300">|</div>
-                <div>
-                  <p className="text-xs text-gray-500">Approved By ({formatRole(transfer.regional_manager?.role)})</p>
-                  <p className="text-sm font-semibold text-gray-800">{transfer.regional_manager.full_name}</p>
-                </div>
+                <p className="text-xs text-gray-500">Initiated By ({formatRole(roleSlug)})</p>
+                <p className="text-sm font-semibold text-gray-800">{initiator?.full_name}</p>
               </>
-            )}
-          </div>
+            );
+          })()}
+        </div>
+      </div>
+
 
           {transfer.remarks && (
             <div className="mt-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
@@ -459,9 +457,10 @@ const TransferReviewPage = () => {
                         {log.action}{' '}
                         <span className="font-normal text-gray-500">
                           by {log.user?.full_name}
-                          {log.user?.role && (
-                            <span className="ml-1 text-xs text-gray-400">({formatRole(log.user.role)})</span>
-                          )}
+                          {log.user?.role && (() => {
+                            const primaryRole = typeof log.user.role === 'string' ? log.user.role.split(',')[0] : log.user.role;
+                            return <span className="ml-1 text-xs text-gray-400">({formatRole(primaryRole)})</span>;
+                          })()}
                         </span>
                       </p>
                       <p className="text-xs text-gray-400">{formatDate(log.created_at)}</p>

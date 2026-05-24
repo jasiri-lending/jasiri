@@ -250,7 +250,7 @@ const LeadInsights = () => {
 
 
   return (
-    <div className="bg-muted p-6 min-h-screen font-body">
+    <div className="bg-muted p-6 min-h-screen font-outfit">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xs text-slate-600">Leads Insights / Analytics</h1>
@@ -259,7 +259,7 @@ const LeadInsights = () => {
           {activeFilterCount > 0 && (
             <button
               onClick={clearFilters}
-              className="px-3 py-2 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300 bg-white"
+              className="px-4 py-3 text-xs text-gray-600 hover:text-gray-800 hover:bg-gray-100 rounded-md transition-colors flex items-center gap-1.5 border border-gray-300 bg-white"
             >
               <XMarkIcon className="h-3 w-3" />
               Clear Filters
@@ -267,7 +267,7 @@ const LeadInsights = () => {
           )}
           <button
             onClick={() => setShowFilters(!showFilters)}
-            className="px-3 py-2 rounded-md flex items-center gap-2 text-sm transition-all duration-200 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 hover:text-gray-900"
+            className="px-4 py-3 rounded-md flex items-center gap-2 text-xs transition-all duration-200 bg-white hover:bg-gray-50 border border-gray-300 text-gray-700 hover:text-gray-900"
           >
             <AdjustmentsHorizontalIcon className="h-4 w-4" />
             Filters
@@ -288,7 +288,7 @@ const LeadInsights = () => {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Region</label>
                 <div className="relative">
-                  <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                  <select value={filterRegion} onChange={e => setFilterRegion(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                     <option value="" className="text-gray-400">All Regions</option>
                     {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
                   </select>
@@ -300,7 +300,7 @@ const LeadInsights = () => {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Branch</label>
                 <div className="relative">
-                  <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                  <select value={filterBranch} onChange={e => setFilterBranch(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                     <option value="" className="text-gray-400">All Branches</option>
                     {branches.filter(b => !filterRegion || b.region_id?.toString() === filterRegion.toString()).map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
                   </select>
@@ -312,7 +312,7 @@ const LeadInsights = () => {
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Officer</label>
                 <div className="relative">
-                  <select value={filterRO} onChange={e => setFilterRO(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                  <select value={filterRO} onChange={e => setFilterRO(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                     <option value="" className="text-gray-400">All Officers</option>
                     {officers.filter(o => {
                       if (!filterBranch) return true;
@@ -327,7 +327,7 @@ const LeadInsights = () => {
             <div>
               <label className="block text-xs text-gray-600 mb-1">Status</label>
               <div className="relative">
-                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                   <option value="all" className="text-gray-400">All Statuses</option>
                   <option value="Hot">Hot</option>
                   <option value="Warm">Warm</option>
@@ -339,7 +339,7 @@ const LeadInsights = () => {
             <div>
               <label className="block text-xs text-gray-600 mb-1">Date Segment</label>
               <div className="relative">
-                <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full pl-3 pr-8 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
+                <select value={filterDatePreset} onChange={e => setFilterDatePreset(e.target.value)} className="w-full pl-3 pr-8 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 appearance-none bg-white">
                   <option value="" className="text-gray-400">All Time</option>
                   <option value="today">Today</option>
                   <option value="week">This Week</option>
@@ -354,11 +354,11 @@ const LeadInsights = () => {
               <div className="col-span-1 lg:col-span-2 grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">From</label>
-                  <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                  <input type="date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} className="w-full pl-3 pr-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
                 </div>
                 <div>
                   <label className="block text-xs text-gray-600 mb-1">To</label>
-                  <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-full pl-3 pr-3 py-2 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
+                  <input type="date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} className="w-full pl-3 pr-3 py-2 text-xs border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-gray-400 focus:border-gray-400 bg-white" />
                 </div>
               </div>
             )}

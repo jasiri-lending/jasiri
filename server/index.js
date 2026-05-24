@@ -238,6 +238,23 @@ async function processUserCreation(userData, requester, logged_in_tenant_id) {
   // Generate secure password
   const generatedPassword = generateSecurePassword(12);
 
+  // 1.5️⃣ Resolve role_id from roles table (DB-approach: role_id must always be populated)
+  let resolvedRoleId = null;
+  if (role && logged_in_tenant_id) {
+    const { data: roleData } = await supabaseAdmin
+      .from("roles")
+      .select("id")
+      .eq("tenant_id", logged_in_tenant_id)
+      .eq("name", role)
+      .maybeSingle();
+    if (roleData) {
+      resolvedRoleId = roleData.id;
+      console.log(`[CREATE-USER] ✅ Resolved role_id=${resolvedRoleId} for role="${role}" in tenant=${logged_in_tenant_id}`);
+    } else {
+      console.warn(`[CREATE-USER] ⚠️ No role record found for role="${role}" in tenant=${logged_in_tenant_id}. role_id will be null.`);
+    }
+  }
+
   // 2️⃣ Create Supabase Auth user using ADMIN client (service role)
   const { data: authData, error: authError } =
     await supabaseAdmin.auth.admin.createUser({
@@ -263,7 +280,7 @@ async function processUserCreation(userData, requester, logged_in_tenant_id) {
   const frontendUrl = "https://jasirilending.software";
   const setupLink = `${frontendUrl}/passwordsetup?email=${encodeURIComponent(email)}&code=${setupCode}`;
 
-  // 3️⃣ Upsert into users table
+  // 3️⃣ Upsert into users table (including role_id so workflow engine can match roles)
   const { error: usersError } = await supabaseAdmin
     .from("users")
     .upsert(
@@ -273,6 +290,7 @@ async function processUserCreation(userData, requester, logged_in_tenant_id) {
         full_name,
         email,
         role,
+        role_id: resolvedRoleId,
         phone: phone || null,
         company_phone: company_phone || null,
         tenant_id: logged_in_tenant_id,

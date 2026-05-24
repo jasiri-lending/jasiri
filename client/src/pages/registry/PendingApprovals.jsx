@@ -14,6 +14,7 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { useWorkflow, denormalizeEntityId } from "../../hooks/useWorkflow";
 import Spinner from "../../components/Spinner";
+import axios from "axios";
 
 // Entity type config: which DB table to query and how to render each type
 const ENTITY_CONFIG = {
@@ -84,11 +85,11 @@ const ENTITY_CONFIG = {
 const PendingApprovals = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const { isUserAuthorized, loadingRoles } = useWorkflow();
 
   const [instances, setInstances] = useState([]);
   const [filteredInstances, setFilteredInstances] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -136,99 +137,51 @@ const PendingApprovals = () => {
   const fetchData = async () => {
     try {
       setLoading(true);
+      setError(null);
+      const token = localStorage.getItem("sessionToken");
+      console.log("[PendingApprovals] Fetching pending workflows...", { hasToken: !!token, profileRole: profile?.role });
 
-      // 1. Fetch all active in_progress workflow instances for this tenant
-      const { data: instanceData, error: instanceError } = await supabase
-        .from("workflow_instances")
-        .select(`
-          *,
-          workflow_nodes!current_node_id (id, node_client_id, name, type, permissions),
-          workflow_definitions!workflow_id (id, name, type)
-        `)
-        .eq("tenant_id", profile?.tenant_id)
-        .eq("status", "in_progress");
-
-      if (instanceError) throw instanceError;
-
-      // 2. Group entity IDs by type so we can batch-fetch each entity table
-      const grouped = {};
-      for (const inst of (instanceData || [])) {
-        inst.entity_id = denormalizeEntityId(inst.entity_id);
-        const type = inst.entity_type;
-        if (!grouped[type]) grouped[type] = [];
-        grouped[type].push(inst.entity_id);
+      if (!token) {
+        throw new Error("No session token found. Please log in again.");
       }
 
-      // 3. Fetch entities from each relevant table
-      const entityMaps = {};
+      const response = await axios.get(
+        `${import.meta.env.VITE_API_URL || "http://localhost:5000"}/api/workflows/pending`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
 
-      // customer_onboarding → customers
-      if (grouped.customer_onboarding?.length) {
-        const { data } = await supabase
-          .from("customers")
-          .select("*, branches(id, name), regions(id, name), created_by_user:created_by(full_name)")
-          .in("id", grouped.customer_onboarding);
-        (data || []).forEach(r => { entityMaps[r.id] = r; });
+      console.log("[PendingApprovals] API response:", { success: response.data?.success, count: response.data?.data?.length });
+
+      if (response.data?.success) {
+        // Filter only customer onboarding workflows
+        const onboarding = (response.data.data || []).filter(item => item.entity_type === "customer_onboarding");
+        setInstances(onboarding);
+        setFilteredInstances(onboarding);
+      } else {
+        throw new Error(response.data?.error || "Failed to fetch approvals");
       }
-
-      // customer_edits → customer_phone_id_edit_requests (join customer info and branches)
-      if (grouped.customer_edits?.length) {
-        const { data } = await supabase
-          .from("customer_phone_id_edit_requests")
-          .select("*, customer:customers(Firstname, Middlename, Surname, mobile, branches(name)), created_by_user:users!created_by(full_name)")
-          .in("id", grouped.customer_edits);
-        (data || []).forEach(r => { entityMaps[r.id] = r; });
-      }
-
-      // customer_detail_edits → customer_detail_edit_requests (join customer info and branches)
-      if (grouped.customer_detail_edits?.length) {
-        const { data } = await supabase
-          .from("customer_detail_edit_requests")
-          .select("*, customer:customers(Firstname, Middlename, Surname, mobile, branches(name)), created_by_user:users!created_by(full_name)")
-          .in("id", grouped.customer_detail_edits);
-        (data || []).forEach(r => { entityMaps[r.id] = r; });
-      }
-
-      // customer_transfer → customer_transfer_requests
-      if (grouped.customer_transfer?.length) {
-        const { data } = await supabase
-          .from("customer_transfer_requests")
-          .select(`
-            *,
-            current_branch:current_branch_id(name),
-            new_branch:new_branch_id(name),
-            branch_manager:branch_manager_id(full_name),
-            transfer_items:customer_transfer_items(
-              customer:customer_id(*, branches(name))
-            )
-          `)
-          .in("id", grouped.customer_transfer);
-        (data || []).forEach(r => { entityMaps[r.id] = r; });
-      }
-
-      // 4. Enrich instances with entity data and authorization check
-      const enriched = (instanceData || []).map(inst => {
-        const parsedInstance = { ...inst, current_node: inst.workflow_nodes };
-        const isAuthorized = isUserAuthorized(parsedInstance);
-        const entity = entityMaps[inst.entity_id] || null;
-        return { ...inst, entity, isAuthorized };
-      }).filter(i => i.isAuthorized && i.entity);
-
-      setInstances(enriched);
-      setFilteredInstances(enriched);
     } catch (err) {
-      console.error("Error fetching approvals:", err);
+      console.error("[PendingApprovals] Error fetching approvals:", err);
+      const msg = err.response?.data?.error || err.message || "Failed to load pending approvals";
+      setError(msg);
+      setInstances([]);
+      setFilteredInstances([]);
     } finally {
       setLoading(false);
     }
   };
 
+
   useEffect(() => {
-    if (profile && !loadingRoles && !hasFetchedData.current) {
+    if (profile && !hasFetchedData.current) {
       hasFetchedData.current = true;
       fetchData();
     }
-  }, [profile, loadingRoles]);
+  }, [profile]);
 
   useEffect(() => {
     const lower = searchTerm.toLowerCase();
@@ -289,17 +242,31 @@ const PendingApprovals = () => {
 
         {loading ? (
           <div className="p-10 flex justify-center"><Spinner /></div>
+        ) : error ? (
+          <div className="p-10 text-center">
+            <div className="w-12 h-12 mx-auto mb-3 rounded-full bg-red-50 flex items-center justify-center">
+              <ClipboardDocumentCheckIcon className="h-6 w-6 text-red-400" />
+            </div>
+            <h3 className="text-sm font-semibold text-gray-700 mb-1">Failed to load pending approvals</h3>
+            <p className="text-xs text-red-500 mb-4 max-w-md mx-auto">{error}</p>
+            <button
+              onClick={() => { hasFetchedData.current = false; fetchData(); }}
+              className="px-4 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-sm"
+            >
+              Retry
+            </button>
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Mobile</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Officer</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Branch</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-slate-600 whitespace-nowrap">Current Step</th>
-                  <th className="px-4 py-3 text-center text-xs font-semibold text-slate-600 whitespace-nowrap">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Mobile</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Officer</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Branch</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Current Step</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit text-slate-600 whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
@@ -324,13 +291,19 @@ const PendingApprovals = () => {
                           <button
                             onClick={() => navigate(config.getViewRoute(inst))}
                             className="p-1.5 hover:bg-slate-100 text-slate-500 rounded-lg transition-colors border border-transparent hover:border-slate-200"
-                            title="View"
+                            title="View Details"
                           >
                             <EyeIcon className="h-4 w-4" />
                           </button>
                           <button
+                            disabled={!inst.isAuthorized}
                             onClick={() => navigate(config.getActionRoute(inst))}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-white rounded-lg bg-indigo-600 hover:bg-indigo-700 active:scale-95 transition-all shadow-sm"
+                            className={`flex items-center gap-1 px-3 py-1.5 text-xs font-outfit text-white rounded-lg transition-all shadow-sm ${
+                               inst.isAuthorized
+                                 ? "bg-brand-primary hover:bg-brand-primary active:scale-95 cursor-pointer"
+                                 : "bg-gray-300 cursor-not-allowed opacity-50"
+                             }`}
+                            title={inst.isAuthorized ? config.actionLabel : "You do not have the required role to perform this action"}
                           >
                             <ActionIcon className="h-3.5 w-3.5" />
                             {config.actionLabel}
@@ -367,7 +340,7 @@ const PendingApprovals = () => {
               </button>
               {Array.from({ length: totalPages }, (_, i) => i + 1).map(n => (
                 <button key={n} onClick={() => setCurrentPage(n)}
-                  className={`px-3 py-1 text-xs font-bold rounded-lg border transition-all ${currentPage === n ? "bg-indigo-600 text-white border-indigo-600 shadow-sm" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
+                                    className={`px-3 py-1 text-xs font-outfit rounded-lg border transition-all ${currentPage === n ? "bg-brand-primary text-white border-brand-primary shadow-sm" : "bg-white text-slate-600 hover:bg-slate-50"}`}>
                   {n}
                 </button>
               ))}

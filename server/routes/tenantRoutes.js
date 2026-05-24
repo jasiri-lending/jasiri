@@ -236,11 +236,27 @@ tenantRouter.post("/create-tenant", verifySupabaseToken, async (req, res) => {
     // Wait a moment for trigger to complete
     await new Promise(resolve => setTimeout(resolve, 500));
 
+    // 4.1️⃣ Resolve the admin role_id for this tenant (so workflow engine role-matching works)
+    let adminRoleId = null;
+    const { data: adminRoleData } = await supabaseAdmin
+      .from("roles")
+      .select("id")
+      .eq("tenant_id", tenant.id)
+      .eq("name", "admin")
+      .maybeSingle();
+    if (adminRoleData) {
+      adminRoleId = adminRoleData.id;
+      console.log(`[CREATE-TENANT] ✅ Resolved admin role_id=${adminRoleId} for tenant=${tenant.id}`);
+    } else {
+      console.warn(`[CREATE-TENANT] ⚠️ No 'admin' role found yet for tenant=${tenant.id}. role_id will be null.`);
+    }
+
     const { error: userUpdateErr } = await supabaseAdmin
       .from("users")
       .update({
         full_name: admin_full_name,
         role: "admin",
+        role_id: adminRoleId,
         tenant_id: tenant.id,
         must_change_password: true, // Force password change
         verification_code: setupCode,

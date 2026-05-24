@@ -141,11 +141,24 @@ export const verifySupabaseToken = async (req, res, next) => {
         }
 
         // Attach user information to request (using DB values as the single source of truth)
+        let resolvedRoleId = userData.role_id;
+        if (!resolvedRoleId && userData.role && userData.tenant_id) {
+            const { data: rData } = await supabaseAdmin
+                .from("roles")
+                .select("id")
+                .eq("tenant_id", userData.tenant_id)
+                .eq("name", userData.role)
+                .maybeSingle();
+            if (rData) {
+                resolvedRoleId = rData.id;
+            }
+        }
+
         req.user = {
             id: userData.id,
             email: userData.email || localPayload?.email,
             role: userData.role,
-            role_id: userData.role_id,
+            role_id: resolvedRoleId,
             tenant_id: userData.tenant_id,
         };
 

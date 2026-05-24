@@ -280,7 +280,7 @@ const AgingLeads = () => {
 
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-sans">
+    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xs text-slate-600 mb-1">Leads / Aging Leads</h1>
@@ -433,7 +433,7 @@ const AgingLeads = () => {
 
       {/* Table Container */}
       <div className="bg-white rounded-sm shadow-sm border border-gray-200">
-        <div className="overflow-x-auto font-sans">
+        <div className="overflow-x-auto font-outfit">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
@@ -454,12 +454,12 @@ const AgingLeads = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {pagedLeads.map(l => (
                 <tr key={l.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.mobile}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.Firstname} {l.Surname}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.created_by_name}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{branches.find(b => b.id === (l.branch_id || (Array.isArray(l.users?.profiles) ? l.users?.profiles[0]?.branch_id : l.users?.profiles?.branch_id)))?.name || "—"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.mobile}</td>
                   <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.business_name}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.business_location}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.business_location}</td>
                   <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{new Date(l.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-center whitespace-nowrap">
                     <span className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">
@@ -470,7 +470,7 @@ const AgingLeads = () => {
                     <span className="px-1 py-0.5 rounded-md text-xs text-white " style={{ backgroundColor: STATUS_COLORS[l.status] }}>{l.status}</span>
                   </td>
                   <td className="px-4 py-3 text-sm text-gray-700 whitespace-nowrap">{l.industry || "General"}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
+                  <td className="px-4 py-3 text-xs text-gray-600 whitespace-nowrap">{l.source || "Walk-in"}</td>
                   {isOfficer && (
                     <td className="px-4 py-3 flex items-center justify-center gap-2">
                        <button onClick={() => navigate("/officer/customer-form", { state: { leadData: l, fromLeads: true } })} className="bg-brand-primary text-white px-2 py-1 rounded-md text-[10px] font-bold hover:bg-brand-primary/90">Convert</button>

@@ -162,6 +162,8 @@ export const startWorkflow = async (tenant_id, workflow_type, entity_id, entity_
         .from('workflow_instance_history')
         .insert({
             instance_id: instance.id,
+            node_id: nextNode.id,
+            action_type: 'START',
             from_node_id: startNode.id,
             to_node_id: nextNode.id,
             event: 'START',
@@ -181,6 +183,7 @@ export const startWorkflow = async (tenant_id, workflow_type, entity_id, entity_
 
     if (instance) {
         instance.entity_id = denormalizeEntityId(instance.entity_id);
+        instance.overall_status = instance.status;
     }
 
     return instance;
@@ -207,7 +210,7 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
     const currentContext = { ...(instance.context || {}), ...updated_context };
 
     // 2. Find the edges matching the event from current node
-    const { data: edges, error: edgeError } = await supabaseAdmin
+    let { data: edges, error: edgeError } = await supabaseAdmin
         .from('workflow_edges')
         .select(`
             *,
@@ -218,14 +221,39 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         .eq('event', event);
 
     if (edgeError || !edges || edges.length === 0) {
-        throw new Error(`Invalid action '${event}' for current state`);
+        // Auto-resolution: if the frontend sent a hardcoded event (like 'SUBMIT') but it doesn't match the custom DB config,
+        // we dynamically fetch all outgoing edges and pick a valid progression edge.
+        const { data: allEdges } = await supabaseAdmin
+            .from('workflow_edges')
+            .select(`*, workflow_conditions(*)`)
+            .eq('workflow_id', instance.workflow_id)
+            .eq('source_node_id', currentNode.node_client_id);
+            
+        if (allEdges && allEdges.length > 0) {
+            // Prioritize progression edges (not CANCEL/REJECT/SEND_BACK)
+            const progressionEdges = allEdges.filter(e => !['CANCEL', 'REJECT', 'SEND_BACK'].includes(e.event?.toUpperCase()));
+            edges = progressionEdges.length > 0 ? progressionEdges : allEdges;
+        } else {
+            throw new Error(`Invalid action '${event}' for current state`);
+        }
     }
 
     // 3. Filter edges by roles_allowed, groups_allowed and evaluate conditions
     const validEdges = await Promise.all(edges.map(async (edge) => {
         // A. Check roles if defined (can be role name string or role UUID)
-        if (edge.roles_allowed && Array.isArray(edge.roles_allowed) && edge.roles_allowed.length > 0) {
-            const hasRole = user_roles.some(role => edge.roles_allowed.includes(role));
+        let rolesAllowed = edge.roles_allowed || [];
+        if (rolesAllowed.length === 0 && currentNode?.permissions) {
+            let perms = currentNode.permissions;
+            if (typeof perms === 'string') {
+                try { perms = JSON.parse(perms); } catch (e) {}
+            }
+            if (perms && Array.isArray(perms.roles)) {
+                rolesAllowed = perms.roles;
+            }
+        }
+
+        if (rolesAllowed.length > 0) {
+            const hasRole = user_roles.some(role => rolesAllowed.includes(role));
             if (!hasRole) return null;
         }
 
@@ -252,6 +280,7 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
     }
 
     const selectedEdge = filteredEdges[0]; // Take the first valid transition
+    const resolvedEvent = selectedEdge.event; // Use the actual event we matched against
 
     // 4. Find the target node
     const { data: nextNode, error: nextNodeError } = await supabaseAdmin
@@ -268,8 +297,8 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
     // 5. Determine status
     let status = 'in_progress';
     if (nextNode.type === 'END') {
-        status = event === 'REJECT' ? 'rejected' : 'completed';
-    } else if (event === 'CANCEL') {
+        status = resolvedEvent === 'REJECT' ? 'rejected' : 'completed';
+    } else if (resolvedEvent === 'CANCEL') {
         status = 'cancelled';
     }
 
@@ -294,9 +323,11 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
         .from('workflow_instance_history')
         .insert({
             instance_id: instance.id,
+            node_id: nextNode.id,
+            action_type: resolvedEvent,
             from_node_id: currentNode.id,
             to_node_id: nextNode.id,
-            event: event,
+            event: resolvedEvent,
             acted_by: user_id,
             comments: comments || '',
             context_snapshot: currentContext
@@ -317,6 +348,7 @@ export const performAction = async (instance_id, user_id, user_roles, event, com
 
     if (updatedInstance) {
         updatedInstance.entity_id = denormalizeEntityId(updatedInstance.entity_id);
+        updatedInstance.overall_status = updatedInstance.status;
     }
 
     return updatedInstance;

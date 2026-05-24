@@ -30,15 +30,16 @@ const CustomerTransfer = () => {
     try {
       if (!profile) return;
       setLoading(true);
-      const { data, error } = await supabase
+
+      let query = supabase
         .from('customer_transfer_requests')
         .select(`
           *,
           branch_manager:branch_manager_id (full_name),
           regional_manager:regional_manager_id (full_name),
           credit_analyst:credit_analyst_id (full_name),
-          current_branch:current_branch_id (name),
-          new_branch:new_branch_id (name),
+          current_branch:current_branch_id (name, region_id),
+          new_branch:new_branch_id (name, region_id),
           current_officer:current_officer_id (full_name),
           new_officer:new_officer_id (full_name),
           transfer_items:customer_transfer_items (
@@ -47,10 +48,7 @@ const CustomerTransfer = () => {
               Firstname,
               Surname,
               id_number,
-              mobile,
-              branch_id,
-              region_id,
-              created_by
+              mobile
             )
           ),
           workflow_logs:transfer_workflow_logs (
@@ -63,26 +61,27 @@ const CustomerTransfer = () => {
         .eq('tenant_id', profile.tenant_id)
         .order('created_at', { ascending: false });
 
+      if (profile.role === 'relationship_officer') {
+        query = query.or(`current_officer_id.eq.${profile.id},new_officer_id.eq.${profile.id}`);
+      } else if (profile.role === 'branch_manager' && profile.branch_id) {
+        query = query.or(`current_branch_id.eq.${profile.branch_id},new_branch_id.eq.${profile.branch_id}`);
+      } else if (profile.role === 'regional_manager' || profile.role === 'credit_analyst_officer' || profile.role === 'customer_service_officer') {
+        // No additional restriction for these roles via query builder
+      } else {
+        setTransfers([]);
+        setLoading(false);
+        return;
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
       
-      // Apply role-based filtering
       let roleFilteredTransfers = data || [];
       
-      if (profile?.role === 'relationship_officer') {
+      if (profile?.role === 'regional_manager' && profile.region_id) {
         roleFilteredTransfers = roleFilteredTransfers.filter(t => 
-          t.current_officer_id === profile.id || t.new_officer_id === profile.id
-        );
-      } else if (profile?.role === 'branch_manager' && profile.branch_id) {
-        roleFilteredTransfers = roleFilteredTransfers.filter(t => 
-          t.current_branch_id?.toString() === profile.branch_id || 
-          t.new_branch_id?.toString() === profile.branch_id
-        );
-      } else if (profile?.role === 'regional_manager' && profile.region_id) {
-        // Note: Requests don't have region_id directly, but we can filter by the RM ID if they are assigned
-        // OR we can assume RMs want to see everything in their region. 
-        // For now, filtering by their assigned field or general visibility if needed.
-        roleFilteredTransfers = roleFilteredTransfers.filter(t => 
-          t.regional_manager_id === profile.id
+          (t.current_branch?.region_id?.toString() === profile.region_id?.toString()) || 
+          (t.new_branch?.region_id?.toString() === profile.region_id?.toString())
         );
       }
 
@@ -287,7 +286,7 @@ const CustomerTransfer = () => {
       pending_approval: 'bg-yellow-100 text-yellow-800 border border-yellow-300',
       approved: 'bg-green-100 text-green-800 border border-green-300',
       rejected: 'bg-red-100 text-red-800 border border-red-300',
-      completed: 'bg-blue-100 text-blue-800 border border-blue-300'
+      completed: 'bg-brand-primary text-brand-primary border border-brand-primary'
     };
     const statusText = {
       pending_approval: 'PENDING APPROVAL',
@@ -296,41 +295,42 @@ const CustomerTransfer = () => {
       completed: 'COMPLETED'
     };
     return (
-      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-semibold ${styles[status] || 'bg-gray-100 text-gray-800 border border-gray-300'}`}>
+      <span className={`inline-flex px-3 py-1 rounded-full text-xs font-outfit lowercase ${styles[status] || 'bg-gray-100 text-gray-800 border border-gray-300'}`}>
         {statusText[status] || status?.toUpperCase()}
       </span>
     );
   };
 
-  const getActionButtons = (transfer) => {
+    const getActionButtons = (transfer) => {
     if (!profile) return null;
 
-    const canApprove  = transfer.status === 'pending_approval' && hasPermission('transfers.confirm');
-    const canExecute  = transfer.status === 'approved'         && hasPermission('transfers.authorize');
+    // Determine if the user can review the transfer (approve/reject) based on permissions and status
+    const canReview =
+      (transfer.status === 'pending_approval' && hasPermission('transfers.confirm')) ||
+      (transfer.status === 'approved' && hasPermission('transfers.authorize'));
 
-    // Label and colour based on what the current user can do
-    const label = canApprove ? 'Review & Approve'
-                : canExecute ? 'Review & Execute'
-                : 'View Details';
+    // If can review, navigate to the dedicated review page
+    if (canReview) {
+      return (
+        <button
+          onClick={() => navigate(`/registry/customer-transfer/${transfer.id}/review`)}
+          className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-outfit border shadow-sm transition-colors bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
+        >
+          Review
+        </button>
+      );
+    }
 
-    const colorClass = canApprove ? 'bg-yellow-500 hover:bg-yellow-600 text-white border-yellow-500'
-                     : canExecute ? 'bg-blue-600   hover:bg-blue-700   text-white border-blue-600'
-                     : 'bg-white hover:bg-gray-50 text-gray-700 border-gray-300';
-
+    // Fallback: view details button for other statuses
     return (
       <button
         onClick={() => navigate(`/registry/customer-transfer/${transfer.id}/review`)}
-        className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border shadow-sm transition-colors ${colorClass}`}
+        className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-sm text-xs font-outfit border shadow-sm transition-colors bg-white hover:bg-gray-50 text-gray-700 border-gray-300"
       >
-        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-        </svg>
-        {label}
+        View Details
       </button>
     );
   };
-
   const toggleExpandTransfer = (transferId) => {
     setExpandedTransfer(expandedTransfer === transferId ? null : transferId);
   };
@@ -360,12 +360,12 @@ const CustomerTransfer = () => {
         {/* Header Section */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-xs text-slate-600 mb-1 font-medium tracking-wide">
+            <h1 className="text-xs text-slate-600 mb-1 font-outfit font-semibold">
               Registry / Customer Transfer Requests
             </h1>
           </div>
           <div className="text-xs text-brand-primary ">
-            <span className="font-medium text-brand-primary">{transfers.length}</span> transfer requests
+            <span className="font-medium font-outfit text-brand-primary">{transfers.length}</span> transfer requests
           </div>
         </div>
 
@@ -376,7 +376,7 @@ const CustomerTransfer = () => {
             {hasPermission('transfers.initiate') && (
               <button
                 onClick={() => navigate('/transfer')}
-                className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg font-semibold text-sm shadow-md hover:shadow-lg transition-all duration-200"
+                className="inline-flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white px-3 py-1.5 rounded-sm font-semibold text-[13px]  font-outfit shadow-md hover:shadow-lg transition-all duration-200"
               >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -392,8 +392,7 @@ const CustomerTransfer = () => {
                 placeholder="Search by branch, officer, or manager..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-1.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-sm"
-              />
+className="w-full pl-10 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm transition-all outline-none focus:border-slate-400 focus:ring-0"              />
               <svg
                 className="absolute left-3 top-2.5 h-4 w-4 text-gray-400"
                 fill="none"
@@ -410,30 +409,30 @@ const CustomerTransfer = () => {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden flex-1 min-h-0">
           <div className="h-full overflow-auto">
             <table className="w-full">
-              <thead className="sticky top-0 bg-white z-10">
+              <thead className="sticky top-0 bg-white z-10 font-outfit text-[11px] text-slate-600  border-b border-gray-200">
                 <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   Transfer ID
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   From Branch/Officer
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   To Branch/Officer
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   Customers
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   Status
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   Initiated By
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-outfit whitespace-nowrap ">
                   Created Date
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-center text-xs font-outfit whitespace-nowrap ">
                   Actions
                 </th>
                 </tr>
@@ -464,13 +463,13 @@ const CustomerTransfer = () => {
                     <React.Fragment key={transfer.id}>
                       <tr className="hover:bg-gray-50 transition-colors">
                         <td className="px-4 py-3 whitespace-nowrap">
-                          <span className="text-sm font-mono text-gray-900">
+                          <span className="text-xs  text-gray-600 font-outfit">
                             #{transfer.id.slice(0, 8)}
                           </span>
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-xs font-outfit text-gray-600">
                               {transfer.current_branch?.name}
                             </p>
                             <p className="text-xs text-gray-500">
@@ -480,10 +479,10 @@ const CustomerTransfer = () => {
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
                           <div>
-                            <p className="text-sm font-medium text-gray-900">
+                            <p className="text-xs font-outfit text-gray-600">
                               {transfer.new_branch?.name}
                             </p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-xs font-outfit text-gray-500">
                               {transfer.new_officer?.full_name}
                             </p>
                           </div>
@@ -491,23 +490,22 @@ const CustomerTransfer = () => {
                         <td className="px-4 py-3 whitespace-nowrap">
                           <button
                             onClick={() => toggleExpandTransfer(transfer.id)}
-                            className="inline-flex items-center gap-1 text-brand-btn hover:text-brand-btn-hover font-semibold text-sm transition-colors"
+                            className="inline-flex items-center gap-1 text-brand-primary  hover:text-brand-btn-hover  text-xs transition-colors"
                           >
-                            <span className="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
-                              {transfer.transfer_items?.length || 0}
-                            </span>
+                            
                             {expandedTransfer === transfer.id ? 'Hide' : 'View'} Customers
                             <svg
-                              className={`w-4 h-4 transform ${expandedTransfer === transfer.id ? 'rotate-180' : ''}`}
+                              className={`w-3 h-3 transform ${expandedTransfer === transfer.id ? 'rotate-180' : ''}`}
                               fill="none"
                               stroke="currentColor"
                               viewBox="0 0 24 24"
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                             </svg>
+                            
                           </button>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap">
+                        <td className="px-3 py-1.5 whitespace-nowrap">
                           {getStatusBadge(transfer.status)}
                         </td>
                         <td className="px-4 py-3 whitespace-nowrap">
@@ -525,7 +523,7 @@ const CustomerTransfer = () => {
                             {formatDate(transfer.created_at)}
                           </span>
                         </td>
-                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                        <td className="px-2 py-0.5 text-xs whitespace-nowrap text-center">
                           {getActionButtons(transfer)}
                         </td>
                       </tr>
@@ -534,7 +532,7 @@ const CustomerTransfer = () => {
                       {expandedTransfer === transfer.id && (
                         <tr>
                           <td colSpan="8" className="bg-gray-50 p-4">
-                            <div className="border-l-4 border-blue-500 pl-4">
+                            <div className="border-l-4 border-brand-primary pl-4">
                               <h4 className="text-sm font-semibold text-gray-700 mb-3">
                                 Customer Details ({transfer.transfer_items?.length || 0} customers)
                               </h4>
