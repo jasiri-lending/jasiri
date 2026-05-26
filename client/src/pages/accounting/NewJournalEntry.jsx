@@ -333,7 +333,7 @@ function NewJournalEntry() {
 
   return (
     <div className="p-6 bg-muted min-h-screen">
-      <div className="mb-4 text-sm text-gray-600">
+      <div className="mb-4 text-xs font-outfit text-gray-600">
         Journals / Create Journal Voucher
       </div>
 
@@ -349,10 +349,10 @@ function NewJournalEntry() {
           </button>
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow-sm">
+        <div className="bg-white rounded-sm shadow-sm">
         <div className="border-b">
           <div className="px-6 py-3">
-            <span className="inline-block px-4 py-2 bg-brand-secondary text-white text-sm rounded">
+            <span className="inline-block px-2 py-1.5 bg-brand-secondary text-white text-xs font-outfit rounded">
               Journal Voucher
             </span>
           </div>
@@ -361,7 +361,7 @@ function NewJournalEntry() {
         <div className="p-6">
           <div className="grid grid-cols-2 gap-6 mb-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className=" text-xs font-outfit text-gray-600 mb-2">
                 Type
               </label>
               <select
@@ -380,7 +380,7 @@ function NewJournalEntry() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-outfit text-gray-600 mb-2">
                 Account Type
               </label>
               <select
@@ -400,7 +400,7 @@ function NewJournalEntry() {
           </div>
 
           <div className="mb-4">
-            <span className="inline-block px-4 py-2 bg-brand-secondary text-white text-sm rounded">
+            <span className="inline-block px-2 py-1.5 bg-brand-secondary text-white text-xs font-outfit rounded">
               Transaction Details
             </span>
           </div>
@@ -408,7 +408,7 @@ function NewJournalEntry() {
           <div className="grid grid-cols-2 gap-6 mb-6">
             {/* PRIMARY ACCOUNT (Customer / Sender) */}
             <div className="relative" ref={accountDropdownRef}>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-outfit text-gray-600 mb-2">
                 {getPrimaryLabel()}
               </label>
               <div className="relative">
@@ -441,28 +441,28 @@ function NewJournalEntry() {
                       className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                     >
                       <div className="flex items-start gap-3">
-                        <div className="bg-blue-50 p-2 rounded-full">
+                        <div className="bg-brand-primary/10 p-2 rounded-full">
                           {customer.business_name ? (
-                            <Building size={14} className="text-blue-600" />
+                            <Building size={14} className="text-brand-primary" />
                           ) : (
-                            <User size={14} className="text-blue-600" />
+                            <User size={14} className="text-brand-primary" />
                           )}
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-900 truncate">
+                          <p className="text-sm font-outfit text-gray-600 truncate">
                             {customer.display_name}
                           </p>
                           <div className="flex flex-wrap gap-2 mt-1">
                             {customer.phone && (
                               <div className="flex items-center gap-1">
                                 <Phone size={12} className="text-gray-500" />
-                                <span className="text-xs text-gray-600">{customer.phone}</span>
+                                <span className="text-xs font-outfit text-gray-600">{customer.phone}</span>
                               </div>
                             )}
                             {customer.id_number && (
                               <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
                                 <IdCard size={12} className="text-gray-400" />
-                                <span className="text-xs text-gray-500">ID: {customer.id_number}</span>
+                                <span className="text-xs font-outfit text-gray-500">ID: {customer.id_number}</span>
                               </div>
                             )}
                           </div>
@@ -477,13 +477,13 @@ function NewJournalEntry() {
             {/* RECIPIENT ACCOUNT (Only for Transfers) */}
             {formData.journal_type === 'transfer' && (
               <div className="relative" ref={recipientDropdownRef}>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label className=" text-xs font-outfit text-gray-600 mb-2">
                   Recipient (To)
                 </label>
                 <div className="relative">
                   <input
                     name="recipient_search"
-                    className="w-full border border-gray-300 rounded px-3 py-2 pr-20 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
+                    className="w-full border border-gray-300 rounded px-3 py-2 pr-20 text-xs font-outfit focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
                     type="text"
                     placeholder="Search Recipient"
                     value={formData.recipient_search}
@@ -496,7 +496,7 @@ function NewJournalEntry() {
                       onClick={clearRecipientSelection}
                       className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      <X size={16} />
+                      <X size={14} />
                     </button>
                   )}
                 </div>
@@ -510,24 +510,24 @@ function NewJournalEntry() {
                         className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="bg-purple-50 p-2 rounded-full">
-                            <User size={14} className="text-purple-600" />
+                          <div className="bg-brand-primary/10 p-2 rounded-full">
+                            <User size={14} className="text-white" />
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-gray-900 truncate">
+                            <p className="text-sm font-outfit text-gray-900 truncate">
                               {customer.display_name}
                             </p>
                             <div className="flex flex-wrap gap-2 mt-1">
                               {customer.phone && (
                                 <div className="flex items-center gap-1">
                                   <Phone size={12} className="text-gray-500" />
-                                  <span className="text-xs text-gray-600">{customer.phone}</span>
+                                  <span className="text-xs font-outfit text-gray-600">{customer.phone}</span>
                                 </div>
                               )}
                               {customer.id_number && (
                                 <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
                                   <IdCard size={12} className="text-gray-400" />
-                                  <span className="text-xs text-gray-500">ID: {customer.id_number}</span>
+                                  <span className="text-xs font-outfit text-gray-500">ID: {customer.id_number}</span>
                                 </div>
                               )}
                             </div>
@@ -544,7 +544,7 @@ function NewJournalEntry() {
 
           <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-outfit text-gray-600 mb-2">
                 Amount
               </label>
               <input
@@ -563,12 +563,12 @@ function NewJournalEntry() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs font-outfit text-gray-600 mb-2">
                 Description
               </label>
               <textarea
                 name="description"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn resize-none"
+                className="w-full border border-gray-300 rounded px-3 py-2 text-xs font-outfit focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn resize-none"
                 rows="3"
                 placeholder="Enter description..."
                 value={formData.description}
@@ -588,10 +588,10 @@ function NewJournalEntry() {
                 {formData.customer_id && (
                   <div className="flex items-center gap-2">
                     <div className="bg-blue-100 p-1.5 rounded-full">
-                      <User size={14} className="text-blue-600" />
+                      <User size={14} className="text-brand-primary" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold">{formData.customer_name}</p>
+                      <p className="text-xs font-semibold text-slate-600">{formData.customer_name}</p>
                       <p className="text-[10px] text-gray-500">{formData.customer_phone} {formData.customer_id_number && `| ID: ${formData.customer_id_number}`}</p>
                       <p className="text-[10px] text-brand-primary font-semibold mt-1">Wallet Balance: KES {formData.customer_wallet_balance.toLocaleString()}</p>
                     </div>
@@ -612,7 +612,7 @@ function NewJournalEntry() {
                       <User size={14} className="text-purple-600" />
                     </div>
                     <div>
-                      <p className="text-xs font-semibold">{formData.recipient_name}</p>
+                      <p className="text-xs font-semibold text-slate-600">{formData.recipient_name}</p>
                       <p className="text-[10px] text-gray-500">
                         {formData.recipient_phone} {formData.recipient_id_number && `| ID: ${formData.recipient_id_number}`}
                       </p>
@@ -628,7 +628,7 @@ function NewJournalEntry() {
         <div className="border-t px-6 py-4 flex justify-between items-center bg-gray-50">
           <button
             onClick={() => navigate("/accounting/journals")}
-            className="px-4 py-2 rounded flex items-center gap-2 text-sm font-medium text-white bg-gray-600 hover:bg-gray-700 transition-colors"
+            className="px-2 py-1.5 rounded flex items-center gap-2 text-xs font-outfit text-white bg-gray-600 hover:bg-gray-700 transition-colors"
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -637,13 +637,13 @@ function NewJournalEntry() {
             <button
               onClick={createJournal}
               disabled={loading || !!amountError}
-              className={`px-6 py-2 rounded text-sm font-medium text-white bg-brand-primary hover:bg-[#1E3A8A] transition-colors ${loading || amountError ? 'opacity-70 cursor-not-allowed' : ''}`}
+              className={`px-6 py-2 rounded text-xs font-outfit text-white bg-brand-primary hover:bg-brand-secondary transition-colors ${loading || amountError ? 'opacity-70 cursor-not-allowed' : ''}`}
             >
               {loading ? 'Saving...' : 'Save'}
             </button>
             <button
               onClick={() => navigate("/accounting/journals")}
-              className="px-6 py-2 rounded text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
+              className="px-6 py-2 rounded text-xs font-outfit text-white bg-red-500 hover:bg-red-600 transition-colors"
             >
               Cancel
             </button>

@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../utils/api";
 import { usePermissions } from "../../hooks/usePermissions";
+import { Pagination } from "../../components/Pagination.jsx";
 
 function Journals() {
   const [journals, setJournals] = useState([]);
@@ -132,24 +133,7 @@ function Journals() {
     currentPage * itemsPerPage
   );
 
-  const generatePageNumbers = () => {
-    const pages = [];
-    const maxVisiblePages = 5;
 
-    if (totalPages <= maxVisiblePages) {
-      for (let i = 1; i <= totalPages; i++) pages.push(i);
-    } else {
-      const start = Math.max(2, currentPage - 1);
-      const end = Math.min(totalPages - 1, currentPage + 1);
-
-      pages.push(1);
-      if (start > 2) pages.push("...");
-      for (let i = start; i <= end; i++) pages.push(i);
-      if (end < totalPages - 1) pages.push("...");
-      pages.push(totalPages);
-    }
-    return pages;
-  };
 
   // Reset to page 1 when search changes
   useEffect(() => {
@@ -159,15 +143,15 @@ function Journals() {
   if (loading) {
     return (
 
-      <div className="p-6 bg-brand-surface min-h-screen flex items-center justify-center">
+      <div className="p-6 bg-muted min-h-screen flex items-center justify-center">
         <Spinner text="Loading journals..." />
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-muted min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+    <div className="p-6 bg-muted min-h-screen font-outfit">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
         Journals / Journals Summary
       </h1>
 
@@ -176,14 +160,14 @@ function Journals() {
           {/* NEW ENTRY BUTTON */}
           {hasPermission('journal.create') && (
             <button
-              className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-btn hover:bg-brand-primary"
+              className="px-2 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-primary hover:bg-brand-secondary"
               onClick={() => navigate("/journals/new")}
             >
               <Plus size={14} /> New Entry
             </button>
           )}
           <button
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-brand-primary border border-brand-primary hover:bg-brand-secondary/10 transition-colors ml-2"
+            className="px-2 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-brand-primary border border-brand-primary hover:bg-brand-secondary/10 transition-colors ml-2"
             onClick={() => navigate("/accounting/gl-entries")}
           >
             <FileSpreadsheet size={14} /> General Journal
@@ -206,32 +190,32 @@ function Journals() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-brand-surface border-b border-gray-200">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+        <div className="overflow-x-auto font-outfit">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                   Journal Type
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                   Customer
                 </th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 whitespace-nowrap">
                   Amount
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                   Description
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
                   Status
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                   Created By
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
                   Date
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600 whitespace-nowrap">
+                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
                   Actions
                 </th>
               </tr>
@@ -243,19 +227,19 @@ function Journals() {
                   key={j.id}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-4 py-3 text-sm  text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-outfit  text-gray-600 whitespace-nowrap">
                     {j.journal_type}
                   </td>
-                  <td className="px-4 py-3 text-xs font-medium text-gray-700 whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
                     {j.customer_name || "Unknown"}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-700 text-right font-medium whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 text-right font-medium whitespace-nowrap">
                     {parseFloat(j.amount).toLocaleString('en-US', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2
                     })}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 max-w-xs ">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 max-w-xs ">
                     {j.description}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -265,10 +249,10 @@ function Journals() {
                       {j.status}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
                     {j.created_by_name}
                   </td>
-                  <td className="px-4 py-3 text-sm text-gray-600 text-center whitespace-nowrap">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 text-center whitespace-nowrap">
                     {new Date(j.created_at).toLocaleDateString("en-GB", {
                       day: "2-digit",
                       month: "short",
@@ -278,17 +262,17 @@ function Journals() {
                   <td className="px-4 py-3 text-center">
                     <div className="flex items-center justify-center gap-1">
                       <button
-                        className="inline-flex items-center justify-center p-1 rounded hover:bg-gray-100 transition-colors"
+                        className="inline-flex items-center justify-center p-1 rounded text-brand-primary hover:text-brand-secondary transition-colors"
                         onClick={() => navigate(`/journals/${j.id}`)}
                         aria-label="View journal"
                         title="View Details"
                       >
-                        <Eye className="text-gray-600 hover:text-gray-900" size={16} />
+                        <Eye className="text-gray-600 hover:text-brand-primary" size={16} />
                       </button>
 
                       {j.status === 'pending' && hasPermission('journal.approve') && (
                         <button
-                          className="inline-flex items-center justify-center p-1 rounded hover:bg-blue-100 transition-colors text-blue-600 hover:text-blue-800"
+                          className="inline-flex items-center justify-center p-1 rounded  transition-colors text-brand-primary hover:text-brand-secondary"
                           onClick={() => navigate(`/journals/${j.id}`)}
                           aria-label="Approve journal"
                           title="Review & Approve"
@@ -310,68 +294,12 @@ function Journals() {
           </div>
         )}
 
-        {/* Pagination Controls */}
-        {filteredJournals.length > 0 && (
-          <div className="flex flex-col sm:flex-row justify-between items-center p-4 border-t border-gray-200">
-            <div className="text-xs text-gray-500 mb-2 sm:mb-0">
-              Showing <span className="font-medium">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium">{Math.min(currentPage * itemsPerPage, filteredJournals.length)}</span> of <span className="font-medium">{filteredJournals.length}</span> entries
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(1)}
-                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
-                title="First Page"
-              >
-                <ChevronsLeft size={16} />
-              </button>
-              <button
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
-                title="Previous Page"
-              >
-                <ChevronLeft size={16} />
-              </button>
-
-              <div className="flex items-center gap-1 mx-2">
-                {generatePageNumbers().map((page, i) => (
-                  <button
-                    key={i}
-                    onClick={() => typeof page === 'number' && setCurrentPage(page)}
-                    disabled={page === '...'}
-                    className={`min-w-[28px] h-7 flex items-center justify-center rounded text-xs font-medium transition-colors ${currentPage === page
-                      ? 'bg-blue-600 text-white'
-                      : page === '...'
-                        ? 'text-gray-400 cursor-default'
-                        : 'text-gray-600 hover:bg-gray-100'
-                      }`}
-                  >
-                    {page}
-                  </button>
-                ))}
-              </div>
-
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
-                title="Next Page"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                disabled={currentPage === totalPages}
-                onClick={() => setCurrentPage(totalPages)}
-                className="p-1.5 rounded-md hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent transition-colors text-gray-600"
-                title="Last Page"
-              >
-                <ChevronsRight size={16} />
-              </button>
-            </div>
-          </div>
-        )}
+        <Pagination
+          totalItems={filteredJournals.length}
+          itemsPerPage={itemsPerPage}
+          currentPage={currentPage}
+          onPageChange={setCurrentPage}
+        />
       </div>
       {/* ACTION MODAL */}
       {isModalOpen && (
@@ -380,7 +308,7 @@ function Journals() {
             {/* Modal Header */}
             <div className={`px-6 py-4 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'
               }`}>
-              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-blue-800' : 'text-red-800'
+              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-brand-primary' : 'text-red-800'
                 }`}>
                 {modalAction === 'approve' ? 'Approve Journal Entry' : 'Reject Journal Entry'}
               </h3>

@@ -68,13 +68,13 @@ export default function NewAccount() {
 
   return (
     <div className="p-6 bg-muted min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium font-body">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
         Accounting / Chart of Accounts / New Account
       </h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl font-body">
         <div className="p-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-6 font-heading">
+          <h2 className="text-xs font-semibold text-gray-600 mb-6 font-outfit">
             Create New Account
           </h2>
 
@@ -82,7 +82,7 @@ export default function NewAccount() {
             <div className="grid grid-cols-2 gap-4">
               {/* Account Name */}
               <div className="col-span-2">
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className=" text-xs  text-gray-600 font-outfit mb-1.5">
                   Account Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -97,7 +97,7 @@ export default function NewAccount() {
 
               {/* Account Type */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className=" text-xs  text-gray-600 font-outfit mb-1.5">
                   Account Type <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -121,7 +121,7 @@ export default function NewAccount() {
 
               {/* Account Category */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs  text-gray-600 font-outfit mb-1.5">
                   Account Category <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -142,7 +142,7 @@ export default function NewAccount() {
 
               {/* Code */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs  text-gray-600 font-outfit mb-1.5">
                   Account Code <span className="text-gray-400 font-normal">(Auto-generated)</span>
                 </label>
                 <input
@@ -156,7 +156,7 @@ export default function NewAccount() {
 
               {/* Status */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs  text-gray-600 font-outfit mb-1.5">
                   Status
                 </label>
                 <select
@@ -176,7 +176,7 @@ export default function NewAccount() {
         <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50 rounded-b-lg">
           <button
             onClick={() => navigate(-1)}
-            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -184,16 +184,16 @@ export default function NewAccount() {
           <div className="flex gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
             >
-              <X size={16} /> Cancel
+              Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
+              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
             >
-              <Save size={16} /> {isSubmitting ? "Saving..." : "Save Account"}
+              {isSubmitting ? "Saving..." : "Save Account"}
             </button>
           </div>
         </div>

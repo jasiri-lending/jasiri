@@ -4,6 +4,13 @@
 @tailwind components;
 @tailwind utilities;
 
+@keyframes jasiri-spin { to { transform: rotate(360deg); } }
+@keyframes fade-text   { 0%,100%{opacity:.3} 50%{opacity:1} }
+@keyframes dot-cascade {
+  0%,80%,100%{ transform:scale(0); opacity:0 }
+  40%        { transform:scale(1); opacity:1 }
+}
+
 @layer base {
   body {
     @apply font-body text-text bg-background;
@@ -12,6 +19,8 @@
     @apply font-heading;
   }
 }
+
+
 
 
 

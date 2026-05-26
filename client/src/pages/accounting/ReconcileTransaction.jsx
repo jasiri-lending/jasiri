@@ -169,16 +169,16 @@ const ReconcileTransaction = () => {
             <div className="max-w-5xl mx-auto">
 
                 {/* Header */}
-                <div className="flex items-center gap-4 mb-8">
+                <div className="flex items-center gap-4 mb-4">
                     <button
                         onClick={() => navigate('/accounting/transactions')}
-                        className="p-2 bg-white rounded-lg border border-stone-200 text-stone-400 hover:text-brand-primary hover:border-brand-primary transition-all shadow-sm"
+                        className="p-2  rounded-lg border border-stone-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary transition-all shadow-sm"
                     >
-                        <ArrowLeft className="w-5 h-5" />
+                        <ArrowLeft className="w-3 h-3" />
                     </button>
                     <div>
-                        <h1 className="text-sm text-slate-600">Manual Reconciliation</h1>
-                        <p className="text-slate-400 text-xs mt-0.5">Link suspense payment to a specific customer</p>
+                        <h1 className="text-sm font-outfit text-slate-600">Manual Reconciliation</h1>
+                        {/* <p className="text-slate-400 text-xs mt-0.5">Link suspense payment to a specific customer</p> */}
                     </div>
                 </div>
 
@@ -186,46 +186,46 @@ const ReconcileTransaction = () => {
 
                     {/* Left: Transaction Details */}
                     <div className="lg:col-span-4 space-y-4">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-stone-100">
-                            <h2 className="text-xs  text-slate-600 mb-4 flex items-center gap-2 pb-3 border-b border-stone-100 uppercase tracking-widest">
-                                <Hash className="w-4 h-4 text-slate-600" />
+                        <div className="bg-white rounded-sm p-5 shadow-sm border border-stone-100">
+                            <h2 className="text-xs font-outfit text-slate-600 mb-4 flex items-center gap-2 pb-3 border-b border-stone-100 ">
+                                <Hash className="w-3 h-3 text-slate-600" />
                                 Payment Summary
                             </h2>
 
                             <div className="space-y-3">
                                 {/* M-Pesa Reference */}
                                 <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-bold text-slate-600 uppercase tracking-widest mb-1.5">M-Pesa Reference</p>
-                                    <p className="text-base font-semibold text-emerald-600">{transaction.transaction_id}</p>
+                                    <p className="text-xs font-semibold font-outfit text-slate-600  mb-1.5">M-Pesa Reference</p>
+                                    <p className="text-sm  font-semibold font-outfit text-emerald-600">{transaction.transaction_id}</p>
                                 </div>
 
                                 {/* Amount */}
                                 <div className="p-3.5 bg-brand-primary/[0.04] rounded-lg border border-brand-primary/10">
-                                    <p className="text-xs font-bold text-brand-primary/60 uppercase tracking-widest mb-1.5">Amount</p>
-                                    <p className="text-2xl font-bold text-stone-800">
+                                    <p className="text-xs font-semibold text-brand-primary/60  mb-1.5">Amount</p>
+                                    <p className="text-lg font-semibold text-brand-primary">
                                         KSh {parseFloat(transaction.amount).toLocaleString()}
                                     </p>
                                 </div>
 
                                 {/* Details */}
                                 <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-bold text-stone-600 uppercase tracking-widest mb-3">Details</p>
+                                    <p className="text-xs font-semibold font-outfit text-slate-600 mb-3">Details</p>
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-600 shrink-0">Payer</span>
-                                            <span className="text-sm text-stone-700 font-medium text-right truncate">
+                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Payer</span>
+                                            <span className="text-sm text-slate-600 font-medium text-right truncate">
                                                 {transaction.payer_name || 'Anonymous'}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-600 shrink-0">Account no</span>
-                                            <span className="text-sm text-stone-700 font-medium text-right">
+                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Account no</span>
+                                            <span className="text-sm text-slate-600 font-medium text-right">
                                                 {transaction.phone_number}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-stone-600 shrink-0">Date</span>
-                                            <span className="text-sm text-stone-700 font-medium text-right">
+                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Date</span>
+                                            <span className="text-sm text-slate-600 font-medium text-right">
                                                 {new Date(transaction.created_at).toLocaleDateString('en-GB', {
                                                     day: '2-digit',
                                                     month: 'short',
@@ -243,8 +243,8 @@ const ReconcileTransaction = () => {
                     <div className="lg:col-span-8 space-y-6">
                         <div className="bg-white rounded-xl p-5 shadow-sm border border-stone-100">
                             <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-xs font-bold text-stone-400 flex items-center gap-2 uppercase tracking-widest">
-                                    <User className="w-4 h-4 text-brand-primary/70" />
+                                <h2 className="text-xs font-semibold text-stone-400 flex items-center gap-2 ">
+                                    <User className="w-3 h-3 text-brand-primary/70 font-outfit" />
                                     Step 1: Locate Customer
                                 </h2>
                                 {selectedCustomer && (
@@ -254,7 +254,7 @@ const ReconcileTransaction = () => {
                                             setSearchTerm('');
                                             setSearchResults([]);
                                         }}
-                                        className="text-xs text-brand-primary hover:underline font-bold uppercase tracking-widest"
+                                        className="text-xs text-brand-primary hover:underline font-semibold font-outfit"
                                     >
                                         Reset Search
                                     </button>
@@ -265,13 +265,13 @@ const ReconcileTransaction = () => {
                                 <>
                                     {/* Search Input */}
                                     <div className="relative mb-5">
-                                        <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-5 h-5 text-stone-400" />
+                                        <MagnifyingGlassIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3 h-3 text-stone-400" />
                                         <input
                                             type="text"
                                             value={searchTerm}
                                             onChange={(e) => handleSearch(e.target.value)}
                                             placeholder="Search by name, phone, or ID number..."
-                                            className="w-full pl-11 pr-10 py-3 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none text-sm text-stone-700 placeholder:text-stone-300 shadow-sm"
+                                            className="w-full pl-11 pr-10 py-1.5 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none text-sm text-stone-700 placeholder:text-stone-300 shadow-sm"
                                             autoFocus
                                         />
                                         {searching && (
@@ -330,69 +330,66 @@ const ReconcileTransaction = () => {
                             ) : (
                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                                     {/* Selected Customer Card */}
-                                    <div className="p-4 rounded-xl border-2 border-brand-primary bg-brand-primary/[0.02] flex items-center gap-4">
-                                        <div className="w-12 h-12 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20 shrink-0">
-                                            <UserIcon className="w-6 h-6" />
+<div className="p-4 rounded-sm border border-slate-200 bg-brand-primary/[0.02] flex items-center gap-4">
+                                        <div className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20 shrink-0">
+                                            <UserIcon className="w-3 h-3" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-bold text-brand-primary uppercase tracking-widest mb-1">Selected Customer</p>
-                                            <p className="text-lg font-bold text-stone-800 truncate">
+                                            <p className="text-xs font-semibold font-outfit text-brand-primary  mb-1">Selected Customer</p>
+                                            <p className="text-sm font-semibold font-outfit text-slate-700 truncate">
                                                 {`${selectedCustomer.Firstname || ''} ${selectedCustomer.Surname || ''}`.trim()}
                                             </p>
-                                            <p className="text-sm text-stone-400 mt-0.5">
+                                            <p className="text-sm font-outfit text-stone-600 mt-0.5">
                                                 {selectedCustomer.mobile}
                                                 {selectedCustomer.id_number && ` • ${selectedCustomer.id_number}`}
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => setSelectedCustomer(null)}
-                                            className="shrink-0 px-3 py-1.5 text-xs font-bold text-stone-400 hover:text-red-500 uppercase tracking-widest transition-colors"
+                                            className="shrink-0 px-3 py-1.5 text-xs font-outfit text-stone-400 hover:text-red-500  transition-colors"
                                         >
                                             Change
                                         </button>
                                     </div>
 
                                     {/* Confirmation Panel */}
-                                    <div className="mt-6 p-5 rounded-xl bg-stone-800 relative overflow-hidden">
+                                    <div className="mt-6 p-5 rounded-xl bg-brand-primary/10 relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                                            <CheckCircle className="w-28 h-28 text-white" />
+                                            <CheckCircle className="w-28 h-28 text-slate-600" />
                                         </div>
-                                        <h3 className="text-xs font-bold text-stone-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                                        <h3 className="text-xs font-outfit text-slate-600  mb-4 flex items-center gap-2">
                                             <Clock className="w-3.5 h-3.5 text-brand-primary" />
                                             Submit for Approval
                                         </h3>
-                                        <p className="text-stone-300 leading-relaxed text-sm mb-6">
+                                        <p className="text-brand-primary leading-relaxed text-sm mb-6">
                                             You are about to propose a reconciliation for{' '}
-                                            <span className="text-white font-bold">{transaction.transaction_id}</span>{' '}
+                                            <span className="text-slate-600 font-bold font-outfit">{transaction.transaction_id}</span>{' '}
                                             for{' '}
-                                            <span className="text-brand-primary font-bold">
+                                            <span className="text-slate-600 font-bold font-outfit">
                                                 KSh {parseFloat(transaction.amount).toLocaleString()}
                                             </span>{' '}
                                             to{' '}
-                                            <span className="text-white font-bold">{selectedCustomer.Firstname}</span>.
-                                            This will need to be approved by another user.
+                                            <span className="text-slate-600 font-bold font-outfit">{selectedCustomer.Firstname}</span>.
                                         </p>
 
                                         <div className="flex items-center gap-3">
                                             <button
                                                 onClick={() => setSelectedCustomer(null)}
-                                                className="py-2.5 px-5 bg-stone-700 text-stone-300 rounded-lg text-sm font-semibold hover:bg-stone-600 transition-all uppercase tracking-wide whitespace-nowrap"
+                                                className="py-2 px-1.5 bg-stone-700 text-stone-300 rounded-lg text-xs font-outfit hover:bg-stone-600 transition-all  whitespace-nowrap"
                                             >
                                                 Cancel
                                             </button>
                                                 <button
                                                     onClick={executeReconciliation}
                                                     disabled={isProcessing}
-                                                    className="py-2.5 px-6 bg-brand-primary text-white rounded-lg text-sm font-semibold hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30 transition-all disabled:opacity-50 inline-flex items-center gap-2 uppercase tracking-wide whitespace-nowrap"
+                                                    className="py-2 px-1.5 bg-brand-primary text-white rounded-lg text-xs font-outfit hover:bg-brand-primary/90 shadow-lg shadow-brand-primary/30 transition-all disabled:opacity-50 inline-flex items-center gap-2 uppercase tracking-wide whitespace-nowrap"
                                                 >
                                                     {isProcessing ? (
                                                         <>
-                                                            <ArrowPathIcon className="w-4 h-4 animate-spin" />
                                                             Submitting...
                                                         </>
                                                     ) : (
                                                         <>
-                                                            <Clock className="w-4 h-4" />
                                                             Submit Proposal
                                                         </>
                                                     )}

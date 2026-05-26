@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import * as XLSX from "xlsx";
 import {
   Upload,
@@ -14,6 +14,7 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
 import { useToast } from "../../components/Toast";
+import { Pagination } from "../../components/Pagination.jsx";
 
 function BankReconciliations() {
   const { profile } = useAuth();
@@ -30,6 +31,13 @@ function BankReconciliations() {
   });
   const [selectedBank, setSelectedBank] = useState("KCB");
   const toast = useToast();
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm]);
 
   const banks = [
     "KCB",
@@ -382,6 +390,11 @@ function BankReconciliations() {
     )
   );
 
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   const hasData = transactions.length > 0;
 
   const getStatusBadge = (status, reconciliationStatus) => {
@@ -407,7 +420,7 @@ function BankReconciliations() {
   };
 
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 font-outfit">
       <div className="max-w-7xl mx-auto">
         <div className="mb-4 sm:mb-6">
           <h1 className="text-sm sm:text-sm lg:text-sm font-semibold text-slate-600 text-start">
@@ -540,39 +553,39 @@ function BankReconciliations() {
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+          <div className="overflow-x-auto font-outfit">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Customer Match
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Name
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Mobile Number
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Amount
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Mpesa Reference
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Bank Reference
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Status
                   </th>
-                  <th className="px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
                     Date
                   </th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {hasData ? (
-                  filteredTransactions.map((transaction) => (
+                  paginatedTransactions.map((transaction) => (
                     <tr
                       key={transaction.id}
                       className="hover:bg-gray-50 transition-colors"
@@ -660,24 +673,12 @@ function BankReconciliations() {
           </div>
 
           {hasData && (
-            <div className="px-4 sm:px-6 py-3 border-t border-gray-200 bg-gray-50">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <p className="text-xs sm:text-sm text-gray-700">
-                  Showing{" "}
-                  <span className="font-medium">
-                    {filteredTransactions.length}
-                  </span>{" "}
-                  of <span className="font-medium">{transactions.length}</span>{" "}
-                  records
-                </p>
-                {searchTerm &&
-                  filteredTransactions.length < transactions.length && (
-                    <p className="text-xs sm:text-sm text-gray-500">
-                      Filtered by: "{searchTerm}"
-                    </p>
-                  )}
-              </div>
-            </div>
+            <Pagination
+              totalItems={filteredTransactions.length}
+              itemsPerPage={itemsPerPage}
+              currentPage={currentPage}
+              onPageChange={setCurrentPage}
+            />
           )}
         </div>
       </div>

@@ -99,7 +99,7 @@ function ViewJournal() {
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
       case 'pending':
-        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+        return 'bg-brand-primary/10 text-brand-primary border-brand-primary/20';
       case 'approved':
         return 'bg-green-100 text-green-800 border-green-200'; // Approved is finalized now
       case 'rejected':
@@ -155,16 +155,14 @@ function ViewJournal() {
         {/* Header */}
         <div className="border-b border-gray-200 px-6 py-4 flex justify-between items-center">
           <div>
-            <h2 className="text-sm font-semibold text-gray-800">
+            <h2 className="text-sm font-outfit text-gray-600">
               Journal Entry #{journal.id}
             </h2>
-            <p className="text-xs text-gray-500 mt-1">
-              Created on {formatDate(journal.created_at)}
-            </p>
+           
           </div>
 
           <div className="flex items-center gap-2">
-            <span className={`px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(journal.status)}`}>
+            <span className={`px-2 py-1 rounded-full text-xs font-outfit border ${getStatusColor(journal.status)}`}>
               {journal.status.toUpperCase()}
             </span>
           </div>
@@ -173,13 +171,13 @@ function ViewJournal() {
         <div className="p-6">
           {/* Pending Notice (No Buttons here) */}
           {journal.status === 'pending' && (
-            <div className="mb-8 p-4 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-4">
-              <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
-                <AlertCircle className="text-amber-600 h-5 w-5" />
+            <div className="mb-8 p-4 bg-brand-primary/10 border border-brand-primary/20 rounded-xl flex items-center gap-4">
+              <div className="w-10 h-10 bg-brand-primary/20 rounded-full flex items-center justify-center flex-shrink-0">
+                <AlertCircle className="text-brand-primary h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-amber-900">Pending Review</h3>
-                <p className="text-xs text-amber-700 mt-0.5">
+                <h3 className="text-sm font-semibold text-brand-primary">Pending Review</h3>
+                <p className="text-xs text-brand-primary/80 mt-0.5">
                   This journal entry is currently awaiting authorization. Please review the details below before taking action.
                 </p>
               </div>
@@ -191,18 +189,18 @@ function ViewJournal() {
             {/* Basic Information */}
             <div className="col-span-2 grid grid-cols-2 gap-4 mb-4 p-4 bg-gray-50 rounded-md">
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className=" text-xs  font-outfit  text-gray-500 mb-1">
                   Journal Type
                 </label>
-                <p className="text-xs text-gray-900 font-medium capitalize">
+                <p className="text-sm text-brand-primary/80 font-outfit">
                   {journal.journal_type}
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className=" text-xs font-outfit  text-gray-500 mb-1">
                   Amount
                 </label>
-                <p className="text-xs text-gray-900 font-semibold">
+                <p className="text-sm text-brand-primary/80 font-outfit ">
                   {parseFloat(journal.amount).toLocaleString("en-US", {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -210,10 +208,10 @@ function ViewJournal() {
                 </p>
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className=" text-xs font-outfit text-gray-500 mb-1">
                   {journal.journal_type === 'transfer' ? 'Sender' : 'Customer'}
                 </label>
-                <p className="text-xs text-gray-900">
+                <p className="text-sm text-brand-primary/80 font-outfit">
                   {journal.customer_name || "Unknown"}
                   {journal.customers?.account_number && (
                     <span className="text-gray-500 ml-2">(#{journal.customers.account_number})</span>
@@ -235,10 +233,10 @@ function ViewJournal() {
                 </div>
               )}
               <div>
-                <label className="block text-xs font-medium text-gray-500 mb-1">
+                <label className=" text-xs  text-gray-500 mb-1">
                   Entry Date
                 </label>
-                <p className="text-xs text-gray-900">
+                <p className="text-xs text-brand-primary/80 font-outfit">
                   {new Date(journal.entry_date).toLocaleDateString("en-GB", {
                     day: "2-digit",
                     month: "short",
@@ -250,10 +248,10 @@ function ViewJournal() {
 
             {/* Description */}
             <div className="col-span-2">
-              <label className="block text-xs font-medium text-gray-500 mb-1">
+              <label className=" text-xs  text-gray-500 mb-1">
                 Description
               </label>
-              <p className="text-xs text-gray-900 leading-relaxed p-3 bg-gray-50 rounded">
+              <p className="text-xs text-brand-primary/80 font-outfit leading-relaxed p-3 bg-gray-50 rounded">
                 {journal.description || "No description provided"}
               </p>
             </div>
@@ -263,7 +261,7 @@ function ViewJournal() {
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Created By
               </label>
-              <p className="text-xs text-gray-900">
+              <p className="text-xs text-brand-primary/80 font-outfit">
                 {journal.created_by_name || "N/A"}
               </p>
             </div>
@@ -273,7 +271,7 @@ function ViewJournal() {
               <label className="block text-xs font-medium text-gray-500 mb-1">
                 Created At
               </label>
-              <p className="text-xs text-gray-900">
+              <p className="text-xs text-brand-primary/80 font-outfit">
                 {formatDate(journal.created_at)}
               </p>
             </div>
@@ -285,7 +283,7 @@ function ViewJournal() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Approved By
                   </label>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-brand-primary/80 font-outfit">
                     {journal.approved_by_name || "N/A"}
                   </p>
                 </div>
@@ -293,7 +291,7 @@ function ViewJournal() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Approved At
                   </label>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-brand-primary/80 font-outfit">
                     {formatDate(journal.approved_at)}
                   </p>
                 </div>
@@ -302,7 +300,7 @@ function ViewJournal() {
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Approval Note
                     </label>
-                    <p className="text-xs text-gray-900 italic">
+                    <p className="text-xs text-brand-primary/80 font-outfit italic">
                       "{journal.approval_note}"
                     </p>
                   </div>
@@ -317,7 +315,7 @@ function ViewJournal() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Rejected By
                   </label>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-brand-primary/80 font-outfit">
                     {journal.rejected_by_name || "N/A"}
                   </p>
                 </div>
@@ -325,7 +323,7 @@ function ViewJournal() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Rejected At
                   </label>
-                  <p className="text-xs text-gray-900">
+                  <p className="text-xs text-brand-primary/80 font-outfit">
                     {formatDate(journal.rejected_at)}
                   </p>
                 </div>
@@ -333,7 +331,7 @@ function ViewJournal() {
                   <label className="block text-xs font-medium text-gray-500 mb-1">
                     Rejection Reason
                   </label>
-                  <p className="text-xs text-gray-900 italic text-red-600">
+                  <p className="text-xs text-brand-primary/80 font-outfit italic">
                     "{journal.rejection_reason}"
                   </p>
                 </div>
@@ -351,7 +349,7 @@ function ViewJournal() {
                     <label className="block text-xs font-medium text-gray-500 mb-1">
                       Journal Entry ID
                     </label>
-                    <p className="text-xs text-gray-900 font-mono">
+                    <p className="text-xs text-brand-primary/80 font-outfit">
                       {journal.journal_entry_id}
                     </p>
                   </div>
@@ -406,7 +404,7 @@ function ViewJournal() {
         <div className="border-t border-gray-200 px-8 py-6 bg-gray-50 flex justify-between items-center rounded-b-lg">
           <button
             onClick={() => navigate("/accounting/journals")}
-            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-900 transition-all shadow-sm"
+            className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-semibold text-gray-600 bg-white border border-gray-300 hover:bg-gray-100 hover:text-gray-900 transition-all shadow-sm"
           >
             <ArrowLeft size={16} /> Back to Journals
           </button>
@@ -416,17 +414,15 @@ function ViewJournal() {
               <button
                 onClick={() => openActionModal('reject')}
                 disabled={actionLoading}
-                className="px-5 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold text-white bg-red-600 hover:bg-red-700 transition-all shadow-md shadow-red-100 hover:shadow-red-200 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-outfit text-white bg-red-600 hover:bg-red-700 transition-all shadow-md shadow-red-100 hover:shadow-red-200 active:scale-95 disabled:opacity-50 disabled:scale-100"
               >
-                <XCircle size={16} />
                 Reject Entry
               </button>
               <button
                 onClick={() => openActionModal('approve')}
                 disabled={actionLoading}
-                className="px-6 py-2.5 rounded-lg flex items-center gap-2 text-xs font-bold text-white bg-brand-primary hover:bg-[#1E3A8A] transition-all shadow-md shadow-brand-primary/20 hover:shadow-brand-primary/40 active:scale-95 disabled:opacity-50 disabled:scale-100"
+                className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-outfit text-white bg-brand-primary hover:bg-[#1E3A8A] transition-all shadow-md shadow-brand-primary/20 hover:shadow-brand-primary/40 active:scale-95 disabled:opacity-50 disabled:scale-100"
               >
-                <CheckCircle size={16} />
                 Approve & Post
               </button>
             </div>
@@ -518,13 +514,13 @@ function ViewJournal() {
               <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
                 <button
                   onClick={closeActionModal}
-                  className="px-4 py-2 text-xs font-bold text-slate-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-slate-700 transition-all active:scale-95"
+                  className="px-2 py-1.5 text-xs font-bold text-slate-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-slate-700 transition-all active:scale-95"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitAction}
-                  className={`px-6 py-2 text-xs font-bold text-white rounded-lg transition-all shadow-md active:scale-95 ${modalAction === 'approve'
+                  className={`px-2 py-1.5 text-xs  text-white rounded-lg transition-all shadow-md active:scale-95 ${modalAction === 'approve'
                     ? 'bg-brand-primary hover:bg-[#1E3A8A] shadow-brand-primary/20'
                     : 'bg-red-600 hover:bg-red-700 shadow-red-100'
                     }`}

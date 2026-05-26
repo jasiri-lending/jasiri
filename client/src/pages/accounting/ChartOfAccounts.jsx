@@ -4,12 +4,15 @@ import { Plus, Edit2, Trash2, X, Save } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../utils/api";
+import { Pagination } from "../../components/Pagination.jsx";
 
 const TABS = ["Asset", "Liability", "Equity", "Income", "Expense"];
 
 export default function ChartOfAccounts() {
   const [activeTab, setActiveTab] = useState("Asset");
   const [accounts, setAccounts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
   const [editingAccount, setEditingAccount] = useState(null); // Account being edited
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { profile } = useAuth();
@@ -89,22 +92,19 @@ export default function ChartOfAccounts() {
   };
 
   return (
-    <div className="p-6 bg-muted min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium font-body">
-        Accounting / Chart of Accounts
+    <div className="p-6 bg-muted min-h-screen font-outfit">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
+        Accounting / Chart of Accounts 
       </h1>
 
       <div className="bg-white rounded-lg shadow-sm border border-gray-200">
         <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-sm font-semibold text-gray-800 font-heading">
-            Chart of Accounts
+          <h2 className="text-xs font-semibold text-gray-600 font-outfit">
+            Chart of Accounts 
           </h2>
           <button
             onClick={() => navigate("/chart-of-accounts/new")}
-            className="px-3 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors shadow-sm"
-            style={{ backgroundColor: "#586ab1" }}
-            onMouseEnter={(e) => e.currentTarget.style.backgroundColor = "#4a5a9d"}
-            onMouseLeave={(e) => e.currentTarget.style.backgroundColor = "#586ab1"}
+            className="px-2 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors shadow-sm bg-brand-primary hover:bg-brand-primary/90"
           >
             <Plus size={14} /> New Account
           </button>
@@ -118,15 +118,15 @@ export default function ChartOfAccounts() {
                 key={t}
                 onClick={() => setActiveTab(t)}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === t
-                  ? "text-gray-900"
+                  ? "text-gray-600"
                   : "text-gray-500 hover:text-gray-700"
                   }`}
               >
                 {t}
                 {activeTab === t && (
                   <div
-                    className="absolute bottom-0 left-0 right-0 h-0.5"
-                    style={{ backgroundColor: "#586ab1" }}
+                    className="absolute bottom-0 left-0 right-0 h-0.5 bg-brand-primary rounded-full"
+                    
                   />
                 )}
               </button>
@@ -134,47 +134,46 @@ export default function ChartOfAccounts() {
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+        <div className="overflow-x-auto font-outfit">
+          <table className="min-w-full divide-y divide-gray-200">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Account Name
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Type
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Category
                 </th>
-                <th className="px-4 py-2.5 text-left text-xs font-semibold text-gray-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
                   Code
                 </th>
-                <th className="px-4 py-2.5 text-center text-xs font-semibold text-gray-600">
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
                   Status
                 </th>
-                <th className="px-4 py-2.5 text-right text-xs font-semibold text-gray-600">
+                <th className="px-4 py-3 text-right text-xs font-medium whitespace-nowrap text-slate-600">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody>
-              {accounts.map((acc) => (
+              {accounts.slice((currentPage-1)*itemsPerPage, currentPage*itemsPerPage).map((acc) => (
                 <tr
                   key={acc.id}
                   className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
                 >
-                  <td className="px-4 py-3 text-xs font-medium text-gray-900">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-600">
                     {acc.account_name}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-700">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
                     {acc.account_type}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-700">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
                     {acc.account_category}
                   </td>
-                  <td className="px-4 py-3 text-xs text-gray-700 font-medium">
+                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
                     {acc.code || "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -216,6 +215,7 @@ export default function ChartOfAccounts() {
               )}
             </tbody>
           </table>
+        <Pagination totalItems={accounts.length} itemsPerPage={itemsPerPage} currentPage={currentPage} onPageChange={setCurrentPage} />
         </div>
       </div>
 
@@ -260,7 +260,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
         <div className="flex justify-between items-center p-4 border-b border-gray-100">
-          <h3 className="text-sm font-semibold text-gray-800 font-heading">Edit Account</h3>
+          <h3 className="text-xs text-gray-600 font-outfit">Edit Account</h3>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <X size={18} />
           </button>
@@ -268,7 +268,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
 
         <div className="p-4 space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Account Name <span className="text-red-500">*</span></label>
+            <label className=" text-xs  text-gray-600 font-outfit mb-1">Account Name <span className="text-red-500">*</span></label>
             <input
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
               value={form.account_name}
@@ -278,7 +278,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
+              <label className=" text-xs font-outfit text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
               <select
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
                 value={form.account_type}
@@ -292,7 +292,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
               </select>
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Category <span className="text-red-500">*</span></label>
+              <label className=" text-xs font-outfit text-gray-600 mb-1">Category <span className="text-red-500">*</span></label>
               <select
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
                 value={form.account_category}
@@ -305,7 +305,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className=" text-xs font-outfit text-gray-600 mb-1">
               Code <span className="text-gray-400 font-normal">(Optional)</span>
             </label>
             <input
@@ -316,7 +316,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">Status</label>
+            <label className=" text-xs font-outfit text-gray-600 mb-1">Status</label>
             <select
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
               value={form.status}
@@ -331,14 +331,14 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
         <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50 rounded-b-lg">
           <button
             onClick={onClose}
-            className="px-3 py-2 rounded-lg text-xs font-medium text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
+            className="px-2 py-1.5 rounded-lg text-xs font-outfit text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
           >
             Cancel
           </button>
           <button
             onClick={handleSubmit}
             disabled={isSubmitting}
-            className="px-3 py-2 rounded-lg text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm"
+            className="px-2 py-1.5 rounded-lg text-xs font-outfit text-white bg-brand-primary hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm"
           >
             <Save size={14} />
             {isSubmitting ? "Saving..." : "Save Changes"}

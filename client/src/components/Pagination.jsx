@@ -35,9 +35,9 @@ export const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange
     <div className="px-5 py-4 border-t border-gray-200 bg-gray-50/60 rounded-b-2xl">
       <div className="flex flex-col sm:flex-row items-center justify-end gap-4">
         <div className="text-xs text-gray-600">
-          Showing <span className="font-semibold text-gray-800">{(currentPage - 1) * itemsPerPage + 1}</span> to
-          <span className="font-semibold text-gray-800">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of
-          <span className="font-semibold text-gray-800">{totalItems}</span> results
+          Showing <span className=" font-outfit font-semibold text-gray-600">{(currentPage - 1) * itemsPerPage + 1}</span> to
+          <span className="font-semibold font-outfit text-gray-600">{Math.min(currentPage * itemsPerPage, totalItems)}</span> of
+          <span className="font-semibold font-outfit text-gray-600">{totalItems}</span> results
         </div>
         {totalPages > 1 && (
           <div className="flex items-center gap-1.5">
@@ -63,7 +63,7 @@ export const Pagination = ({ totalItems, itemsPerPage, currentPage, onPageChange
                   <button
                     key={pageNum}
                     onClick={() => onPageChange(pageNum)}
-                    className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum ? 'bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm' : 'text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400'}`}
+                    className={`px-2.5 py-1 text-[10px] rounded transition-all duration-200 ${currentPage === pageNum ? 'bg-brand-primary text-white shadow-sm' : 'text-gray-600 hover:bg-white hover:text-gray-800 border border-gray-300 hover:border-gray-400'}`}
                   >
                     {pageNum}
                   </button>

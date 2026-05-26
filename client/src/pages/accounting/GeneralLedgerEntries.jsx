@@ -225,21 +225,21 @@ function GeneralLedgerEntries() {
             <div className="max-w-6xl mx-auto">
                 <button
                     onClick={() => navigate("/accounting/journals")}
-                    className="mb-4 flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900"
+                    className="mb-4 flex items-center gap-2 text-xs font-outfit text-gray-600 hover:text-gray-900"
                 >
-                    <ArrowLeft size={16} /> Back to Journals
+                    <ArrowLeft size={14} /> Back to Journals
                 </button>
 
                 <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center bg-gray-50">
+                    <div className="px-4 py-2 border-b border-gray-200 flex justify-between items-center bg-gray-50">
                         <div>
-                            <h1 className="text-lg font-semibold text-gray-800">General Journal Entry</h1>
-                            <p className="text-sm text-gray-500">Log expenses, incomes, or adjustments manually</p>
+                            <h1 className="text-sm font-outfit  text-gray-600">General Journal Entry</h1>
+                            <p className="text-[8px] font-outfit text-gray-500">Log expenses, incomes, or adjustments manually</p>
                         </div>
                         <div className="flex gap-2">
                             <button
                                 onClick={downloadTemplate}
-                                className="px-3 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors flex items-center gap-2"
+                                className="px-3 py-1.5 rounded-md text-xs font-medium border border-blue-200 bg-brand-primary/10 text-brand-primary hover:bg-blue-100 transition-colors flex items-center gap-2"
                             >
                                 <FileSpreadsheet size={16} /> Download Template
                             </button>
@@ -259,12 +259,12 @@ function GeneralLedgerEntries() {
                     {/* How to use Guide */}
                     <div className="px-6 py-4 bg-blue-50/50 border-b border-gray-100">
                         <div className="flex items-start gap-4">
-                            <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-blue-600">
+                            <div className="w-8 h-8 rounded-full bg-brand-primary/10 flex items-center justify-center flex-shrink-0 text-brand-primary">
                                 <FileSpreadsheet size={18} />
                             </div>
                             <div>
-                                <h3 className="text-sm font-bold text-blue-900 mb-1">General Ledger Guide</h3>
-                                <p className="text-xs text-blue-700 leading-relaxed max-w-4xl">
+                                <h3 className="text-xs font-bold text-slate-600 mb-1">General Ledger Guide</h3>
+                                <p className="text-xs text-slate-600 leading-relaxed max-w-4xl">
                                     Use this module to log manual journal entries or bulk import ledger transactions. Ensure your entries **balance** (Total Debits = Total Credits). 
                                     For Excel imports, download the template below to ensure columns like <span className="font-bold">AccountCode</span>, <span className="font-bold">Debit</span>, and <span className="font-bold">Credit</span> are correctly formatted.
                                 </p>
@@ -277,7 +277,7 @@ function GeneralLedgerEntries() {
                             {/* Header Fields */}
                             <div className="grid grid-cols-3 gap-6 mb-8">
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Date</label>
+                                    <label className=" text-xs font-outfit text-gray-600 mb-1">Date</label>
                                     <input
                                         type="date"
                                         value={entryDate}
@@ -286,7 +286,7 @@ function GeneralLedgerEntries() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Reference #</label>
+                                    <label className=" text-xs font-outfit text-gray-600 mb-1">Reference #</label>
                                     <input
                                         type="text"
                                         value={reference}
@@ -296,7 +296,7 @@ function GeneralLedgerEntries() {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-xs font-medium text-gray-700 mb-1">Description</label>
+                                    <label className=" text-xs font-outfit text-gray-600 mb-1">Description</label>
                                     <input
                                         type="text"
                                         value={description}
@@ -310,12 +310,12 @@ function GeneralLedgerEntries() {
                             {/* Lines Table */}
                             <div className="border border-gray-200 rounded-md overflow-hidden mb-6">
                                 <table className="w-full text-sm">
-                                    <thead className="bg-gray-50 text-gray-600 font-medium border-b border-gray-200">
+                                    <thead className="bg-gray-50  border-b border-gray-200">
                                         <tr>
-                                            <th className="text-left px-4 py-3 w-1/3">Account</th>
-                                            <th className="text-left px-4 py-3 w-1/3">Line Description</th>
-                                            <th className="text-right px-4 py-3 w-32">Debit</th>
-                                            <th className="text-right px-4 py-3 w-32">Credit</th>
+                                            <th className="text-left text-xs font-outfit text-slate-600 px-4 py-3 w-1/3">Account</th>
+                                            <th className="text-left text-xs font-outfit text-slate-600 px-4 py-3 w-1/3">Line Description</th>
+                                            <th className="text-right text-xs font-outfit text-slate-600 px-4 py-3 w-32">Debit</th>
+                                            <th className="text-right text-xs font-outfit text-slate-600 px-4 py-3 w-32">Credit</th>
                                             <th className="w-12"></th>
                                         </tr>
                                     </thead>
@@ -324,7 +324,7 @@ function GeneralLedgerEntries() {
                                             <tr key={index} className="group hover:bg-gray-50">
                                                 <td className="px-4 py-2 relative">
                                                     {line.account_id ? (
-                                                        <div className="flex items-center justify-between p-2 bg-blue-50 rounded border border-blue-100 text-blue-800">
+                                                        <div className="flex items-center justify-between p-2 bg-brand-primary/10 rounded border border-brand-primary/20 text-brand-primary">
                                                             <span>{line.account_code} - {line.account_name}</span>
                                                             <button onClick={() => {
                                                                 const newLines = [...lines];
@@ -446,7 +446,7 @@ function GeneralLedgerEntries() {
                             <div className="flex justify-end gap-3">
                                 <button
                                     onClick={handleManualSubmit}
-                                    className="px-6 py-2 bg-brand-primary text-white rounded-md text-sm font-medium hover:bg-blue-700 transition-colors shadow-sm"
+                                    className="px-2 py-1.5 bg-brand-primary text-white rounded-md text-xs font-outfit hover:bg-brand-secondary transition-colors shadow-sm"
                                 >
                                     Post Journal Entry
                                 </button>
