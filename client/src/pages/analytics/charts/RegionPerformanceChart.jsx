@@ -1,3 +1,4 @@
+import CustomSelect from "../../../components/CustomSelect";
 // charts/RegionPerformanceChart.jsx
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -440,7 +441,7 @@ const RegionChart = () => {
   }, [localData]);
 
   return (
-    <div className="bg-white backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10">
+    <div className="bg-white backdrop-blur-lg rounded-3xl shadow-xl border border-white/40 p-10 transition-all duration-500 hover:shadow-2xl relative hover:z-10 h-full flex flex-col">
       {/* Header with title and export */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-10">
         <div className="flex items-center gap-5">
@@ -494,20 +495,18 @@ const RegionChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
+            <div key={idx} className="flex-1 min-w-0 flex items-center gap-1.5">
               {item.icon}
-              <select
+              <CustomSelect fullWidth
                 value={item.value}
-                onChange={item.onChange}
-                disabled={loading}
-                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
-              >
-                {item.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  if (typeof item.onChange === 'function') {
+                    item.onChange({ target: { value: val } });
+                  }
+                }}
+                options={item.options}
+                compact
+              />
             </div>
           ))}
         </div>
@@ -542,7 +541,7 @@ const RegionChart = () => {
 
 
       {/* Graph */}
-      <div className="h-96" style={{ position: 'relative' }}>
+      <div className="flex-1 w-full min-h-[350px]" style={{ position: 'relative' }}>
         <ResponsiveContainer width="100%" height="100%">
           <BarChart
             data={localData}
@@ -574,9 +573,7 @@ const RegionChart = () => {
               verticalAlign="bottom"
               align="center"
               height={36}
-              wrapperStyle={{
-                fontSize: 12,
-              }}
+              wrapperStyle={{ fontSize: 12, paddingTop: "20px" }}
             />
 
             <Bar

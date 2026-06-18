@@ -1,3 +1,4 @@
+import CustomSelect from "../../../components/CustomSelect";
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -577,20 +578,18 @@ const RepaymentTrendsChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
+            <div key={idx} className="flex-1 min-w-0 flex items-center gap-1.5">
               {item.icon}
-              <select
+              <CustomSelect fullWidth
                 value={item.value}
-                onChange={item.onChange}
-                disabled={loading}
-                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
-              >
-                {item.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  if (typeof item.onChange === 'function') {
+                    item.onChange({ target: { value: val } });
+                  }
+                }}
+                options={item.options}
+                compact
+              />
             </div>
           ))}
         </div>

@@ -15,6 +15,7 @@ import {
 } from 'recharts';
 import DatePicker from 'react-datepicker';
 import "react-datepicker/dist/react-datepicker.css";
+import CustomSelect from '../components/CustomSelect';
 
 // ========== BRAND COLORS ==========
 const BRAND = {
@@ -288,7 +289,7 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
 
   return (
     <div className="bg-white border-b px-6 py-5" style={{ borderColor: BRAND.surface }}> {/* sticky removed */}
-      <div className="max-w-7xl mx-auto flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+      <div className="w-full flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
         <div className="flex items-center gap-3">
             <Activity className="w-3 h-3 text-brand-primary" />
           <div>
@@ -297,17 +298,20 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="relative">
-            <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: BRAND.secondary }} />
-            <select value={filters.dateRange} onChange={handleDateRangeChange}
-              className={selectBase} text-slate-600 style={{  borderColor: '#D1D5DB' }}>
-              <option value="all_time">All Time</option>
-              <option value="mtd">Month to Date</option>
-              <option value="qtd">Quarter to Date</option>
-              <option value="ytd">Year to Date</option>
-              <option value="custom">Custom Range</option>
-            </select>
+        <div className="flex flex-wrap items-center gap-3 relative z-50">
+          <div className="w-48">
+            <CustomSelect
+              value={filters.dateRange}
+              onChange={(val) => handleDateRangeChange({ target: { value: val } })}
+              options={[
+                { value: 'all_time', label: 'All Time' },
+                { value: 'mtd', label: 'Month to Date' },
+                { value: 'qtd', label: 'Quarter to Date' },
+                { value: 'ytd', label: 'Year to Date' },
+                { value: 'custom', label: 'Custom Range' }
+              ]}
+              compact
+            />
           </div>
 
           {isCustomRange && (
@@ -322,22 +326,30 @@ const FilterBar = ({ filters, filterOptions, onFilterChange, loading, lastUpdate
             </>
           )}
 
-          <div className="relative">
-            <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: BRAND.secondary }} />
-            <select value={filters.region} onChange={(e) => onFilterChange('region', e.target.value)}
-              className={selectBase} style={{ color: BRAND.text, borderColor: '#D1D5DB' }}>
-              <option value="all">All Regions</option>
-              {filterOptions.regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-            </select>
+          <div className="w-48">
+            <CustomSelect
+              value={filters.region}
+              onChange={(val) => onFilterChange('region', val)}
+              options={[
+                { value: 'all', label: 'All Regions' },
+                ...filterOptions.regions.map(r => ({ value: r.id, label: r.name }))
+              ]}
+              compact
+              searchable
+            />
           </div>
 
-          <div className="relative">
-            <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 pointer-events-none" style={{ color: BRAND.secondary }} />
-            <select value={filters.branch} onChange={(e) => onFilterChange('branch', e.target.value)}
-              className={selectBase} style={{ color: BRAND.text, borderColor: '#D1D5DB' }}>
-              <option value="all">All Branches</option>
-              {filterOptions.branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+          <div className="w-48">
+            <CustomSelect
+              value={filters.branch}
+              onChange={(val) => onFilterChange('branch', val)}
+              options={[
+                { value: 'all', label: 'All Branches' },
+                ...filterOptions.branches.map(b => ({ value: b.id, label: b.name }))
+              ]}
+              compact
+              searchable
+            />
           </div>
 
           <button onClick={() => onFilterChange('_refresh', true)} disabled={loading}
@@ -633,13 +645,13 @@ const FinancialDashboard = () => {
   const tickFmt = (v) => v === 0 ? '0' : Number(v).toLocaleString();
 
   return (
-<div className="min-h-screen bg-muted">
+<div className="min-h-screen bg-surface">
         <FilterBar
         filters={filters} filterOptions={filterOptions}
         onFilterChange={handleFilterChange} loading={loading} lastUpdated={lastUpdated}
       />
 
-      <div className="max-w-7xl mx-auto px-6 py-8 space-y-10">
+      <div className="w-full px-6 py-8 space-y-10">
 
         {/* ═══ Section 1: Revenue KPIs ═══ */}
         <section>

@@ -1,3 +1,4 @@
+import CustomSelect from "../../../components/CustomSelect";
 import { useState, useEffect, useCallback } from 'react';
 import {
   PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer
@@ -333,7 +334,7 @@ const CountyChart = () => {
   };
 
   return (
-    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10 h-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <h3 className="text-sm text-slate-600 whitespace-nowrap">Customer Distribution by County</h3>
@@ -393,20 +394,18 @@ const CountyChart = () => {
               ]
             }
           ].map((item, idx) => (
-            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-stone-200 bg-transparent hover:border-stone-300 transition focus-within:ring-1 focus-within:ring-stone-400/20">
+            <div key={idx} className="flex-1 min-w-0 flex items-center gap-1.5">
               {item.icon}
-              <select
+              <CustomSelect fullWidth
                 value={item.value}
-                onChange={item.onChange}
-                disabled={loading}
-                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
-              >
-                {item.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  if (typeof item.onChange === 'function') {
+                    item.onChange({ target: { value: val } });
+                  }
+                }}
+                options={item.options}
+                compact
+              />
             </div>
           ))}
         </div>
@@ -439,47 +438,39 @@ const CountyChart = () => {
       </div>
 
       {/* Chart */}
-      <div className="h-80">
-        {data && data.length > 0 ? (
-          <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={data}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={(entry) => `${entry.county}: ${entry.percentage}%`}
-                outerRadius={120}
-                fill="#8884d8"
-                dataKey="customers"
-                nameKey="name"
-              >
-                {data.map((entry, index) => (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={COLORS[index % COLORS.length]}
-                  />
-                ))}
-              </Pie>
-              <Tooltip content={<CustomTooltip />} />
-              <Legend />
-            </PieChart>
-          </ResponsiveContainer>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-              <p className="text-gray-500">
-                No customer distribution data available
-              </p>
-              <p className="text-gray-400 text-sm mt-1">
-                Try adjusting your filters or date range
-              </p>
+        <div className="flex-1 w-full min-h-[350px]" style={{ position: 'relative' }}>
+          {data && data.length > 0 ? (
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={data}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={(entry) => `${entry.county}: ${entry.percentage}%`}
+                  outerRadius={120}
+                  fill="#8884d8"
+                  dataKey="customers"
+                  nameKey="county"
+                >
+                  {data.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip content={<CustomTooltip />} />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <UserCog className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500">No customer distribution data available</p>
+                <p className="text-gray-400 text-sm mt-1">Try adjusting your filters or date range</p>
+              </div>
             </div>
-          </div>
-        )}
-      </div>
-
+          )}
+        </div>
 
     </div>
   );

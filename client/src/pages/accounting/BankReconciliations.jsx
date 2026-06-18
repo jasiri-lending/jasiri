@@ -422,8 +422,8 @@ function BankReconciliations() {
   return (
     <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 font-outfit">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-4 sm:mb-6">
-          <h1 className="text-sm sm:text-sm lg:text-sm font-semibold text-slate-600 text-start">
+        <div className="mb-2 sm:mb-6">
+          <h1 className="text-sm sm:text-sm lg:text-sm font-outfit text-slate-600 text-start">
             Bank Reconciliation
           </h1>
         </div>
@@ -431,15 +431,15 @@ function BankReconciliations() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h2 className="text-sm sm:text-sm font-semibold text-slate-600 mb-2">
+              <h2 className="text-sm sm:text-sm font-outfit text-slate-600 mb-2">
                 Import Payment Data
               </h2>
               <div className="flex items-center gap-3">
-                <label className="text-xs text-gray-500">Source Bank:</label>
+                <label className="text-xs font-outfit text-gray-500">Source Bank:</label>
                 <select
                   value={selectedBank}
                   onChange={(e) => setSelectedBank(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
+                  className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:border-slate-500 outline-none"
                 >
                   {banks.map((bank) => (
                     <option key={bank} value={bank}>
@@ -461,7 +461,7 @@ function BankReconciliations() {
                   />
                   <label
                     htmlFor="file-import"
-                    className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-[#586ab1] text-white rounded-lg hover:bg-[#475293] cursor-pointer transition-colors text-xs sm:text-sm"
+                    className="flex items-center justify-center gap-2 px-2 sm:px-4 py-1.5 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 cursor-pointer transition-colors text-xs sm:text-sm"
                   >
                     <Upload className="w-3 h-3 sm:w-4 sm:h-4" />
                     Import File
@@ -471,7 +471,7 @@ function BankReconciliations() {
                 <button
                   onClick={handleUploadToServer}
                   disabled={!hasData || isUploading}
-                  className="flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors text-xs sm:text-sm"
+                  className="flex items-center justify-center gap-2 px-2 sm:px-4 py-1.5 bg-green-600 text-white text-xs font-outfit rounded-lg hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors  sm:text-sm"
                 >
                   {isUploading ? (
                     <>
@@ -536,8 +536,8 @@ function BankReconciliations() {
         <div className="bg-white rounded-lg shadow-sm border border-gray-200">
           <div className="px-4 sm:px-6 py-3 sm:py-4 border-b border-gray-200">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h3 className="text-base sm:text-lg font-semibold text-slate-600">
-                Payment Records
+              <h3 className="text-xs text-slate-600 font-outfit sm:text-lg font-semibold ">
+                Payment Records 
               </h3>
 
               <div className="relative w-full sm:w-64">

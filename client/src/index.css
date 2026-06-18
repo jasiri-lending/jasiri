@@ -1,54 +1,119 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@300;400;500;600;700&family=Poppins:wght@600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-@keyframes jasiri-spin { to { transform: rotate(360deg); } }
-@keyframes fade-text   { 0%,100%{opacity:.3} 50%{opacity:1} }
-@keyframes dot-cascade {
+/* ─── Animations ─────────────────────────────────────────────── */
+@keyframes jasiri-spin  { to { transform: rotate(360deg); } }
+@keyframes fade-text    { 0%,100%{opacity:.3} 50%{opacity:1} }
+@keyframes dot-cascade  {
   0%,80%,100%{ transform:scale(0); opacity:0 }
   40%        { transform:scale(1); opacity:1 }
 }
 
+/* ─── CSS Custom Properties (Forest Finance) ─────────────────── */
+:root {
+  /* Brand */
+  --color-midnight:     #0F1F17;
+  --color-forest-deep:  #1A4A30;
+  --color-brand:        #1A7A4A;
+  --color-mint:         #5DCAA5;
+
+  /* Surfaces */
+  --color-page:         #F7FAF8;
+  --color-surface:      #EAF4EE;
+  --color-card:         #FFFFFF;
+  --color-sidebar:      #0F1F17;
+
+  /* Text */
+  --color-text-heading: #1A3028;
+  --color-text-body:    #2A4A38;
+  --color-text-muted:   #5A8068;
+
+  /* Borders */
+  --color-border:       #D1DDD6;
+  --color-border-light: #E0EBE4;
+
+  /* Status — Success */
+  --color-success-fill: #C8EDDA;
+  --color-success-text: #145C34;
+
+  /* Status — Warning */
+  --color-warning-fill: #FDE8C0;
+  --color-warning-text: #7A4C0A;
+
+  /* Status — Danger */
+  --color-danger-fill:  #FCDCDC;
+  --color-danger-text:  #8A1A1A;
+
+  /* Status — Info */
+  --color-info-fill:    #DFF0FB;
+  --color-info-text:    #0A4A6E;
+}
+
+/* ─── Base layer ─────────────────────────────────────────────── */
 @layer base {
-  body {
-    @apply font-body text-text bg-background;
+  html {
+    font-size: 10px; /* 1rem = 10px — Outfit base as specified */
   }
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading;
+
+  body {
+    @apply font-outfit text-body bg-page;
+    font-size: 1.4rem;   /* 14px default body size */
+    line-height: 1.65;
+    color: var(--color-text-body);
+    background-color: var(--color-page);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  h1 { @apply font-outfit; font-size: 3.2rem; font-weight: 700; color: var(--color-text-heading); line-height: 1.2; }
+  h2 { @apply font-outfit; font-size: 2.4rem; font-weight: 600; color: var(--color-text-heading); line-height: 1.3; }
+  h3 { @apply font-outfit; font-size: 2.0rem; font-weight: 600; color: var(--color-text-heading); line-height: 1.35; }
+  h4 { @apply font-outfit; font-size: 1.6rem; font-weight: 500; color: var(--color-text-heading); line-height: 1.4; }
+  h5 { @apply font-outfit; font-size: 1.4rem; font-weight: 500; color: var(--color-text-heading); }
+  h6 { @apply font-outfit; font-size: 1.2rem; font-weight: 500; color: var(--color-text-muted); }
+
+  p  { color: var(--color-text-body); }
+
+  a  {
+    color: var(--color-brand);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  a:hover { color: var(--color-forest-deep); }
+
+  input, textarea, select, button {
+    @apply font-outfit;
+    font-size: 1.4rem;
   }
 }
 
-
-
-
-
+/* ─── Background patterns ────────────────────────────────────── */
 .bg-pattern-lines {
   background-image: repeating-linear-gradient(
     45deg,
-    rgba(30, 58, 138, 0.04) 0,
-    rgba(30, 58, 138, 0.04) 1px,
+    rgba(26, 122, 74, 0.04) 0,
+    rgba(26, 122, 74, 0.04) 1px,
     transparent 2px,
     transparent 6px
   );
 }
 
-/* Soft dotted pattern */
 .bg-pattern-dots {
-  background-image: radial-gradient(rgba(16, 185, 129, 0.06) 1px, transparent 1px);
+  background-image: radial-gradient(rgba(93, 202, 165, 0.07) 1px, transparent 1px);
   background-size: 22px 22px;
 }
 
-/* Clean grid pattern */
 .bg-pattern-grid {
-  background-image: linear-gradient(rgba(107, 114, 128, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(107, 114, 128, 0.05) 1px, transparent 1px);
+  background-image:
+    linear-gradient(rgba(26, 74, 48, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(26, 74, 48, 0.05) 1px, transparent 1px);
   background-size: 24px 24px;
 }
 
-/* Elegant wavy pattern */
 .bg-pattern-waves {
-  background-image: url("data:image/svg+xml,%3Csvg width='100' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 Q25 0 50 10 T100 10 V20 H0 Z' fill='rgba(250,204,21,0.05)'/%3E%3C/svg%3E");
+  background-image: url("data:image/svg+xml,%3Csvg width='100' height='20' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 10 Q25 0 50 10 T100 10 V20 H0 Z' fill='rgba(93,202,165,0.06)'/%3E%3C/svg%3E");
   background-size: 100px 20px;
 }

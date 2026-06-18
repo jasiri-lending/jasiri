@@ -11,17 +11,18 @@ import {
 } from 'lucide-react';
 import { MagnifyingGlassIcon, XMarkIcon, IdentificationIcon } from "@heroicons/react/24/outline";
 import { useAuth } from "../hooks/userAuth";
+import CustomSelect from "../components/CustomSelect";
 
-// Color System
+// Color System — mapped to the Forest Finance theme from index.css and tailwind.config
 const COLORS = {
-  background: '#E7F0FA', // Restored premium background
-  secondary: '#7BA4D0',
-  primary: '#586ab1',
-  authority: '#1E3A8A',
-  surface: '#FFFFFF',
-  success: '#10B981',
-  warning: '#F59E0B',
-  danger: '#EF4444'
+  background: '#F7FAF8', // bg-page / --color-page
+  secondary: '#5DCAA5',  // bg-secondary / --color-mint
+  primary: '#1A7A4A',    // bg-primary / --color-brand
+  authority: '#0F1F17',  // text-heading / --color-midnight
+  surface: '#FFFFFF',    // bg-card / --color-card
+  success: '#1A7A4A',    // success DEFAULT
+  warning: '#E8930A',    // warning DEFAULT
+  danger: '#C62828'      // danger DEFAULT
 };
 
 // ========== UTILITY FUNCTIONS ==========
@@ -105,10 +106,10 @@ const formatCurrency = (amount) => {
 // ========== UI COMPONENTS ==========
 const SectionHeader = ({ icon: Icon, title }) => (
   <div className="flex items-center gap-0 mb-6 w-full group">
-    <div className="flex items-center bg-brand-primary text-white px-4 py-1.5 rounded-l-md shadow-sm whitespace-nowrap min-w-[120px] justify-center font-semibold text-[11px] ">
+    <div className="flex items-center bg-brand text-white px-4 py-1.5 rounded-l-md shadow-sm whitespace-nowrap min-w-[120px] justify-center font-semibold text-[11px] ">
       {title}
     </div>
-    <div className="flex-grow h-[1px] bg-[#2E5E99] opacity-20 ml-0 shadow-sm" />
+    <div className="flex-grow h-[1px] bg-brand opacity-20 ml-0 shadow-sm" />
   </div>
 );
 
@@ -158,7 +159,7 @@ const CircularProgress = ({
             cy={size / 2}
             r={radius}
             fill="none"
-            stroke="#F1F5F9"
+            stroke="rgba(26, 122, 74, 0.15)"
             strokeWidth={strokeWidth}
           />
           <circle
@@ -188,12 +189,12 @@ const CircularProgress = ({
       {collected !== undefined && (
         <div className="flex-grow space-y-3 py-1 border-l-2 border-slate-200/80 pl-5 ml-1 min-w-0">
           <div className="flex flex-col">
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1 leading-none">Collected</span>
-            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "#10B981" }}>{formatCurrency(collected)}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1 leading-none">collected</span>
+            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "var(--color-brand)" }}>{formatCurrency(collected)}</span>
           </div>
           <div className="flex flex-col">
-            <span className="text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 mb-1 leading-none">Expected</span>
-            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "#1E3A8A" }}>{formatCurrency(expected)}</span>
+            <span className="text-xs font-semibold text-slate-500 mb-1 leading-none">expected</span>
+            <span className="text-base font-black leading-none whitespace-nowrap truncate" style={{ color: "var(--color-info-text)" }}>{formatCurrency(expected)}</span>
           </div>
         </div>
       )}
@@ -231,7 +232,7 @@ const SemiCircleProgress = ({
           <path
             d="M 10,70 A 60,60 0 0,1 130,70"
             fill="none"
-            stroke="#E5E7EB"
+            stroke="rgba(26, 122, 74, 0.15)"
             strokeWidth={strokeWidth}
           />
 
@@ -268,27 +269,7 @@ const SemiCircleProgress = ({
   );
 };
 
-const FilterSelectCompact = ({ label, icon: Icon, value, onChange, options }) => (
-  <div className="flex items-center bg-gray-50 rounded-md shadow-sm border border-slate-200 overflow-hidden flex-1 min-w-[120px]">
-    
-    <div className="relative flex-grow">
-      <select
-        value={value || ""}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full pl-2 pr-6 py-1.5 appearance-none cursor-pointer outline-none bg-transparent text-[11px]  text-slate-600"
-      >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
-      <div className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none opacity-40">
-        <ChevronRight className="w-3 h-3 rotate-90" />
-      </div>
-    </div>
-  </div>
-);
+// FilterSelectCompact removed — replaced by the universal <CustomSelect /> component.
 
 const StatCard = ({
   icon: Icon,
@@ -330,7 +311,7 @@ const PortfolioStatCard = ({
   label,
   amount,
   details,
-  color = "#2E5E99",
+  color = "var(--color-brand)",
   bgClassName = "bg-white",
   pattern: Pattern,
 }) => (
@@ -383,12 +364,12 @@ const CollectionCard = ({
     className={`p-6 rounded-2xl ${bgClassName} border border-white/60 shadow-[0_4px_12px_rgba(0,0,0,0.01)] relative overflow-hidden group min-h-[160px] flex flex-col justify-center transition-all hover:shadow-[0_15px_30px_rgba(0,0,0,0.05)] hover:-translate-y-1 backdrop-blur-sm`}
   >
     {Pattern && (
-      <div className="absolute inset-0 group-hover:scale-110 transition-transform duration-700 opacity-30" style={{ color: '#94A3B8' }}>
+      <div className="absolute inset-0 group-hover:scale-110 transition-transform duration-700 opacity-30" style={{ color: 'var(--color-text-muted)' }}>
         <Pattern />
       </div>
     )}
     <div className="relative z-10 flex flex-col h-full w-full">
-      <div className="flex items-center justify-center bg-white backdrop-blur-sm text-brand-primary px-4 py-1 rounded-lg mb-6 w-fit mx-auto font-black text-[9px]  border border-brand-primary">
+      <div className="flex items-center justify-center bg-white backdrop-blur-sm text-brand px-4 py-1 rounded-lg mb-6 w-fit mx-auto font-black text-[9px]  border border-brand">
         {title}
       </div>
 
@@ -402,7 +383,7 @@ const CollectionCard = ({
       </div>
     </div>
     <div
-      className="absolute bottom-0 right-0 w-32 h-32 blur-[80px] rounded-full -mr-16 -mb-16 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none bg-brand-primary"
+      className="absolute bottom-0 right-0 w-32 h-32 blur-[80px] rounded-full -mr-16 -mb-16 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none bg-brand"
     />
   </div>
 );
@@ -1437,75 +1418,84 @@ const Dashboard = () => {
 
   const cleanBookMeta = (percentage) => {
     if (percentage <= 25) return { label: "Very Poor", color: COLORS.danger };
-    if (percentage <= 50) return { label: "Poor", color: "#f97316" };
+    if (percentage <= 50) return { label: "Poor", color: COLORS.warning };
     if (percentage <= 75) return { label: "Average", color: COLORS.warning };
-    if (percentage < 85) return { label: "Good", color: "#22c55e" };
-    return { label: "Excellent", color: "#16a34a" };
+    if (percentage < 85) return { label: "Good", color: COLORS.success };
+    return { label: "Excellent", color: COLORS.success };
   };
 
   const cleanBookMetaInfo = cleanBookMeta(cleanBookPercentage);
 
   return (
     <div
-      className="min-h-screen p-3 sm:p-4 md:p-6 bg-muted"
+      className="min-h-screen p-3 sm:p-4 md:p-6 bg-surface"
     >
       {/* Filters Bar */}
       <div className="mb-8 ">
-        <div className="flex flex-wrap gap-4 items-end">
+        <div className="flex flex-wrap gap-3 items-end">
           {/* Region Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "regional_manager"].includes(userProfile?.role) && (
-            <FilterSelectCompact
-              label="Region"
-              icon={Home}
-              value={selectedRegion}
-              onChange={userProfile.role === "regional_manager" ? () => { } : handleRegionChange}
-              options={
-                userProfile.role === "regional_manager"
-                  ? [{ value: userProfile.region_id, label: userProfile.region || "My Region" }]
-                  : [
-                    { value: "all", label: "All Regions" },
-                    ...availableRegions.map(region => ({
-                      value: region.id,
-                      label: region.name
-                    }))
-                  ]
-              }
-            />
+            <div className="min-w-[150px] flex-1 max-w-[220px]">
+              <CustomSelect
+                value={selectedRegion}
+                onChange={userProfile.role === "regional_manager" ? () => {} : handleRegionChange}
+                placeholder="All Regions"
+                compact
+                searchable
+                options={
+                  userProfile.role === "regional_manager"
+                    ? [{ value: userProfile.region_id, label: userProfile.region || "My Region" }]
+                    : [
+                      { value: "all", label: "All Regions" },
+                      ...availableRegions.map(region => ({
+                        value: region.id,
+                        label: region.name
+                      }))
+                    ]
+                }
+              />
+            </div>
           )}
 
           {/* Branch Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "regional_manager", "branch_manager", "customer_service_officer"].includes(userProfile?.role) && (
-            <FilterSelectCompact
-              label="Branches"
-              icon={Building}
-              value={selectedBranch}
-              onChange={["branch_manager", "customer_service_officer"].includes(userProfile.role) ? () => { } : handleBranchChange}
-              options={
-                ["branch_manager", "customer_service_officer"].includes(userProfile.role)
-                  ? [{ value: userProfile.branch_id, label: userProfile.branch || "My Branch" }]
-                  : [
-                    { value: "all", label: "All Branches" },
-                    ...availableBranches.map(branch => ({
-                      value: branch.id,
-                      label: branch.name
-                    }))
-                  ]
-              }
-            />
+            <div className="min-w-[150px] flex-1 max-w-[220px]">
+              <CustomSelect
+                value={selectedBranch}
+                onChange={["branch_manager", "customer_service_officer"].includes(userProfile.role) ? () => {} : handleBranchChange}
+                placeholder="All Branches"
+                compact
+                searchable
+                options={
+                  ["branch_manager", "customer_service_officer"].includes(userProfile.role)
+                    ? [{ value: userProfile.branch_id, label: userProfile.branch || "My Branch" }]
+                    : [
+                      { value: "all", label: "All Branches" },
+                      ...availableBranches.map(branch => ({
+                        value: branch.id,
+                        label: branch.name
+                      }))
+                    ]
+                }
+              />
+            </div>
           )}
 
           {/* RO Filter */}
           {["superadmin", "admin", "credit_analyst_officer", "customer_service_officer", "regional_manager", "branch_manager"].includes(userProfile?.role) && (
-            <FilterSelectCompact
-              label="RO"
-              icon={UserCircle}
-              value={selectedRO}
-              onChange={handleROChange}
-              options={availableROs.map(ro => ({
-                value: ro.id,
-                label: ro.full_name
-              }))}
-            />
+            <div className="min-w-[150px] flex-1 max-w-[220px]">
+              <CustomSelect
+                value={selectedRO}
+                onChange={handleROChange}
+                placeholder="All ROs"
+                compact
+                searchable
+                options={availableROs.map(ro => ({
+                  value: ro.id,
+                  label: ro.full_name
+                }))}
+              />
+            </div>
           )}
 
           <button
@@ -1514,25 +1504,47 @@ const Dashboard = () => {
               setSelectedBranch("all");
               setSelectedRO("all");
             }}
-            className="px-2 py-1.5 bg-[#EF4444] hover:bg-[#DC2626] text-white font-black text-[9px] uppercase tracking-widest rounded-md shadow-md transition-all active:scale-95 whitespace-nowrap"
+            className="px-3 py-1.5 bg-danger hover:bg-danger/90 text-white font-semibold text-xs rounded-md shadow-sm transition-all active:scale-95 whitespace-nowrap"
           >
             Clear
           </button>
 
-          {/* Search Integrated into the same row */}
+          {/* Search — themed to match the Forest Finance design system */}
           <div className="flex-grow min-w-[250px]">
             <div className="relative group" ref={searchContainerRef}>
-              <div className="absolute left-4 top-1/2 -translate-y-1/2 z-10">
-                <Search className="w-4 h-4 text-brand-primary" strokeWidth={2.5} />
+              <div className="absolute left-3 top-1/2 -translate-y-1/2 z-10">
+                <Search className="w-4 h-4" style={{ color: 'var(--color-brand)' }} strokeWidth={2.5} />
               </div>
               <input
                 type="text"
                 placeholder="Search name, phone, ID…"
                 value={quickSearchTerm}
                 onChange={(e) => setQuickSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 rounded-lg text-[10px] font-semibold outline-none border border-slate-200 group-hover:border-[#2E5E99]/50 focus:border-[#2E5E99] transition-all bg-white shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]"
+                className="w-full font-outfit"
                 style={{
-                  color: COLORS.authority,
+                  paddingLeft: 34,
+                  paddingRight: 34,
+                  paddingTop: 5.5,
+                  paddingBottom: 5.5,
+                  borderRadius: 8,
+                  fontSize: 11,
+                  fontWeight: 600,
+                  outline: 'none',
+                  border: '1px solid var(--color-border)',
+                  background: 'var(--color-surface)',
+                  color: 'var(--color-text-heading)',
+                  boxShadow: '0 1px 2px rgba(15,31,23,0.06)',
+                  transition: 'border-color 0.15s, box-shadow 0.15s, background-color 0.15s',
+                }}
+                onFocus={(e) => {
+                  e.target.style.borderColor = 'var(--color-brand)';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(26, 122, 74, 0.15)';
+                  e.target.style.background = 'var(--color-card)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = 'var(--color-border)';
+                  e.target.style.boxShadow = '0 1px 2px rgba(15,31,23,0.06)';
+                  e.target.style.background = 'var(--color-surface)';
                 }}
               />
               {quickSearchTerm && (
@@ -1541,30 +1553,47 @@ const Dashboard = () => {
                     setQuickSearchTerm("");
                     setQuickSearchResults([]);
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-slate-100 rounded-full transition-colors z-10"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1 rounded-full transition-colors z-10"
+                  style={{ color: 'var(--color-text-muted)' }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-surface)'; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                 >
-                  <XMarkIcon className="w-3.5 h-3 text-slate-400 hover:text-slate-600" />
+                  <XMarkIcon className="w-3.5 h-3.5" />
                 </button>
               )}
 
               {quickSearchTerm && quickSearchResults.length > 0 && (
-                <div className="absolute top-full left-0 right-0 z-[9999] mt-2 bg-white border border-slate-200 rounded-xl shadow-[0_20px_50px_rgba(0,0,0,0.15)] overflow-hidden">
+                <div
+                  className="absolute top-full left-0 right-0 z-[9999] mt-2 overflow-hidden"
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border-light)',
+                    borderRadius: 12,
+                    boxShadow: '0 8px 24px rgba(26,48,40,0.08), 0 2px 6px rgba(26,48,40,0.04)',
+                  }}
+                >
                   <div className="max-h-72 overflow-y-auto">
                     {quickSearchResults.map((customer) => (
                       <div
                         key={customer.id}
                         onClick={() => handleOpen360View(customer)}
-                        className="p-3 cursor-pointer border-b border-slate-50 last:border-b-0 hover:bg-slate-50 transition-colors group/item flex items-center justify-between"
+                        className="p-3 cursor-pointer flex items-center justify-between transition-colors"
+                        style={{
+                          borderBottom: '1px solid var(--color-border-light)',
+                          color: 'var(--color-text-body)',
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-border-light)'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-[11px] font-black text-slate-700 truncate group-hover/item:text-[#2E5E99]">
+                          <p style={{ fontSize: 12, fontWeight: 700, color: 'var(--color-brand)' }} className="truncate">
                             {customer.displayName || "Unnamed Customer"}
                           </p>
-                          <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
-                            {customer.mobile} • <span className="text-slate-500">ID: {customer.id_number || "N/A"}</span>
+                          <p style={{ fontSize: 11, color: 'var(--color-text-muted)', marginTop: 2 }} className="truncate">
+                            {customer.mobile} • <span>ID: {customer.id_number || "N/A"}</span>
                           </p>
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-300 group-hover/item:text-[#2E5E99] group-hover/item:translate-x-0.5 transition-all" />
+                        <ChevronRight size={14} style={{ color: 'var(--color-brand)', flexShrink: 0 }} />
                       </div>
                     ))}
                   </div>
@@ -1589,9 +1618,9 @@ const Dashboard = () => {
               <>
                 <PortfolioStatCard
                   label="Outstanding Loan Balance"
-                  amount={formatCurrency(dashboardData.portfolio.outstandingBalance)}
+                  amount={formatCurrency(dashboardData.risk.outstandingBalance)}
                   details={`${dashboardData.portfolio.totalLoans.toLocaleString()} Active Loans`}
-                  color="#1E3A8A"
+                  color={COLORS.authority}
                   bgClassName="bg-white"
                   pattern={FinancialGridPattern}
                 />
@@ -1599,7 +1628,7 @@ const Dashboard = () => {
                   label="Clean Book"
                   amount={formatCurrency(dashboardData.portfolio.cleanBook)}
                   details={`${cleanBookPercentage.toFixed(1)}% • ${cleanBookMetaInfo.label}`}
-                  color="#10B981"
+                  color={COLORS.success}
                   bgClassName="bg-white"
                   pattern={DotsPattern}
                 />
@@ -1607,7 +1636,7 @@ const Dashboard = () => {
                   label="Total Customers"
                   amount={dashboardData.customers.total.toLocaleString()}
                   details={`${dashboardData.customers.newYTD.toLocaleString()} YTD New`}
-                  color="#586ab1"
+                  color={COLORS.secondary}
                   bgClassName="bg-white"
                   pattern={WavesPattern}
                 />
@@ -1738,12 +1767,12 @@ const Dashboard = () => {
                 <div className="hidden sm:flex flex-col border-l-2 border-stone-400 pl-6 space-y-2">
                   <div className="flex flex-col">
                     <span className="text-xs  text-slate-500">Arrears</span>
-                    <span className="text-sm font-semibold text-[#EF4444]">{formatCurrency(dashboardData.risk.totalArrears)}</span>
+                    <span className="text-sm font-semibold text-danger">{formatCurrency(dashboardData.risk.totalArrears)}</span>
                   </div>
                   <div className="h-px bg-slate-200 w-12" />
                   <div className="flex flex-col">
                     <span className="text-xs  text-slate-500">OLB</span>
-                    <span className="text-sm font-semibold text-brand-primary">{formatCurrency(dashboardData.risk.outstandingBalance)}</span>
+                    <span className="text-sm font-semibold text-brand">{formatCurrency(dashboardData.risk.outstandingBalance)}</span>
                   </div>
                 </div>
               </div>
@@ -1753,15 +1782,15 @@ const Dashboard = () => {
                   label="Total Arrears Amount"
                   amount={formatCurrency(dashboardData.risk.totalArrears)}
                   details={`${dashboardData.risk.arrearsLoans} Loans in Arrears`}
-                  color="#B91C1C"
-                  bgClassName="bg-red-50/80"
+                  color={COLORS.danger}
+                  bgClassName="bg-danger-fill/80"
                 />
                 <RiskMetricCard
                   label="Monthly Arrears Amount"
                   amount={formatCurrency(dashboardData.risk.mtdArrears)}
                   details={`${dashboardData.risk.mtdArrearsLoans} Loans this month`}
-                  color="#B45309"
-                  bgClassName="bg-amber-50/80"
+                  color={COLORS.warning}
+                  bgClassName="bg-warning-fill/80"
                 />
               </div>
             </div>
@@ -1781,14 +1810,14 @@ const Dashboard = () => {
                   <CustomerStatBox
                     value={dashboardData.customers.active.toLocaleString()}
                     label="Active Customers"
-                    color="#047857"
-                    bgClassName="bg-emerald-50/80"
+                    color={COLORS.success}
+                    bgClassName="bg-success-fill/80"
                   />
                   <CustomerStatBox
                     value={dashboardData.customers.inactive.toLocaleString()}
                     label="Inactive Customers"
-                    color="#B91C1C"
-                    bgClassName="bg-rose-50/80"
+                    color={COLORS.danger}
+                    bgClassName="bg-danger-fill/80"
                   />
                 </div>
                 <div className="w-full md:w-1/2">
@@ -1815,14 +1844,14 @@ const Dashboard = () => {
                   <CustomerStatBox
                     value={dashboardData.customers.newToday.toLocaleString()}
                     label="New Customers Today"
-                    color="#1E3A8A"
-                    bgClassName="bg-blue-50/80"
+                    color={COLORS.authority}
+                    bgClassName="bg-surface/80"
                   />
                   <CustomerStatBox
                     value={dashboardData.customers.newMonth.toLocaleString()}
                     label="New This Month"
-                    color="#2E5E99"
-                    bgClassName="bg-violet-50/80"
+                    color={COLORS.primary}
+                    bgClassName="bg-success-fill/80"
                   />
                 </div>
               </div>
@@ -1845,48 +1874,48 @@ const Dashboard = () => {
                   icon={FileCheck}
                   value={dashboardData.pending.disbursement}
                   label="Pending Disbursement"
-                  color="#0D9488"
-                  bgClassName="bg-teal-50/50"
+                  color={COLORS.secondary}
+                  bgClassName="bg-surface/50"
                   onClick={() => navigate("/loaning/pending-disbursement")}
                 />
                 <PendingActionCard
                   icon={ThumbsUp}
                   value={dashboardData.pending.loanBM}
                   label="BM Loan Approvals"
-                  color="#B45309"
-                  bgClassName="bg-amber-50/50"
+                  color={COLORS.warning}
+                  bgClassName="bg-warning-fill/50"
                   onClick={() => navigate("/loaning/pending-branch-manager")}
                 />
                 <PendingActionCard
                   icon={ThumbsUp}
                   value={dashboardData.pending.loanRM}
                   label="RM Loan Approvals"
-                  color="#4338CA"
-                  bgClassName="bg-indigo-50/50"
+                  color={COLORS.primary}
+                  bgClassName="bg-success-fill/50"
                   onClick={() => navigate("/loaning/pending-regional-manager")}
                 />
                 <PendingActionCard
                   icon={PhoneCall}
                   value={dashboardData.pending.customerCallbacks}
                   label="Pending Callbacks"
-                  color="#15803D"
-                  bgClassName="bg-emerald-50/50"
+                  color={COLORS.success}
+                  bgClassName="bg-success-fill/50"
                   onClick={() => navigate("/registry/callbacks-pending")}
                 />
                 <PendingActionCard
                   icon={UserCog}
                   value={dashboardData.pending.customerBM}
                   label="BM Reg. Approvals"
-                  color="#C2410C"
-                  bgClassName="bg-orange-50/50"
+                  color={COLORS.warning}
+                  bgClassName="bg-warning-fill/50"
                   onClick={() => navigate("/registry/bm-pending")}
                 />
                 <PendingActionCard
                   icon={Building}
                   value={dashboardData.pending.customerHQ}
                   label="HQ Review Queue"
-                  color="#B91C1C"
-                  bgClassName="bg-rose-50/50"
+                  color={COLORS.danger}
+                  bgClassName="bg-danger-fill/50"
                   onClick={() => navigate("/registry/hq-pending")}
                 />
               </>
@@ -1906,7 +1935,7 @@ const Dashboard = () => {
             <div className="h-4 w-px bg-gray-300"></div>
             <button
               onClick={fetchAllData}
-              className="flex items-center gap-2 text-xs text-brand-primary hover:text-brand-secondary transition-colors"
+              className="flex items-center gap-2 text-xs text-brand hover:text-mint transition-colors"
             >
               <RefreshCw size={14} />
               Refresh Data

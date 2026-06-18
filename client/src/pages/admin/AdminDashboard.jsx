@@ -26,6 +26,7 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { useNavigate } from 'react-router-dom';
 import { format, subDays, startOfDay, startOfMonth, startOfQuarter, startOfYear, endOfMonth } from 'date-fns';
+import CustomSelect from '../../components/CustomSelect';
 
 // Full currency formatting (no abbreviations)
 const formatCurrency = (amount) => {
@@ -61,26 +62,6 @@ const SkeletonTableRow = () => (
   </tr>
 );
 
-// Filter Select Component
-const FilterSelect = ({ icon: Icon, label, value, onChange, options }) => (
-  <div className="flex items-center bg-white rounded-md shadow-sm border border-slate-200 overflow-hidden min-w-[140px]">
-    <div className="bg-[#2E5E99] text-white px-2 py-1.5 flex items-center gap-1.5 min-w-[70px] justify-center font-bold text-[11px] uppercase tracking-tight">
-      <Icon className="w-3 h-3" />
-      {label}
-    </div>
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="flex-1 px-2 py-1.5 text-xs font-medium outline-none border-0 bg-transparent cursor-pointer appearance-none text-slate-700"
-    >
-      {options.map((opt) => (
-        <option key={opt.value} value={opt.value}>{opt.label}</option>
-      ))}
-    </select>
-    <ChevronRight className="w-3 h-3 rotate-90 text-slate-400 mr-2" />
-  </div>
-);
-
 // Stat Card Component with Gradient Design
 const StatCard = ({
   name,
@@ -101,11 +82,11 @@ const StatCard = ({
       <div className="relative z-10">
         <div className="flex items-start justify-between">
           <div className="flex-1">
-            <p className="text-sm font-semibold mb-2 tracking-wide" style={{ color: "#586ab1" }}>
+            <p className="text-xs font-bold uppercase tracking-wider mb-2" style={{ color: "var(--color-text-muted)" }}>
               {name}
             </p>
             <div className="flex items-baseline gap-2 mb-1">
-              <div className="text-2xl font-bold tracking-tight" style={{ color: "#586ab1" }}>
+              <div className="text-2xl font-extrabold tracking-tight" style={{ color: "var(--color-text-heading)" }}>
                 {loading ? (
                   <div className="h-8 w-32 bg-white/40 rounded-lg animate-pulse"></div>
                 ) : (
@@ -127,17 +108,17 @@ const StatCard = ({
               )}
             </div>
             {secondaryValue && (
-              <p className="text-xs mb-2" style={{ color: "#586ab1", opacity: 0.7 }}>
+              <p className="text-xs mb-2 font-medium" style={{ color: "var(--color-text-muted)" }}>
                 {secondaryValue}
               </p>
             )}
-            <p className="text-xs mt-3" style={{ color: "#586ab1", opacity: 0.8 }}>
+            <p className="text-xs mt-3 font-medium" style={{ color: "var(--color-text-muted)" }}>
               {description}
             </p>
           </div>
           <div className="ml-4 flex-shrink-0">
             <div className="p-3 rounded-xl bg-white/30 backdrop-blur-sm shadow-lg border border-white/20">
-              <Icon className="h-5 w-5" style={{ color: "#586ab1" }} />
+              <Icon className="h-5 w-5" style={{ color: "var(--color-brand)" }} />
             </div>
           </div>
         </div>
@@ -159,13 +140,15 @@ const TimePeriodSelector = ({ value, onChange }) => {
   ];
 
   return (
-    <FilterSelect
-      icon={Calendar}
-      label="Period"
-      value={value}
-      onChange={onChange}
-      options={periods}
-    />
+    <div className="min-w-[150px]">
+      <CustomSelect
+        value={value}
+        onChange={onChange}
+        placeholder="Select Period"
+        options={periods}
+        compact
+      />
+    </div>
   );
 };
 
@@ -665,7 +648,7 @@ const AdminDashboard = () => {
   // Loading state - now uses skeleton instead of spinner
   if (dashboardLoading && !stats.length) {
     return (
-      <div className="min-h-screen bg-muted py-10">
+      <div className="min-h-screen bg-surface py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header skeleton */}
           <div className="mb-8 flex items-center justify-between">
@@ -685,29 +668,29 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-muted py-10">
+    <div className="min-h-screen bg-surface py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
 
         {/* Filters Bar */}
-        <div className="mb-6 px-4 py-3 mt-2 bg-white/80 rounded-2xl border border-gray-200 shadow-sm">
+        <div className="mb-6 px-4 py-3 mt-2 bg-card rounded-2xl border border-border shadow-sm">
           <div className="flex flex-wrap gap-3 items-center">
             <TimePeriodSelector value={timePeriod} onChange={handleTimePeriodChange} />
 
             {timePeriod === 'custom' && (
-              <div className="flex items-center gap-2 bg-white/50 p-1.5 rounded-xl border border-gray-200">
+              <div className="flex items-center gap-2 bg-surface p-1.5 rounded-xl border border-border-light">
                 <input
                   type="date"
                   value={startDate}
                   onChange={(e) => setStartDate(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg outline-none focus:ring-1 focus:ring-[#586ab1]"
+                  className="px-2 py-1 text-xs border border-border-light rounded-lg outline-none focus:ring-1 focus:ring-brand bg-white"
                 />
-                <span className="text-gray-400 text-xs">-</span>
+                <span className="text-muted text-xs">-</span>
                 <input
                   type="date"
                   value={endDate}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="px-2 py-1 text-xs border border-gray-200 rounded-lg outline-none focus:ring-1 focus:ring-[#586ab1]"
+                  className="px-2 py-1 text-xs border border-border-light rounded-lg outline-none focus:ring-1 focus:ring-brand bg-white"
                 />
               </div>
             )}
@@ -715,30 +698,34 @@ const AdminDashboard = () => {
             {userRole !== 'superadmin' && (
               <>
                 <div className="h-6 w-px bg-slate-200" />
-                <FilterSelect
-                  icon={Home}
-                  label="Region"
-                  value={selectedRegion}
-                  onChange={handleRegionChange}
-                  options={[
-                    { value: 'all', label: 'All Regions' },
-                    ...availableRegions.map(r => ({ value: r.id, label: r.name }))
-                  ]}
-                />
-                <FilterSelect
-                  icon={MapPin}
-                  label="Branch"
-                  value={selectedBranch}
-                  onChange={handleBranchChange}
-                  options={[
-                    { value: 'all', label: 'All Branches' },
-                    ...availableBranches.map(b => ({ value: b.id, label: b.name }))
-                  ]}
-                />
+                <div className="min-w-[150px]">
+                  <CustomSelect
+                    value={selectedRegion}
+                    onChange={handleRegionChange}
+                    placeholder="All Regions"
+                    compact
+                    options={[
+                      { value: 'all', label: 'All Regions' },
+                      ...availableRegions.map(r => ({ value: r.id, label: r.name }))
+                    ]}
+                  />
+                </div>
+                <div className="min-w-[150px]">
+                  <CustomSelect
+                    value={selectedBranch}
+                    onChange={handleBranchChange}
+                    placeholder="All Branches"
+                    compact
+                    options={[
+                      { value: 'all', label: 'All Branches' },
+                      ...availableBranches.map(b => ({ value: b.id, label: b.name }))
+                    ]}
+                  />
+                </div>
                 {(selectedRegion !== 'all' || selectedBranch !== 'all') && (
                   <button
                     onClick={() => { setSelectedRegion('all'); setSelectedBranch('all'); setAvailableBranches(allBranches); }}
-                    className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white font-bold text-[9px] uppercase tracking-widest rounded-md shadow-sm transition-all active:scale-95 whitespace-nowrap"
+                    className="px-3 py-1.5 bg-danger hover:bg-danger/90 text-white font-semibold text-xs rounded-md shadow-sm transition-all active:scale-95 whitespace-nowrap"
                   >
                     Clear
                   </button>
@@ -750,9 +737,9 @@ const AdminDashboard = () => {
 
         {/* Error Alert */}
         {fetchError && (
-          <div className="mb-6 p-4 bg-gradient-to-r from-rose-50 to-red-50 border border-red-200 rounded-xl"
-            style={{ borderLeftColor: "#586ab1", borderLeftWidth: '4px' }}>
-            <p className="text-sm font-medium flex items-center gap-2" style={{ color: "#586ab1" }}>
+          <div className="mb-6 p-4 bg-danger-fill/20 border border-danger/30 rounded-xl"
+            style={{ borderLeftColor: "var(--color-danger-text)", borderLeftWidth: '4px' }}>
+            <p className="text-sm font-medium flex items-center gap-2" style={{ color: "var(--color-danger-text)" }}>
               <AlertTriangle className="h-4 w-4" />
               {fetchError}
             </p>
@@ -762,16 +749,15 @@ const AdminDashboard = () => {
         {/* Search Bar (Superadmin only) */}
         {userRole === 'superadmin' && (
           <div className="mb-8">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg p-5 border border-gray-200">
+            <div className="bg-card rounded-2xl shadow-sm p-5 border border-border">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div className="flex-1 max-w-2xl">
                   <div className="relative">
-                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: "#586ab1" }} />
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-4 w-4" style={{ color: "var(--color-brand)" }} />
                     <input
                       type="text"
                       placeholder="Search tenants by name, company, or slug..."
-                      className="pl-12 pr-4 py-3 w-full border border-gray-300 rounded-xl focus:ring-2 focus:border-transparent text-sm focus:outline-none transition-all bg-white/50 backdrop-blur-sm"
-                      style={{ "--tw-ring-color": "#586ab1" }}
+                      className="pl-12 pr-4 py-3 w-full border border-border bg-surface text-heading placeholder:text-muted/60 rounded-xl focus:outline-none focus:border-brand focus:ring-2 focus:ring-brand/15 shadow-sm transition-all font-outfit text-sm"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                     />
@@ -779,8 +765,7 @@ const AdminDashboard = () => {
                 </div>
                 <button
                   onClick={() => navigate('/users/create-tenant/admin?openForm=true')}
-                  className="px-5 py-3 text-white rounded-xl hover:opacity-90 transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-2 shadow-lg"
-                  style={{ backgroundColor: "#586ab1" }}
+                  className="px-5 py-3 text-white bg-brand hover:bg-brand/90 rounded-xl transition-all duration-300 hover:-translate-y-0.5 flex items-center gap-2 shadow-lg"
                 >
                   <Plus className="h-4 w-4" />
                   <span className="text-sm font-medium">Add New Tenant</span>
@@ -802,19 +787,19 @@ const AdminDashboard = () => {
         {/* Tenant Management (Superadmin only) */}
         {userRole === 'superadmin' && (
           <div className="mb-10">
-            <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+            <div className="bg-card rounded-2xl shadow-sm border border-border overflow-hidden">
               {/* Header */}
-              <div className="p-6 border-b border-gray-200 bg-gradient-to-r from-slate-50/80 to-blue-50/80">
+              <div className="p-6 border-b border-border bg-surface">
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold" style={{ color: "#586ab1" }}>Tenant Management</h2>
-                    <p className="text-sm mt-1" style={{ color: "#586ab1", opacity: 0.7 }}>
+                    <h2 className="text-xl font-bold" style={{ color: "var(--color-text-heading)" }}>Tenant Management</h2>
+                    <p className="text-sm mt-1" style={{ color: "var(--color-text-muted)" }}>
                       {searchQuery ? `Search results for "${searchQuery}"` : 'Recently added tenants'}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2 text-sm px-3 py-2 bg-white rounded-lg border border-gray-200">
-                    <Calendar className="h-4 w-4" style={{ color: "#586ab1", opacity: 0.7 }} />
-                    <span style={{ color: "#586ab1", opacity: 0.7 }}>
+                  <div className="flex items-center gap-2 text-sm px-3 py-2 bg-card rounded-lg border border-border">
+                    <Calendar className="h-4 w-4" style={{ color: "var(--color-brand)" }} />
+                    <span style={{ color: "var(--color-text-muted)" }}>
                       Showing {filteredTenants.length} of {tenants.length} tenants
                     </span>
                   </div>
@@ -824,71 +809,71 @@ const AdminDashboard = () => {
               {/* Table */}
               {loading ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <tbody className="divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-border">
+                    <tbody className="divide-y divide-border">
                       {[...Array(5)].map((_, i) => <SkeletonTableRow key={i} />)}
                     </tbody>
                   </table>
                 </div>
               ) : filteredTenants.length > 0 ? (
                 <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200">
+                  <table className="min-w-full divide-y divide-border">
                     <thead>
-                      <tr className="bg-gradient-to-r from-slate-50/80 to-blue-50/80">
-                        <th className="px-6 py-4 text-left text-xs font-semibold tracking-wider" style={{ color: "#586ab1" }}>
+                      <tr className="bg-surface/50">
+                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
                           Tenant Name
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold tracking-wider" style={{ color: "#586ab1" }}>
+                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
                           Company
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold tracking-wider" style={{ color: "#586ab1" }}>
+                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
                           Slug
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold tracking-wider" style={{ color: "#586ab1" }}>
+                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
                           Created
                         </th>
-                        <th className="px-6 py-4 text-left text-xs font-semibold tracking-wider" style={{ color: "#586ab1" }}>
+                        <th className="px-6 py-4 text-left text-xs font-bold uppercase tracking-wider" style={{ color: "var(--color-text-muted)" }}>
                           Actions
                         </th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-border">
                       {filteredTenants.map((tenant) => (
-                        <tr key={tenant.id} className="hover:bg-gradient-to-r hover:from-slate-50/50 hover:to-blue-50/50 transition-colors">
+                        <tr key={tenant.id} className="hover:bg-surface/50 transition-colors">
                           <td className="px-6 py-4">
                             <div className="flex items-center gap-3">
                               {tenant.logo_url ? (
                                 <img
                                   src={tenant.logo_url}
                                   alt={tenant.name}
-                                  className="h-10 w-10 rounded-xl object-cover border border-gray-200"
+                                  className="h-10 w-10 rounded-xl object-cover border border-border"
                                 />
                               ) : (
-                                <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-gradient-to-br from-blue-100 to-cyan-100 border border-gray-200">
-                                  <Building className="h-5 w-5" style={{ color: "#586ab1" }} />
+                                <div className="h-10 w-10 rounded-xl flex items-center justify-center bg-brand/10 border border-border">
+                                  <Building className="h-5 w-5" style={{ color: "var(--color-brand)" }} />
                                 </div>
                               )}
                               <div>
-                                <div className="font-medium" style={{ color: "#586ab1" }}>{tenant.name}</div>
-                                <div className="text-xs" style={{ color: "#586ab1", opacity: 0.6 }}>
+                                <div className="font-semibold" style={{ color: "var(--color-text-heading)" }}>{tenant.name}</div>
+                                <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                                   {tenant.status || 'Active'}
                                 </div>
                               </div>
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <div style={{ color: "#586ab1" }}>{tenant.company_name || '—'}</div>
+                            <div style={{ color: "var(--color-text-body)" }}>{tenant.company_name || '—'}</div>
                           </td>
                           <td className="px-6 py-4">
-                            <code className="text-xs px-2 py-1 bg-gray-100 rounded" style={{ color: "#586ab1" }}>
+                            <code className="text-xs px-2 py-1 bg-surface border border-border-light rounded font-medium" style={{ color: "var(--color-brand)" }}>
                               {tenant.tenant_slug}
                             </code>
                           </td>
                           <td className="px-6 py-4">
-                            <div style={{ color: "#586ab1" }}>
+                            <div style={{ color: "var(--color-text-body)" }}>
                               {format(new Date(tenant.created_at), 'MMM d, yyyy')}
                             </div>
-                            <div className="text-xs" style={{ color: "#586ab1", opacity: 0.6 }}>
+                            <div className="text-xs" style={{ color: "var(--color-text-muted)" }}>
                               {format(new Date(tenant.created_at), 'h:mm a')}
                             </div>
                           </td>
@@ -896,14 +881,13 @@ const AdminDashboard = () => {
                             <div className="flex items-center gap-2">
                               <button
                                 onClick={() => handleViewTenant(tenant)}
-                                className="px-3 py-2 rounded-lg hover:bg-gray-100 transition-colors flex items-center gap-2"
-                                style={{ color: "#586ab1" }}
+                                className="px-3 py-2 rounded-lg text-brand hover:bg-surface transition-colors flex items-center gap-2"
                               >
                                 <Eye className="h-4 w-4" />
                                 <span className="text-sm font-medium">View</span>
                               </button>
-                              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                                <MoreVertical className="h-4 w-4" style={{ color: "#586ab1", opacity: 0.6 }} />
+                              <button className="p-2 hover:bg-surface rounded-lg transition-colors">
+                                <MoreVertical className="h-4 w-4" style={{ color: "var(--color-text-muted)" }} />
                               </button>
                             </div>
                           </td>
@@ -914,11 +898,11 @@ const AdminDashboard = () => {
                 </div>
               ) : (
                 <div className="p-12 text-center">
-                  <div className="w-20 h-20 bg-gradient-to-br from-slate-100 to-blue-100 rounded-full flex items-center justify-center mx-auto mb-6 border border-gray-200">
-                    <Building className="h-10 w-10" style={{ color: "#586ab1" }} />
+                  <div className="w-20 h-20 bg-brand/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-border">
+                    <Building className="h-10 w-10" style={{ color: "var(--color-brand)" }} />
                   </div>
-                  <p className="font-medium" style={{ color: "#586ab1", opacity: 0.7 }}>No tenants found</p>
-                  <p className="text-sm mt-2" style={{ color: "#586ab1", opacity: 0.5 }}>
+                  <p className="font-semibold" style={{ color: "var(--color-text-heading)" }}>No tenants found</p>
+                  <p className="text-sm mt-2" style={{ color: "var(--color-text-muted)" }}>
                     {searchQuery ? 'Try a different search term' : 'Add your first tenant to get started'}
                   </p>
                 </div>
@@ -926,9 +910,9 @@ const AdminDashboard = () => {
 
               {/* Footer */}
               {filteredTenants.length > 0 && (
-                <div className="px-6 py-4 border-t border-gray-200 bg-gradient-to-r from-slate-50/80 to-blue-50/80">
+                <div className="px-6 py-4 border-t border-border bg-surface/50">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <p className="text-sm" style={{ color: "#586ab1", opacity: 0.7 }}>
+                    <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
                       {searchQuery
                         ? `Found ${filteredTenants.length} matching tenants`
                         : `Showing ${Math.min(5, filteredTenants.length)} of ${tenants.length} tenants`
@@ -936,8 +920,7 @@ const AdminDashboard = () => {
                     </p>
                     <button
                       onClick={() => navigate('/users/create-tenant/admin')}
-                      className="text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-white transition-colors"
-                      style={{ color: "#586ab1" }}
+                      className="text-sm font-medium flex items-center gap-2 px-4 py-2 rounded-lg text-brand hover:bg-surface transition-colors"
                     >
                       View All Tenants
                       <ChevronRight className="h-4 w-4" />
@@ -950,15 +933,15 @@ const AdminDashboard = () => {
         )}
 
         {/* Last Updated Footer */}
-        <div className="mt-8 pt-6 border-t border-gray-200/50">
-          <div className="flex items-center justify-center gap-2 text-sm" style={{ color: "#586ab1", opacity: 0.7 }}>
+        <div className="mt-8 pt-6 border-t border-border-light">
+          <div className="flex items-center justify-center gap-2 text-sm" style={{ color: "var(--color-text-muted)" }}>
             <Calendar className="h-4 w-4" />
             <span>
               Dashboard updated: {format(lastRefresh, 'MMM d, yyyy • h:mm a')}
             </span>
             <span className="mx-2">•</span>
             <span>
-              Time period: <span className="font-medium">{timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)}</span>
+              Time period: <span className="font-medium text-heading">{timePeriod.charAt(0).toUpperCase() + timePeriod.slice(1)}</span>
             </span>
           </div>
         </div>

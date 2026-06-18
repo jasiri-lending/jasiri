@@ -518,7 +518,7 @@ const AllCustomers = () => {
 
 
   return (
-    <div className="bg-muted transition-all duration-300 p-6 min-h-screen font-outfit">
+    <div className="bg-surface transition-all duration-300 p-6 min-h-screen font-outfit">
       {/* Page Header */}
       <div className="flex items-center justify-between mb-6">
         <div>

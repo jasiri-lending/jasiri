@@ -1,3 +1,4 @@
+import CustomSelect from "../../../components/CustomSelect";
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer
@@ -421,7 +422,7 @@ const ProductBreakdownChart = () => {
   ];
 
   return (
-    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10">
+    <div className="bg-white/70 backdrop-blur-md rounded-2xl shadow-xl border border-white/40 p-8 transition-all duration-300 hover:shadow-2xl relative hover:z-10 h-full flex flex-col">
       {/* Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 mb-6">
         <h3 className="text-sm text-slate-600 whitespace-nowrap">Loan Product Overview</h3>
@@ -439,18 +440,18 @@ const ProductBreakdownChart = () => {
       <div className="mb-4 mt-2">
         <div className="flex flex-nowrap items-center gap-2 relative z-20 w-full overflow-hidden">
           {filterConfigs.map((item, idx) => (
-            <div key={idx} className="flex-1 min-w-0 flex items-center h-8 gap-1.5 px-2 rounded-lg border border-slate-200 bg-transparent hover:border-slate-300 transition focus-within:ring-1 focus-within:ring-slate-400/20">
+            <div key={idx} className="flex-1 min-w-0 flex items-center gap-1.5">
               {item.icon && React.cloneElement(item.icon, { className: "w-3.5 h-3.5 text-stone-400 shrink-0" })}
-              <select
+              <CustomSelect fullWidth
                 value={item.value}
-                onChange={item.onChange}
-                disabled={loading}
-                className="w-full bg-transparent text-[10px] font-bold text-stone-600 focus:outline-none cursor-pointer py-1 truncate"
-              >
-                {item.options.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+                onChange={(val) => {
+                  if (typeof item.onChange === 'function') {
+                    item.onChange({ target: { value: val } });
+                  }
+                }}
+                options={item.options}
+                compact
+              />
             </div>
           ))}
         </div>
@@ -483,7 +484,7 @@ const ProductBreakdownChart = () => {
       </div>
 
       {/* Chart */}
-      <div className="h-96">
+      <div className="flex-1 w-full min-h-[350px]" style={{ position: 'relative' }}>
         {localData && localData.length > 0 ? (
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={localData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>

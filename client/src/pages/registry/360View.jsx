@@ -2746,7 +2746,7 @@ const Customer360View = () => {
   }
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-muted">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-surface">
       {/* Header with Back Button */}
       {/* <div className="mb-2 flex-shrink-0">
         <button

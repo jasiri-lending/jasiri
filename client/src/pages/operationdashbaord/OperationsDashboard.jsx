@@ -18,6 +18,7 @@ import DisbursementWidget from '../../components/dashboard/DisbursementWidget';
 import PortfolioChartsWidget from '../../components/dashboard/PortfolioChartsWidget';
 import SystemAlertsWidget from '../../components/dashboard/SystemAlertsWidget';
 import DashboardCard from '../../components/dashboard/DashboardCard';
+import CustomSelect from '../../components/CustomSelect';
 
 // Utility Functions
 const getLocalYYYYMMDD = (d = new Date()) => {
@@ -36,30 +37,7 @@ const formatCurrency = (amount) => {
   return numAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 };
 
-// Filter Select Component
-const FilterSelectCompact = ({ icon: Icon, value, onChange, options }) => (
-  <div className="relative">
-    <div className="absolute left-3 top-1/2 -translate-y-1/2">
-      <Icon className="w-3 h-3 text-primary" strokeWidth={2.4} />
-    </div>
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="w-full pl-9 pr-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-700 bg-gray-50 appearance-none cursor-pointer outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all shadow-sm"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
-      <svg className="w-3 h-3 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-      </svg>
-    </div>
-  </div>
-);
+
 
 // Custom Date Range Filter Component
 const CustomDateRangeFilter = ({ startDate, endDate, onStartChange, onEndChange, onApply }) => (
@@ -767,7 +745,7 @@ const OperationsDashboard = ({ userRole }) => {
   }
 
   return (
-    <div className="bg-muted min-h-screen pb-6 font-sans">
+    <div className="bg-surface min-h-screen pb-6 font-sans">
       <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-5">
 
         {/* Header & Filters */}
@@ -783,29 +761,31 @@ const OperationsDashboard = ({ userRole }) => {
 
           {/* Filters Row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 px-1 rounded-sm">
-            <FilterSelectCompact
-              icon={Home}
+            <CustomSelect
               value={selectedRegion}
               onChange={handleRegionChange}
               options={[
                 { value: 'all', label: 'All Regions' },
                 ...availableRegions.map(r => ({ value: r.id, label: r.name }))
               ]}
+              compact
+              searchable
             />
-            <FilterSelectCompact
-              icon={Building}
+            <CustomSelect
               value={selectedBranch}
               onChange={handleBranchChange}
               options={availableBranches.map(b => ({ value: b.id, label: b.name }))}
+              compact
+              searchable
             />
-            <FilterSelectCompact
-              icon={UserCircle}
+            <CustomSelect
               value={selectedRO}
               onChange={handleROChange}
               options={availableROs.map(ro => ({ value: ro.id, label: ro.full_name }))}
+              compact
+              searchable
             />
-            <FilterSelectCompact
-              icon={Calendar}
+            <CustomSelect
               value={dateFilter}
               onChange={setDateFilter}
               options={[
@@ -817,6 +797,7 @@ const OperationsDashboard = ({ userRole }) => {
                 { value: 'last_month', label: 'Last Month' },
                 { value: 'custom_range', label: 'Custom Range' }
               ]}
+              compact
             />
           </div>
 
