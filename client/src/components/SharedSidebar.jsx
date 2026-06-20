@@ -152,8 +152,6 @@ const SharedSidebar = () => {
         { name: "Branches",           href: "/branches/admin",                 icon: GitBranch  },
         { name: "Regions",            href: "/regions/admin",                  icon: Map        },
         { name: "Users",              href: "/users/all/admin",                icon: Users      },
-        { name: "Add User",           href: "/users/add/admin",                icon: UserPlus   },
-        { name: "Suspended Users",    href: "/users/suspended/admin",          icon: ShieldAlert},
         { name: "User Groups",        href: "/user-groups/admin",              icon: Share2     },
         { name: "Partners",           href: "/partners/admin",                 icon: Handshake  },
         { name: "Report Access",      href: "/users/report-access/admin",      icon: FileKey    },

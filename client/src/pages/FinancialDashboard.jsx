@@ -645,7 +645,7 @@ const FinancialDashboard = () => {
   const tickFmt = (v) => v === 0 ? '0' : Number(v).toLocaleString();
 
   return (
-<div className="min-h-screen bg-surface">
+<div className="min-h-screen bg-page">
         <FilterBar
         filters={filters} filterOptions={filterOptions}
         onFilterChange={handleFilterChange} loading={loading} lastUpdated={lastUpdated}

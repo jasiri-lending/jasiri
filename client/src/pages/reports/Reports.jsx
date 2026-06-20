@@ -1,8 +1,6 @@
-import { useState } from 'react';
-import { useEffect } from "react";
-
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ChevronLeft, ChevronRight, FileText, Search } from 'lucide-react';
+import { FileText, Search } from 'lucide-react';
 import { usePermissions } from '../../hooks/usePermissions';
 import CustomerAccountModal from './CustomerAccountModal';
 import LoanDisbursementReport from './DisbursementLoansReport';
@@ -19,17 +17,29 @@ import TraceMpesaTransaction from './TraceMpesaTransaction';
 import LoanArrearsReport from './LoanArrearsReport';
 import InactiveCustomers from './InactiveCustomers';
 import LoginModal from '../registry/LoginModal';
-import Spinner from '../../components/Spinner';
 import ROCumulativePerformanceReport from './ROCumulativePerformanceReport';
 import IncomeStatement from './IncomeStatement';
+import { Pagination } from '../../components/Pagination.jsx';
+import CustomSelect from '../../components/CustomSelect';
+import { SkeletonTable } from '../../components/Skeleton';
 
 const Reports = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('all');
   const navigate = useNavigate();
   const reportsPerPage = 10;
   const [loginOpen, setLoginOpen] = useState(false);
   const [pendingReport, setPendingReport] = useState(null);
+
+  const categories = [
+    { value: 'all', label: 'All Categories' },
+    { value: 'customer', label: 'Customer Reports' },
+    { value: 'loan', label: 'Loan Reports' },
+    { value: 'financial', label: 'Financial Reports' },
+    { value: 'performance', label: 'Performance Reports' },
+    { value: 'payment', label: 'Payment & M-Pesa' }
+  ];
 
   const allReports = [
     {
@@ -37,7 +47,8 @@ const Reports = () => {
       name: "Income Statement",
       description: "Comprehensive breakdown of revenue from interest, fees, and penalties grouped by product",
       component: IncomeStatement,
-      route: '/reports/income-statement'
+      route: '/reports/income-statement',
+      category: 'financial'
     },
     {
       id: 1,
@@ -45,7 +56,8 @@ const Reports = () => {
       description: "Detailed statement of customer transactions, balances, and account activity",
       component: CustomerAccountModal,
       route: '/reports/customer-account-statement',
-      permission: 'report.customer_account_statement'
+      permission: 'report.customer_account_statement',
+      category: 'customer'
     },
     {
       id: 2,
@@ -53,7 +65,8 @@ const Reports = () => {
       description: "Report of all loans that have been disbursed to customers",
       component: LoanDisbursementReport,
       route: '/reports/disbursement-loans',
-      permission: 'report.loan_disbursement'
+      permission: 'report.loan_disbursement',
+      category: 'loan'
     },
     {
       id: 3,
@@ -61,7 +74,8 @@ const Reports = () => {
       description: "List of loans with upcoming or overdue payment dates",
       component: LoanDueReport,
       route: '/reports/loan-due',
-      permission: 'report.loan_due'
+      permission: 'report.loan_due',
+      category: 'loan'
     },
     {
       id: 4,
@@ -69,7 +83,8 @@ const Reports = () => {
       description: "Comprehensive list of all registered customers with their details",
       component: CustomerListing,
       route: '/reports/customer-listing',
-      permission: 'report.customer_listing'
+      permission: 'report.customer_listing',
+      category: 'customer'
     },
     {
       id: 5,
@@ -77,7 +92,8 @@ const Reports = () => {
       description: "Track all loan repayments made through M-Pesa mobile money",
       component: MpesaRepaymentReports,
       route: '/reports/mpesa-repayment',
-      permission: 'report.mpesa_repayment'
+      permission: 'report.mpesa_repayment',
+      category: 'payment'
     },
     {
       id: 6,
@@ -85,7 +101,8 @@ const Reports = () => {
       description: "Performance metrics and statistics for each loan officer",
       component: LoanOfficerPerformanceReport,
       route: '/reports/loan-officer-performance',
-      permission: 'report.loan_officer_performance'
+      permission: 'report.loan_officer_performance',
+      category: 'performance'
     },
     {
       id: 17,
@@ -93,7 +110,8 @@ const Reports = () => {
       description: "Cumulative Performance Report for Relationship Officers",
       component: ROCumulativePerformanceReport,
       route: '/reports/ro-cumulative',
-      permission: 'report.loan_officer_performance'
+      permission: 'report.loan_officer_performance',
+      category: 'performance'
     },
     {
       id: 7,
@@ -101,7 +119,8 @@ const Reports = () => {
       description: "Report on loans that are not performing or are in default",
       component: NonPerformingLoansReport,
       route: '/reports/non-performing-loans',
-      permission: 'report.non_performing_loans'
+      permission: 'report.non_performing_loans',
+      category: 'loan'
     },
     {
       id: 8,
@@ -109,7 +128,8 @@ const Reports = () => {
       description: "Summary of all outstanding loan balances across all customers",
       component: OutstandingLoanBalanceReport,
       route: '/reports/outstanding-balance',
-      permission: 'report.outstanding_balance'
+      permission: 'report.outstanding_balance',
+      category: 'loan'
     },
     {
       id: 9,
@@ -117,7 +137,8 @@ const Reports = () => {
       description: "Approved loans awaiting disbursement to customers",
       component: PendingDisbursementReport,
       route: '/reports/pending-disbursement',
-      permission: 'report.pending_disbursement'
+      permission: 'report.pending_disbursement',
+      category: 'loan'
     },
     {
       id: 10,
@@ -125,7 +146,8 @@ const Reports = () => {
       description: "Complete listing of all loans in the system with key details",
       component: LoanListing,
       route: '/reports/loan-listing',
-      permission: 'report.loan_listing'
+      permission: 'report.loan_listing',
+      category: 'loan'
     },
     {
       id: 11,
@@ -133,7 +155,8 @@ const Reports = () => {
       description: "Detailed report showing all loan installments",
       component: LoanListing,
       route: '/reports/installments-report',
-      permission: 'report.installments'
+      permission: 'report.installments',
+      category: 'loan'
     },
     {
       id: 12,
@@ -141,7 +164,8 @@ const Reports = () => {
       description: "Summary of all outstanding loan balances across all customers",
       component: OutstandingLoanBalanceReport,
       route: '/reports/outstandEOM',
-      permission: 'report.outstanding_eom'
+      permission: 'report.outstanding_eom',
+      category: 'loan'
     },
     {
       id: 13,
@@ -149,7 +173,8 @@ const Reports = () => {
       description: "Search and track specific M-Pesa transactions by reference",
       component: TraceMpesaTransaction,
       route: '/reports/trace-mpesa',
-      permission: 'report.trace_mpesa'
+      permission: 'report.trace_mpesa',
+      category: 'payment'
     },
     {
       id: 14,
@@ -157,7 +182,8 @@ const Reports = () => {
       description: "List of customers with no recent activity or transactions",
       component: InactiveCustomers,
       route: '/reports/inactive-customers',
-      permission: 'report.inactive_customers'
+      permission: 'report.inactive_customers',
+      category: 'customer'
     },
     {
       id: 15,
@@ -165,7 +191,8 @@ const Reports = () => {
       description: "Detailed report of loans in arrears with aging analysis",
       component: LoanArrearsReport,
       route: '/reports/loan-arrears',
-      permission: 'report.loan_arrears'
+      permission: 'report.loan_arrears',
+      category: 'loan'
     },
     {
       id: 16,
@@ -173,7 +200,8 @@ const Reports = () => {
       description: "View and manage unallocated or pending M-Pesa payments",
       component: SuspensePaymentsReport,
       route: '/reports/suspense-payments',
-      permission: 'report.suspense_payments'
+      permission: 'report.suspense_payments',
+      category: 'payment'
     }
   ];
 
@@ -184,17 +212,13 @@ const Reports = () => {
       report.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       report.description.toLowerCase().includes(searchTerm.toLowerCase());
     
+    const matchesCategory = selectedCategory === 'all' || report.category === selectedCategory;
+
     // Explicitly allow Income Statement without permission check for now
-    if (report.name === "Income Statement") return matchesSearch;
+    if (report.name === "Income Statement") return matchesSearch && matchesCategory;
     
-    return matchesSearch && (!report.permission || hasPermission(report.permission));
+    return matchesSearch && matchesCategory && (!report.permission || hasPermission(report.permission));
   });
-
-  const totalPages = Math.ceil(filteredReports.length / reportsPerPage);
-  const startIdx = (currentPage - 1) * reportsPerPage;
-  const endIdx = startIdx + reportsPerPage;
-  const currentReports = filteredReports.slice(startIdx, endIdx);
-
 
   const handleViewReport = (report) => {
     const reportUser = localStorage.getItem("reportUser");
@@ -208,7 +232,6 @@ const Reports = () => {
     }
   };
 
-
   useEffect(() => {
     const onReportLogin = () => {
       setLoginOpen(false);
@@ -221,25 +244,10 @@ const Reports = () => {
     };
   }, []);
 
-
-
-
   const handleLoginSuccess = () => {
     if (pendingReport) {
       navigate(pendingReport.route); // navigate after successful login
       setPendingReport(null);
-    }
-  };
-
-  const goToNextPage = () => {
-    if (currentPage < totalPages) {
-      setCurrentPage(currentPage + 1);
-    }
-  };
-
-  const goToPrevPage = () => {
-    if (currentPage > 1) {
-      setCurrentPage(currentPage - 1);
     }
   };
 
@@ -248,151 +256,124 @@ const Reports = () => {
     setCurrentPage(1);
   };
 
+  const handleCategoryChange = (val) => {
+    setSelectedCategory(val);
+    setCurrentPage(1);
+  };
+
+  if (permsLoading) {
+    return (
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <SkeletonTable rows={5} cols={3} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-muted text-gray-800 border-r border-gray-200 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-4 mb-2">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            {/* Title & Description */}
-            <div>
-              <h1 className="text-lg font-semibold" style={{ color: "#586ab1" }}>Reports</h1>
-              <p className="text-sm text-gray-600 mt-1">
-                Generate and view comprehensive loan management reports
-              </p>
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
+        Reports / All Reports
+      </h1>
+
+      <div className="bg-card rounded-xl shadow-card border border-border">
+        {/* Table Header Card */}
+        <div className="p-4 border-b border-border-light flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-surface">
+          <div>
+            <h2 className="text-xs font-semibold text-heading font-outfit">
+              All Reports
+            </h2>
+            <p className="text-[10px] text-muted mt-0.5">
+              Generate and view comprehensive loan management reports
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Category Dropdown */}
+            <div className="w-full sm:w-48 z-10">
+              <CustomSelect
+                value={selectedCategory}
+                onChange={handleCategoryChange}
+                options={categories}
+                compact
+                fullWidth
+              />
             </div>
 
-            {/* Search Bar */}
-            <div className="relative w-full sm:w-80">
-              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                <Search className="h-5 w-5 text-gray-400" />
-              </div>
+            {/* Search Input */}
+            <div className="relative w-full sm:w-60">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted w-3.5 h-3.5" />
               <input
                 type="text"
-                placeholder="Search reports by name or description..."
+                placeholder="Search reports..."
                 value={searchTerm}
                 onChange={handleSearchChange}
-                className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg bg-white shadow-sm 
-                   focus:outline-none focus:ring-2 focus:ring-gray-300 focus:border-gray-500 text-sm"
+                className="w-full pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-card text-body focus:border-brand-primary focus:outline-none transition-colors duration-200"
               />
             </div>
           </div>
-
-          {/* Optional search feedback */}
-          {searchTerm && (
-            <p className="mt-3 text-sm text-gray-600">
-              Found {filteredReports.length} report{filteredReports.length !== 1 ? 's' : ''} matching "<span className="font-medium text-gray-800">{searchTerm}</span>"
-            </p>
-          )}
         </div>
-
 
         {/* Reports Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden">
-          {filteredReports.length > 0 ? (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-100 border-b border-gray-200">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Report Name</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-700">Description</th>
-                      <th className="px-4 py-3 text-center text-xs font-semibold text-gray-700">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {currentReports.map((report) => (
-                      <tr key={report.id} className="hover:bg-gray-50 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <FileText className="w-4 h-4" style={{ color: "#586ab1" }} />
-                            <span className="text-sm text-blue-900">{report.name}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-gray-600 text-xs">
-                          {report.description}
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center justify-center">
-                            <button
-                              onClick={() => handleViewReport(report)}
-                              className="flex items-center gap-1 px-2.5 py-1 text-white text-xs rounded-lg transition-all duration-300 hover:shadow-md"
-                              style={{ backgroundColor: "#586ab1" }}
-                            >
-                              <FileText className="w-3 h-3" />
-                              View
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    Showing <span className="font-medium">{startIdx + 1}</span> to{' '}
-                    <span className="font-medium">{Math.min(endIdx, filteredReports.length)}</span> of{' '}
-                    <span className="font-medium">{filteredReports.length}</span>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={goToPrevPage}
-                      disabled={currentPage === 1}
-                      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${currentPage === 1
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                        }`}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      Previous
-                    </button>
-
-                    <div className="px-4 py-2 bg-white border border-gray-300 rounded-lg text-sm">
-                      Page <span className="font-medium">{currentPage}</span> of{' '}
-                      <span className="font-medium">{totalPages}</span>
+        <div className="overflow-x-auto font-outfit">
+          <table className="min-w-full divide-y divide-border-light">
+            <thead className="bg-surface">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
+                  Report Name
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
+                  Description
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium whitespace-nowrap text-muted">
+                  Actions
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-light">
+              {filteredReports.slice((currentPage - 1) * reportsPerPage, currentPage * reportsPerPage).map((report) => (
+                <tr key={report.id} className="hover:bg-surface transition-colors">
+                  <td className="px-4 py-3 text-xs font-semibold font-outfit text-body">
+                    <div className="flex items-center gap-2">
+                      <FileText className="w-3.5 h-3.5 text-brand" />
+                      <span className="text-xs font-semibold text-heading">{report.name}</span>
                     </div>
-
-                    <button
-                      onClick={goToNextPage}
-                      disabled={currentPage === totalPages}
-                      className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${currentPage === totalPages
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                        }`}
-                    >
-                      Next
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </>
-          ) : (
-            <div className="text-center py-12">
-              <FileText className="mx-auto h-12 w-12 text-gray-300" />
-              <h3 className="mt-4 text-lg font-medium text-gray-900">No reports found</h3>
-              {searchTerm && (
-                <>
-                  <p className="mt-2 text-gray-500">
-                    No reports matched &ldquo;{searchTerm}&rdquo;
-                  </p>
-                  <button
-                    onClick={() => setSearchTerm('')}
-                    className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Clear search
-                  </button>
-                </>
+                  </td>
+                  <td className="px-4 py-3 text-xs font-outfit text-muted">
+                    {report.description}
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => handleViewReport(report)}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-brand-primary hover:bg-brand-surface transition-colors"
+                        aria-label="View report"
+                      >
+                        <FileText size={12} />
+                        View
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredReports.length === 0 && (
+                <tr>
+                  <td className="p-8 text-center text-xs text-muted" colSpan={3}>
+                    No reports found matching criteria.
+                  </td>
+                </tr>
               )}
-            </div>
-          )}
+            </tbody>
+          </table>
+
+          <Pagination 
+            totalItems={filteredReports.length} 
+            itemsPerPage={reportsPerPage} 
+            currentPage={currentPage} 
+            onPageChange={setCurrentPage} 
+          />
         </div>
       </div>
+
       <LoginModal
         isOpen={loginOpen}
         onClose={() => setLoginOpen(false)}

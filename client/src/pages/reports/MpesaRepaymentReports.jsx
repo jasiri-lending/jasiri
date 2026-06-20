@@ -3,37 +3,74 @@ import {
   Download,
   Filter,
   X,
-  ChevronLeft,
-  ChevronRight,
-  ChevronUp,
-  ChevronDown,
   Search,
   CheckCircle,
   Clock,
   AlertCircle,
   RefreshCw,
-  Globe
+  ChevronUp,
+  ChevronDown
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth.js";
-import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+} from "docx";
+import { saveAs } from "file-saver";
+import { SkeletonTable } from "../../components/Skeleton";
+import { Pagination } from "../../components/Pagination";
+import CustomSelect from "../../components/CustomSelect";
 
-// ========== Memoized Helper Components (unchanged) ==========
+// ========== Helper Components ==========
+const statusConfig = {
+  applied: {
+    label: "Success",
+    color: "text-success",
+    icon: CheckCircle,
+  },
+  completed: {
+    label: "Completed",
+    color: "text-success",
+    icon: CheckCircle,
+  },
+  success: {
+    label: "Success",
+    color: "text-success",
+    icon: CheckCircle,
+  },
+  pending: {
+    label: "Pending",
+    color: "text-warning",
+    icon: Clock,
+  },
+  failed: {
+    label: "Failed",
+    color: "text-danger",
+    icon: AlertCircle,
+  },
+  default: {
+    label: "Processing",
+    color: "text-muted",
+    icon: Clock,
+  },
+};
+
 const StatusBadge = React.memo(({ status }) => {
-  const statusConfig = {
-    applied: { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
-    completed: { label: "Completed", color: "bg-blue-50 text-blue-700 border border-blue-200", icon: CheckCircle },
-    success: { label: "Success", color: "bg-emerald-50 text-emerald-700 border border-emerald-200", icon: CheckCircle },
-    pending: { label: "Pending", color: "bg-amber-50 text-amber-700 border border-amber-200", icon: Clock },
-    failed: { label: "Failed", color: "bg-red-50 text-red-700 border border-red-200", icon: AlertCircle },
-    default: { label: "Processing", color: "bg-gray-50 text-gray-700 border border-gray-200", icon: Clock },
-  };
-  const config = statusConfig[status] || statusConfig.default;
+  const config = statusConfig[status?.toLowerCase()] || statusConfig.default;
   const Icon = config.icon;
 
   return (
-    <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${config.color}`}>
-      <Icon className="w-3 h-3" />
+    <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border border-border-light text-xs font-medium bg-surface/50 ${config.color}`}>
+      {Icon && <Icon className="w-3.5 h-3.5" />}
       <span>{config.label}</span>
     </div>
   );
@@ -43,119 +80,93 @@ StatusBadge.displayName = 'StatusBadge';
 const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => (
   <th
     onClick={() => onSort(sortKey)}
-    className="px-4 py-3 font-semibold text-gray-600 cursor-pointer hover:bg-gray-50 whitespace-nowrap text-left text-sm tracking-wider border-b"
+    className="px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider cursor-pointer hover:bg-surface/70 transition-colors whitespace-nowrap text-left border-b border-border"
   >
-    <div className="flex items-center justify-between">
-      <span className="font-medium text-sm" style={{ color: "#586ab1" }}>{label}</span>
-      {sortConfig.key === sortKey &&
-        (sortConfig.direction === "asc" ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />)}
+    <div className="flex items-center gap-1.5">
+      {label}
+      {sortConfig.key === sortKey ? (
+        sortConfig.direction === "asc" ? (
+          <ChevronUp className="w-3.5 h-3.5 text-brand" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-brand" />
+        )
+      ) : (
+        <ChevronDown className="w-3.5 h-3.5 text-muted opacity-30 hover:opacity-100" />
+      )}
     </div>
   </th>
 ));
 SortableHeader.displayName = 'SortableHeader';
 
-const SearchBox = React.memo(({ value, onChange }) => (
-  <div className="relative">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search name, ID, or phone"
-      className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64 text-gray-900"
-    />
-  </div>
-));
-SearchBox.displayName = 'SearchBox';
+const formatCurrency = (amount) =>
+  new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0,
+  }).format(amount || 0);
 
-// Local Spinner component removed
+const formatDate = (date) =>
+  date
+    ? new Date(date).toLocaleDateString("en-KE", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "N/A";
+
+const formatTime = (date) =>
+  date
+    ? new Date(date).toLocaleTimeString("en-KE", {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    : "N/A";
 
 const RepaymentTableRow = React.memo(({ repayment, index, startIdx }) => {
-  const formatDate = (date) => date ? new Date(date).toLocaleDateString("en-KE", { year: 'numeric', month: 'short', day: 'numeric' }) : "N/A";
-  const formatTime = (date) => date ? new Date(date).toLocaleTimeString("en-KE", { hour: '2-digit', minute: '2-digit', hour12: false }) : "N/A";
-  const formatCurrency = (amount) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount || 0);
-
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
-      <td className="px-6 py-4 font-medium text-gray-400 whitespace-nowrap">{startIdx + index + 1}</td>
-      <td className="px-4 py-3 font-medium text-gray-900 whitespace-nowrap">{repayment.customerName}</td>
-      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{repayment.mobile}</td>
-      <td className="px-4 py-3 text-gray-700 font-medium whitespace-nowrap">{repayment.idNumber}</td>
-      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{repayment.branch}</td>
-      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">{repayment.region}</td>
+    <tr className="hover:bg-surface transition-colors duration-150 border-b border-border-light">
+      <td className="px-6 py-4 text-xs font-medium text-text-muted whitespace-nowrap text-center">
+        {startIdx + index + 1}
+      </td>
+      <td className="px-4 py-3 text-sm  text-text-secondary whitespace-nowrap">
+        {repayment.customerName}
+      </td>
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
+        {repayment.mobile}
+      </td>
+      <td className="px-4 py-3 text-sm font-medium text-text-secondary whitespace-nowrap">
+        {repayment.idNumber}
+      </td>
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
+        {repayment.branch}
+      </td>
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
+        {repayment.region}
+      </td>
       <td className="px-4 py-3 whitespace-nowrap">
-        <div className="font-mono text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+        <div className="font-mono text-xs text-text-primary bg-surface/50 px-2 py-0.5 rounded border border-border-light inline-block">
           {repayment.transactionId}
         </div>
       </td>
-      <td className="px-4 py-3 font-semibold text-gray-900 whitespace-nowrap text-right">
+      <td className="px-4 py-3 text-sm  text-text-secondary text-right whitespace-nowrap tabular-nums">
         {formatCurrency(repayment.amountPaid)}
       </td>
       <td className="px-4 py-3 whitespace-nowrap">
-        <div className="font-mono text-xs text-gray-700 bg-gray-50 px-2 py-1 rounded border border-gray-200">
+        <div className="font-mono text-xs text-text-primary bg-surface/50 px-2 py-0.5 rounded border border-border-light inline-block">
           {repayment.billRef}
         </div>
       </td>
-      <td className="px-4 py-3 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap text-center">
         <StatusBadge status={repayment.displayStatus} />
       </td>
-      <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {formatDate(repayment.paymentDate)} {formatTime(repayment.paymentDate)}
       </td>
     </tr>
   );
 });
 RepaymentTableRow.displayName = 'RepaymentTableRow';
-
-const PaginationControls = React.memo(({ currentPage, totalPages, onPageChange, startIdx, endIdx, totalRows }) => {
-  const getPageNumbers = () => {
-    if (totalPages <= 5) return Array.from({ length: totalPages }, (_, i) => i + 1);
-    if (currentPage <= 3) return [1, 2, 3, 4, 5];
-    if (currentPage >= totalPages - 2) return [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
-    return [currentPage - 2, currentPage - 1, currentPage, currentPage + 1, currentPage + 2];
-  };
-
-  return (
-    <div className="flex items-center justify-between px-4 py-3 bg-white border-t border-gray-200 rounded-b-lg">
-      <div className="text-xs text-gray-600">
-        Showing <span className="font-semibold">{startIdx + 1}</span> to{" "}
-        <span className="font-semibold">{Math.min(endIdx, totalRows)}</span> of{" "}
-        <span className="font-semibold">{totalRows}</span> entries
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          onClick={() => onPageChange(Math.max(currentPage - 1, 1))}
-          disabled={currentPage === 1}
-          className="p-1.5 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-        >
-          <ChevronLeft className="w-3 h-3" />
-        </button>
-        <div className="flex items-center gap-1">
-          {getPageNumbers().map((pageNum) => (
-            <button
-              key={pageNum}
-              onClick={() => onPageChange(pageNum)}
-              className={`w-8 h-8 rounded text-xs transition-colors ${currentPage === pageNum
-                ? "bg-blue-600 text-white"
-                : "hover:bg-gray-100 text-gray-700"
-                }`}
-            >
-              {pageNum}
-            </button>
-          ))}
-        </div>
-        <button
-          onClick={() => onPageChange(Math.min(currentPage + 1, totalPages))}
-          disabled={currentPage === totalPages}
-          className="p-1.5 rounded border border-gray-300 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-        >
-          <ChevronRight className="w-3 h-3" />
-        </button>
-      </div>
-    </div>
-  );
-});
-PaginationControls.displayName = 'PaginationControls';
 
 // ========== Main Component ==========
 const MpesaRepaymentReports = () => {
@@ -165,7 +176,7 @@ const MpesaRepaymentReports = () => {
   const [rawRepayments, setRawRepayments] = useState([]);
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [fetchError, setFetchError] = useState(null);
   const [showFilters, setShowFilters] = useState(false);
@@ -197,7 +208,7 @@ const MpesaRepaymentReports = () => {
   // Refs
   const abortControllerRef = useRef(null);
   const isMounted = useRef(true);
-  const isTimeout = useRef(false); // flag to distinguish timeout abort from unmount abort
+  const isTimeout = useRef(false);
   const tenantId = tenant?.id;
 
   // Save filters to localStorage (debounced)
@@ -254,7 +265,7 @@ const MpesaRepaymentReports = () => {
       setFetchError(null);
       isTimeout.current = false;
 
-      // Try cache first (v2 to invalidate old un-grouped data)
+      // Try cache first
       const cacheKey = `mpesa-repayments-raw-data-v2-${tenantId}-${profile?.id}`;
       try {
         const cached = localStorage.getItem(cacheKey);
@@ -262,9 +273,11 @@ const MpesaRepaymentReports = () => {
           const { data, timestamp } = JSON.parse(cached);
           const cacheAge = Date.now() - timestamp;
           if (cacheAge < 24 * 60 * 60 * 1000) {
-            if (isMounted.current) setRawRepayments(data || []);
-            if (isMounted.current) setLoading(false);
-            if (isMounted.current) setIsInitialLoad(false);
+            if (isMounted.current) {
+              setRawRepayments(data || []);
+              setLoading(false);
+              setIsInitialLoad(false);
+            }
             return;
           }
         }
@@ -347,7 +360,7 @@ const MpesaRepaymentReports = () => {
       // Format data and group by Transaction ID to sum up split payments
       const groupedData = payments.reduce((acc, item) => {
         const rawReceipt = (item.mpesa_receipt || "").trim();
-        const mpesaReceipt = rawReceipt || `N/A-${item.id}`; // If ID is missing, keep separate
+        const mpesaReceipt = rawReceipt || `N/A-${item.id}`;
         const amount = parseFloat(item.paid_amount) || 0;
 
         if (!acc[mpesaReceipt]) {
@@ -366,7 +379,7 @@ const MpesaRepaymentReports = () => {
           const billRef = rawPayload?.BillRefNumber || "N/A";
 
           acc[mpesaReceipt] = {
-            id: mpesaReceipt, // React Key (must be consistent)
+            id: mpesaReceipt,
             customerName: fullName,
             idNumber: customer?.id_number || "N/A",
             mobile: item.phone_number || "N/A",
@@ -383,7 +396,6 @@ const MpesaRepaymentReports = () => {
             loanId: item.loan_id || null,
           };
         } else {
-          // If transaction ID is one we've seen, just add the amount (summing split payments)
           acc[mpesaReceipt].amountPaid += amount;
         }
         return acc;
@@ -398,37 +410,33 @@ const MpesaRepaymentReports = () => {
         console.error("Cache write error:", e);
       }
     } catch (err) {
-      // If aborted due to timeout, show error message
       if (signal.aborted && isTimeout.current && isMounted.current) {
         setFetchError("Request timed out after 30 seconds. Please try again.");
       } else if (!signal.aborted && isMounted.current) {
-        // Real error (not abort)
         console.error("Error fetching repayments:", err);
         setFetchError(err.message || "Failed to load data");
       }
-      // If aborted due to unmount, do nothing
     } finally {
       if (isMounted.current) {
         setLoading(false);
         setIsInitialLoad(false);
       }
     }
-  }, [tenantId]);
+  }, [tenantId, profile]);
 
   // Initial fetch with abort and timeout
   useEffect(() => {
     if (!tenantId) {
       setIsInitialLoad(false);
+      setLoading(false);
       return;
     }
 
     isMounted.current = true;
 
-    // Create new AbortController
     abortControllerRef.current = new AbortController();
     const signal = abortControllerRef.current.signal;
 
-    // Set timeout to abort after 30 seconds
     const timeoutId = setTimeout(() => {
       isTimeout.current = true;
       abortControllerRef.current?.abort();
@@ -449,7 +457,6 @@ const MpesaRepaymentReports = () => {
   const handleManualRefresh = useCallback(async () => {
     if (!tenantId || loading) return;
 
-    // Abort any ongoing request
     abortControllerRef.current?.abort();
 
     abortControllerRef.current = new AbortController();
@@ -465,7 +472,7 @@ const MpesaRepaymentReports = () => {
     clearTimeout(timeoutId);
   }, [tenantId, loading, fetchRepayments]);
 
-  // Date range helper (unchanged)
+  // Date range helper
   const getDateRange = useCallback((type) => {
     const now = new Date();
     let start = null, end = null;
@@ -498,7 +505,7 @@ const MpesaRepaymentReports = () => {
     return { start, end };
   }, []);
 
-  // Filtered and sorted data (unchanged)
+  // Filtered and sorted data
   const filteredData = useMemo(() => {
     let result = [...rawRepayments];
     const { search, branch, region, startDate, endDate, dateRangeType } = filters;
@@ -552,7 +559,7 @@ const MpesaRepaymentReports = () => {
     return result;
   }, [rawRepayments, filters, sortConfig, getDateRange]);
 
-  // Summary stats (unchanged)
+  // Summary stats
   const summaryStats = useMemo(() => {
     const totalCount = filteredData.length;
     const successfulCount = filteredData.filter(r => r.displayStatus === "success").length;
@@ -560,17 +567,26 @@ const MpesaRepaymentReports = () => {
     return { totalCount, successfulCount, totalAmount };
   }, [filteredData]);
 
-  // Pagination (unchanged)
+  // Pagination
   const pagination = useMemo(() => {
     const totalRows = filteredData.length;
-    const totalPages = Math.ceil(totalRows / itemsPerPage);
     const startIdx = (currentPage - 1) * itemsPerPage;
     const endIdx = Math.min(startIdx + itemsPerPage, totalRows);
     const currentData = filteredData.slice(startIdx, endIdx);
-    return { totalRows, totalPages, startIdx, endIdx, currentData };
+    return { totalRows, startIdx, endIdx, currentData };
   }, [filteredData, currentPage]);
 
-  // Handlers (unchanged)
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.region !== "" ||
+      filters.branch !== "" ||
+      filters.startDate !== "" ||
+      filters.endDate !== "" ||
+      filters.dateRangeType !== ""
+    );
+  }, [filters]);
+
+  // Handlers
   const handleSort = useCallback((key) => {
     setSortConfig(prev => ({
       key,
@@ -602,14 +618,155 @@ const MpesaRepaymentReports = () => {
     setCurrentPage(1);
   }, []);
 
+  // ========== Export Functions ==========
+  const exportToPDF = () => {
+    const doc = new jsPDF("l", "pt", "a4");
+    const companyName = tenant?.company_name || "Jasiri";
+    const reportTitle = "M-Pesa Repayments Report";
+
+    autoTable(doc, {
+      head: [
+        [
+          "No",
+          "Customer Name",
+          "Mobile",
+          "ID Number",
+          "Branch",
+          "Region",
+          "Transaction ID",
+          "Amount Paid",
+          "Account Paid",
+          "Status",
+          "Payment Date",
+        ],
+      ],
+      body: filteredData.map((r, i) => [
+        i + 1,
+        r.customerName,
+        r.mobile,
+        r.idNumber,
+        r.branch,
+        r.region,
+        r.transactionId,
+        formatCurrency(r.amountPaid),
+        r.billRef,
+        r.displayStatus,
+        r.paymentDate ? new Date(r.paymentDate).toLocaleString() : "N/A",
+      ]),
+      didDrawPage: (data) => {
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text(companyName, data.settings.margin.left, 40);
+        doc.setFontSize(12);
+        doc.text(reportTitle, data.settings.margin.left, 60);
+        doc.setFontSize(10);
+        doc.text(
+          `Generated on: ${new Date().toLocaleString()}`,
+          data.settings.margin.left,
+          80
+        );
+      },
+      margin: { top: 100 },
+      styles: { fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [26, 122, 74], textColor: [255, 255, 255] },
+    });
+
+    doc.save(
+      `${companyName.toLowerCase()}_mpesa_repayments_${new Date().toISOString().split("T")[0]}.pdf`
+    );
+  };
+
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      filteredData.map((r, i) => ({
+        No: i + 1,
+        "Customer Name": r.customerName,
+        Mobile: r.mobile,
+        "ID Number": r.idNumber,
+        Branch: r.branch,
+        Region: r.region,
+        "Transaction ID": r.transactionId,
+        "Amount Paid (KES)": r.amountPaid,
+        "Account Paid": r.billRef,
+        Status: r.displayStatus,
+        "Payment Date": r.paymentDate ? new Date(r.paymentDate).toLocaleString() : "N/A",
+      }))
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Repayments");
+    XLSX.writeFile(
+      workbook,
+      `${tenant?.company_name || "Jasiri"}_mpesa_repayments_${new Date().toISOString().split("T")[0]}.xlsx`
+    );
+  };
+
+  const exportToWord = async () => {
+    const table = new Table({
+      rows: [
+        new TableRow({
+          children: ["No", "Customer", "Mobile", "Transaction ID", "Amount Paid", "Status", "Date"].map(
+            (h) =>
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: h, bold: true })],
+                  }),
+                ],
+              })
+          ),
+        }),
+        ...filteredData.map((r, i) =>
+          new TableRow({
+            children: [
+              String(i + 1),
+              r.customerName,
+              r.mobile,
+              r.transactionId,
+              formatCurrency(r.amountPaid),
+              r.displayStatus,
+              r.paymentDate ? new Date(r.paymentDate).toLocaleDateString() : "N/A",
+            ].map((v) => new TableCell({ children: [new Paragraph(v)] })),
+          })
+        ),
+      ],
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: tenant?.company_name || "Jasiri",
+                  bold: true,
+                  size: 32,
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "M-Pesa Repayments Report", size: 24 })],
+            }),
+            new Paragraph({ text: `Generated on: ${new Date().toLocaleString()}` }),
+            new Paragraph({ text: "" }),
+            table,
+          ],
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(
+      blob,
+      `${tenant?.company_name || "Jasiri"}_mpesa_repayments_${new Date().toISOString().split("T")[0]}.docx`
+    );
+  };
+
   const exportToCSV = useCallback(() => {
     if (filteredData.length === 0) {
       alert("No data to export");
       return;
     }
-    const formatDate = (date) => date ? new Date(date).toLocaleDateString("en-KE", { year: 'numeric', month: 'short', day: 'numeric' }) : "N/A";
-    const formatTime = (date) => date ? new Date(date).toLocaleTimeString("en-KE", { hour: '2-digit', minute: '2-digit', hour12: false }) : "N/A";
-    const formatCurrency = (amount) => new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(amount || 0);
 
     const csv = [
       ["No", "Customer Name", "Customer ID", "Mobile", "ID Number", "Branch", "Region", "Transaction ID", "Bill Reference", "Amount Paid (KES)", "Status", "Payment Date", "Payment Time"],
@@ -631,140 +788,238 @@ const MpesaRepaymentReports = () => {
     ].map(row => row.join(",")).join("\n");
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `mpesa_repayments_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    saveAs(blob, `mpesa_repayments_${new Date().toISOString().split("T")[0]}.csv`);
   }, [filteredData]);
 
-  // Early returns
-  if (!tenantId) {
+  const handleExport = () => {
+    switch (exportFormat) {
+      case "pdf":
+        exportToPDF();
+        break;
+      case "excel":
+        exportToExcel();
+        break;
+      case "word":
+        exportToWord();
+        break;
+      case "csv":
+      default:
+        exportToCSV();
+        break;
+    }
+  };
+
+  // Dropdown Options mappings
+  const regionOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Regions" },
+      ...regions.map(r => ({ value: r.name, label: r.name }))
+    ];
+  }, [regions]);
+
+  const branchOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Branches" },
+      ...branches.map(b => ({ value: b.name, label: b.name }))
+    ];
+  }, [branches]);
+
+  const dateRangeOptions = [
+    { value: "", label: "Select Range" },
+    { value: "today", label: "Today" },
+    { value: "week", label: "This Week" },
+    { value: "month", label: "This Month" },
+    { value: "year", label: "This Year" },
+    { value: "custom", label: "Custom Range" },
+  ];
+
+  const exportFormatOptions = [
+    { value: "csv", label: "CSV" },
+    { value: "excel", label: "Excel" },
+    { value: "word", label: "Word" },
+    { value: "pdf", label: "PDF" },
+  ];
+
+  if (fetchError) {
     return (
-      <div className="min-h-screen bg-brand-surface flex items-center justify-center">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800">Tenant information missing</h2>
-          <p className="text-gray-600 mt-2">Please log in again to continue.</p>
+      <div className="min-h-screen bg-page flex items-center justify-center p-5 font-outfit animate-fade-in">
+        <div className="bg-card border border-border shadow-card rounded-xl p-8 max-w-md w-full text-center space-y-4">
+          <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-text-heading">Failed to Load Report</h3>
+          <p className="text-sm text-muted">{fetchError}</p>
+          <button
+            onClick={handleManualRefresh}
+            className="inline-flex items-center gap-2 px-5 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:opacity-90 transition-opacity"
+          >
+            <RefreshCw className="w-4 h-4" /> Retry
+          </button>
         </div>
       </div>
     );
   }
 
-  if (loading && isInitialLoad) {
-    return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Spinner text="Loading M-Pesa Repayments..." />
-      </div>
-    );
-  }
-
-  // Main render (JSX unchanged from original, except the table body now includes error state)
   return (
-    <div className="min-h-screen bg-muted p-6">
+    <div className="min-h-screen bg-page p-5 md:p-8 space-y-6 font-outfit animate-fade-in">
       <div className="max-w-[1600px] mx-auto space-y-6">
-        {/* Header Section (same as before) */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
 
-              <div>
-                <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
-                <h2 className="text-lg font-semibold text-white mt-1">M-Pesa Repayment Reports</h2>
-              </div>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+           
+            <h1 className="text-sm font-bold text-muted mt-0.5">M-Pesa Repayment Reports</h1>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder="Search name, ID, or phone"
+                className="bg-card border border-border text-text-primary placeholder:text-muted rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 w-64 transition"
+              />
             </div>
 
-            <div className="flex flex-col items-end gap-2">
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
+                showFilters
+                  ? "bg-brand text-white border-brand shadow-sm"
+                  : "bg-card text-text-secondary border-border hover:border-brand/50"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+              )}
+            </button>
 
-              <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
+            {/* Manual Refresh */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              title="Refresh data"
+              className="p-2 rounded-lg border border-border bg-card text-text-secondary hover:text-brand hover:border-brand/50 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
 
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all duration-300 border ${showFilters
-                      ? "bg-[#586ab1] text-white shadow-md border-transparent shadow shadow-[#586ab1]/30"
-                      : "text-white border-white/30 hover:bg-white/10 select-none"
-                    }`}
-                >
-                  <Filter className={`w-4 h-4 transition-transform duration-300 ${showFilters ? 'rotate-180' : ''}`} />
-                  <span>Filters</span>
-                </button>
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    <option value="csv">CSV</option>
-                    <option value="excel">Excel</option>
-                    <option value="word">Word</option>
-                    <option value="pdf">PDF</option>
-                  </select>
-                  <button
-                    onClick={exportToCSV}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-[#586ab1] text-white text-sm font-medium hover:opacity-90 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
-                </div>
-              </div>
+            {/* Export options */}
+            <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
+              <CustomSelect
+                options={exportFormatOptions}
+                value={exportFormat}
+                onChange={setExportFormat}
+                placeholder="Format"
+                compact
+              />
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand text-white text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Filter Panel (same) */}
+        {/* Filter Panel */}
         {showFilters && (
-          <div className="mb-4 bg-white/80 backdrop-blur-sm rounded-lg border border-white/20 p-3">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-gray-900">Filter Transactions</h3>
-              <button onClick={clearFilters} className="text-xs text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                <X className="w-3 h-3" />
-                Clear all
-              </button>
+          <div className="bg-card border border-border rounded-xl shadow-card p-5 space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-text-primary">Filter Results</h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" /> Clear all
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Region */}
               {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Region</label>
-                  <select value={filters.region} onChange={(e) => handleFilterChange("region", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
-                    <option value="">All Regions</option>
-                    {regions.map(region => <option key={region.id} value={region.name}>{region.name}</option>)}
-                  </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                    Region
+                  </label>
+                  <CustomSelect
+                    options={regionOptions}
+                    value={filters.region}
+                    onChange={(val) => handleFilterChange("region", val)}
+                    placeholder="All Regions"
+                    compact
+                    fullWidth
+                  />
                 </div>
               )}
+
+              {/* Branch */}
               {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 mb-1">Branch</label>
-                  <select value={filters.branch} onChange={(e) => handleFilterChange("branch", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
-                    <option value="">All Branches</option>
-                    {branches.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
-                  </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                    Branch
+                  </label>
+                  <CustomSelect
+                    options={branchOptions}
+                    value={filters.branch}
+                    onChange={(val) => handleFilterChange("branch", val)}
+                    placeholder="All Branches"
+                    compact
+                    fullWidth
+                  />
                 </div>
               )}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">Date Range</label>
-                <select value={filters.dateRangeType} onChange={(e) => handleFilterChange("dateRangeType", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none bg-white">
-                  <option value="">Select Range</option>
-                  <option value="today">Today</option>
-                  <option value="week">This Week</option>
-                  <option value="month">This Month</option>
-                  <option value="year">This Year</option>
-                  <option value="custom">Custom Range</option>
-                </select>
+
+              {/* Date Range */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                  Date Range
+                </label>
+                <CustomSelect
+                  options={dateRangeOptions}
+                  value={filters.dateRangeType}
+                  onChange={(val) => handleFilterChange("dateRangeType", val)}
+                  placeholder="Select Range"
+                  compact
+                  fullWidth
+                />
               </div>
+
+              {/* Custom Date Filters */}
               {filters.dateRangeType === "custom" && (
                 <>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">Start Date</label>
-                    <input type="date" value={filters.startDate} onChange={(e) => handleFilterChange("startDate", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                      Start Date
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.startDate}
+                      onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                      className="w-full bg-card border border-border text-text-primary rounded-lg px-3 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all"
+                    />
                   </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-700 mb-1">End Date</label>
-                    <input type="date" value={filters.endDate} onChange={(e) => handleFilterChange("endDate", e.target.value)} className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs focus:ring-1 focus:ring-blue-500 focus:outline-none" />
+
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                      End Date
+                    </label>
+                    <input
+                      type="date"
+                      value={filters.endDate}
+                      onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                      className="w-full bg-card border border-border text-text-primary rounded-lg px-3 py-1.5 text-xs font-semibold focus:ring-1 focus:ring-brand focus:border-brand outline-none transition-all"
+                    />
                   </div>
                 </>
               )}
@@ -772,120 +1027,126 @@ const MpesaRepaymentReports = () => {
           </div>
         )}
 
-        {/* Summary Metrics (same) */}
+        {/* Summary Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
-            <div className="w-12 h-12 bg-brand-primary/10 rounded-xl flex items-center justify-center text-brand-primary shrink-0 font-bold">KES</div>
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-brand">
+              KES
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase ">Total Collections</p>
-              <h3 className="text-2xl font-semibold text-accent">
-                {new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(summaryStats.totalAmount)}
+              <p className="text-xs text-muted font-medium  ">
+                Total Collections
+              </p>
+              <h3 className="text-xl font-bold text-text-primary mt-1 tabular-nums">
+                {formatCurrency(summaryStats.totalAmount)}
               </h3>
             </div>
           </div>
-          <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
-            <div className="w-12 h-12 bg-accent/10 rounded-xl flex items-center justify-center text-accent shrink-0 font-bold">#</div>
+
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-emerald-600">
+              #
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase ">Successful</p>
-              <h3 className="text-xl font-semibold text-gray-600">{summaryStats.successfulCount}</h3>
+              <p className="text-xs text-muted font-medium u">
+                Successful
+              </p>
+              <h3 className="text-2xl font-bold text-text-primary mt-1 tabular-nums">
+                {summaryStats.successfulCount}
+              </h3>
             </div>
           </div>
-          <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
-            <div className="w-12 h-12 bg-gray-100 rounded-xl flex items-center justify-center text-gray-500 shrink-0 font-bold">#</div>
+
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-text-secondary">
+              #
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase ">Total Transactions</p>
-              <h3 className="text-xl font-semibold text-gray-600">{summaryStats.totalCount}</h3>
+              <p className="text-xs text-muted font-medium ">
+                Total Transactions
+              </p>
+              <h3 className="text-2xl font-bold text-text-primary mt-1 tabular-nums">
+                {summaryStats.totalCount}
+              </h3>
             </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b border-gray-100">
-                <tr>
-                  <th className="px-6 py-4 font-semibold text-slate-600 text-sm text-left whitespace-nowrap">#</th>
-                  <SortableHeader label="Customer Name" sortKey="customerName" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Mobile" sortKey="mobile" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="ID Number" sortKey="idNumber" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Region" sortKey="region" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Transaction ID" sortKey="transactionId" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Amount Paid" sortKey="amountPaid" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Account Paid" sortKey="billRef" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Status" sortKey="displayStatus" sortConfig={sortConfig} onSort={handleSort} />
-                  <SortableHeader label="Payment Date" sortKey="paymentDate" sortConfig={sortConfig} onSort={handleSort} />
-                </tr>
-              </thead>
+        {/* Table Section */}
+        {loading && isInitialLoad ? (
+          <SkeletonTable rows={10} cols={11} />
+        ) : (
+          <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-surface border-b border-border">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-text-muted uppercase tracking-wider text-center whitespace-nowrap">
+                      #
+                    </th>
+                    <SortableHeader label="Customer Name" sortKey="customerName" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Mobile" sortKey="mobile" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="ID Number" sortKey="idNumber" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Region" sortKey="region" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Transaction ID" sortKey="transactionId" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Amount Paid" sortKey="amountPaid" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Account Paid" sortKey="billRef" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Status" sortKey="displayStatus" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Payment Date" sortKey="paymentDate" sortConfig={sortConfig} onSort={handleSort} />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-light">
+                  {loading && !isInitialLoad ? (
+                    <tr>
+                      <td colSpan="11" className="px-6 py-12 text-center text-text-muted italic font-medium">
+                        <RefreshCw className="w-6 h-6 animate-spin text-brand mx-auto mb-2" />
+                        Refreshing transactions...
+                      </td>
+                    </tr>
+                  ) : pagination.currentData.length === 0 ? (
+                    <tr>
+                      <td colSpan="11" className="px-6 py-12 text-center text-text-muted italic font-medium">
+                        No transactions found matching the criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    pagination.currentData.map((r, i) => (
+                      <RepaymentTableRow
+                        key={r.id}
+                        repayment={r}
+                        index={i}
+                        startIdx={pagination.startIdx}
+                      />
+                    ))
+                  )}
+                </tbody>
 
-              <tbody className="divide-y divide-gray-200">
-                {loading ? (
+                <tfoot className="bg-surface border-t-2 border-border font-bold">
                   <tr>
-                    <td colSpan={11} className="px-4 py-12 text-center">
-                      <RefreshCw className="w-6 h-6 animate-spin text-blue-600 mx-auto" />
-                      <p className="text-sm text-gray-500 mt-2">Loading transactions...</p>
+                    <td colSpan="7" className="px-6 py-4 text-right text-xs font-bold text-text-muted uppercase tracking-wider">
+                      Total ({pagination.totalRows} transactions):
                     </td>
-                  </tr>
-                ) : fetchError ? (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-12 text-center">
-                      <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
-                      <p className="text-sm text-red-600">Failed to load data: {fetchError}</p>
-                      <button
-                        onClick={handleManualRefresh}
-                        className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm hover:bg-blue-700"
-                      >
-                        Try Again
-                      </button>
+                    <td className="px-4 py-4 text-sm font-bold text-text-primary text-right whitespace-nowrap tabular-nums">
+                      {formatCurrency(summaryStats.totalAmount)}
                     </td>
+                    <td colSpan="3"></td>
                   </tr>
-                ) : pagination.currentData.length === 0 ? (
-                  <tr>
-                    <td colSpan={11} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center justify-center">
-                        <Search className="w-12 h-12 text-gray-400 mb-3" />
-                        <p className="text-sm text-gray-500">No transactions found</p>
-                        {Object.values(filters).some(val => val) && (
-                          <button onClick={clearFilters} className="mt-2 text-xs text-blue-600 hover:text-blue-800">
-                            Clear filters to see all transactions
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ) : (
-                  pagination.currentData.map((r, i) => (
-                    <RepaymentTableRow key={r.id} repayment={r} index={i} startIdx={pagination.startIdx} />
-                  ))
-                )}
-              </tbody>
+                </tfoot>
+              </table>
+            </div>
 
-              <tfoot className="bg-gray-50 border-t border-gray-200">
-                <tr>
-                  <td colSpan="7" className="px-4 py-3 text-right text-xs font-semibold text-gray-700 whitespace-nowrap">
-                    Total ({pagination.totalRows} transactions):
-                  </td>
-                  <td className="px-4 py-3 text-sm font-bold text-emerald-700 whitespace-nowrap">
-                    {new Intl.NumberFormat("en-KE", { style: "currency", currency: "KES", minimumFractionDigits: 0 }).format(summaryStats.totalAmount)}
-                  </td>
-                  <td colSpan="3"></td>
-                </tr>
-              </tfoot>
-            </table>
+            {/* Pagination Component */}
+            {!loading && pagination.totalRows > itemsPerPage && (
+              <Pagination
+                totalItems={pagination.totalRows}
+                itemsPerPage={itemsPerPage}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+              />
+            )}
           </div>
-
-          {!loading && pagination.totalPages > 1 && (
-            <PaginationControls
-              currentPage={currentPage}
-              totalPages={pagination.totalPages}
-              onPageChange={setCurrentPage}
-              startIdx={pagination.startIdx}
-              endIdx={pagination.endIdx}
-              totalRows={pagination.totalRows}
-            />
-          )}
-        </div>
+        )}
       </div>
     </div>
   );

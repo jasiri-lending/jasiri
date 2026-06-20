@@ -17,7 +17,6 @@ import {
   Document,
   Packer,
   Paragraph,
-  TextRun,
   Table,
   TableRow,
   TableCell,
@@ -26,6 +25,8 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { usePermissions } from "../../hooks/usePermissions";
+import CustomSelect from '../../components/CustomSelect';
+import { SkeletonTable } from '../../components/Skeleton';
 
 // ========== FORMATTING ==========
 const formatCurrency = (amount) => {
@@ -87,7 +88,6 @@ const IncomeStatement = () => {
         return `All Time through ${endDate.toLocaleString('default', { month: 'long' })}, ${endDate.getFullYear()}`;
     }
     if (startDate && endDate) {
-        // approx months
         const diffTime = Math.abs(endDate - startDate);
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
         const months = Math.max(1, Math.round(diffDays / 30));
@@ -102,7 +102,6 @@ const IncomeStatement = () => {
   }, [startDate, endDate, dateRange]);
 
   // ========== DATA FETCHING ==========
-  // Geographic Data
   useEffect(() => {
     const tenantId = tenant?.id;
     if (!tenantId) return;
@@ -192,15 +191,11 @@ const IncomeStatement = () => {
         }
       }
 
-      // Ensure start and end bounds
       start.setHours(0, 0, 0, 0);
       end.setHours(23, 59, 59, 999);
 
-      // YTD Start is always Jan 1st of the end date year
       const ytdStart = new Date(end.getFullYear(), 0, 1);
-      
       const queryStart = new Date(Math.min(start.getTime(), ytdStart.getTime()));
-      
       const queryStartStr = queryStart.toISOString();
       const endStr = end.toISOString();
 
@@ -294,7 +289,6 @@ const IncomeStatement = () => {
       const { data: disbursedLoans, error: dError } = await disbursedQuery;
       if (dError) throw dError;
 
-      // 4. Process Data
       const productInterests = {};
       const totals = {
         processing: { period: 0, ytd: 0 },
@@ -396,7 +390,6 @@ const IncomeStatement = () => {
   }, [tenant?.id, dateRange, startDate, endDate, filters, baseStartDate]);
 
   useEffect(() => {
-    // Check if start/end dates are valid before fetching
     if (startDate && endDate) {
       fetchData();
     }
@@ -426,27 +419,24 @@ const IncomeStatement = () => {
       totalYtdRevenue += item.ytdVal;
       wsData.push(["  " + item.name, item.periodVal, item.ytdVal]);
       wsData.push(["Total " + item.name, item.periodVal, item.ytdVal]);
-      wsData.push([""]); // Empty spacing row
+      wsData.push([""]);
     });
 
     wsData.push(["TOTAL REVENUE", totalPeriodRevenue, totalYtdRevenue]);
 
     const ws = XLSX.utils.aoa_to_sheet(wsData);
     
-    // Merge header rows to center them
     ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }, // Company Name
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } }, // title
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } }  // period
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 2 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 2 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 2 } }
     ];
 
-    // Center alignment for merged headers
     ['A1', 'A2', 'A3'].forEach(cell => {
       if(!ws[cell]) return;
       ws[cell].s = { alignment: { horizontal: "center" } };
     });
     
-    // Auto-size columns roughly
     ws['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 20 }];
     
     const wb = XLSX.utils.book_new();
@@ -491,7 +481,6 @@ const IncomeStatement = () => {
     const doc = new jsPDF();
     const companyName = tenant?.company_name || "Company Name";
     
-    // Header setup
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(0, 0, 0);
@@ -509,9 +498,7 @@ const IncomeStatement = () => {
         doc.text(`Filters: ${filters.region || 'All Regions'} / ${filters.branch || 'All Branches'}`, 105, 42, { align: "center" });
     }
     
-    // Calculate total lines needed to prepare the body array
     const bodyRows = [
-      // Section Header (simulated styling below)
       [{ content: "REVENUE", colSpan: 3, styles: { fillColor: [173, 216, 230], fontStyle: "bold" } }]
     ];
 
@@ -531,7 +518,6 @@ const IncomeStatement = () => {
             { content: formatCurrency(item.periodVal), styles: { fontStyle: "bold" } },
             { content: formatCurrency(item.ytdVal), styles: { fontStyle: "bold" } }
         ]);
-        // Blank row
         bodyRows.push(["", "", ""]);
     });
 
@@ -554,7 +540,6 @@ const IncomeStatement = () => {
         2: { halign: 'right' }
       },
       didParseCell: function(data) {
-          // Keep first column blank header empty visually, but format others
           if (data.section === 'head' && data.column.index === 0) {
               data.cell.text = "";
           }
@@ -657,224 +642,265 @@ const IncomeStatement = () => {
     setEndDate(new Date());
   };
 
+  const regionOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Regions" },
+      ...regions.map(r => ({ value: r, label: r }))
+    ];
+  }, [regions]);
+
+  const branchOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Branches" },
+      ...branches
+        .filter(b => !filters.region || b.region === filters.region)
+        .map(b => ({ value: b.name, label: b.name }))
+    ];
+  }, [branches, filters.region]);
+
+  const dateRangeOptions = [
+    { value: "today", label: "Today" },
+    { value: "week", label: "This Week" },
+    { value: "mtd", label: "This Month (MTD)" },
+    { value: "ytd", label: "This Year (YTD)" },
+    { value: "all", label: "All Time" },
+    { value: "custom", label: "Custom Range" }
+  ];
+
+  const exportFormatOptions = [
+    { value: "excel", label: "Excel" },
+    { value: "pdf", label: "PDF" },
+    { value: "csv", label: "CSV" },
+    { value: "word", label: "Word" }
+  ];
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <SkeletonTable rows={5} cols={3} />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 font-sans">
-      <div className="max-w-[1200px] mx-auto space-y-6">
-        
-        {/* Header Section for App UI Controls */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden mb-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-sm font-bold text-stone-600 uppercase tracking-wider">{tenant?.company_name || "Company Name"}</h1>
-                <h2 className="text-lg font-semibold text-white mt-1">
-                  Income Statement Report
-                </h2>
-              </div>
-            </div>
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
+        Reports / Income Statement
+      </h1>
 
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex gap-2 flex-wrap justify-end">
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-                    ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-white border-white/30 hover:bg-white/10"
-                    }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Filters</span>
-                  {(filters.region || filters.branch || dateRange !== 'mtd') && (
-                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${showFilters ? 'bg-white text-brand-primary' : 'bg-brand-primary text-white'}`}>
-                      Active
-                    </span>
-                  )}
-                </button>
+      <div className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
+        {/* Header Section */}
+        <div className="p-4 border-b border-border-light flex flex-col md:flex-row md:items-center justify-between gap-4 bg-surface">
+          <div>
+            <h2 className="text-xs font-semibold text-heading font-outfit uppercase tracking-wider">
+              {tenant?.company_name || "Company Name"}
+            </h2>
+            <h3 className="text-sm font-semibold text-heading font-outfit mt-1">
+              Income Statement Report
+            </h3>
+          </div>
 
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    <option value="excel">Excel</option>
-                    <option value="pdf">PDF</option>
-                    <option value="csv">CSV</option>
-                    <option value="word">Word</option>
-                  </select>
-                  <button
-                    onClick={handleExport}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
-                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
-                </div>
-                
-                <button 
-                  onClick={fetchData}
-                  disabled={refreshing}
-                  className="p-2 py-1.5 rounded-lg border border-gray-200 bg-white/90 text-gray-600 hover:bg-white transition-colors disabled:opacity-50"
-                  title="Refresh Data"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium transition-all border ${
+                showFilters
+                  ? "bg-brand-primary text-white shadow-sm border-transparent hover:bg-brand-primary/90"
+                  : "bg-card text-body border-border hover:bg-surface"
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filters</span>
+              {(filters.region || filters.branch || dateRange !== 'mtd') && (
+                <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${showFilters ? 'bg-white text-brand-primary' : 'bg-brand-primary text-white'}`}>
+                  Active
+                </span>
+              )}
+            </button>
+
+            <div className="flex items-center gap-2">
+              <div className="w-28 z-20">
+                <CustomSelect
+                  value={exportFormat}
+                  onChange={setExportFormat}
+                  options={exportFormatOptions}
+                  compact
+                  fullWidth
+                />
               </div>
+              <button
+                onClick={handleExport}
+                className="px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary/95 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
             </div>
+            
+            <button 
+              onClick={fetchData}
+              disabled={refreshing}
+              className="p-2 rounded-lg border border-border bg-card text-muted hover:bg-surface transition-colors disabled:opacity-50"
+              title="Refresh Data"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            </button>
           </div>
         </div>
 
         {/* Filters Section */}
         {showFilters && (
-          <div className="bg-slate-50 p-6 border border-gray-200 rounded-xl shadow-sm space-y-4 animate-in fade-in slide-in-from-top-2">
-            <h3 className="text-slate-600 text-sm font-semibold">Filter Results</h3>
+          <div className="p-4 border-b border-border-light bg-card/50 space-y-4 font-outfit">
+            <h4 className="text-xs font-semibold text-heading">Filter Results</h4>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-              <select
-                value={dateRange}
-                onChange={(e) => {
-                  setDateRange(e.target.value);
-                  setShowCustomDates(e.target.value === 'custom');
-                }}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
-              >
-                <option value="today">Today</option>
-                <option value="week">This Week</option>
-                <option value="mtd">This Month (MTD)</option>
-                <option value="ytd">This Year (YTD)</option>
-                <option value="all">All Time</option>
-                <option value="custom">Custom Range</option>
-              </select>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted uppercase">Date Range</label>
+                <CustomSelect
+                  value={dateRange}
+                  onChange={(val) => {
+                    setDateRange(val);
+                    setShowCustomDates(val === 'custom');
+                  }}
+                  options={dateRangeOptions}
+                  compact
+                  fullWidth
+                />
+              </div>
 
               {showCustomDates && (
                 <>
-                  <DatePicker 
-                    selected={startDate} 
-                    onChange={setStartDate} 
-                    className="w-full border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
-                    placeholderText="Start Date"
-                  />
-                  <DatePicker 
-                    selected={endDate} 
-                    onChange={setEndDate} 
-                    className="w-full border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
-                    placeholderText="End Date"
-                  />
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted uppercase">Start Date</label>
+                    <DatePicker 
+                      selected={startDate} 
+                      onChange={setStartDate} 
+                      className="w-full bg-card border border-border px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs"
+                      placeholderText="Start Date"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-semibold text-muted uppercase">End Date</label>
+                    <DatePicker 
+                      selected={endDate} 
+                      onChange={setEndDate} 
+                      className="w-full bg-card border border-border px-3 py-1.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary text-xs"
+                      placeholderText="End Date"
+                    />
+                  </div>
                 </>
               )}
-            </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {!['relationship_officer', 'branch_manager', 'customer_service_officer', 'regional_manager'].includes(profile?.role) && (
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map((region) => (
-                    <option key={region} value={region}>{region}</option>
-                  ))}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted uppercase">Region</label>
+                  <CustomSelect
+                    value={filters.region}
+                    onChange={(val) => handleFilterChange("region", val)}
+                    options={regionOptions}
+                    compact
+                    fullWidth
+                  />
+                </div>
               )}
 
               {!['relationship_officer', 'branch_manager', 'customer_service_officer'].includes(profile?.role) && (
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm"
-                >
-                  <option value="">All Branches</option>
-                  {branches
-                    .filter(b => !filters.region || b.region === filters.region)
-                    .map((b) => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
-                    ))}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted uppercase">Branch</label>
+                  <CustomSelect
+                    value={filters.branch}
+                    onChange={(val) => handleFilterChange("branch", val)}
+                    options={branchOptions}
+                    compact
+                    fullWidth
+                  />
+                </div>
               )}
+            </div>
 
+            <div className="flex justify-end pt-2">
               <button
                 onClick={clearFilters}
-                className="text-red-600 text-sm font-medium flex items-center gap-1 hover:text-red-700"
+                className="text-red-600 text-xs font-semibold flex items-center gap-1 hover:text-red-700 transition-colors"
               >
-                <X className="w-4 h-4" /> Clear Filters
+                <X className="w-3.5 h-3.5" /> Clear Filters
               </button>
             </div>
           </div>
         )}
 
         {/* Document Render Area */}
-        <div className="bg-gray-50 border text-sm text-slate-800 font-medium pb-20 shadow-sm" style={{ minHeight: '800px', padding: '40px 60px' }}>
+        <div className="p-6 md:p-10 bg-page text-sm text-body font-medium flex flex-col items-center">
+          <div className="bg-card w-full max-w-[800px] border border-border rounded-xl shadow-sm p-6 md:p-12 space-y-6">
             
-            {/* Core Report Content Only */}
+            {/* Header Block */}
+            <div className="text-center space-y-2 pb-6 border-b border-border-light">
+              <h3 className="text-sm font-bold text-heading uppercase tracking-wider">{tenant?.company_name || "Company Name"}</h3>
+              <h2 className="text-lg font-bold text-heading uppercase tracking-widest">INCOME STATEMENT</h2>
+              <p className="text-xs text-muted font-medium">{periodDescription}</p>
+            </div>
 
             {/* Table Header */}
-            <div className="grid grid-cols-12 pb-1 border-b border-black mb-4 px-2 italic text-slate-600 text-right">
-                <div className="col-span-6 text-left"></div>
-                <div className="col-span-3">{periodLabel}</div>
-                <div className="col-span-3">YTD</div>
+            <div className="grid grid-cols-12 pb-2 border-b border-heading mb-4 px-2 font-semibold text-heading text-right bg-surface rounded-t-lg">
+              <div className="col-span-6 text-left text-xs">Item</div>
+              <div className="col-span-3 text-xs">{periodLabel}</div>
+              <div className="col-span-3 text-xs">YTD</div>
             </div>
 
             {/* Main Content */}
             <div className="space-y-4">
-                <div className="bg-brand-primary/20 px-2 py-1 font-bold text-base tracking-wide">
-                    REVENUE
-                </div>
+              <div className="bg-brand/10 text-brand px-3 py-1.5 font-bold text-xs rounded tracking-wider uppercase">
+                REVENUE
+              </div>
 
-                <div className="px-2 space-y-4">
-                    {data.length > 0 ? data.map((item, idx) => (
-                        <div key={idx} className="space-y-1">
-                            {/* Summary label is removed to avoid repetition, name will show in the row below */}
-                            
-                            {/* Detail Row */}
-                            <div className="grid grid-cols-12 text-sm py-2 group hover:bg-slate-50 transition-colors">
-                                <div className="col-span-6 pl-4 font-medium text-slate-700">{item.name}</div>
-                                <div className="col-span-3 text-right">
-                                    <span className="">{formatCurrency(item.periodVal)}</span>
-                                </div>
-                                <div className="col-span-3 text-right">
-                                    <span className="">{formatCurrency(item.ytdVal)}</span>
-                                </div>
-                                {/* Tiny horizontal lines after each interest item */}
-                                <div className="col-span-12 mt-2 border-b border-slate-100 h-[1px] mx-4"></div>
-                            </div>
-                            
-                            {/* Subtotal Row */}
-                            <div className="grid grid-cols-12 text-sm pt-1 mb-4 items-baseline">
-                                <div className="col-span-6 italic font-semibold text-slate-500 pl-8">Total {item.name.toLowerCase().replace('interest on ', '')}</div>
-                                <div className="col-span-3 text-right">
-                                    <span className="border-t border-slate-600 py-[1px] px-1 font-bold text-slate-600">{formatCurrency(item.periodVal)}</span>
-                                </div>
-                                <div className="col-span-3 text-right">
-                                    <span className="border-t border-slate-600 py-[1px] px-1 font-bold text-slate-600">{formatCurrency(item.ytdVal)}</span>
-                                </div>
-                            </div>
-                        </div>
-                    )) : (
-                        <div className="py-8 text-center text-slate-500 italic">
-                            No revenue data found for this period.
-                        </div>
-                    )}
-                </div>
-
-                {/* Total Section */}
-                {data.length > 0 && (
-                    <div className="px-2 mt-8 py-6 bg-emerald-50/50 rounded-lg border-t-2 border-emerald-200">
-                        <div className="grid grid-cols-12 items-baseline">
-                            <div className="col-span-6 uppercase pl-4 text-lg  tracking-tight text-emerald-700">TOTAL REVENUE</div>
-                            <div className="col-span-3 text-right">
-                                <span className="text-xl pt-1 block uppercase pr-2 text-brand-primary font-semibold ">{formatCurrency(data.reduce((acc, curr) => acc + curr.periodVal, 0))}</span>
-                            </div>
-                            <div className="col-span-3 text-right">
-                                <span className="text-xl pt-1 block uppercase pr-2 text-brand-primary font-semibold ">{formatCurrency(data.reduce((acc, curr) => acc + curr.ytdVal, 0))}</span>
-                            </div>
-                        </div>
+              <div className="px-2 space-y-4">
+                {data.length > 0 ? data.map((item, idx) => (
+                  <div key={idx} className="space-y-2">
+                    {/* Detail Row */}
+                    <div className="grid grid-cols-12 text-xs py-2 items-center hover:bg-surface/30 transition-colors rounded px-2">
+                      <div className="col-span-6 pl-2 font-semibold text-heading uppercase tracking-tight">{item.name}</div>
+                      <div className="col-span-3 text-right text-body font-medium">{formatCurrency(item.periodVal)}</div>
+                      <div className="col-span-3 text-right text-body font-medium">{formatCurrency(item.ytdVal)}</div>
                     </div>
+                    
+                    {/* Subtotal Row */}
+                    <div className="grid grid-cols-12 text-xs pt-1 mb-2 items-baseline px-2">
+                      <div className="col-span-6 italic font-medium text-muted pl-6">Total {item.name.toLowerCase().replace('interest on ', '')}</div>
+                      <div className="col-span-3 text-right">
+                        <span className="border-t border-border-light pt-1 font-bold text-heading">{formatCurrency(item.periodVal)}</span>
+                      </div>
+                      <div className="col-span-3 text-right">
+                        <span className="border-t border-border-light pt-1 font-bold text-heading">{formatCurrency(item.ytdVal)}</span>
+                      </div>
+                    </div>
+
+                    {/* Separator line */}
+                    {idx < data.length - 1 && <div className="border-b border-border-light mx-2"></div>}
+                  </div>
+                )) : (
+                  <div className="py-8 text-center text-muted italic text-xs">
+                    No revenue data found for this period.
+                  </div>
                 )}
+              </div>
+
+              {/* Total Section */}
+              {data.length > 0 && (
+                <div className="px-4 py-4 mt-8 bg-surface rounded-xl border border-brand/20 shadow-sm">
+                  <div className="grid grid-cols-12 items-center">
+                    <div className="col-span-6 uppercase font-bold text-sm tracking-tight text-heading">TOTAL REVENUE</div>
+                    <div className="col-span-3 text-right">
+                      <span className="text-sm text-brand font-bold">{formatCurrency(data.reduce((acc, curr) => acc + curr.periodVal, 0))}</span>
+                    </div>
+                    <div className="col-span-3 text-right">
+                      <span className="text-sm text-brand font-bold">{formatCurrency(data.reduce((acc, curr) => acc + curr.ytdVal, 0))}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
+          </div>
         </div>
       </div>
     </div>

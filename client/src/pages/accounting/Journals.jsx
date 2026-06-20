@@ -1,18 +1,32 @@
-import React, { useEffect, useState } from "react";
-import { Eye, Plus, Search, CheckCircle, XCircle, MoreVertical, X, FileSpreadsheet, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import Spinner from "../../components/Spinner";
+import {
+  EyeIcon,
+  PlusIcon,
+  MagnifyingGlassIcon,
+  CheckCircleIcon,
+  XMarkIcon,
+  DocumentTextIcon,
+  ExclamationTriangleIcon,
+} from "@heroicons/react/24/outline";
+import SkeletonPage from "../../components/Skeleton";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../utils/api";
 import { usePermissions } from "../../hooks/usePermissions";
 import { Pagination } from "../../components/Pagination.jsx";
+import Modal from "../../components/Modal";
+import CustomSelect from "../../components/CustomSelect";
 
-function Journals() {
+export default function Journals() {
   const [journals, setJournals] = useState([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState(false); // Valid: boolean or ID string if needed, but here boolean is enough for modal
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Filter States
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [typeFilter, setTypeFilter] = useState("all");
 
   // Pagination State
   const [currentPage, setCurrentPage] = useState(1);
@@ -29,10 +43,27 @@ function Journals() {
   const toast = useToast();
   const { hasPermission } = usePermissions();
 
+  const statusOptions = [
+    { value: "all", label: "All Statuses" },
+    { value: "pending", label: "Pending" },
+    { value: "posted", label: "Posted" },
+    { value: "approved", label: "Approved" },
+    { value: "rejected", label: "Rejected" },
+  ];
+
+  // Dynamic list of unique journal types loaded from journals
+  const typeOptions = [
+    { value: "all", label: "All Types" },
+    ...Array.from(new Set(journals.map((j) => j.journal_type).filter(Boolean))).map((t) => ({
+      value: t.toLowerCase(),
+      label: t,
+    })),
+  ];
+
   const fetchJournals = async () => {
     try {
       const response = await apiFetch(`/api/journals`, {
-        method: 'GET'
+        method: "GET",
       });
 
       const data = await response.json();
@@ -70,22 +101,22 @@ function Journals() {
   };
 
   const handleSubmitAction = async () => {
-    if (modalAction === 'reject' && !actionReason.trim()) {
+    if (modalAction === "reject" && !actionReason.trim()) {
       toast.error("Rejection reason is required");
       return;
     }
 
     setActionLoading(true);
-    const endpoint = modalAction === 'approve' ? 'approve' : 'reject';
+    const endpoint = modalAction === "approve" ? "approve" : "reject";
     const body = {
       tenant_id: profile?.tenant_id,
-      reason: actionReason
+      reason: actionReason,
     };
 
     try {
       const response = await apiFetch(`/api/journals/${selectedJournalId}/${endpoint}`, {
-        method: 'POST',
-        body: JSON.stringify(body)
+        method: "POST",
+        body: JSON.stringify(body),
       });
 
       const data = await response.json();
@@ -107,24 +138,29 @@ function Journals() {
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
-      case 'pending':
-        return 'bg-yellow-100 text-yellow-800';
-      case 'posted':
-        return 'bg-green-100 text-green-800';
-      case 'approved':
-        return 'bg-blue-100 text-blue-800';
-      case 'rejected':
-        return 'bg-red-100 text-red-800';
+      case "pending":
+        return "bg-warning-fill text-warning-text border border-warning-text/10";
+      case "posted":
+      case "approved":
+        return "bg-success-fill text-success-text border border-success-text/10";
+      case "rejected":
+        return "bg-danger-fill text-danger-text border border-danger-text/10";
       default:
-        return 'bg-gray-100 text-gray-800';
+        return "bg-surface text-muted border border-border-light";
     }
   };
 
-  const filteredJournals = journals.filter((j) =>
-    j.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
-    j.description?.toLowerCase().includes(search.toLowerCase()) ||
-    j.journal_type?.toLowerCase().includes(search.toLowerCase())
-  );
+  const filteredJournals = journals.filter((j) => {
+    const matchesSearch =
+      j.customer_name?.toLowerCase().includes(search.toLowerCase()) ||
+      j.description?.toLowerCase().includes(search.toLowerCase()) ||
+      j.journal_type?.toLowerCase().includes(search.toLowerCase());
+
+    const matchesStatus = statusFilter === "all" || j.status?.toLowerCase() === statusFilter;
+    const matchesType = typeFilter === "all" || j.journal_type?.toLowerCase() === typeFilter;
+
+    return matchesSearch && matchesStatus && matchesType;
+  });
 
   // Pagination Logic
   const totalPages = Math.ceil(filteredJournals.length / itemsPerPage);
@@ -133,250 +169,217 @@ function Journals() {
     currentPage * itemsPerPage
   );
 
-
-
-  // Reset to page 1 when search changes
+  // Reset to page 1 when search or filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [search]);
+  }, [search, statusFilter, typeFilter]);
 
   if (loading) {
-    return (
-
-      <div className="p-6 bg-muted min-h-screen flex items-center justify-center">
-        <Spinner text="Loading journals..." />
-      </div>
-    );
+    return <SkeletonPage />;
   }
 
   return (
-    <div className="p-6 bg-muted min-h-screen font-outfit">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
-        Journals / Journals Summary
-      </h1>
-
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          {/* NEW ENTRY BUTTON */}
-          {hasPermission('journal.create') && (
-            <button
-              className="px-2 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-white transition-colors bg-brand-primary hover:bg-brand-secondary"
-              onClick={() => navigate("/journals/new")}
-            >
-              <Plus size={14} /> New Entry
-            </button>
-          )}
-          <button
-            className="px-2 py-1.5 rounded-md flex items-center gap-1.5 text-xs font-medium text-brand-primary border border-brand-primary hover:bg-brand-secondary/10 transition-colors ml-2"
-            onClick={() => navigate("/accounting/gl-entries")}
-          >
-            <FileSpreadsheet size={14} /> General Journal
-          </button>
-
-          <div className="relative">
-            <Search
-              size={14}
-              className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400"
-            />
-            <input
-              type="text"
-              placeholder="Search by customer, description, or type..."
-              className="border border-gray-300 rounded-md pl-8 pr-3 py-1.5 w-64 text-xs focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-transparent"
-              style={{ focusRingColor: "#586ab1" }}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <div className="w-full space-y-6">
+        {/* Header / Breadcrumbs */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h1 className="text-base font-semibold text-heading tracking-tight">Journals Summary</h1>
+            <p className="text-muted text-xs mt-0.5">
+              Manage and audit double-entry accounting journals
+            </p>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="overflow-x-auto font-outfit">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Journal Type
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Customer
-                </th>
-                <th className="px-4 py-3 text-right text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Amount
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Description
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Status
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Created By
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Date
-                </th>
-                <th className="px-4 py-3 text-center text-xs font-medium text-slate-600 whitespace-nowrap">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-
-            <tbody>
-              {paginatedJournals.map((j) => (
-                <tr
-                  key={j.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-4 py-3 text-xs font-outfit  text-gray-600 whitespace-nowrap">
-                    {j.journal_type}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
-                    {j.customer_name || "Unknown"}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 text-right font-medium whitespace-nowrap">
-                    {parseFloat(j.amount).toLocaleString('en-US', {
-                      minimumFractionDigits: 2,
-                      maximumFractionDigits: 2
-                    })}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 max-w-xs ">
-                    {j.description}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(j.status)}`}
-                    >
-                      {j.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
-                    {j.created_by_name}
-                  </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600 text-center whitespace-nowrap">
-                    {new Date(j.created_at).toLocaleDateString("en-GB", {
-                      day: "2-digit",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <div className="flex items-center justify-center gap-1">
-                      <button
-                        className="inline-flex items-center justify-center p-1 rounded text-brand-primary hover:text-brand-secondary transition-colors"
-                        onClick={() => navigate(`/journals/${j.id}`)}
-                        aria-label="View journal"
-                        title="View Details"
-                      >
-                        <Eye className="text-gray-600 hover:text-brand-primary" size={16} />
-                      </button>
-
-                      {j.status === 'pending' && hasPermission('journal.approve') && (
-                        <button
-                          className="inline-flex items-center justify-center p-1 rounded  transition-colors text-brand-primary hover:text-brand-secondary"
-                          onClick={() => navigate(`/journals/${j.id}`)}
-                          aria-label="Approve journal"
-                          title="Review & Approve"
-                        >
-                          <CheckCircle size={16} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {filteredJournals.length === 0 && (
-          <div className="p-8 text-center text-xs text-gray-500">
-            {journals.length === 0 ? "No journals found" : "No matching journals"}
-          </div>
-        )}
-
-        <Pagination
-          totalItems={filteredJournals.length}
-          itemsPerPage={itemsPerPage}
-          currentPage={currentPage}
-          onPageChange={setCurrentPage}
-        />
-      </div>
-      {/* ACTION MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Modal Header */}
-            <div className={`px-6 py-4 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-blue-50 border-blue-100' : 'bg-red-50 border-red-100'
-              }`}>
-              <h3 className={`text-sm font-semibold ${modalAction === 'approve' ? 'text-brand-primary' : 'text-red-800'
-                }`}>
-                {modalAction === 'approve' ? 'Approve Journal Entry' : 'Reject Journal Entry'}
-              </h3>
+        {/* Toolbar & Filter Card */}
+        <div className="bg-card rounded-xl border border-border shadow-card p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="flex flex-wrap items-center gap-2">
+            {hasPermission("journal.create") && (
               <button
-                onClick={closeActionModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
-                disabled={actionLoading}
+                className="inline-flex items-center gap-1.5 bg-brand-primary text-white px-3.5 py-2 rounded-lg hover:bg-brand-primary/90 transition-all shadow-btn text-xs active:scale-95 font-medium"
+                onClick={() => navigate("/journals/new")}
               >
-                <X size={18} />
+                <PlusIcon className="w-3.5 h-3.5" />
+                New Entry
               </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="p-6">
-              {actionLoading ? (
-                <div className="py-8 flex justify-center">
-                  <Spinner text={modalAction === 'approve' ? 'Approving Journal...' : 'Rejecting Journal...'} />
-                </div>
-              ) : (
-                <>
-                  <p className="text-sm text-gray-600 mb-4">
-                    {modalAction === 'approve'
-                      ? 'Are you sure you want to approve this journal? This will post the transaction to the ledger and update wallet balances.'
-                      : 'Please provide a reason for rejecting this journal entry.'
-                    }
-                  </p>
-
-                  <div className="space-y-2">
-                    <label className="block text-xs font-medium text-gray-700">
-                      {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
-                    </label>
-                    <textarea
-                      className="w-full text-xs border border-gray-300 rounded-md p-2 focus:ring-2 focus:ring-brand-btn focus:border-transparent outline-none transition-all"
-                      rows={4}
-                      placeholder={modalAction === 'approve' ? 'Enter any notes...' : 'Enter reason for rejection...'}
-                      value={actionReason}
-                      onChange={(e) => setActionReason(e.target.value)}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            {!actionLoading && (
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
-                <button
-                  onClick={closeActionModal}
-                  className="px-4 py-2 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleSubmitAction}
-                  className={`px-4 py-2 text-xs font-medium text-white rounded-md transition-colors ${modalAction === 'approve'
-                    ? 'bg-blue-600 hover:bg-blue-700'
-                    : 'bg-red-600 hover:bg-red-700'
-                    }`}
-                >
-                  {modalAction === 'approve' ? 'Confirm Approval' : 'Confirm Rejection'}
-                </button>
-              </div>
             )}
+            <button
+              className="inline-flex items-center gap-1.5 bg-surface border border-border text-body px-3.5 py-2 rounded-lg hover:border-brand-primary/40 hover:text-brand-primary transition-colors text-xs font-medium"
+              onClick={() => navigate("/accounting/gl-entries")}
+            >
+              <DocumentTextIcon className="w-3.5 h-3.5" />
+              General Journal
+            </button>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+            {/* Status Filter */}
+            <div className="w-full sm:w-40">
+              <CustomSelect
+                value={statusFilter}
+                onChange={setStatusFilter}
+                options={statusOptions}
+                compact
+              />
+            </div>
+
+            {/* Type Filter */}
+            <div className="w-full sm:w-44">
+              <CustomSelect
+                value={typeFilter}
+                onChange={setTypeFilter}
+                options={typeOptions}
+                compact
+              />
+            </div>
+
+            {/* Search Bar */}
+            <div className="relative">
+              <MagnifyingGlassIcon className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted w-3.5 h-3.5" />
+              <input
+                type="text"
+                placeholder="Search..."
+                className="w-full sm:w-56 pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-card focus:outline-none focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10 hover:border-muted transition-all"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
           </div>
         </div>
-      )}
+
+        {/* Table Card */}
+        <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse">
+              <thead className="bg-surface border-b border-border-light text-muted text-[10px] font-semibold uppercase tracking-wider">
+                <tr>
+                  <th className="px-5 py-3.5">Journal Type</th>
+                  <th className="px-5 py-3.5">Customer</th>
+                  <th className="px-5 py-3.5 text-right">Amount</th>
+                  <th className="px-5 py-3.5">Description</th>
+                  <th className="px-5 py-3.5 text-center">Status</th>
+                  <th className="px-5 py-3.5">Created By</th>
+                  <th className="px-5 py-3.5 text-center">Date</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+
+              <tbody className="divide-y divide-border-light">
+                {paginatedJournals.map((j) => (
+                  <tr key={j.id} className="hover:bg-surface/30 transition-colors">
+                    <td className="px-5 py-3.5">
+                      <p className="text-xs font-semibold text-heading uppercase tracking-wider">
+                        {j.journal_type}
+                      </p>
+                    </td>
+                    <td className="px-5 py-3.5">
+                      <p className="text-xs text-body font-medium">{j.customer_name || "—"}</p>
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <span className="text-xs font-semibold text-heading">
+                        {parseFloat(j.amount).toLocaleString("en-US", {
+                          minimumFractionDigits: 2,
+                          maximumFractionDigits: 2,
+                        })}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 max-w-xs truncate">
+                      <span className="text-xs text-muted" title={j.description}>
+                        {j.description}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-center">
+                      <span
+                        className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-semibold tracking-wider uppercase ${getStatusColor(
+                          j.status
+                        )}`}
+                      >
+                        {j.status}
+                      </span>
+                    </td>
+                    <td className="px-5 py-3.5 text-xs text-muted">{j.created_by_name}</td>
+                    <td className="px-5 py-3.5 text-xs text-muted text-center">
+                      {new Date(j.created_at).toLocaleDateString("en-GB", {
+                        day: "2-digit",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </td>
+                    <td className="px-5 py-3.5 text-right">
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          className="p-1.5 text-muted hover:text-brand-primary hover:bg-success-fill rounded-lg transition-colors"
+                          onClick={() => navigate(`/journals/${j.id}`)}
+                          title="View Details"
+                        >
+                          <EyeIcon className="w-4 h-4" />
+                        </button>
+
+                        {j.status === "pending" && hasPermission("journal.approve") && (
+                          <button
+                            className="p-1.5 text-muted hover:text-brand-primary hover:bg-success-fill rounded-lg transition-colors"
+                            onClick={() => navigate(`/journals/${j.id}`)}
+                            title="Review & Approve"
+                          >
+                            <CheckCircleIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+                {filteredJournals.length === 0 && (
+                  <tr>
+                    <td colSpan="8" className="px-5 py-12 text-center text-xs text-muted">
+                      {journals.length === 0 ? "No journals found" : "No matching journals"}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+
+          <Pagination
+            totalItems={filteredJournals.length}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+          />
+        </div>
+      </div>
+
+      {/* Approve/Reject Modal Action */}
+      <Modal
+        open={isModalOpen}
+        title={modalAction === "approve" ? "Approve Journal Entry" : "Reject Journal Entry"}
+        onClose={closeActionModal}
+        onSave={handleSubmitAction}
+        saving={actionLoading}
+        saveLabel={modalAction === "approve" ? "Confirm Approval" : "Confirm Rejection"}
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-muted leading-relaxed">
+            {modalAction === "approve"
+              ? "Are you sure you want to approve this journal? This will post the transaction to the ledger and update wallet balances."
+              : "Please provide a reason for rejecting this journal entry."}
+          </p>
+
+          <div className="space-y-1.5">
+            <label className="block text-xs font-semibold text-heading">
+              {modalAction === "approve" ? "Approval Note (Optional)" : "Rejection Reason (Required)"}
+            </label>
+            <textarea
+              className="block w-full rounded-lg border bg-card text-xs py-2 px-3 transition-all outline-none placeholder:text-muted border-border hover:border-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+              rows={4}
+              placeholder={
+                modalAction === "approve" ? "Enter any notes..." : "Enter reason for rejection..."
+              }
+              value={actionReason}
+              onChange={(e) => setActionReason(e.target.value)}
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
-
-export default Journals;

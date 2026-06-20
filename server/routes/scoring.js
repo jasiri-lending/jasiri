@@ -10,52 +10,6 @@ router.use(verifySupabaseToken);
 router.use(checkTenantAccess);
 
 /**
- * POST /api/scoring/calculate/:customerId
- * Trigger a new credit score calculation
- */
-router.post("/calculate/:customerId", async (req, res) => {
-  try {
-    const { customerId } = req.params;
-    const tenantId = req.user.tenant_id;
-
-    if (!customerId) {
-      return res.status(400).json({ success: false, error: "Customer ID is required" });
-    }
-
-    const result = await calculateCreditScore(customerId, tenantId);
-    res.json(result);
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
- * GET /api/scoring/:customerId
- * Fetch latest score for a customer
- */
-router.get("/:customerId", async (req, res) => {
-  try {
-    const { customerId } = req.params;
-    const tenantId = req.user.tenant_id;
-
-    const { data, error } = await supabase
-      .from("credit_scores")
-      .select("*")
-      .eq("customer_id", customerId)
-      .eq("tenant_id", tenantId)
-      .order("calculated_at", { ascending: false })
-      .limit(1)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "No records found"
-
-    res.json({ success: true, data: data || null });
-  } catch (error) {
-    res.status(500).json({ success: false, error: error.message });
-  }
-});
-
-/**
  * POST /api/scoring/rules
  * Create or update a scoring rule
  */
@@ -106,6 +60,75 @@ router.get("/rules", async (req, res) => {
     if (error) throw error;
 
     res.json({ success: true, data });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * DELETE /api/scoring/rules/:id
+ * Delete a scoring rule
+ */
+router.delete("/rules/:id", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tenantId = req.user.tenant_id;
+
+    const { error } = await supabaseAdmin
+      .from("scoring_rules")
+      .delete()
+      .eq("id", id)
+      .eq("tenant_id", tenantId);
+
+    if (error) throw error;
+
+    res.json({ success: true, message: "Rule deleted successfully" });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * POST /api/scoring/calculate/:customerId
+ * Trigger a new credit score calculation
+ */
+router.post("/calculate/:customerId", async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const tenantId = req.user.tenant_id;
+
+    if (!customerId) {
+      return res.status(400).json({ success: false, error: "Customer ID is required" });
+    }
+
+    const result = await calculateCreditScore(customerId, tenantId);
+    res.json(result);
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * GET /api/scoring/:customerId
+ * Fetch latest score for a customer
+ */
+router.get("/:customerId", async (req, res) => {
+  try {
+    const { customerId } = req.params;
+    const tenantId = req.user.tenant_id;
+
+    const { data, error } = await supabase
+      .from("credit_scores")
+      .select("*")
+      .eq("customer_id", customerId)
+      .eq("tenant_id", tenantId)
+      .order("calculated_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error; // PGRST116 is "No records found"
+
+    res.json({ success: true, data: data || null });
   } catch (error) {
     res.status(500).json({ success: false, error: error.message });
   }

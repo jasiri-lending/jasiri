@@ -1,12 +1,24 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, User, Phone, Building, X, ArrowRight, IdCard } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  UserIcon,
+  PhoneIcon,
+  BuildingOfficeIcon,
+  XMarkIcon,
+  ArrowRightIcon,
+  IdentificationIcon,
+  ShieldExclamationIcon,
+} from "@heroicons/react/24/outline";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
 import { useToast } from "../../components/Toast.jsx";
 import { usePermissions } from "../../hooks/usePermissions";
+import CustomSelect from "../../components/CustomSelect";
+import Spinner from "../../components/Spinner";
+import { SkeletonForm } from "../../components/Skeleton";
 
-function NewJournalEntry() {
+export default function NewJournalEntry() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const toast = useToast();
@@ -43,7 +55,7 @@ function NewJournalEntry() {
     recipient_id_number: "",
     recipient_phone: "",
     recipient_search: "",
-    customer_wallet_balance: 0
+    customer_wallet_balance: 0,
   });
 
   const { profile } = useAuth();
@@ -68,7 +80,7 @@ function NewJournalEntry() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (formData.account_search && formData.account_search.length >= 2) {
-        searchCustomers(formData.account_search, 'primary');
+        searchCustomers(formData.account_search, "primary");
       } else {
         setCustomers([]);
         setShowAccountDropdown(false);
@@ -81,7 +93,7 @@ function NewJournalEntry() {
   useEffect(() => {
     const delayDebounceFn = setTimeout(() => {
       if (formData.recipient_search && formData.recipient_search.length >= 2) {
-        searchCustomers(formData.recipient_search, 'recipient');
+        searchCustomers(formData.recipient_search, "recipient");
       } else {
         setRecipients([]);
         setShowRecipientDropdown(false);
@@ -93,16 +105,18 @@ function NewJournalEntry() {
   const searchCustomers = async (searchTerm, type) => {
     if (!profile?.tenant_id) return;
 
-    if (type === 'primary') setSearchingCustomers(true);
+    if (type === "primary") setSearchingCustomers(true);
     else setSearchingRecipients(true);
 
     try {
       const response = await apiFetch(
-        `/api/journals/search-customers?tenant_id=${profile.tenant_id}&search=${encodeURIComponent(searchTerm)}`
+        `/api/journals/search-customers?tenant_id=${profile.tenant_id}&search=${encodeURIComponent(
+          searchTerm
+        )}`
       );
       const data = await response.json();
       if (data.success) {
-        if (type === 'primary') {
+        if (type === "primary") {
           setCustomers(data.customers || []);
           setShowAccountDropdown(true);
         } else {
@@ -116,30 +130,30 @@ function NewJournalEntry() {
       console.error("Error searching customers:", error);
       toast.error("Failed to search customers. Please try again.");
     } finally {
-      if (type === 'primary') setSearchingCustomers(false);
+      if (type === "primary") setSearchingCustomers(false);
       else setSearchingRecipients(false);
     }
   };
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: value,
     }));
 
     // Clear description error when typing
-    if (name === 'description' && value.trim()) {
+    if (name === "description" && value.trim()) {
       setDescriptionError("");
     }
 
     // Live Validation for Amount
-    if (name === 'amount' || name === 'journal_type') {
-      const amount = name === 'amount' ? parseFloat(value) : parseFloat(formData.amount);
-      const type = name === 'journal_type' ? value : formData.journal_type;
+    if (name === "amount" || name === "journal_type") {
+      const amount = name === "amount" ? parseFloat(value) : parseFloat(formData.amount);
+      const type = name === "journal_type" ? value : formData.journal_type;
       const balance = parseFloat(formData.customer_wallet_balance);
 
-      if (amount && (type === 'transfer' || type === 'debit')) {
+      if (amount && (type === "transfer" || type === "debit")) {
         if (amount > balance) {
           setAmountError(`Amount exceeds wallet balance (KES ${balance.toLocaleString()})`);
         } else {
@@ -152,7 +166,7 @@ function NewJournalEntry() {
   };
 
   const selectCustomer = (customer) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       customer_id: customer.id,
       customer_phone: customer.phone,
@@ -160,71 +174,49 @@ function NewJournalEntry() {
       customer_name: customer.display_name,
       account_name: customer.display_name,
       account_search: customer.display_name,
-      customer_wallet_balance: customer.wallet_balance || 0
+      customer_wallet_balance: customer.wallet_balance || 0,
     }));
     setShowAccountDropdown(false);
-    
+
     // Clear amount error when customer changes
     setAmountError("");
   };
 
   const selectRecipient = (customer) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       recipient_id: customer.id,
       recipient_name: customer.display_name,
       recipient_id_number: customer.id_number,
       recipient_phone: customer.phone,
-      recipient_search: customer.display_name
+      recipient_search: customer.display_name,
     }));
     setShowRecipientDropdown(false);
   };
 
   const clearCustomerSelection = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
+      customer_id: "",
+      customer_phone: "",
       customer_id_number: "",
       customer_name: "",
       account_name: "",
-      account_search: ""
+      account_search: "",
+      customer_wallet_balance: 0,
     }));
     setCustomers([]);
   };
 
   const clearRecipientSelection = () => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       recipient_id: "",
       recipient_name: "",
       recipient_id_number: "",
       recipient_phone: "",
-      recipient_search: ""
-    }));
-    setRecipients([]);
-  };
-  
-  const resetForm = () => {
-    setFormData({
-      journal_type: "",
-      account_type: "",
-      account_name: "",
-      amount: "",
-      description: "",
-      customer_id: "",
-      customer_phone: "",
-      customer_name: "",
-      customer_id_number: "",
-      account_search: "",
-      recipient_id: "",
-      recipient_name: "",
-      recipient_id_number: "",
-      recipient_phone: "",
       recipient_search: "",
-      customer_wallet_balance: 0
-    });
-    setAmountError("");
-    setDescriptionError("");
-    setCustomers([]);
+    }));
     setRecipients([]);
   };
 
@@ -249,7 +241,7 @@ function NewJournalEntry() {
       return;
     }
 
-    if (formData.journal_type === 'transfer') {
+    if (formData.journal_type === "transfer") {
       if (!formData.recipient_id) {
         toast.error("Please select a recipient for the transfer.");
         return;
@@ -261,7 +253,7 @@ function NewJournalEntry() {
     }
 
     // Wallet Balance Validation for Transfer and Debit
-    if (formData.journal_type === 'transfer' || formData.journal_type === 'debit') {
+    if (formData.journal_type === "transfer" || formData.journal_type === "debit") {
       const amount = parseFloat(formData.amount);
       const balance = parseFloat(formData.customer_wallet_balance);
       if (amount > balance) {
@@ -286,19 +278,18 @@ function NewJournalEntry() {
         tenant_id: profile?.tenant_id,
         customer_id: formData.customer_id,
         customer_name: formData.customer_name,
-        recipient_id: formData.recipient_id || null
+        recipient_id: formData.recipient_id || null,
       };
 
       const response = await apiFetch(`/api/journals`, {
-        method: 'POST',
-        body: JSON.stringify(payload)
+        method: "POST",
+        body: JSON.stringify(payload),
       });
 
       const data = await response.json();
 
       if (data.success) {
         toast.success("Journal created successfully!");
-        // Use a slight delay or direct path to ensure navigation
         navigate("/accounting/journals");
         return;
       } else {
@@ -315,344 +306,389 @@ function NewJournalEntry() {
   const journalTypes = [
     { value: "debit", label: "Debit (Withdrawal/Charge)" },
     { value: "credit", label: "Credit (Deposit/Top Up)" },
-    { value: "transfer", label: "Transfer (Customer to Customer)" }
+    { value: "transfer", label: "Transfer (Customer to Customer)" },
   ];
 
   const accountTypes = [
     { value: "Customer Account", label: "Customer Account" },
     { value: "General Ledger", label: "General Ledger" },
     { value: "Income", label: "Income" },
-    { value: "Expense", label: "Expense" }
+    { value: "Expense", label: "Expense" },
   ];
 
-  // Helper Labels based on type
   const getPrimaryLabel = () => {
-    if (formData.journal_type === 'transfer') return "Sender (From)";
+    if (formData.journal_type === "transfer") return "Sender (From)";
     return "Customer Account";
   };
 
-  return (
-    <div className="p-6 bg-muted min-h-screen">
-      <div className="mb-4 text-xs font-outfit text-gray-600">
-        Journals / Create Journal Voucher
+  const inputClass = (hasError) =>
+    `block w-full rounded-lg border bg-card text-sm py-2 px-3 transition-all outline-none placeholder:text-muted ${
+      hasError
+        ? "border-danger/40 focus:border-danger focus:ring-2 focus:ring-danger-fill"
+        : "border-border hover:border-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
+    }`;
+
+  if (permsLoading) {
+    return (
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <div className="max-w-4xl mx-auto">
+          <SkeletonForm />
+        </div>
       </div>
+    );
+  }
 
-      {(!permsLoading && !hasPermission('journal.create')) ? (
-        <div className="bg-red-50 border border-red-200 text-red-700 p-8 rounded-lg text-center">
-          <h2 className="text-lg font-bold mb-2">Access Denied</h2>
-          <p>You do not have permission to create journal entries.</p>
-          <button 
-            onClick={() => navigate("/accounting/journals")}
-            className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700"
-          >
-            Go Back
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-sm shadow-sm">
-        <div className="border-b">
-          <div className="px-6 py-3">
-            <span className="inline-block px-2 py-1.5 bg-brand-secondary text-white text-xs font-outfit rounded">
-              Journal Voucher
-            </span>
-          </div>
+  return (
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <div className="max-w-4xl mx-auto space-y-6">
+        {/* Breadcrumbs */}
+        <div className="mb-2 text-xs text-muted">
+          Journals / Create Journal Voucher
         </div>
 
-        <div className="p-6">
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            <div>
-              <label className=" text-xs font-outfit text-gray-600 mb-2">
-                Type
-              </label>
-              <select
-                name="journal_type"
-                value={formData.journal_type}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
-              >
-                <option value="">Select type...</option>
-                {journalTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
+        {!hasPermission("journal.create") ? (
+          <div className="bg-card border border-danger/20 rounded-2xl shadow-card p-8 text-center max-w-md mx-auto">
+            <div className="w-12 h-12 bg-danger-fill rounded-xl flex items-center justify-center mx-auto mb-4">
+              <ShieldExclamationIcon className="w-6 h-6 text-danger" />
+            </div>
+            <h3 className="text-sm font-semibold text-heading mb-1">Access Denied</h3>
+            <p className="text-xs text-muted mb-6">
+              You do not have permission to create journal entries.
+            </p>
+            <button
+              onClick={() => navigate("/accounting/journals")}
+              className="w-full bg-brand-primary text-white py-2 rounded-lg hover:bg-brand-primary/90 transition-colors text-xs font-semibold"
+            >
+              Go Back
+            </button>
+          </div>
+        ) : (
+          <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+            <div className="px-5 py-4 border-b border-border-light bg-surface/10 flex items-center justify-between">
+              <h1 className="text-sm font-semibold text-heading tracking-tight">
+                Create Journal Voucher
+              </h1>
+              <span className="inline-block px-2.5 py-0.5 bg-success-fill text-success-text text-[10px] font-semibold tracking-wider uppercase rounded-full">
+                Journal Voucher
+              </span>
             </div>
 
-            <div>
-              <label className="block text-xs font-outfit text-gray-600 mb-2">
-                Account Type
-              </label>
-              <select
-                name="account_type"
-                value={formData.account_type}
-                onChange={handleInputChange}
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
-              >
-                <option value="">Select account type...</option>
-                {accountTypes.map((type) => (
-                  <option key={type.value} value={type.value}>
-                    {type.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
+            <div className="p-6 space-y-6">
+              {/* Type & Account Type */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-heading">
+                    Type <span className="text-danger">*</span>
+                  </label>
+                  <CustomSelect
+                    value={formData.journal_type}
+                    onChange={(val) =>
+                      handleInputChange({ target: { name: "journal_type", value: val } })
+                    }
+                    options={journalTypes}
+                    placeholder="Select voucher type..."
+                    fullWidth
+                  />
+                </div>
 
-          <div className="mb-4">
-            <span className="inline-block px-2 py-1.5 bg-brand-secondary text-white text-xs font-outfit rounded">
-              Transaction Details
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 gap-6 mb-6">
-            {/* PRIMARY ACCOUNT (Customer / Sender) */}
-            <div className="relative" ref={accountDropdownRef}>
-              <label className="block text-xs font-outfit text-gray-600 mb-2">
-                {getPrimaryLabel()}
-              </label>
-              <div className="relative">
-                <input
-                  name="account_search"
-                  className="w-full border border-gray-300 rounded px-3 py-2 pr-20 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
-                  type="text"
-                  placeholder="Search Customer"
-                  value={formData.account_search}
-                  onChange={handleInputChange}
-                  autoComplete="off"
-                />
-                {formData.customer_id && (
-                  <button
-                    type="button"
-                    onClick={clearCustomerSelection}
-                    className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                  >
-                    <X size={16} />
-                  </button>
-                )}
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-heading">
+                    Account Type <span className="text-danger">*</span>
+                  </label>
+                  <CustomSelect
+                    value={formData.account_type}
+                    onChange={(val) =>
+                      handleInputChange({ target: { name: "account_type", value: val } })
+                    }
+                    options={accountTypes}
+                    placeholder="Select account type..."
+                    fullWidth
+                  />
+                </div>
               </div>
 
-              {showAccountDropdown && customers.length > 0 && (
-                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                  {customers.map((customer) => (
-                    <div
-                      key={customer.id}
-                      onClick={() => selectCustomer(customer)}
-                      className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="bg-brand-primary/10 p-2 rounded-full">
-                          {customer.business_name ? (
-                            <Building size={14} className="text-brand-primary" />
-                          ) : (
-                            <User size={14} className="text-brand-primary" />
-                          )}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-outfit text-gray-600 truncate">
-                            {customer.display_name}
-                          </p>
-                          <div className="flex flex-wrap gap-2 mt-1">
-                            {customer.phone && (
-                              <div className="flex items-center gap-1">
-                                <Phone size={12} className="text-gray-500" />
-                                <span className="text-xs font-outfit text-gray-600">{customer.phone}</span>
-                              </div>
-                            )}
-                            {customer.id_number && (
-                              <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
-                                <IdCard size={12} className="text-gray-400" />
-                                <span className="text-xs font-outfit text-gray-500">ID: {customer.id_number}</span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+              {/* Section Divider */}
+              <div className="pt-4 border-t border-border-light">
+                <span className="text-xs font-semibold text-heading uppercase tracking-wider block mb-4">
+                  Transaction Details
+                </span>
 
-            {/* RECIPIENT ACCOUNT (Only for Transfers) */}
-            {formData.journal_type === 'transfer' && (
-              <div className="relative" ref={recipientDropdownRef}>
-                <label className=" text-xs font-outfit text-gray-600 mb-2">
-                  Recipient (To)
-                </label>
-                <div className="relative">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* PRIMARY ACCOUNT (Customer / Sender) */}
+                  <div className="relative space-y-1.5" ref={accountDropdownRef}>
+                    <label className="block text-xs font-semibold text-heading">
+                      {getPrimaryLabel()} <span className="text-danger">*</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        name="account_search"
+                        className={inputClass(false)}
+                        type="text"
+                        placeholder="Search Customer..."
+                        value={formData.account_search}
+                        onChange={handleInputChange}
+                        autoComplete="off"
+                        disabled={!!formData.customer_id}
+                      />
+                      {formData.customer_id && (
+                        <button
+                          type="button"
+                          onClick={clearCustomerSelection}
+                          className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted hover:text-body transition-colors"
+                        >
+                          <XMarkIcon className="w-4 h-4" />
+                        </button>
+                      )}
+                    </div>
+
+                    {showAccountDropdown && customers.length > 0 && (
+                      <div className="absolute z-10 w-full mt-1 bg-card border border-border shadow-card rounded-xl max-h-60 overflow-y-auto">
+                        {customers.map((customer) => (
+                          <div
+                            key={customer.id}
+                            onClick={() => selectCustomer(customer)}
+                            className="p-3 hover:bg-surface cursor-pointer border-b border-border-light last:border-b-0 transition-colors"
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="bg-success-fill p-2 rounded-lg text-brand-primary flex-shrink-0">
+                                {customer.business_name ? (
+                                  <BuildingOfficeIcon className="w-4 h-4" />
+                                ) : (
+                                  <UserIcon className="w-4 h-4" />
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs font-semibold text-heading truncate">
+                                  {customer.display_name}
+                                </p>
+                                <div className="flex flex-wrap gap-2 mt-1">
+                                  {customer.phone && (
+                                    <div className="flex items-center gap-1">
+                                      <PhoneIcon className="w-3 h-3 text-muted" />
+                                      <span className="text-[10px] text-muted">
+                                        {customer.phone}
+                                      </span>
+                                    </div>
+                                  )}
+                                  {customer.id_number && (
+                                    <div className="flex items-center gap-1 border-l pl-2 border-border-light">
+                                      <IdentificationIcon className="w-3 h-3 text-muted" />
+                                      <span className="text-[10px] text-muted">
+                                        ID: {customer.id_number}
+                                      </span>
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* RECIPIENT ACCOUNT (Only for Transfers) */}
+                  {formData.journal_type === "transfer" && (
+                    <div className="relative space-y-1.5" ref={recipientDropdownRef}>
+                      <label className="block text-xs font-semibold text-heading">
+                        Recipient (To) <span className="text-danger">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          name="recipient_search"
+                          className={inputClass(false)}
+                          type="text"
+                          placeholder="Search Recipient..."
+                          value={formData.recipient_search}
+                          onChange={handleInputChange}
+                          autoComplete="off"
+                          disabled={!!formData.recipient_id}
+                        />
+                        {formData.recipient_id && (
+                          <button
+                            type="button"
+                            onClick={clearRecipientSelection}
+                            className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-muted hover:text-body transition-colors"
+                          >
+                            <XMarkIcon className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+
+                      {showRecipientDropdown && recipients.length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-card border border-border shadow-card rounded-xl max-h-60 overflow-y-auto">
+                          {recipients.map((customer) => (
+                            <div
+                              key={customer.id}
+                              onClick={() => selectRecipient(customer)}
+                              className="p-3 hover:bg-surface cursor-pointer border-b border-border-light last:border-b-0 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="bg-success-fill p-2 rounded-lg text-brand-primary flex-shrink-0">
+                                  <UserIcon className="w-4 h-4" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-semibold text-heading truncate">
+                                    {customer.display_name}
+                                  </p>
+                                  <div className="flex flex-wrap gap-2 mt-1">
+                                    {customer.phone && (
+                                      <div className="flex items-center gap-1">
+                                        <PhoneIcon className="w-3 h-3 text-muted" />
+                                        <span className="text-[10px] text-muted">
+                                          {customer.phone}
+                                        </span>
+                                      </div>
+                                    )}
+                                    {customer.id_number && (
+                                      <div className="flex items-center gap-1 border-l pl-2 border-border-light">
+                                        <IdentificationIcon className="w-3 h-3 text-muted" />
+                                        <span className="text-[10px] text-muted">
+                                          ID: {customer.id_number}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Amount & Description */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-4 border-t border-border-light">
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-heading">
+                    Amount (KES) <span className="text-danger">*</span>
+                  </label>
                   <input
-                    name="recipient_search"
-                    className="w-full border border-gray-300 rounded px-3 py-2 pr-20 text-xs font-outfit focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
-                    type="text"
-                    placeholder="Search Recipient"
-                    value={formData.recipient_search}
+                    name="amount"
+                    className={inputClass(amountError)}
+                    type="number"
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    value={formData.amount}
                     onChange={handleInputChange}
-                    autoComplete="off"
                   />
-                  {formData.recipient_id && (
-                    <button
-                      type="button"
-                      onClick={clearRecipientSelection}
-                      className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    >
-                      <X size={14} />
-                    </button>
+                  {amountError && (
+                    <p className="mt-1 text-xs text-danger font-semibold">{amountError}</p>
                   )}
                 </div>
 
-                {showRecipientDropdown && recipients.length > 0 && (
-                  <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded shadow-lg max-h-60 overflow-y-auto">
-                    {recipients.map((customer) => (
-                      <div
-                        key={customer.id}
-                        onClick={() => selectRecipient(customer)}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className="bg-brand-primary/10 p-2 rounded-full">
-                            <User size={14} className="text-white" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-outfit text-gray-900 truncate">
-                              {customer.display_name}
-                            </p>
-                            <div className="flex flex-wrap gap-2 mt-1">
-                              {customer.phone && (
-                                <div className="flex items-center gap-1">
-                                  <Phone size={12} className="text-gray-500" />
-                                  <span className="text-xs font-outfit text-gray-600">{customer.phone}</span>
-                                </div>
-                              )}
-                              {customer.id_number && (
-                                <div className="flex items-center gap-1 ml-2 border-l pl-2 border-gray-200">
-                                  <IdCard size={12} className="text-gray-400" />
-                                  <span className="text-xs font-outfit text-gray-500">ID: {customer.id_number}</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                <div className="space-y-1.5">
+                  <label className="block text-xs font-semibold text-heading">
+                    Description <span className="text-danger">*</span>
+                  </label>
+                  <textarea
+                    name="description"
+                    className={`${inputClass(descriptionError)} resize-none`}
+                    rows={3}
+                    placeholder="Enter transaction narrative..."
+                    value={formData.description}
+                    onChange={handleInputChange}
+                  />
+                  {descriptionError && (
+                    <p className="mt-1 text-xs text-danger font-semibold">{descriptionError}</p>
+                  )}
+                </div>
+              </div>
+
+              {/* SELECTION SUMMARY */}
+              {(formData.customer_id || formData.recipient_id) && (
+                <div className="p-4 bg-surface/25 border border-border rounded-xl">
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                    {/* Sender / Primary */}
+                    {formData.customer_id && (
+                      <div className="flex items-start gap-3">
+                        <div className="bg-success-fill p-2 rounded-lg text-brand-primary flex-shrink-0">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-heading">{formData.customer_name}</p>
+                          <p className="text-[10px] text-muted">
+                            Phone: {formData.customer_phone}{" "}
+                            {formData.customer_id_number && `| ID: ${formData.customer_id_number}`}
+                          </p>
+                          <p className="text-[10px] text-brand-primary font-bold mt-1">
+                            Wallet Balance: KES{" "}
+                            {formData.customer_wallet_balance.toLocaleString("en-US", {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </p>
                         </div>
                       </div>
-                    ))}
+                    )}
+
+                    {/* Arrow if Transfer */}
+                    {formData.journal_type === "transfer" &&
+                      formData.customer_id &&
+                      formData.recipient_id && (
+                        <div className="flex-shrink-0 self-center hidden sm:block">
+                          <ArrowRightIcon className="w-4 h-4 text-muted" />
+                        </div>
+                      )}
+
+                    {/* Recipient */}
+                    {formData.recipient_id && (
+                      <div className="flex items-start gap-3 border-t sm:border-t-0 sm:border-l border-border-light pt-3 sm:pt-0 sm:pl-4">
+                        <div className="bg-success-fill p-2 rounded-lg text-brand-primary flex-shrink-0">
+                          <UserIcon className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-heading">
+                            {formData.recipient_name}
+                          </p>
+                          <p className="text-[10px] text-muted">
+                            Phone: {formData.recipient_phone}{" "}
+                            {formData.recipient_id_number &&
+                              `| ID: ${formData.recipient_id_number}`}
+                          </p>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-            )}
-
-          </div>
-
-          <div className="grid grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-outfit text-gray-600 mb-2">
-                Amount
-              </label>
-              <input
-                name="amount"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn"
-                type="number"
-                step="0.01"
-                min="0.01"
-                placeholder="0.00"
-                value={formData.amount}
-                onChange={handleInputChange}
-              />
-              {amountError && (
-                <p className="mt-1 text-xs text-red-500 font-medium">{amountError}</p>
+                </div>
               )}
             </div>
 
-            <div>
-              <label className="block text-xs font-outfit text-gray-600 mb-2">
-                Description
-              </label>
-              <textarea
-                name="description"
-                className="w-full border border-gray-300 rounded px-3 py-2 text-xs font-outfit focus:outline-none focus:ring-1 focus:ring-brand-btn focus:border-brand-btn resize-none"
-                rows="3"
-                placeholder="Enter description..."
-                value={formData.description}
-                onChange={handleInputChange}
-              />
-              {descriptionError && (
-                <p className="mt-1 text-xs text-red-500 font-medium">{descriptionError}</p>
-              )}
-            </div>
-          </div>
+            {/* Footer Form Controls */}
+            <div className="border-t border-border-light px-6 py-4 flex justify-between items-center bg-surface/20">
+              <button
+                type="button"
+                onClick={() => navigate("/accounting/journals")}
+                className="inline-flex items-center gap-1.5 bg-surface border border-border text-body px-3.5 py-2 rounded-lg hover:border-brand-primary/40 hover:text-brand-primary transition-colors text-xs font-medium"
+              >
+                <ArrowLeftIcon className="w-4 h-4" /> Back
+              </button>
 
-          {/* SELECTION SUMMARY */}
-          {(formData.customer_id || formData.recipient_id) && (
-            <div className="mt-6 p-4 bg-gray-50 border border-gray-200 rounded">
-              <div className="flex items-center gap-4">
-                {/* Sender / Primary */}
-                {formData.customer_id && (
-                  <div className="flex items-center gap-2">
-                    <div className="bg-blue-100 p-1.5 rounded-full">
-                      <User size={14} className="text-brand-primary" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-600">{formData.customer_name}</p>
-                      <p className="text-[10px] text-gray-500">{formData.customer_phone} {formData.customer_id_number && `| ID: ${formData.customer_id_number}`}</p>
-                      <p className="text-[10px] text-brand-primary font-semibold mt-1">Wallet Balance: KES {formData.customer_wallet_balance.toLocaleString()}</p>
-                    </div>
-                  </div>
-                )}
-
-                {/* Arrow if Transfer */}
-                {formData.journal_type === 'transfer' && formData.customer_id && formData.recipient_id && (
-                  <div className="flex-shrink-0">
-                    <ArrowRight size={16} className="text-gray-400" />
-                  </div>
-                )}
-
-                {/* Recipient */}
-                {formData.recipient_id && (
-                  <div className="flex items-center gap-2">
-                    <div className="bg-purple-100 p-1.5 rounded-full">
-                      <User size={14} className="text-purple-600" />
-                    </div>
-                    <div>
-                      <p className="text-xs font-semibold text-slate-600">{formData.recipient_name}</p>
-                      <p className="text-[10px] text-gray-500">
-                        {formData.recipient_phone} {formData.recipient_id_number && `| ID: ${formData.recipient_id_number}`}
-                      </p>
-                    </div>
-                  </div>
-                )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => navigate("/accounting/journals")}
+                  className="inline-flex items-center justify-center bg-surface border border-border text-body px-4 py-2 rounded-lg hover:bg-danger/10 hover:text-danger hover:border-danger/30 transition-colors text-xs font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={createJournal}
+                  disabled={loading || !!amountError}
+                  className="inline-flex items-center justify-center gap-1.5 bg-brand-primary text-white px-5 py-2 rounded-lg hover:bg-brand-primary/90 transition-all shadow-btn text-xs font-semibold active:scale-95 disabled:opacity-60"
+                >
+                  {loading ? <Spinner size="sm" /> : "Save Voucher"}
+                </button>
               </div>
             </div>
-          )}
-
-        </div>
-
-        <div className="border-t px-6 py-4 flex justify-between items-center bg-gray-50">
-          <button
-            onClick={() => navigate("/accounting/journals")}
-            className="px-2 py-1.5 rounded flex items-center gap-2 text-xs font-outfit text-white bg-gray-600 hover:bg-gray-700 transition-colors"
-          >
-            <ArrowLeft size={16} /> Back
-          </button>
-
-          <div className="flex gap-3">
-            <button
-              onClick={createJournal}
-              disabled={loading || !!amountError}
-              className={`px-6 py-2 rounded text-xs font-outfit text-white bg-brand-primary hover:bg-brand-secondary transition-colors ${loading || amountError ? 'opacity-70 cursor-not-allowed' : ''}`}
-            >
-              {loading ? 'Saving...' : 'Save'}
-            </button>
-            <button
-              onClick={() => navigate("/accounting/journals")}
-              className="px-6 py-2 rounded text-xs font-outfit text-white bg-red-500 hover:bg-red-600 transition-colors"
-            >
-              Cancel
-            </button>
           </div>
-        </div>
+        )}
       </div>
-      )}
     </div>
   );
 }
-
-export default NewJournalEntry;

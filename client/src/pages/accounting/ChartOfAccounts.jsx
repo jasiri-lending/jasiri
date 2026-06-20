@@ -5,6 +5,9 @@ import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { apiFetch } from "../../utils/api";
 import { Pagination } from "../../components/Pagination.jsx";
+import CustomSelect from '../../components/CustomSelect';
+import Modal from '../../components/Modal';
+import { SkeletonTable } from '../../components/Skeleton';
 
 const TABS = ["Asset", "Liability", "Equity", "Income", "Expense"];
 
@@ -15,6 +18,7 @@ export default function ChartOfAccounts() {
   const itemsPerPage = 10;
   const [editingAccount, setEditingAccount] = useState(null); // Account being edited
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const { profile } = useAuth();
   const navigate = useNavigate();
   const { success, error: toastError, warning } = useToast();
@@ -22,6 +26,7 @@ export default function ChartOfAccounts() {
   const fetchAccounts = async () => {
     if (!profile?.tenant_id) return;
     try {
+      setLoading(true);
       const response = await apiFetch(`/api/chart-of-accounts?account_type=${activeTab}`);
       const data = await response.json();
       if (data.success) {
@@ -33,6 +38,8 @@ export default function ChartOfAccounts() {
     } catch (error) {
       console.error("Error fetching accounts:", error);
       toastError("Failed to fetch accounts.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -91,15 +98,23 @@ export default function ChartOfAccounts() {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <SkeletonTable rows={5} cols={6} />
+      </div>
+    );
+  }
+
   return (
-    <div className="p-6 bg-muted min-h-screen font-outfit">
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
       <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
         Accounting / Chart of Accounts 
       </h1>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200">
-        <div className="p-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-xs font-semibold text-gray-600 font-outfit">
+      <div className="bg-card rounded-xl shadow-card border border-border">
+        <div className="p-4 border-b border-border-light flex justify-between items-center bg-surface">
+          <h2 className="text-xs font-semibold text-heading font-outfit">
             Chart of Accounts 
           </h2>
           <button
@@ -111,15 +126,15 @@ export default function ChartOfAccounts() {
         </div>
 
         {/* Tabs */}
-        <div className="px-4 pt-4 border-b border-gray-200">
+        <div className="px-4 pt-4 border-b border-border-light">
           <div className="flex gap-1 overflow-x-auto">
             {TABS.map((t) => (
               <button
                 key={t}
                 onClick={() => setActiveTab(t)}
                 className={`px-4 py-2 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === t
-                  ? "text-gray-600"
-                  : "text-gray-500 hover:text-gray-700"
+                  ? "text-heading"
+                  : "text-muted hover:text-heading"
                   }`}
               >
                 {t}
@@ -135,45 +150,45 @@ export default function ChartOfAccounts() {
         </div>
 
         <div className="overflow-x-auto font-outfit">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+          <table className="min-w-full divide-y divide-border-light">
+            <thead className="bg-surface">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
                   Account Name
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
                   Type
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
                   Category
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">
                   Code
                 </th>
-                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-center text-xs font-medium whitespace-nowrap text-muted">
                   Status
                 </th>
-                <th className="px-4 py-3 text-right text-xs font-medium whitespace-nowrap text-slate-600">
+                <th className="px-4 py-3 text-right text-xs font-medium whitespace-nowrap text-muted">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody>
+            <tbody className="divide-y divide-border-light">
               {accounts.slice((currentPage-1)*itemsPerPage, currentPage*itemsPerPage).map((acc) => (
                 <tr
                   key={acc.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                  className="hover:bg-surface transition-colors"
                 >
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-600">
+                  <td className="px-4 py-3 text-xs font-outfit text-body">
                     {acc.account_name}
                   </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
-                    {acc.account_type}
+                  <td className="px-4 py-3 text-xs font-outfit text-body">
+                    {acc.acc_type || acc.account_type}
                   </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
+                  <td className="px-4 py-3 text-xs font-outfit text-body">
                     {acc.account_category}
                   </td>
-                  <td className="px-4 py-3 text-xs font-outfit text-gray-700">
+                  <td className="px-4 py-3 text-xs font-outfit text-body">
                     {acc.code || "-"}
                   </td>
                   <td className="px-4 py-3 text-center">
@@ -208,7 +223,7 @@ export default function ChartOfAccounts() {
               ))}
               {accounts.length === 0 && (
                 <tr>
-                  <td className="p-8 text-center text-xs text-gray-500" colSpan={6}>
+                  <td className="p-8 text-center text-xs text-muted" colSpan={6}>
                     No {activeTab.toLowerCase()} accounts found.
                   </td>
                 </tr>
@@ -243,9 +258,7 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-
+  const handleSubmit = async () => {
     if (!form.account_name || !form.account_type || !form.account_category) {
       warning("Please fill in all required fields.");
       return;
@@ -257,94 +270,74 @@ function EditAccountModal({ account, onClose, onSave, warning }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-white rounded-lg shadow-xl w-full max-w-md animate-in fade-in zoom-in duration-200">
-        <div className="flex justify-between items-center p-4 border-b border-gray-100">
-          <h3 className="text-xs text-gray-600 font-outfit">Edit Account</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
-            <X size={18} />
-          </button>
+    <Modal open={true} title="Edit Account" onClose={onClose} onSave={handleSubmit} saving={isSubmitting} saveLabel="Save Changes">
+      <div className="space-y-4 font-outfit">
+        <div>
+          <label className="text-xs text-body mb-1 block">Account Name <span className="text-red-500">*</span></label>
+          <input
+            className="w-full border border-border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none bg-card"
+            value={form.account_name}
+            onChange={e => setForm({ ...form, account_name: e.target.value })}
+          />
         </div>
 
-        <div className="p-4 space-y-4">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className=" text-xs  text-gray-600 font-outfit mb-1">Account Name <span className="text-red-500">*</span></label>
-            <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
-              value={form.account_name}
-              onChange={e => setForm({ ...form, account_name: e.target.value })}
+            <label className="text-xs text-body mb-1 block">Type <span className="text-red-500">*</span></label>
+            <CustomSelect
+              value={form.account_type}
+              onChange={val => setForm({ ...form, account_type: val })}
+              options={[
+                { value: "ASSET", label: "Asset" },
+                { value: "LIABILITY", label: "Liability" },
+                { value: "EQUITY", label: "Equity" },
+                { value: "INCOME", label: "Income" },
+                { value: "EXPENSE", label: "Expense" }
+              ]}
+              compact
+              fullWidth
             />
           </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className=" text-xs font-outfit text-gray-700 mb-1">Type <span className="text-red-500">*</span></label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
-                value={form.account_type}
-                onChange={e => setForm({ ...form, account_type: e.target.value })}
-              >
-                <option value="ASSET">Asset</option>
-                <option value="LIABILITY">Liability</option>
-                <option value="EQUITY">Equity</option>
-                <option value="INCOME">Income</option>
-                <option value="EXPENSE">Expense</option>
-              </select>
-            </div>
-            <div>
-              <label className=" text-xs font-outfit text-gray-600 mb-1">Category <span className="text-red-500">*</span></label>
-              <select
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
-                value={form.account_category}
-                onChange={e => setForm({ ...form, account_category: e.target.value })}
-              >
-                <option value="Header Account">Header Account</option>
-                <option value="Detail Account">Detail Account</option>
-              </select>
-            </div>
-          </div>
-
           <div>
-            <label className=" text-xs font-outfit text-gray-600 mb-1">
-              Code <span className="text-gray-400 font-normal">(Optional)</span>
-            </label>
-            <input
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
-              value={form.code}
-              onChange={e => setForm({ ...form, code: e.target.value })}
+            <label className="text-xs text-body mb-1 block">Category <span className="text-red-500">*</span></label>
+            <CustomSelect
+              value={form.account_category}
+              onChange={val => setForm({ ...form, account_category: val })}
+              options={[
+                { value: "Header Account", label: "Header Account" },
+                { value: "Detail Account", label: "Detail Account" }
+              ]}
+              compact
+              fullWidth
             />
-          </div>
-
-          <div>
-            <label className=" text-xs font-outfit text-gray-600 mb-1">Status</label>
-            <select
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none"
-              value={form.status}
-              onChange={e => setForm({ ...form, status: e.target.value })}
-            >
-              <option value="Active">Active</option>
-              <option value="Inactive">Inactive</option>
-            </select>
           </div>
         </div>
 
-        <div className="p-4 border-t border-gray-100 flex justify-end gap-2 bg-gray-50 rounded-b-lg">
-          <button
-            onClick={onClose}
-            className="px-2 py-1.5 rounded-lg text-xs font-outfit text-gray-600 hover:bg-gray-100 border border-gray-200 transition-colors"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={isSubmitting}
-            className="px-2 py-1.5 rounded-lg text-xs font-outfit text-white bg-brand-primary hover:bg-blue-800 transition-colors flex items-center gap-2 shadow-sm"
-          >
-            <Save size={14} />
-            {isSubmitting ? "Saving..." : "Save Changes"}
-          </button>
+        <div>
+          <label className="text-xs text-body mb-1 block">
+            Code <span className="text-muted font-normal">(Optional)</span>
+          </label>
+          <input
+            className="w-full border border-border rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none bg-card"
+            value={form.code}
+            onChange={e => setForm({ ...form, code: e.target.value })}
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-body mb-1 block">Status</label>
+          <CustomSelect
+            value={form.status}
+            onChange={val => setForm({ ...form, status: val })}
+            options={[
+              { value: "Active", label: "Active" },
+              { value: "Inactive", label: "Inactive" }
+            ]}
+            compact
+            fullWidth
+          />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }

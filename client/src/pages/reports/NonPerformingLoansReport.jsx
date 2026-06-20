@@ -9,6 +9,7 @@ import {
   ChevronDown,
   Search,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
@@ -25,7 +26,9 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { useAuth } from "../../hooks/userAuth";
-import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+import { SkeletonTable } from "../../components/Skeleton";
+import { Pagination } from "../../components/Pagination";
+import CustomSelect from "../../components/CustomSelect";
 
 // ========== Memoized Helper Components ==========
 
@@ -45,97 +48,92 @@ SearchBox.displayName = "SearchBox";
 
 // Local Spinner component removed
 
-const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => {
-  return (
-    <th
-      onClick={() => onSort(sortKey)}
-      className="px-6 py-4 text-[11px] font-black text-slate-500 tracking-widest cursor-pointer hover:bg-slate-100/80 transition-all font-inter whitespace-nowrap"
-    >
-      <div className="flex items-center gap-2">
-        {label}
-        <div className="flex flex-col">
-          <ChevronUp
-            className={`w-3 h-3 -mb-1 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "asc"
-              ? "text-brand-primary"
-              : "text-slate-300"
-              }`}
-          />
-          <ChevronDown
-            className={`w-3 h-3 transition-colors ${sortConfig.key === sortKey && sortConfig.direction === "desc"
-              ? "text-brand-primary"
-              : "text-slate-300"
-              }`}
-          />
-        </div>
-      </div>
-    </th>
-  );
-});
+const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => (
+  <th
+    onClick={() => onSort(sortKey)}
+    className="px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider cursor-pointer hover:bg-surface/70 transition-colors whitespace-nowrap text-left border-b border-border"
+  >
+    <div className="flex items-center gap-1.5">
+      {label}
+      {sortConfig.key === sortKey ? (
+        sortConfig.direction === "asc" ? (
+          <ChevronUp className="w-3.5 h-3.5 text-brand" />
+        ) : (
+          <ChevronDown className="w-3.5 h-3.5 text-brand" />
+        )
+      ) : (
+        <ChevronDown className="w-3.5 h-3.5 text-muted opacity-30 hover:opacity-100" />
+      )}
+    </div>
+  </th>
+));
 SortableHeader.displayName = "SortableHeader";
 
 const NPLTableRow = React.memo(({ row, index, startIdx, formatCurrency }) => {
   const overdueClass =
     row.overdue_days > 30
-      ? "bg-red-50 text-red-700"
-      : "bg-orange-50 text-orange-700";
+      ? "bg-danger/10 text-danger border border-danger/20"
+      : "bg-warning/10 text-warning border border-warning/20";
 
   return (
-    <tr className="hover:bg-slate-50/50 transition-colors group">
-      <td className="px-6 py-4 text-slate-400 font-medium">{startIdx + index + 1}</td>
-      <td className="px-6 py-4 font-bold text-slate-900 group-hover:text-brand-primary transition-colors whitespace-nowrap">
+    <tr className="hover:bg-surface transition-colors duration-150 border-b border-border-light">
+      <td className="px-6 py-4 text-xs font-medium text-text-muted whitespace-nowrap text-center">
+        {startIdx + index + 1}
+      </td>
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.customer_name}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.customer_id}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.mobile}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.branch}
       </td>
-      <td className="px-6 py-4 font-semibold text-brand-primary whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.loan_officer}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.loan_product}
       </td>
-      <td className="px-6 py-4 font-black text-slate-900 whitespace-nowrap bg-green-50/30">
+      <td className="px-4 py-3 text-sm text-text-secondary text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.disbursement_amount)}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.total_principal_due)}
       </td>
-      <td className="px-6 py-4 font-semibold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.total_interest_due)}
       </td>
-      <td className="px-6 py-4 font-bold text-green-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-success text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.principal_paid)}
       </td>
-      <td className="px-6 py-4 font-bold text-green-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-success text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.interest_paid)}
       </td>
-      <td className="px-6 py-4 font-black text-red-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm font-semibold text-danger text-right whitespace-nowrap tabular-nums">
         {formatCurrency(row.arrears_amount)}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap text-center">
         <span
-          className={`px-2.5 py-1 rounded-lg text-xs font-black tracking-tighter ${overdueClass}`}
+          className={`px-2.5 py-1 rounded-full text-xs font-medium tracking-wide ${overdueClass}`}
         >
           {row.overdue_days} DAYS
         </span>
       </td>
-      <td className="px-6 py-4 font-bold text-slate-600 whitespace-nowrap">
+      <td className="px-4 py-3 text-sm text-text-secondary whitespace-nowrap">
         {row.next_payment_date}
       </td>
-      <td className="px-6 py-4 whitespace-nowrap">
+      <td className="px-4 py-3 whitespace-nowrap text-center">
         <span
-          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm border ${row.repayment_state === "defaulted"
-            ? "bg-red-500 border-red-400 text-white"
-            : "bg-orange-100 border-orange-200 text-orange-700"
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-medium bg-surface/50 ${row.repayment_state === "defaulted"
+            ? "border-danger-light text-danger"
+            : "border-warning-light text-warning"
             }`}
         >
-          {row.repayment_state}
+          {row.repayment_state === "defaulted" ? "Defaulted" : "Overdue"}
         </span>
       </td>
     </tr>
@@ -1056,101 +1054,100 @@ const NonPerformingLoansReport = () => {
     { value: "word", label: "Word" },
   ];
 
-  if (loading && isInitialLoad) {
-    return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Spinner text="Loading Non-Performing Loans Report..." />
-      </div>
-    );
-  }
+  const hasActiveFilters = Boolean(
+    filters.region ||
+      filters.branch ||
+      filters.loanOfficer ||
+      filters.product ||
+      filters.status !== "all" ||
+      filters.dateFilter !== "all" ||
+      filters.customStartDate ||
+      filters.customEndDate
+  );
 
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
-      <div className="max-w-full mx-auto space-y-8">
-        {/* PREMIUM HEADER */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-page p-5 md:p-8 space-y-6 font-outfit animate-fade-in">
+      <div className="max-w-[1600px] mx-auto space-y-6">
 
-              <div>
-                <h1 className="text-sm font-bold text-stone-600">
-                  {tenant?.company_name || "Company Name"}
-                </h1>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-sm font-bold text-muted mt-0.5">Non-Performing Loans Report</h1>
+          </div>
 
-                <h2 className="text-lg font-semibold text-white mt-1">
-                  Non-Performing Loans Report
-                </h2>
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder="Search name, ID, or phone"
+                className="bg-card border border-border text-text-primary placeholder:text-muted rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 w-64 transition"
+              />
             </div>
 
-            <div className="flex flex-col items-end gap-2 text-right">
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
+                showFilters
+                  ? "bg-brand text-white border-brand shadow-sm"
+                  : "bg-card text-text-secondary border-border hover:border-brand/50"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+              )}
+            </button>
 
-              <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                <SearchBox
-                  value={filters.search}
-                  onChange={(val) => handleFilterChange("search", val)}
-                />
-
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                    : "text-white border-white/20 hover:bg-white/10"
-                    }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Filters</span>
-                </button>
-
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    {exportFormatOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    onClick={handleExport}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
-                </div>
-              </div>
+            {/* Export Dropdown */}
+            <div className="flex items-center bg-card rounded-lg border border-border p-1">
+              <select
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value)}
+                className="bg-transparent text-sm font-medium text-text-secondary px-2 py-1 focus:outline-none cursor-pointer"
+              >
+                {exportFormatOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleExport}
+                className="ml-2 px-3 py-1.5 rounded-md bg-brand text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
             </div>
           </div>
+        </div>
 
           {/* HIERARCHICAL FILTERS */}
           {showFilters && (
-            <div className="mt-6 pt-6 border-t border-slate-100 space-y-4 animate-in fade-in slide-in-from-top-4 duration-300">
+            <div className="bg-card border border-border rounded-xl p-5 animate-in fade-in slide-in-from-top-2 duration-200 shadow-sm">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                <div className="space-y-1.5 z-50">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Date Range
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.dateFilter}
-                    onChange={(e) => handleFilterChange("dateFilter", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    {dateFilterOptions.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("dateFilter", val)}
+                    options={dateFilterOptions}
+                    placeholder="Select Date Range"
+                  />
                 </div>
 
                 {filters.dateFilter === "custom" && (
                   <>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                      <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                         Start Date
                       </label>
                       <input
@@ -1159,11 +1156,11 @@ const NonPerformingLoansReport = () => {
                         onChange={(e) =>
                           handleFilterChange("customStartDate", e.target.value)
                         }
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                        className="w-full px-4 py-2 bg-page border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand/20 outline-none text-text-primary"
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                      <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                         End Date
                       </label>
                       <input
@@ -1172,198 +1169,176 @@ const NonPerformingLoansReport = () => {
                         onChange={(e) =>
                           handleFilterChange("customEndDate", e.target.value)
                         }
-                        className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                        className="w-full px-4 py-2 bg-page border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand/20 outline-none text-text-primary"
                       />
                     </div>
                   </>
                 )}
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mt-4">
                 {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                  <div className="space-y-1.5 z-40">
+                    <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                       Region
                     </label>
-                    <select
+                    <CustomSelect
                       value={filters.region}
-                      onChange={(e) => {
-                        handleFilterChange("region", e.target.value);
+                      onChange={(val) => {
+                        handleFilterChange("region", val);
                         handleFilterChange("branch", "");
                         handleFilterChange("loanOfficer", "");
                       }}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                    >
-                      <option value="">All Regions</option>
-                      {regions.map((r) => (
-                        <option key={r.id} value={r.id}>
-                          {r.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "All Regions" },
+                        ...regions.map((r) => ({ value: r.id, label: r.name })),
+                      ]}
+                      placeholder="All Regions"
+                    />
                   </div>
                 )}
 
                 {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                  <div className="space-y-1.5 z-30">
+                    <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                       Branch
                     </label>
-                    <select
+                    <CustomSelect
                       value={filters.branch}
-                      onChange={(e) => {
-                        handleFilterChange("branch", e.target.value);
+                      onChange={(val) => {
+                        handleFilterChange("branch", val);
                         handleFilterChange("loanOfficer", "");
                       }}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                    >
-                      <option value="">All Branches</option>
-                      {getFilteredBranches().map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
+                      options={[
+                        { value: "", label: "All Branches" },
+                        ...getFilteredBranches().map((b) => ({ value: b.id, label: b.name })),
+                      ]}
+                      placeholder="All Branches"
+                    />
                   </div>
                 )}
 
                 {profile?.role !== "relationship_officer" && (
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                  <div className="space-y-1.5 z-20">
+                    <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                       Officer
                     </label>
-                    <select
+                    <CustomSelect
                       value={filters.loanOfficer}
-                      onChange={(e) =>
-                        handleFilterChange("loanOfficer", e.target.value)
-                      }
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                    >
-                      <option value="">All Officers</option>
-                      {getFilteredOfficers().map((o) => (
-                        <option key={o.id} value={o.id}>
-                          {o.full_name}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(val) => handleFilterChange("loanOfficer", val)}
+                      options={[
+                        { value: "", label: "All Officers" },
+                        ...getFilteredOfficers().map((o) => ({ value: o.id, label: o.full_name })),
+                      ]}
+                      placeholder="All Officers"
+                    />
                   </div>
                 )}
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                <div className="space-y-1.5 z-10">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Product
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.product}
-                    onChange={(e) => handleFilterChange("product", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Products</option>
-                    {products.map((p) => (
-                      <option key={p} value={p}>
-                        {p}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("product", val)}
+                    options={[
+                      { value: "", label: "All Products" },
+                      ...products.map((p) => ({ value: p, label: p })),
+                    ]}
+                    placeholder="All Products"
+                  />
                 </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 tracking-wider ml-1">
+                <div className="space-y-1.5 z-0">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Status
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.status}
-                    onChange={(e) => handleFilterChange("status", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="all">All States</option>
-                    <option value="overdue">Overdue</option>
-                    <option value="defaulted">Defaulted</option>
-                  </select>
+                    onChange={(val) => handleFilterChange("status", val)}
+                    options={[
+                      { value: "all", label: "All States" },
+                      { value: "overdue", label: "Overdue" },
+                      { value: "defaulted", label: "Defaulted" },
+                    ]}
+                    placeholder="All States"
+                  />
                 </div>
               </div>
 
-              <div className="flex items-center justify-between pt-2">
+              <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
                 <button
                   onClick={clearFilters}
-                  className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1.5 ml-1"
+                  className="text-sm font-medium text-danger hover:text-danger/80 transition-colors flex items-center gap-1.5"
                 >
                   <X className="w-4 h-4" />
-                  Clear All Filters
+                  Clear Filters
                 </button>
-                <p className="text-xs text-slate-400 font-medium">
+                <p className="text-xs text-text-muted font-medium">
                   Showing {filteredData.length} matches
                 </p>
               </div>
             </div>
           )}
-        </div>
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-slate-600 font-medium">Total Arrears</p>
-            <p className="text-2xl font-bold mt-1 text-primary">
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+            <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Total Arrears</p>
+            <h3 className="text-xl font-bold text-secondary mt-1 tabular-nums">
               {formatCurrency(totals.arrearsAmount)}
-            </p>
+            </h3>
           </div>
 
-          <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-slate-600 font-medium">Total Disbursed</p>
-            <p className="text-2xl font-bold mt-1 text-accent">
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+            <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Total Disbursed</p>
+            <h3 className="text-xl font-bold text-brand mt-1 tabular-nums">
               {formatCurrency(totals.disbursementAmount)}
-            </p>
+            </h3>
           </div>
 
-          <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-600 font-medium">Number of NPLs</p>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
-                LOANS
-              </span>
+              <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Number of NPLs</p>
             </div>
-            <p className="text-2xl font-bold mt-1 text-gray-900">
+            <h3 className="text-xl font-bold text-text-primary mt-1 tabular-nums">
               {filteredData.length}
-            </p>
+            </h3>
           </div>
 
-          <div className="bg-red-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted font-medium">Defaulted Count</p>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-red-100 text-red-700 rounded animate-pulse">
-                CRITICAL
-              </span>
+          <div className="bg-card border border-danger/30 p-5 rounded-xl shadow-sm relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-3 opacity-10">
+              <AlertCircle className="w-12 h-12 text-danger" />
             </div>
-            <p className="text-2xl font-bold mt-1 text-red-600">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-danger font-medium uppercase tracking-wide">Defaulted Count</p>
+            </div>
+            <h3 className="text-xl font-bold text-danger mt-1 tabular-nums">
               {totals.defaultedCount}
-            </p>
+            </h3>
           </div>
         </div>
 
         {/* DATA TABLE */}
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
           {loading ? (
-            <div className="flex flex-col items-center justify-center p-24 space-y-4">
-              <div className="w-12 h-12 border-4 border-brand-primary/20 border-t-brand-primary rounded-full animate-spin"></div>
-              <p className="text-slate-500 font-bold animate-pulse">
-                Analyzing loan performance...
-              </p>
-            </div>
+            <SkeletonTable rows={5} columns={16} />
           ) : filteredData.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-24 text-center">
-              <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mb-4">
-                <Search className="w-10 h-10 text-slate-300" />
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-muted" />
               </div>
-              <h3 className="text-lg font-bold text-slate-900 mb-1">
+              <h3 className="text-lg font-bold text-text-heading mb-1">
                 No NPLs Found
               </h3>
-              <p className="text-slate-500 max-w-xs">
+              <p className="text-muted max-w-sm mb-6">
                 We couldn't find any non-performing loans matching your current
                 filter criteria.
               </p>
               <button
                 onClick={clearFilters}
-                className="mt-6 text-brand-primary font-bold hover:underline"
+                className="text-brand font-semibold hover:underline"
               >
                 Clear all filters
               </button>
@@ -1373,8 +1348,8 @@ const NonPerformingLoansReport = () => {
               <div className="overflow-x-auto">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 border-b border-slate-200">
-                      <th className="px-6 py-4 text-[11px] font-black text-slate-500 tracking-widest whitespace-nowrap w-16">
+                    <tr className="bg-surface border-b border-border">
+                      <th className="px-4 py-3 text-xs font-bold text-text-muted uppercase tracking-wider whitespace-nowrap w-16 text-center">
                         #
                       </th>
                       <SortableHeader
@@ -1483,74 +1458,14 @@ const NonPerformingLoansReport = () => {
                 </table>
               </div>
 
-              {/* PAGINATION */}
-              {pagination.totalPages > 1 && (
-                <div className="bg-slate-50/50 px-6 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-4">
-                  <div className="text-sm font-medium text-slate-500">
-                    Showing{" "}
-                    <span className="font-bold text-slate-700">
-                      {pagination.startIdx + 1}
-                    </span>{" "}
-                    to{" "}
-                    <span className="font-bold text-slate-700">
-                      {pagination.endIdx}
-                    </span>{" "}
-                    of{" "}
-                    <span className="font-bold text-slate-900">
-                      {pagination.totalRows}
-                    </span>{" "}
-                    entries
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) => Math.max(1, prev - 1))
-                      }
-                      disabled={currentPage === 1}
-                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                    >
-                      <ChevronLeft className="w-5 h-5" />
-                    </button>
-                    <div className="flex items-center gap-1.5">
-                      {Array.from({
-                        length: Math.min(5, pagination.totalPages),
-                      }).map((_, i) => {
-                        let pageNum;
-                        if (pagination.totalPages <= 5) pageNum = i + 1;
-                        else if (currentPage <= 3) pageNum = i + 1;
-                        else if (currentPage >= pagination.totalPages - 2)
-                          pageNum = pagination.totalPages - 4 + i;
-                        else pageNum = currentPage - 2 + i;
-
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
-                              ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
-                              : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
-                              }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() =>
-                        setCurrentPage((prev) =>
-                          Math.min(pagination.totalPages, prev + 1)
-                        )
-                      }
-                      disabled={currentPage === pagination.totalPages}
-                      className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                    >
-                      <ChevronRight className="w-5 h-5" />
-                    </button>
-                  </div>
-                </div>
-              )}
+              {/* Pagination Component */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={pagination.totalRows}
+                itemsPerPage={itemsPerPage}
+              />
             </>
           )}
         </div>

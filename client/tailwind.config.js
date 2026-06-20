@@ -100,6 +100,18 @@ export default {
         "18":  "7.2rem",
       },
 
+
+
+      theme: {
+  extend: {
+    colors: {
+      success: 'var(--color-success-text)',
+      warning: 'var(--color-warning-text)',
+      danger: 'var(--color-danger-text)',
+    },
+  },
+},
+
       /* ─── Box shadows ──────────────────────────────────────── */
       boxShadow: {
         card:    "0 1px 4px rgba(15,31,23,0.08), 0 0 0 0.5px rgba(209,221,214,0.8)",

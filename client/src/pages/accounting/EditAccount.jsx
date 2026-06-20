@@ -4,6 +4,8 @@ import { ArrowLeft, Save, X } from "lucide-react";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { useState, useEffect } from "react";
+import CustomSelect from "../../components/CustomSelect";
+import { SkeletonForm } from "../../components/Skeleton";
 
 export default function EditAccount() {
   const { id } = useParams();
@@ -75,24 +77,21 @@ export default function EditAccount() {
 
   if (!form) {
     return (
-      <div className="p-6 bg-gray-50 min-h-screen font-body flex items-center justify-center">
-        <div className="flex flex-col items-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary"></div>
-          <p className="mt-2 text-xs text-gray-500">Loading account details...</p>
-        </div>
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <div className="max-w-3xl"><SkeletonForm fields={4} /></div>
       </div>
     );
   }
 
   return (
-    <div className="p-6 bg-gray-50 min-h-screen font-body">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium">
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <h1 className="text-xs text-muted mb-4 font-medium">
         Accounting / Chart of Accounts / Edit Account
       </h1>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl">
+      <div className="bg-card rounded-xl shadow-card border border-border max-w-3xl">
         <div className="p-6">
-          <h2 className="text-sm font-semibold text-gray-800 mb-6 font-heading">
+          <h2 className="text-sm font-semibold text-heading mb-6 font-heading">
             Edit Account
           </h2>
 
@@ -115,47 +114,41 @@ export default function EditAccount() {
 
               {/* Account Type */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Account Type <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.account_type || ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      account_type: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Select Type</option>
-                  <option value="ASSET">Asset</option>
-                  <option value="LIABILITY">Liability</option>
-                  <option value="EQUITY">Equity</option>
-                  <option value="INCOME">Income</option>
-                  <option value="EXPENSE">Expense</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, account_type: val })}
+                  options={[
+                    { value: "ASSET", label: "Asset" },
+                    { value: "LIABILITY", label: "Liability" },
+                    { value: "EQUITY", label: "Equity" },
+                    { value: "INCOME", label: "Income" },
+                    { value: "EXPENSE", label: "Expense" },
+                  ]}
+                  placeholder="Select Type"
+                  fullWidth
+                  compact
+                />
               </div>
 
               {/* Account Category */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Account Category <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.account_category || ""}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      account_category: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Select Category</option>
-                  <option value="Header Account">Header Account</option>
-                  <option value="Detail Account">Detail Account</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, account_category: val })}
+                  options={[
+                    { value: "Header Account", label: "Header Account" },
+                    { value: "Detail Account", label: "Detail Account" },
+                  ]}
+                  placeholder="Select Category"
+                  fullWidth
+                  compact
+                />
               </div>
 
               {/* Code */}
@@ -174,27 +167,29 @@ export default function EditAccount() {
 
               {/* Status */}
               <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Status
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.status || "Active"}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, status: val })}
+                  options={[
+                    { value: "Active", label: "Active" },
+                    { value: "Inactive", label: "Inactive" },
+                  ]}
+                  fullWidth
+                  compact
+                />
               </div>
             </div>
           </div>
         </div>
 
         {/* FOOTER WITH BUTTONS */}
-        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50 rounded-b-lg">
+        <div className="border-t border-border-light px-6 py-4 flex justify-between items-center bg-surface rounded-b-lg font-outfit">
           <button
             onClick={() => navigate(-1)}
-            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-body border border-border hover:bg-surface transition-colors"
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -202,14 +197,14 @@ export default function EditAccount() {
           <div className="flex gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-body border border-border hover:bg-surface transition-colors"
             >
               <X size={16} /> Cancel
             </button>
             <button
               onClick={saveChanges}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
+              className="px-4 py-2 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               <Save size={16} /> {isSubmitting ? "Saving..." : "Update Account"}
             </button>

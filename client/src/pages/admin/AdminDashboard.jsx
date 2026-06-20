@@ -648,7 +648,7 @@ const AdminDashboard = () => {
   // Loading state - now uses skeleton instead of spinner
   if (dashboardLoading && !stats.length) {
     return (
-      <div className="min-h-screen bg-surface py-10">
+      <div className="min-h-screen bg-page py-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           {/* Header skeleton */}
           <div className="mb-8 flex items-center justify-between">
@@ -668,7 +668,7 @@ const AdminDashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-surface py-10">
+    <div className="min-h-screen bg-page py-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
 
 

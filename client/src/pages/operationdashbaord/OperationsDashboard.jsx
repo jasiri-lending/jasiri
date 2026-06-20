@@ -745,7 +745,7 @@ const OperationsDashboard = ({ userRole }) => {
   }
 
   return (
-    <div className="bg-surface min-h-screen pb-6 font-sans">
+    <div className="bg-page min-h-screen pb-6 font-sans">
       <div className="p-4 sm:p-6 max-w-[1920px] mx-auto space-y-5">
 
         {/* Header & Filters */}

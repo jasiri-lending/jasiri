@@ -34,7 +34,7 @@ const SkeletonPulse = () => (
 );
 
 const Skeleton360 = () => (
-  <div className="p-6 h-screen flex flex-col bg-muted space-y-6">
+  <div className="p-6 h-screen flex flex-col bg-surface space-y-6">
     {/* Header Skeleton */}
     <div className="flex-shrink-0">
       <div className="w-48 h-10 bg-white/50 rounded-xl animate-pulse" />
@@ -723,7 +723,7 @@ const Customer360View = () => {
                     )}
                   </div>
 
-                  <div className="mt-5 w-full bg-muted/50 backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
+                  <div className="mt-5 w-full bg-page backdrop-blur-md rounded-2xl p-4 shadow-sm border border-white">
                     <h2 className="  text-slate-600 text-sm text-center ">
                       {customer.prefix} {customer.Firstname} {customer.Surname}
                     </h2>
@@ -2420,7 +2420,7 @@ const Customer360View = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
               {/* Loan Info */}
-              <div className="bg-muted backdrop-blur-sm rounded-lg p-3 border border-gray-500">
+              <div className="bg-page backdrop-blur-sm rounded-lg p-3 border border-gray-500">
                 <p className="text-xs text-gray-500 mb-1">Loan Amount</p>
                 <p className="text-sm font-bold text-slate-600">
                   {formatCurrency(loanDetails.scored_amount)}
@@ -2455,7 +2455,7 @@ const Customer360View = () => {
               </div>
 
               {/* Customer Info */}
-              <div className="bg-muted backdrop-blur-sm rounded-lg p-3 border border-gray-500">
+              <div className="bg-page backdrop-blur-sm rounded-lg p-3 border border-gray-500">
                 <p className="text-xs text-gray-500 mb-1">Customer</p>
                 <p className="text-sm font-medium text-slate-600 truncate">
                   {customer?.Firstname} {customer?.Surname}
@@ -2746,7 +2746,7 @@ const Customer360View = () => {
   }
 
   return (
-    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-surface">
+    <div className="p-2 sm:p-4 lg:p-6 h-screen flex flex-col bg-page">
       {/* Header with Back Button */}
       {/* <div className="mb-2 flex-shrink-0">
         <button

@@ -15,6 +15,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
 import { useToast } from "../../components/Toast";
 import { Pagination } from "../../components/Pagination.jsx";
+import CustomSelect from "../../components/CustomSelect";
 
 function BankReconciliations() {
   const { profile } = useAuth();
@@ -420,33 +421,28 @@ function BankReconciliations() {
   };
 
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8 font-outfit">
+    <div className="min-h-screen bg-page p-4 sm:p-6 lg:p-8 font-outfit">
       <div className="max-w-7xl mx-auto">
         <div className="mb-2 sm:mb-6">
-          <h1 className="text-sm sm:text-sm lg:text-sm font-outfit text-slate-600 text-start">
+          <h1 className="text-sm sm:text-sm lg:text-sm font-outfit text-heading text-start">
             Bank Reconciliation
           </h1>
         </div>
 
-        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6 mb-4">
+        <div className="bg-card rounded-xl shadow-card border border-border p-4 sm:p-6 mb-4">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h2 className="text-sm sm:text-sm font-outfit text-slate-600 mb-2">
+              <h2 className="text-sm sm:text-sm font-outfit text-heading mb-2">
                 Import Payment Data
               </h2>
               <div className="flex items-center gap-3">
-                <label className="text-xs font-outfit text-gray-500">Source Bank:</label>
-                <select
+                <label className="text-xs font-outfit text-muted">Source Bank:</label>
+                <CustomSelect
                   value={selectedBank}
-                  onChange={(e) => setSelectedBank(e.target.value)}
-                  className="px-2 py-1.5 text-xs border border-gray-300 rounded-lg focus:ring-1 focus:border-slate-500 outline-none"
-                >
-                  {banks.map((bank) => (
-                    <option key={bank} value={bank}>
-                      {bank}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => setSelectedBank(val)}
+                  options={banks.map((bank) => ({ value: bank, label: bank }))}
+                  compact
+                />
               </div>
             </div>
             <div className="flex flex-col sm:flex-row gap-3">

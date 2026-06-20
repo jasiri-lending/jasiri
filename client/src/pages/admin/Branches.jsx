@@ -6,11 +6,12 @@ import {
     TrashIcon,
     BuildingOfficeIcon,
     ArrowPathIcon,
-    ChevronUpDownIcon,
 } from '@heroicons/react/24/outline';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
-import Spinner from "../../components/Spinner";
+import Modal from "../../components/Modal";
+import CustomSelect from "../../components/CustomSelect";
+import SkeletonPage from "../../components/Skeleton";
 
 export default function Branches() {
     const { profile } = useAuth();
@@ -37,7 +38,6 @@ export default function Branches() {
                 const tenantId = profile.tenant_id;
                 setCurrentUserTenantId(tenantId);
 
-                // Try to load from localStorage first
                 const cacheKey = `branches_${tenantId || 'all'}`;
                 const cachedData = localStorage.getItem(cacheKey);
 
@@ -45,7 +45,6 @@ export default function Branches() {
                     try {
                         const parsed = JSON.parse(cachedData);
                         const cacheAge = Date.now() - parsed.timestamp;
-                        // Use cache if less than 5 minutes old
                         if (cacheAge < 5 * 60 * 1000) {
                             setBranches(parsed.branches || []);
                             setRegions(parsed.regions || []);
@@ -119,8 +118,6 @@ export default function Branches() {
                     region_name: branch.regions?.name || 'N/A'
                 }));
                 setBranches(mapped);
-
-                // Update localStorage cache
                 updateCache(tenantId, { branches: mapped });
             }
         } catch (err) {
@@ -169,7 +166,6 @@ export default function Branches() {
         }
     };
 
-    // Helper function to update localStorage cache
     const updateCache = (tenantId, newData) => {
         try {
             const cacheKey = `branches_${tenantId || 'all'}`;
@@ -204,9 +200,7 @@ export default function Branches() {
             setFormData(initialData);
         }
 
-        // Refresh regions to get latest data (including newly created regions)
         await fetchRegions(currentUserTenantId, profile?.role);
-
         setShowModal(true);
     };
 
@@ -220,8 +214,7 @@ export default function Branches() {
         setRefreshKey(prev => prev + 1);
     };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
+    const handleSubmit = async () => {
         setSubmitting(true);
 
         try {
@@ -281,212 +274,197 @@ export default function Branches() {
         );
     }, [branches, searchTerm]);
 
-    if (loading) {
-        return (
-            <div className="min-h-screen bg-brand-muted p-6 flex items-center justify-center">
-                <Spinner />
-            </div>
-        );
-    }
+    if (loading) return <SkeletonPage />;
+
+    const regionOptions = regions.map(r => ({ value: r.id, label: r.name }));
+    const tenantOptions = tenants.map(t => ({ value: t.id, label: t.name || t.company_name }));
 
     return (
-        <div className="min-h-screen bg-muted p-6">
-            <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                    <div className="flex justify-between items-center">
-                        <div>
-                            <h1 className="text-sm text-slate-600">Branch Management</h1>
-                        </div>
-                        <div className="flex items-center gap-3">
-                            <button
-                                onClick={handleManualRefresh}
-                                className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-white transition-colors"
-                            >
-                                <ArrowPathIcon className="h-3 w-3 mr-2" />
-                                <h3 className='text-xs text-slate-600'>Refresh</h3>
-                            </button>
-                        </div>
+        <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+            {/* Header */}
+            <div className="flex justify-between items-center mb-6">
+                <div>
+                    <h1 className="text-heading text-lg font-bold text-text-heading">Branch Management</h1>
+                    <p className="text-text-muted text-xs mt-0.5">{branches.length} branch{branches.length !== 1 ? 'es' : ''} total</p>
+                </div>
+                <div className="flex items-center gap-3">
+                    <button
+                        onClick={handleManualRefresh}
+                        className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-surface transition-colors text-xs text-text-muted"
+                    >
+                        <ArrowPathIcon className="h-3.5 w-3.5" />
+                        Refresh
+                    </button>
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 px-4 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors text-xs font-semibold shadow-sm"
+                    >
+                        <BuildingOfficeIcon className="h-3.5 w-3.5" />
+                        Add Branch
+                    </button>
+                </div>
+            </div>
+
+            {/* Card */}
+            <div className="bg-card rounded-xl border border-border shadow-card">
+                {/* Search bar */}
+                <div className="p-5 border-b border-border-light">
+                    <div className="relative max-w-md">
+                        <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+                        <input
+                            type="text"
+                            placeholder="Search branches..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-10 pr-4 py-2 w-full border border-border rounded-lg bg-surface text-xs text-text-body placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                        />
                     </div>
                 </div>
 
-                <div className="bg-white rounded-lg shadow mb-6">
-                    <div className="p-6 flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                        <div className="relative flex-1 max-w-md">
-                            <MagnifyingGlassIcon className="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                            <input
-                                type="text"
-                                placeholder="Search branches..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-brand-primary focus:border-transparent"
-                            />
-                        </div>
-                        <button
-                            onClick={() => openModal()}
-                            className="flex items-center px-2 py-1.5 bg-brand-btn text-white rounded-lg hover:bg-brand-primary transition-colors text-xs"
-                        >
-                            <BuildingOfficeIcon className="h-3 w-3 mr-2" />
-                            Add Branch
-                        </button>
-                    </div>
-
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-50">
+                {/* Table */}
+                <div className="overflow-x-auto">
+                    <table className="min-w-full divide-y divide-border-light">
+                        <thead className="bg-surface">
+                            <tr>
+                                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Branch Name</th>
+                                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Code</th>
+                                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Region</th>
+                                {isSuperAdmin && (
+                                    <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Tenant</th>
+                                )}
+                                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Address</th>
+                                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="bg-card divide-y divide-border-light">
+                            {filteredBranches.length === 0 ? (
                                 <tr>
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Branch Name
-                                    </th>
-
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Region
-                                    </th>
-                                    {isSuperAdmin && (
-                                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Tenant
-                                        </th>
-                                    )}
-
-                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                        Actions
-                                    </th>
+                                    <td colSpan={isSuperAdmin ? 6 : 5} className="px-5 py-14 text-center text-text-muted text-sm">
+                                        No branches found
+                                    </td>
                                 </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-gray-200">
-                                {filteredBranches.map((branch) => (
-                                    <tr key={branch.id} className="hover:bg-gray-50">
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                            {branch.name}
+                            ) : (
+                                filteredBranches.map((branch) => (
+                                    <tr key={branch.id} className="hover:bg-surface/60 transition-colors">
+                                        <td className="px-5 py-3.5">
+                                            <div className="flex items-center gap-2.5">
+                                                <div className="h-8 w-8 flex-shrink-0 rounded-lg bg-brand-primary/10 flex items-center justify-center">
+                                                    <BuildingOfficeIcon className="h-4 w-4 text-brand-primary" />
+                                                </div>
+                                                <span className="text-xs font-semibold text-text-heading whitespace-nowrap">{branch.name}</span>
+                                            </div>
                                         </td>
-
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            {branch.region_name}
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-xs text-text-muted font-mono">{branch.code || '—'}</span>
+                                        </td>
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-xs text-text-body">{branch.region_name}</span>
                                         </td>
                                         {isSuperAdmin && (
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {branch.tenant_name}
+                                            <td className="px-5 py-3.5">
+                                                <span className="text-xs text-text-muted">{branch.tenant_name}</span>
                                             </td>
                                         )}
-
-                                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                            <div className="flex space-x-2">
+                                        <td className="px-5 py-3.5">
+                                            <span className="text-xs text-text-muted">{branch.address || '—'}</span>
+                                        </td>
+                                        <td className="px-5 py-3.5">
+                                            <div className="flex items-center gap-1.5">
                                                 <button
                                                     onClick={() => openModal(branch)}
-                                                    className="text-brand-primary hover:text-brand-primary/80"
+                                                    className="p-1.5 rounded-lg text-brand-primary hover:bg-brand-primary/10 transition-colors"
+                                                    title="Edit"
                                                 >
-                                                    <PencilIcon className="h-4 w-4" />
+                                                    <PencilIcon className="h-3.5 w-3.5" />
                                                 </button>
                                                 <button
                                                     onClick={() => handleDelete(branch.id)}
-                                                    className="text-red-600 hover:text-red-800"
+                                                    className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors"
+                                                    title="Delete"
                                                 >
-                                                    <TrashIcon className="h-4 w-4" />
+                                                    <TrashIcon className="h-3.5 w-3.5" />
                                                 </button>
                                             </div>
                                         </td>
                                     </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                ))
+                            )}
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
             {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                    <div className="bg-muted rounded-lg p-6 w-full max-w-md">
-                        <h2 className="text-lg font-semibold mb-4">
-                            {editingItem ? 'Edit Branch' : 'Add Branch'}
-                        </h2>
-                        <form onSubmit={handleSubmit}>
-                            {isSuperAdmin && (
-                                <div className="mb-4">
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Tenant *
-                                    </label>
-                                    <select
-                                        value={formData.tenant_id || ''}
-                                        onChange={(e) => setFormData(prev => ({ ...prev, tenant_id: e.target.value }))}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary"
-                                        required
-                                    >
-                                        <option value="">Select Tenant</option>
-                                        {tenants.map(tenant => (
-                                            <option key={tenant.id} value={tenant.id}>
-                                                {tenant.name || tenant.company_name}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </div>
-                            )}
+            <Modal
+                open={showModal}
+                title={editingItem ? 'Edit Branch' : 'Add Branch'}
+                onClose={closeModal}
+                onSave={handleSubmit}
+                saving={submitting}
+                saveLabel={editingItem ? 'Update' : 'Create'}
+            >
+                <div className="space-y-4">
+                    {isSuperAdmin && (
+                        <div>
+                            <label className="block text-xs font-semibold text-text-muted mb-1.5">Tenant *</label>
+                            <CustomSelect
+                                value={formData.tenant_id || ''}
+                                onChange={(val) => setFormData(prev => ({ ...prev, tenant_id: val }))}
+                                options={tenantOptions}
+                                placeholder="Select Tenant"
+                                fullWidth
+                                searchable
+                            />
+                        </div>
+                    )}
 
-                            <div className="mb-4">
-                                <label className="block text-xs font-medium text-gray-700 mb-2">
-                                    Branch Name *
-                                </label>
-                                <input
-                                    type="text"
-                                    value={formData.name || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary"
-                                    required
-                                />
-                            </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-text-muted mb-1.5">Branch Name *</label>
+                        <input
+                            type="text"
+                            value={formData.name || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                            placeholder="e.g. Nairobi CBD"
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                            required
+                        />
+                    </div>
 
+                    <div>
+                        <label className="block text-xs font-semibold text-text-muted mb-1.5">Branch Code</label>
+                        <input
+                            type="text"
+                            value={formData.code || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, code: e.target.value }))}
+                            placeholder="e.g. NRB-CBD"
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                        />
+                    </div>
 
-                            <div className="mb-4">
-                                <label className="block text-xs font-medium text-gray-700 mb-2">
-                                    Region *
-                                </label>
-                                <select
-                                    value={formData.region_id || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, region_id: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary"
-                                    required
-                                >
-                                    <option value="">Select Region</option>
-                                    {regions.map(region => (
-                                        <option key={region.id} value={region.id}>
-                                            {region.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </div>
+                    <div>
+                        <label className="block text-xs font-semibold text-text-muted mb-1.5">Region *</label>
+                        <CustomSelect
+                            value={formData.region_id || ''}
+                            onChange={(val) => setFormData(prev => ({ ...prev, region_id: val }))}
+                            options={regionOptions}
+                            placeholder="Select Region"
+                            fullWidth
+                            searchable
+                        />
+                    </div>
 
-                            <div className="mb-4">
-                                <label className="block text-xs font-medium text-gray-700 mb-2">
-                                    Address
-                                </label>
-                                <textarea
-                                    value={formData.address || ''}
-                                    onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand-primary"
-                                    rows="3"
-                                />
-                            </div>
-
-                            <div className="flex justify-end gap-3">
-                                <button
-                                    type="button"
-                                    onClick={closeModal}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 text-xs"
-                                    disabled={submitting}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    className="px-4 py-2 bg-brand-btn text-white rounded-lg hover:bg-brand-primary disabled:opacity-50 text-xs"
-                                    disabled={submitting}
-                                >
-                                    {submitting ? 'Saving...' : (editingItem ? 'Update' : 'Create')}
-                                </button>
-                            </div>
-                        </form>
+                    <div>
+                        <label className="block text-xs font-semibold text-text-muted mb-1.5">Address</label>
+                        <textarea
+                            value={formData.address || ''}
+                            onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                            placeholder="Physical address..."
+                            className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors resize-none"
+                            rows={3}
+                        />
                     </div>
                 </div>
-            )}
+            </Modal>
         </div>
     );
 }

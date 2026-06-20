@@ -39,8 +39,6 @@ const ConversionChart = lazy(() => import("./relationship-officer/components/Cov
 // Admin Pages
 const AdminDashboard = lazy(() => import("./pages/admin/AdminDashboard"));
 const AllUsers = lazy(() => import("./pages/admin/AllUsers"));
-const AddUsers = lazy(() => import("./pages/admin/AddUsers"));
-const SuspendedUsers = lazy(() => import("./pages/admin/SuspendedUsers.jsx"));
 const AllLoansAdmin = lazy(() => import("./pages/admin/loans/AllLoansAdmin"));
 const PendingLoans = lazy(() => import("./pages/admin/loans/PendingLoans"));
 const ApprovedLoans = lazy(() => import("./pages/admin/loans/ApprovedLoans"));
@@ -1263,11 +1261,6 @@ function MainLayout({
                     <>
                       <Route path="/dashboard/admin" element={<AdminDashboard />} />
                       <Route path="/users/all/admin" element={<AllUsers />} />
-                      <Route path="/users/add/admin" element={<AddUsers />} />
-                      <Route
-                        path="/users/suspended/admin"
-                        element={<SuspendedUsers />}
-                      />
                       <Route path="/loans/all/admin" element={<AllLoansAdmin />} />
                       <Route
                         path="/loans/pending/admin"

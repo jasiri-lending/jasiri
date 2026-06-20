@@ -3,14 +3,11 @@ import { useNavigate } from "react-router-dom";
 import {
   Download,
   Filter,
-  ChevronLeft,
-  ChevronRight,
   ChevronUp,
   ChevronDown,
   Search,
   RefreshCw,
-  Eye,
-  Lock
+  Eye
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
@@ -27,37 +24,24 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { useAuth } from "../../hooks/userAuth";
-import { usePermissions } from "../../hooks/usePermissions";
-import Spinner from "../../components/Spinner";
+import { Pagination } from '../../components/Pagination.jsx';
+import CustomSelect from '../../components/CustomSelect';
+import { SkeletonTable } from '../../components/Skeleton';
 
 // ========== Memoized Helper Components ==========
-
-const SearchBox = React.memo(({ value, onChange }) => (
-  <div className="relative">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search customer or phone..."
-      className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary text-sm w-64"
-    />
-  </div>
-));
-SearchBox.displayName = "SearchBox";
 
 const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort, align = "left" }) => (
   <th
     onClick={() => onSort(sortKey)}
-    className={`px-4 py-3 font-semibold text-gray-700 cursor-pointer hover:bg-gray-50 transition-colors whitespace-nowrap text-${align}`}
+    className={`px-4 py-3 text-${align} text-xs font-medium whitespace-nowrap text-muted cursor-pointer hover:bg-surface transition-colors`}
   >
-    <div className={`flex items-center gap-2 ${align === "right" ? "justify-end" : "justify-start"}`}>
-      {label}
+    <div className={`flex items-center gap-1.5 ${align === "right" ? "justify-end" : "justify-start"}`}>
+      <span>{label}</span>
       {sortConfig.key === sortKey &&
         (sortConfig.direction === "asc" ? (
-          <ChevronUp className="w-4 h-4 text-brand-primary" />
+          <ChevronUp className="w-3.5 h-3.5 text-brand" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-brand-primary" />
+          <ChevronDown className="w-3.5 h-3.5 text-brand" />
         ))}
     </div>
   </th>
@@ -68,8 +52,6 @@ SortableHeader.displayName = "SortableHeader";
 
 const CustomerAccountModal = () => {
   const navigate = useNavigate();
-
-  // Get tenant and profile from useAuth
   const { tenant, profile } = useAuth();
 
   // ========== State ==========
@@ -219,7 +201,6 @@ const CustomerAccountModal = () => {
           loans.forEach((loan) => {
             const cust = loan.customer || {};
             const custId = cust.id;
-            // Skip updates if customer data is missing (e.g. deleted customer)
             if (!custId) return;
 
             const fullName = [cust.Firstname, cust.Middlename, cust.Surname]
@@ -243,13 +224,13 @@ const CustomerAccountModal = () => {
                 phone: cust.mobile || "N/A",
                 branch: cust.branch?.name || "N/A",
                 totalLoanApplied: 0,
-                loanAmount: 0, // Principal
+                loanAmount: 0,
                 interest: 0,
                 totalPayable: 0,
                 totalPaid: 0,
                 outstanding: 0,
                 latestDisbursed: loan.disbursed_date || loan.created_at,
-                status: "Active", // Default, effectively calculated below
+                status: "Active",
               };
             }
 
@@ -261,7 +242,6 @@ const CustomerAccountModal = () => {
             custRec.totalPaid += totalPaid;
             custRec.outstanding += outstanding;
 
-            // Update latest disbursed date if newer
             const loanDate = new Date(loan.disbursed_date || loan.created_at);
             const currentDate = new Date(custRec.latestDisbursed);
             if (loanDate > currentDate) {
@@ -271,7 +251,7 @@ const CustomerAccountModal = () => {
 
           const formatted = Object.values(customerSummary).map((c) => ({
             ...c,
-            status: c.outstanding <= 1 ? "Closed" : "Active", // Tolerance for float errors
+            status: c.outstanding <= 1 ? "Closed" : "Active",
           }));
 
           setRawAccounts(formatted);
@@ -290,14 +270,13 @@ const CustomerAccountModal = () => {
       mounted = false;
       clearTimeout(safetyTimeout);
     };
-  }, [tenant?.id]);
+  }, [tenant?.id, profile]);
 
   // ========== Filtering and Sorting ==========
   const filteredData = useMemo(() => {
     let result = [...rawAccounts];
     const query = (filters.search || "").toLowerCase().trim();
 
-    // 1. Search
     if (query) {
       result = result.filter(
         (item) =>
@@ -306,21 +285,18 @@ const CustomerAccountModal = () => {
       );
     }
 
-    // 2. Branch
     if (filters.branch) {
       result = result.filter((item) => item.branch === filters.branch);
     }
 
-    // 3. Status
     if (filters.status) {
       result = result.filter((item) => item.status.toLowerCase() === filters.status.toLowerCase());
     }
 
-    // 4. Date Range (based on latest disbursed)
     if (filters.startDate && filters.endDate) {
       const start = new Date(filters.startDate);
       const end = new Date(filters.endDate);
-      end.setHours(23, 59, 59, 999); // End of day
+      end.setHours(23, 59, 59, 999);
 
       result = result.filter((item) => {
         if (!item.latestDisbursed) return false;
@@ -342,6 +318,14 @@ const CustomerAccountModal = () => {
       return 0;
     });
   }, [filteredData, sortConfig]);
+
+  const { totalPages, currentData } = useMemo(() => {
+    const total = sortedData.length;
+    const pages = Math.ceil(total / itemsPerPage);
+    const start = (currentPage - 1) * itemsPerPage;
+    const data = sortedData.slice(start, start + itemsPerPage);
+    return { totalRows: total, totalPages: pages, currentData: data };
+  }, [sortedData, currentPage]);
 
   // ========== Formatting Helpers ==========
   const formatCurrency = (num) =>
@@ -430,7 +414,7 @@ const CustomerAccountModal = () => {
       },
       margin: { top: 100 },
       styles: { fontSize: 8, cellPadding: 5 },
-      headStyles: { fillColor: [88, 106, 177], textColor: [255, 255, 255] }, // Matches standard #586ab1
+      headStyles: { fillColor: [26, 122, 74], textColor: [255, 255, 255] },
     });
 
     doc.save(
@@ -498,19 +482,14 @@ const CustomerAccountModal = () => {
         {
           children: [
             new Paragraph({
-              children: [
-                new TextRun({
-                  text: tenant?.company_name || "Jasiri",
-                  bold: true,
-                  size: 32,
-                }),
-              ],
+              text: tenant?.company_name || "Jasiri",
+              heading: "Heading1",
             }),
             new Paragraph({
-              children: [new TextRun({ text: "Customer Account Statements", size: 24 })],
+              text: "Customer Account Statements",
+              heading: "Heading2",
             }),
-            new Paragraph({ text: `Generated on: ${new Date().toLocaleString()}` }),
-            new Paragraph({ text: "" }),
+            new Paragraph(`Generated on: ${new Date().toLocaleString()}`),
             table,
           ],
         },
@@ -518,10 +497,14 @@ const CustomerAccountModal = () => {
     });
 
     const blob = await Packer.toBlob(doc);
-    saveAs(
-      blob,
-      `${tenant?.company_name || "Jasiri"}_account_statements_${new Date().toISOString().split("T")[0]}.docx`
-    );
+    saveAs(blob, `${tenant?.company_name || "Jasiri"}_account_statements.docx`);
+  };
+
+  const handleExport = () => {
+    if (exportFormat === "pdf") exportToPDF();
+    else if (exportFormat === "excel") exportToExcel();
+    else if (exportFormat === "word") exportToWord();
+    else exportToCSV();
   };
 
   const exportToCSV = () => {
@@ -535,196 +518,184 @@ const CustomerAccountModal = () => {
       "Total Paid",
       "Outstanding",
       "Status",
-    ].join(",");
+    ];
+    const rows = sortedData.map((c) => [
+      c.customerName,
+      c.phone,
+      c.branch,
+      c.loanAmount,
+      c.interest,
+      c.totalPayable,
+      c.totalPaid,
+      c.outstanding,
+      c.status,
+    ]);
 
-    const rows = sortedData.map((c) =>
-      [
-        `"${c.customerName}"`,
-        c.phone,
-        c.branch,
-        c.loanAmount,
-        c.interest,
-        c.totalPayable,
-        c.totalPaid,
-        c.outstanding,
-        c.status,
-      ].join(",")
-    );
-
-    const csvContent = [headers, ...rows].join("\n");
-    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
-    saveAs(
-      blob,
+    const csvContent =
+      "data:text/csv;charset=utf-8," +
+      [headers.join(","), ...rows.map((e) => e.join(","))].join("\n");
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute(
+      "download",
       `${tenant?.company_name || "Jasiri"}_account_statements_${new Date().toISOString().split("T")[0]}.csv`
     );
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
-  const handleExport = () => {
-    switch (exportFormat) {
-      case "pdf":
-        exportToPDF();
-        break;
-      case "excel":
-        exportToExcel();
-        break;
-      case "word":
-        exportToWord();
-        break;
-      case "csv":
-      default:
-        exportToCSV();
-        break;
-    }
-  };
+  const branchOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Branches" },
+      ...branches.map((b) => ({ value: b.name, label: b.name }))
+    ];
+  }, [branches]);
 
+  const statusOptions = [
+    { value: "", label: "All Status" },
+    { value: "active", label: "Active" },
+    { value: "closed", label: "Closed" }
+  ];
 
-  // ========== Pagination ==========
-  const { totalPages, currentData } = useMemo(() => {
-    const total = sortedData.length;
-    const pages = Math.ceil(total / itemsPerPage);
-    const start = (currentPage - 1) * itemsPerPage;
-    const data = sortedData.slice(start, start + itemsPerPage);
-    return { totalRows: total, totalPages: pages, currentData: data };
-  }, [sortedData, currentPage]);
-
+  const exportFormatOptions = [
+    { value: "csv", label: "CSV" },
+    { value: "excel", label: "Excel" },
+    { value: "word", label: "Word" },
+    { value: "pdf", label: "PDF" }
+  ];
 
   // ========== Render ==========
   if (loading) {
     return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Spinner text="Loading account statements..." />
+      <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+        <SkeletonTable rows={5} cols={10} />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-muted p-6">
-      <div className="max-w-[1600px] mx-auto space-y-6">
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
+        Reports / Customer Account Statements
+      </h1>
 
-        {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <div>
-                <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
-                <h2 className="text-lg font-semibold text-white mt-1">Customer Account Statements</h2>
-              </div>
+      <div className="bg-card rounded-xl shadow-card border border-border">
+        {/* Table Header Card */}
+        <div className="p-4 border-b border-border-light flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 bg-surface">
+          <div>
+            <h2 className="text-xs font-semibold text-heading font-outfit">
+              Customer Account Statements
+            </h2>
+            <p className="text-[10px] text-muted mt-0.5">
+              Detailed statement of customer transactions, balances, and account activity
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Search Input */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted w-3.5 h-3.5" />
+              <input
+                type="text"
+                placeholder="Search customer, phone..."
+                value={filters.search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="w-56 pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-card text-body focus:border-brand-primary focus:outline-none transition-colors duration-200"
+              />
             </div>
 
-            <div className="flex flex-col items-end gap-2">
-              <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                <SearchBox value={filters.search} onChange={handleSearchChange} />
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`px-3 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium transition-all border ${
+                showFilters
+                  ? "bg-brand-primary text-white shadow-sm border-transparent hover:bg-brand-primary/90"
+                  : "bg-card text-body border-border hover:bg-surface"
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>Filters</span>
+            </button>
 
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${showFilters
-                    ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                    : "text-white border-white/30 hover:bg-white/10"
-                    }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Filters</span>
-                </button>
-
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    <option value="csv">CSV</option>
-                    <option value="excel">Excel</option>
-                    <option value="word">Word</option>
-                    <option value="pdf">PDF</option>
-                  </select>
-                  <button
-                    onClick={handleExport}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
-                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
-                </div>
+            {/* Export format & button */}
+            <div className="flex items-center gap-2">
+              <div className="w-28 z-20">
+                <CustomSelect
+                  value={exportFormat}
+                  onChange={setExportFormat}
+                  options={exportFormatOptions}
+                  compact
+                  fullWidth
+                />
               </div>
+              <button
+                onClick={handleExport}
+                className="px-3 py-1.5 rounded-md bg-brand-primary text-white text-xs font-semibold hover:bg-brand-primary/95 transition-colors flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
             </div>
           </div>
         </div>
 
         {/* Filters Panel */}
         {showFilters && (
-          <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                <Filter className="w-4 h-4 text-brand-primary" />
-                Report Filters
-              </h3>
+          <div className="p-4 border-b border-border-light bg-card/50 space-y-4 font-outfit">
+            <div className="flex items-center justify-between">
+              <h4 className="text-xs font-semibold text-heading">Filter Results</h4>
               <button
                 onClick={clearFilters}
-                className="text-sm font-semibold text-red-500 hover:text-red-600 flex items-center gap-1.5 transition-colors"
+                className="text-red-600 text-xs font-semibold flex items-center gap-1 hover:text-red-700 transition-colors"
               >
-                <RefreshCw className="w-4 h-4" />
-                Reset All Filters
+                <RefreshCw className="w-3.5 h-3.5" /> Reset Filters
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               {['super_admin', 'regional_manager'].includes(profile?.role) && (
-                <div className="space-y-1.5">
-                  <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                    Branch
-                  </label>
-                  <select
+                <div className="space-y-1">
+                  <label className="text-[10px] font-semibold text-muted uppercase">Branch</label>
+                  <CustomSelect
                     value={filters.branch}
-                    onChange={(e) => handleFilterChange("branch", e.target.value)}
-                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                  >
-                    <option value="">All Branches</option>
-                    {branches.map((b) => (
-                      <option key={b.id} value={b.name}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("branch", val)}
+                    options={branchOptions}
+                    compact
+                    fullWidth
+                  />
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Status
-                </label>
-                <select
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted uppercase">Status</label>
+                <CustomSelect
                   value={filters.status}
-                  onChange={(e) => handleFilterChange("status", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
-                >
-                  <option value="">All Status</option>
-                  <option value="active">Active</option>
-                  <option value="closed">Closed</option>
-                </select>
+                  onChange={(val) => handleFilterChange("status", val)}
+                  options={statusOptions}
+                  compact
+                  fullWidth
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  Start Date
-                </label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted uppercase">Start Date</label>
                 <input
                   type="date"
                   value={filters.startDate}
                   onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  className="w-full bg-card border border-border px-3 py-1.5 rounded-lg text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
                 />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[11px] font-bold text-gray-400 uppercase tracking-wider ml-1">
-                  End Date
-                </label>
+              <div className="space-y-1">
+                <label className="text-[10px] font-semibold text-muted uppercase">End Date</label>
                 <input
                   type="date"
                   value={filters.endDate}
                   onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-brand-primary outline-none transition-all"
+                  className="w-full bg-card border border-border px-3 py-1.5 rounded-lg text-xs focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all"
                 />
               </div>
             </div>
@@ -732,145 +703,85 @@ const CustomerAccountModal = () => {
         )}
 
         {/* Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-          {filteredData.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-500">No records found</p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-gray-100 border-b border-gray-200 sticky top-0 text-sm">
-                    <tr>
-                      <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap text-left">#</th>
-                      <SortableHeader label="Customer Details" sortKey="customerName" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Phone" sortKey="phone" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Principal" sortKey="loanAmount" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                      <SortableHeader label="Interest" sortKey="interest" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                      <SortableHeader label="Payable" sortKey="totalPayable" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                      <SortableHeader label="Paid" sortKey="totalPaid" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                      <SortableHeader label="Outstanding" sortKey="outstanding" sortConfig={sortConfig} onSort={handleSort} align="right" />
-                      <SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} align="center" />
-                      <th className="px-4 py-3 font-semibold text-gray-700 whitespace-nowrap text-center">Action</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {currentData.map((c, i) => {
-                      const rowIndex = (currentPage - 1) * itemsPerPage + i + 1;
-                      return (
-                        <tr key={c.customerId || i} className="hover:bg-gray-50 transition-colors text-sm">
-                          <td className="px-4 py-3 text-gray-400 font-medium whitespace-nowrap">{rowIndex}</td>
-                          <td className="px-4 py-3 text-brand-primary font-bold whitespace-nowrap">{c.customerName}</td>
-                          <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{c.phone}</td>
-                          <td className="px-4 py-3 text-gray-700 whitespace-nowrap">{c.branch}</td>
+        <div className="overflow-x-auto font-outfit">
+          <table className="min-w-full divide-y divide-border-light">
+            <thead className="bg-surface">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium whitespace-nowrap text-muted">#</th>
+                <SortableHeader label="Customer Details" sortKey="customerName" sortConfig={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Phone" sortKey="phone" sortConfig={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
+                <SortableHeader label="Principal" sortKey="loanAmount" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                <SortableHeader label="Interest" sortKey="interest" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                <SortableHeader label="Payable" sortKey="totalPayable" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                <SortableHeader label="Paid" sortKey="totalPaid" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                <SortableHeader label="Outstanding" sortKey="outstanding" sortConfig={sortConfig} onSort={handleSort} align="right" />
+                <SortableHeader label="Status" sortKey="status" sortConfig={sortConfig} onSort={handleSort} align="center" />
+                <th className="px-4 py-3 text-right text-xs font-medium whitespace-nowrap text-muted">Action</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border-light">
+              {currentData.map((c, i) => {
+                const rowIndex = (currentPage - 1) * itemsPerPage + i + 1;
+                return (
+                  <tr key={c.customerId || i} className="hover:bg-surface transition-colors">
+                    <td className="px-4 py-3 text-xs text-muted font-medium whitespace-nowrap">{rowIndex}</td>
+                    <td className="px-4 py-3 text-xs text-brand font-bold whitespace-nowrap">{c.customerName}</td>
+                    <td className="px-4 py-3 text-xs text-body whitespace-nowrap">{c.phone}</td>
+                    <td className="px-4 py-3 text-xs text-body whitespace-nowrap">{c.branch}</td>
 
-                          <td className="px-4 py-3 text-right text-gray-900 font-medium whitespace-nowrap">
-                            {formatCurrency(c.loanAmount)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-900 font-medium whitespace-nowrap">
-                            {formatCurrency(c.interest)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-gray-900 font-medium whitespace-nowrap">
-                            {formatCurrency(c.totalPayable)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-green-700 font-semibold whitespace-nowrap">
-                            {formatCurrency(c.totalPaid)}
-                          </td>
-                          <td className="px-4 py-3 text-right text-red-700 font-semibold whitespace-nowrap">
-                            {formatCurrency(c.outstanding)}
-                          </td>
-                          <td className="px-4 py-3 text-center whitespace-nowrap">
-                            <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase tracking-wider ${c.status === "Active"
-                              ? "bg-green-100 text-green-700"
-                              : "bg-gray-100 text-gray-700"
-                              }`}>
-                              {c.status}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3 text-center whitespace-nowrap">
-                            <button
-                              onClick={() => handleViewStatement(c)}
-                              className="flex items-center gap-1 px-3 py-1 text-white text-xs font-medium rounded-lg transition-all duration-300 hover:shadow-md bg-brand-primary/90 hover:bg-brand-primary"
-                              style={{ backgroundColor: "#586ab1" }}
-                            >
-                              <Eye className="w-3.5 h-3.5" />
-                              Statement
-                            </button>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Pagination */}
-              <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                <div className="text-sm text-gray-600">
-                  Showing <span className="font-semibold">{(currentPage - 1) * itemsPerPage + 1}</span> to{' '}
-                  <span className="font-semibold">{Math.min(currentPage * itemsPerPage, filteredData.length)}</span> of{' '}
-                  <span className="font-semibold">{filteredData.length}</span> records
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === 1
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                      }`}
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                    Previous
-                  </button>
-
-                  <div className="flex items-center gap-2">
-                    {Array.from({ length: Math.min(5, totalPages) }).map((_, i) => {
-                      let pageNum;
-                      if (totalPages <= 5) {
-                        pageNum = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNum = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNum = totalPages - 4 + i;
-                      } else {
-                        pageNum = currentPage - 2 + i;
-                      }
-
-                      return (
+                    <td className="px-4 py-3 text-xs text-right text-body font-medium whitespace-nowrap">
+                      {formatCurrency(c.loanAmount)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-right text-body font-medium whitespace-nowrap">
+                      {formatCurrency(c.interest)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-right text-body font-medium whitespace-nowrap">
+                      {formatCurrency(c.totalPayable)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-right text-emerald-700 font-semibold whitespace-nowrap">
+                      {formatCurrency(c.totalPaid)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-right text-red-700 font-semibold whitespace-nowrap">
+                      {formatCurrency(c.outstanding)}
+                    </td>
+                    <td className="px-4 py-3 text-center whitespace-nowrap">
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${c.status === 'Active' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-700'
+                        }`}>
+                        {c.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end">
                         <button
-                          key={pageNum}
-                          onClick={() => setCurrentPage(pageNum)}
-                          className={`px-3 py-2 rounded-lg transition-colors ${currentPage === pageNum
-                            ? 'bg-brand-primary text-white font-semibold'
-                            : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                            }`}
-                          style={currentPage === pageNum ? { backgroundColor: "#586ab1" } : {}}
+                          onClick={() => handleViewStatement(c)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded text-xs font-medium text-brand-primary hover:bg-brand-surface transition-colors"
+                          aria-label="View Statement"
                         >
-                          {pageNum}
+                          <Eye size={12} />
+                          Statement
                         </button>
-                      );
-                    })}
-                  </div>
+                      </div>
+                    </td>
+                  </tr>
+                )
+              })}
+              {filteredData.length === 0 && (
+                <tr>
+                  <td className="p-8 text-center text-xs text-muted" colSpan={11}>
+                    No records found
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
 
-                  <button
-                    onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
-                    disabled={currentPage === totalPages}
-                    className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === totalPages
-                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                      }`}
-                  >
-                    Next
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-            </>
-          )}
+          <Pagination
+            totalItems={filteredData.length}
+            itemsPerPage={itemsPerPage}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+          />
         </div>
       </div>
     </div>

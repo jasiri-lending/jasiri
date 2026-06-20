@@ -7,6 +7,7 @@ import {
   ChevronRight,
   Search,
   RefreshCw,
+  AlertCircle,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import jsPDF from "jspdf";
@@ -23,8 +24,9 @@ import {
 } from "docx";
 import { saveAs } from "file-saver";
 import { useAuth } from "../../hooks/userAuth";
-import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
-
+import CustomSelect from "../../components/CustomSelect";
+import { SkeletonTable } from "../../components/Skeleton";
+import { Pagination } from "../../components/Pagination";
 // ========== Memoized Helper Components ==========
 
 const SearchBox = React.memo(({ value, onChange }) => (
@@ -55,37 +57,37 @@ const OutstandingLoanRow = React.memo(({ loan, isFirstInBranch, isFirstInOfficer
 
   const getPercentClass = (percent, type = "paid") => {
     if (type === "paid") {
-      if (percent >= 75) return "bg-green-100 text-green-800";
-      if (percent >= 50) return "bg-blue-100 text-blue-800";
-      if (percent >= 25) return "bg-yellow-100 text-yellow-800";
-      return "bg-red-100 text-red-800";
+      if (percent >= 75) return "bg-success/10 text-success";
+      if (percent >= 50) return "bg-brand/10 text-brand";
+      if (percent >= 25) return "bg-warning/10 text-warning-strong";
+      return "bg-danger/10 text-danger";
     } else {
-      if (percent <= 25) return "bg-green-100 text-green-800";
-      if (percent <= 50) return "bg-blue-100 text-blue-800";
-      if (percent <= 75) return "bg-yellow-100 text-yellow-800";
-      return "bg-red-100 text-red-800";
+      if (percent <= 25) return "bg-success/10 text-success";
+      if (percent <= 50) return "bg-brand/10 text-brand";
+      if (percent <= 75) return "bg-warning/10 text-warning-strong";
+      return "bg-danger/10 text-danger";
     }
   };
 
   const getOverdueClass = (days) => {
-    if (days <= 7) return "bg-yellow-100 text-yellow-800";
-    if (days <= 30) return "bg-orange-100 text-orange-800";
-    return "bg-red-100 text-red-800";
+    if (days <= 7) return "bg-warning/10 text-warning-strong";
+    if (days <= 30) return "bg-danger/10 text-danger";
+    return "bg-danger text-white";
   };
 
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
+    <tr className="hover:bg-brand-surface transition-colors border-b border-border/50 last:border-0 group">
       {isFirstInBranch ? (
         <>
           <td
             rowSpan={branchRowSpan}
-            className="px-3 py-3 text-gray-900 font-bold bg-blue-50 border-r-2 border-blue-200 align-top whitespace-nowrap text-xs shadow-[inset_-2px_0_0_0_rgba(191,219,254,1)]"
+            className="px-4 py-3 text-brand font-bold bg-brand/5 border-r border-brand/20 align-top whitespace-nowrap text-xs"
           >
             {loan.branch}
           </td>
           <td
             rowSpan={branchRowSpan}
-            className="px-3 py-3 text-right text-blue-700 font-bold bg-blue-50 border-r-2 border-blue-200 align-top whitespace-nowrap text-xs"
+            className="px-4 py-3 text-right text-brand font-bold bg-brand/5 border-r border-brand/20 align-top whitespace-nowrap text-xs"
           >
             {formatCurrency(branchTotal)}
           </td>
@@ -96,56 +98,56 @@ const OutstandingLoanRow = React.memo(({ loan, isFirstInBranch, isFirstInOfficer
         <>
           <td
             rowSpan={officerRowSpan}
-            className="px-3 py-3 text-gray-800 font-semibold bg-green-50 border-r border-green-200 align-top whitespace-nowrap text-xs"
+            className="px-4 py-3 text-text-primary font-semibold bg-success/5 border-r border-success/20 align-top whitespace-nowrap text-xs"
           >
             {loan.loan_officer}
           </td>
           <td
             rowSpan={officerRowSpan}
-            className="px-3 py-3 text-right text-green-700 font-bold bg-green-50 border-r border-green-200 align-top whitespace-nowrap text-xs"
+            className="px-4 py-3 text-right text-success font-bold bg-success/5 border-r border-success/20 align-top whitespace-nowrap text-xs"
           >
             {formatCurrency(officerTotal)}
           </td>
         </>
       ) : null}
 
-      <td className="px-3 py-3 text-gray-900 font-medium whitespace-nowrap text-xs">{loan.customer_name}</td>
-      <td className="px-3 py-3 text-gray-700 whitespace-nowrap text-xs">{loan.mobile}</td>
-      <td className="px-3 py-3 text-gray-700 whitespace-nowrap text-xs">{loan.customer_id}</td>
-      <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap text-xs">{formatCurrency(loan.principal)}</td>
-      <td className="px-3 py-3 text-right text-gray-900 whitespace-nowrap text-xs">{formatCurrency(loan.interest)}</td>
-      <td className="px-3 py-3 text-right text-gray-900 font-bold whitespace-nowrap text-xs">{formatCurrency(loan.total_amount)}</td>
-      <td className="px-3 py-3 text-center text-gray-700 whitespace-nowrap text-xs">{loan.outstanding_installments}</td>
-      <td className="px-3 py-3 text-right text-green-700 font-medium whitespace-nowrap text-xs">{formatCurrency(loan.principal_paid)}</td>
-      <td className="px-3 py-3 text-right text-green-700 font-medium whitespace-nowrap text-xs">{formatCurrency(loan.interest_paid)}</td>
-      <td className="px-3 py-3 text-right text-green-800 font-bold whitespace-nowrap text-xs">{formatCurrency(loan.total_amount_paid)}</td>
-      <td className="px-3 py-3 text-center whitespace-nowrap">
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${getPercentClass(loan.percent_paid)}`}>
+      <td className="px-4 py-3 text-text-primary font-medium whitespace-nowrap text-xs">{loan.customer_name}</td>
+      <td className="px-4 py-3 text-text-secondary whitespace-nowrap text-xs">{loan.mobile}</td>
+      <td className="px-4 py-3 text-text-secondary whitespace-nowrap text-xs">{loan.customer_id}</td>
+      <td className="px-4 py-3 text-right text-text-primary whitespace-nowrap text-xs">{formatCurrency(loan.principal)}</td>
+      <td className="px-4 py-3 text-right text-text-primary whitespace-nowrap text-xs">{formatCurrency(loan.interest)}</td>
+      <td className="px-4 py-3 text-right text-text-primary font-bold whitespace-nowrap text-xs">{formatCurrency(loan.total_amount)}</td>
+      <td className="px-4 py-3 text-center text-text-secondary whitespace-nowrap text-xs">{loan.outstanding_installments}</td>
+      <td className="px-4 py-3 text-right text-success font-medium whitespace-nowrap text-xs">{formatCurrency(loan.principal_paid)}</td>
+      <td className="px-4 py-3 text-right text-success font-medium whitespace-nowrap text-xs">{formatCurrency(loan.interest_paid)}</td>
+      <td className="px-4 py-3 text-right text-success font-bold whitespace-nowrap text-xs">{formatCurrency(loan.total_amount_paid)}</td>
+      <td className="px-4 py-3 text-center whitespace-nowrap">
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${getPercentClass(loan.percent_paid)}`}>
           {loan.percent_paid.toFixed(1)}%
         </span>
       </td>
-      <td className="px-3 py-3 text-center whitespace-nowrap">
-        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${getPercentClass(loan.percent_unpaid, "unpaid")}`}>
+      <td className="px-4 py-3 text-center whitespace-nowrap">
+        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${getPercentClass(loan.percent_unpaid, "unpaid")}`}>
           {loan.percent_unpaid.toFixed(1)}%
         </span>
       </td>
-      <td className="px-3 py-3 text-right text-blue-700 font-black whitespace-nowrap text-xs bg-blue-50/20">
+      <td className="px-4 py-3 text-right text-brand font-black whitespace-nowrap text-xs bg-brand/5 border-l border-brand/10">
         {formatCurrency(loan.balance)}
       </td>
-      <td className="px-3 py-3 text-right text-red-700 font-black whitespace-nowrap text-xs bg-red-50/20">
+      <td className="px-4 py-3 text-right text-danger font-black whitespace-nowrap text-xs bg-danger/5">
         {loan.arrears_amount > 0 ? formatCurrency(loan.arrears_amount) : "-"}
       </td>
-      <td className="px-3 py-3 text-center whitespace-nowrap">
+      <td className="px-4 py-3 text-center whitespace-nowrap">
         {loan.overdue_days > 0 ? (
-          <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${getOverdueClass(loan.overdue_days)}`}>
+          <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold tracking-wide ${getOverdueClass(loan.overdue_days)}`}>
             {loan.overdue_days} DAYS
           </span>
         ) : (
-          <span className="text-gray-400 font-bold text-[10px]">CURRENT</span>
+          <span className="text-text-muted font-bold text-[10px] tracking-wide">CURRENT</span>
         )}
       </td>
-      <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-[10px] font-medium tracking-tight">{loan.disbursement_date}</td>
-      <td className="px-3 py-3 text-gray-600 whitespace-nowrap text-[10px] font-medium tracking-tight">{loan.loan_end_date}</td>
+      <td className="px-4 py-3 text-text-muted whitespace-nowrap text-[10px] font-medium tracking-tight">{loan.disbursement_date}</td>
+      <td className="px-4 py-3 text-text-muted whitespace-nowrap text-[10px] font-medium tracking-tight">{loan.loan_end_date}</td>
     </tr>
   );
 });
@@ -1111,14 +1113,6 @@ const OutstandingLoanBalanceReport = () => {
     { value: "word", label: "Word" },
   ];
 
-  // ✅ Show loading state with custom Spinner
-  if (loading && rawReports.length === 0) {
-    return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Spinner text="Loading Outstanding Loan Balance Report..." />
-      </div>
-    );
-  }
 
   // ✅ Show error state with retry option
   if (error && rawReports.length === 0) {
@@ -1142,254 +1136,242 @@ const OutstandingLoanBalanceReport = () => {
     );
   }
 
+  const hasActiveFilters = Boolean(
+    filters.region ||
+      filters.branch ||
+      filters.loanOfficer ||
+      filters.product ||
+      filters.status !== "all" ||
+      filters.dateFilter !== "all" ||
+      filters.customStartDate ||
+      filters.customEndDate
+  );
+
   return (
-    <div className="min-h-screen bg-muted p-4 sm:p-6 lg:p-8">
-      <div className="max-w-full mx-auto space-y-8">
-        {/* COMPACT HEADER */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
+    <div className="min-h-screen bg-page p-5 md:p-8 space-y-6 font-outfit animate-fade-in">
+      <div className="max-w-[1600px] mx-auto space-y-6">
 
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-sm font-bold text-muted mt-0.5">Outstanding Loan Balance Report</h1>
+          </div>
 
-              <div>
-                <h1 className="text-sm font-bold text-stone-700 leading-tight">
-                  {tenant?.company_name || "Jasiri "}
-                </h1>
-                <h2 className="text-lg font-semibold text-white/90">OLB Report</h2>
-              </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder="Search name, ID..."
+                className="bg-card border border-border text-text-primary placeholder:text-muted rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 w-64 transition"
+              />
             </div>
 
-            {/* CONSOLIDATED CONTROLS */}
-            <div className="flex flex-wrap items-center gap-3">
-              <SearchBox
-                value={filters.search}
-                onChange={(val) => handleFilterChange("search", val)}
-              />
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
+                showFilters
+                  ? "bg-brand text-white border-brand shadow-sm"
+                  : "bg-card text-text-secondary border-border hover:border-brand/50"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+              )}
+            </button>
 
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border ${
-                  showFilters ? "bg-accent text-white border-transparent" : "text-white border-white/30 hover:bg-white/10"
-                  }`}
+            {/* Export Dropdown */}
+            <div className="flex items-center bg-card rounded-lg border border-border p-1">
+              <select
+                value={exportFormat}
+                onChange={(e) => setExportFormat(e.target.value)}
+                className="bg-transparent text-sm font-medium text-text-secondary px-2 py-1 focus:outline-none cursor-pointer"
               >
-                <Filter className="w-4 h-4" />
-                <span>Filters</span>
+                {exportFormatOptions.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={handleExport}
+                className="ml-2 px-3 py-1.5 rounded-md bg-brand text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5 shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
               </button>
-
-              <div className="flex items-center bg-white rounded-lg border border-gray-200 p-1 shadow-sm">
-                <select
-                  value={exportFormat}
-                  onChange={(e) => setExportFormat(e.target.value)}
-                  className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                >
-                  {exportFormatOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
-                <button
-                  onClick={handleExport}
-                  className="ml-1 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium hover:opacity-90 transition-opacity flex items-center gap-1.5"
-                >
-                  <Download className="w-3.5 h-3.5" />
-                  <span>Export</span>
-                </button>
-              </div>
             </div>
           </div>
         </div>
 
         {/* SUMMARY CARDS */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          <div className="bg-amber-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-slate-600 font-medium">Total Balance</p>
-            <p className="text-2xl font-bold mt-1 text-primary">
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+            <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Total Balance</p>
+            <h3 className="text-xl font-bold text-secondary mt-1 tabular-nums">
               {formatCurrency(totals.outstanding)}
-            </p>
+            </h3>
           </div>
-          <div className="bg-emerald-50 p-5 rounded-xl shadow-sm border border-gray-100">
-            <p className="text-sm text-slate-600 font-medium">Principal Outstanding</p>
-            <p className="text-2xl font-bold mt-1 text-accent">
+
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
+            <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Principal Outstanding</p>
+            <h3 className="text-xl font-bold text-brand mt-1 tabular-nums">
               {formatCurrency(totals.principal)}
-            </p>
+            </h3>
           </div>
-          <div className="bg-purple-50 p-5 rounded-xl shadow-sm border border-gray-100">
+
+          <div className="bg-card border border-border p-5 rounded-xl shadow-sm">
             <div className="flex items-center justify-between">
-              <p className="text-sm text-slate-600 font-medium">Number of Loans</p>
-              <span className="text-[10px] font-bold px-1.5 py-0.5 bg-purple-100 text-purple-700 rounded">
-                ACTIVE
-              </span>
+              <p className="text-xs text-text-muted font-medium uppercase tracking-wide">Number of Loans</p>
             </div>
-            <p className="text-2xl font-bold mt-1 text-gray-900">{totals.count}</p>
+            <h3 className="text-xl font-bold text-text-primary mt-1 tabular-nums">
+              {totals.count}
+            </h3>
           </div>
         </div>
 
         {/* FILTER PANEL */}
         {showFilters && (
-          <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/60 space-y-6 animate-in fade-in duration-300">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider flex items-center gap-2">
-                <Filter className="w-4 h-4 text-brand-primary" />
-                Advanced Filtering
-              </h3>
-              <button
-                onClick={() => setShowFilters(false)}
-                className="p-1.5 hover:bg-slate-100 rounded-full transition-colors"
-              >
-                <X className="w-4 h-4 text-slate-400" />
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+          <div className="bg-card border border-border rounded-xl p-5 animate-in fade-in slide-in-from-top-2 duration-200 shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="space-y-1.5 z-50">
+                <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                   Date Range
                 </label>
-                <select
+                <CustomSelect
                   value={filters.dateFilter}
-                  onChange={(e) => handleFilterChange("dateFilter", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  {dateFilterOptions.map((opt) => (
-                    <option key={opt.value} value={opt.value}>
-                      {opt.label}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleFilterChange("dateFilter", val)}
+                  options={dateFilterOptions}
+                  placeholder="Select Date Range"
+                />
               </div>
 
               {filters.dateFilter === "custom" && (
                 <>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                    <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                       Start Date
                     </label>
                     <input
                       type="date"
                       value={filters.customStartDate}
                       onChange={(e) => handleFilterChange("customStartDate", e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                      className="w-full px-4 py-2 bg-page border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand/20 outline-none text-text-primary"
                     />
                   </div>
                   <div className="space-y-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                    <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                       End Date
                     </label>
                     <input
                       type="date"
                       value={filters.customEndDate}
                       onChange={(e) => handleFilterChange("customEndDate", e.target.value)}
-                      className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
+                      className="w-full px-4 py-2 bg-page border border-border rounded-lg text-sm focus:ring-2 focus:ring-brand/20 outline-none text-text-primary"
                     />
                   </div>
                 </>
               )}
 
               {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <div className="space-y-1.5 z-40">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Region
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.region}
-                    onChange={(e) => handleFilterChange("region", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Regions</option>
-                    {regions.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("region", val)}
+                    options={[
+                      { value: "", label: "All Regions" },
+                      ...regions.map((r) => ({ value: r.id, label: r.name })),
+                    ]}
+                    placeholder="All Regions"
+                  />
                 </div>
               )}
 
               {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <div className="space-y-1.5 z-30">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Branch
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.branch}
-                    onChange={(e) => handleFilterChange("branch", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Branches</option>
-                    {getFilteredBranches().map((b) => (
-                      <option key={b.id} value={b.id}>
-                        {b.name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("branch", val)}
+                    options={[
+                      { value: "", label: "All Branches" },
+                      ...getFilteredBranches().map((b) => ({ value: b.id, label: b.name })),
+                    ]}
+                    placeholder="All Branches"
+                  />
                 </div>
               )}
 
               {profile?.role !== "relationship_officer" && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+                <div className="space-y-1.5 z-20">
+                  <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                     Officer
                   </label>
-                  <select
+                  <CustomSelect
                     value={filters.loanOfficer}
-                    onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                    className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                  >
-                    <option value="">All Officers</option>
-                    {getFilteredOfficers().map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.full_name}
-                      </option>
-                    ))}
-                  </select>
+                    onChange={(val) => handleFilterChange("loanOfficer", val)}
+                    options={[
+                      { value: "", label: "All Officers" },
+                      ...getFilteredOfficers().map((o) => ({ value: o.id, label: o.full_name })),
+                    ]}
+                    placeholder="All Officers"
+                  />
                 </div>
               )}
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              <div className="space-y-1.5 z-10">
+                <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                   Product
                 </label>
-                <select
+                <CustomSelect
                   value={filters.product}
-                  onChange={(e) => handleFilterChange("product", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  <option value="">All Products</option>
-                  {allProducts.map((p) => (
-                    <option key={p} value={p}>
-                      {p}
-                    </option>
-                  ))}
-                </select>
+                  onChange={(val) => handleFilterChange("product", val)}
+                  options={[
+                    { value: "", label: "All Products" },
+                    ...allProducts.map((p) => ({ value: p, label: p })),
+                  ]}
+                  placeholder="All Products"
+                />
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-wider ml-1">
+              <div className="space-y-1.5 z-0">
+                <label className="text-xs font-bold text-text-muted tracking-wider ml-1 uppercase">
                   Status
                 </label>
-                <select
+                <CustomSelect
                   value={filters.status}
-                  onChange={(e) => handleFilterChange("status", e.target.value)}
-                  className="w-full px-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:ring-2 focus:ring-brand-primary/20 outline-none"
-                >
-                  <option value="all">All States</option>
-                  <option value="current">Current</option>
-                  <option value="overdue">Overdue</option>
-                  <option value="defaulted">Defaulted</option>
-                </select>
+                  onChange={(val) => handleFilterChange("status", val)}
+                  options={[
+                    { value: "all", label: "All States" },
+                    { value: "current", label: "Current" },
+                    { value: "overdue", label: "Overdue" },
+                    { value: "defaulted", label: "Defaulted" },
+                  ]}
+                  placeholder="All States"
+                />
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-2">
+            <div className="flex items-center justify-between pt-4 mt-4 border-t border-border">
               <button
                 onClick={clearFilters}
-                className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors flex items-center gap-1.5 ml-1"
+                className="text-sm font-medium text-danger hover:text-danger/80 transition-colors flex items-center gap-1.5"
               >
                 <X className="w-4 h-4" />
-                Clear All Filters
+                Clear Filters
               </button>
-              <p className="text-xs text-slate-400 font-medium tracking-wide">
+              <p className="text-xs text-text-muted font-medium tracking-wide">
                 Showing {allLoans.length} matches
               </p>
             </div>
@@ -1397,21 +1379,23 @@ const OutstandingLoanBalanceReport = () => {
         )}
 
         {/* GRANULAR DATA TABLE */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
+        <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
           {loading ? (
-            <div className="p-8 text-center bg-slate-50/50">
-              <div className="flex justify-center">
-                <RefreshCw className="w-10 h-10 animate-spin text-brand-primary" />
-              </div>
-              <p className="text-gray-500 font-medium mt-4">Loading outstanding loans data...</p>
-            </div>
+            <SkeletonTable rows={5} columns={21} />
           ) : allLoans.length === 0 ? (
-            <div className="p-8 text-center py-20">
-              <Search className="w-12 h-12 text-gray-200 mx-auto mb-4" />
-              <p className="text-gray-500 font-bold">No outstanding loans found.</p>
+            <div className="flex flex-col items-center justify-center p-12 text-center">
+              <div className="w-16 h-16 bg-surface rounded-full flex items-center justify-center mb-4">
+                <Search className="w-8 h-8 text-muted" />
+              </div>
+              <h3 className="text-lg font-bold text-text-heading mb-1">
+                No outstanding loans found.
+              </h3>
+              <p className="text-muted max-w-sm mb-6">
+                We couldn't find any outstanding loans matching your current filter criteria.
+              </p>
               <button
                 onClick={clearFilters}
-                className="mt-4 text-brand-primary text-sm font-bold hover:underline"
+                className="text-brand font-semibold hover:underline"
               >
                 Clear Filters
               </button>
@@ -1419,75 +1403,75 @@ const OutstandingLoanBalanceReport = () => {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm border-collapse">
-                  <thead className="bg-gray-100 border-b-2 border-gray-300 sticky top-0 z-20">
+                <table className="w-full text-sm text-left border-collapse">
+                  <thead className="bg-surface border-b border-border sticky top-0 z-20">
                     <tr>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs border-r border-gray-200">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider border-r border-border">
                         Branch
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs border-r border-gray-200">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider border-r border-border">
                         Branch Total
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs border-r border-gray-200">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider border-r border-border">
                         Loan Officer
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs border-r border-gray-200">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider border-r border-border">
                         Officer Portfolio
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider">
                         Customer Name
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider">
                         Phone
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider">
                         ID Number
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Principal
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Interest
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Total Amount
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-center whitespace-nowrap text-xs uppercase tracking-wider">
                         Instal.
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Prin Paid
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Int Paid
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Total Paid
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-center whitespace-nowrap text-xs uppercase tracking-wider">
                         % Paid
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-center whitespace-nowrap text-xs uppercase tracking-wider">
                         % Unpaid
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs font-bold text-blue-800">
+                      <th className="px-3 py-3 font-semibold text-brand text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Balance
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-right whitespace-nowrap text-xs font-bold text-red-800">
+                      <th className="px-3 py-3 font-semibold text-danger text-right whitespace-nowrap text-xs uppercase tracking-wider">
                         Arrears
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-center whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-center whitespace-nowrap text-xs uppercase tracking-wider">
                         Overdue
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider">
                         Disbursed
                       </th>
-                      <th className="px-3 py-3 font-semibold text-gray-700 text-left whitespace-nowrap text-xs">
+                      <th className="px-3 py-3 font-semibold text-text-muted text-left whitespace-nowrap text-xs uppercase tracking-wider">
                         End Date
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-200">
+                  <tbody className="divide-y divide-border">
                     {filteredData.map((branch) => {
                       let loanCounter = 0;
                       const branchRowSpan = branch.officers.reduce(
@@ -1527,68 +1511,14 @@ const OutstandingLoanBalanceReport = () => {
                 </table>
               </div>
 
-              {/* PAGINATION */}
-              <div className="bg-slate-50/50 px-6 py-5 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-end gap-4">
-                <div className="text-sm font-medium text-slate-500">
-                  Showing{" "}
-                  <span className="font-bold text-slate-700">
-                    {pagination.startIdx + 1}
-                  </span>{" "}
-                  to{" "}
-                  <span className="font-bold text-slate-700">
-                    {Math.min(pagination.endIdx, pagination.totalRows)}
-                  </span>{" "}
-                  of{" "}
-                  <span className="font-bold text-slate-900">
-                    {pagination.totalRows}
-                  </span>{" "}
-                  entries
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
-                    disabled={currentPage === 1}
-                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                  >
-                    <ChevronLeft className="w-5 h-5" />
-                  </button>
-                  <div className="flex items-center gap-1.5">
-                    {Array.from({ length: Math.min(5, pagination.totalPages) }).map(
-                      (_, i) => {
-                        let pageNum;
-                        if (pagination.totalPages <= 5) pageNum = i + 1;
-                        else if (currentPage <= 3) pageNum = i + 1;
-                        else if (currentPage >= pagination.totalPages - 2)
-                          pageNum = pagination.totalPages - 4 + i;
-                        else pageNum = currentPage - 2 + i;
-
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`min-w-[40px] h-10 rounded-xl font-bold transition-all shadow-sm ${currentPage === pageNum
-                              ? "bg-brand-primary text-white scale-105 shadow-brand-primary/20"
-                              : "bg-white border border-slate-200 text-slate-600 hover:border-brand-primary/30 hover:bg-slate-50"
-                              }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      }
-                    )}
-                  </div>
-                  <button
-                    onClick={() =>
-                      setCurrentPage(Math.min(pagination.totalPages, currentPage + 1))
-                    }
-                    disabled={currentPage === pagination.totalPages}
-                    className="p-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-sm"
-                  >
-                    <ChevronRight className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
+              {/* Pagination Component */}
+              <Pagination
+                currentPage={currentPage}
+                totalPages={pagination.totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={pagination.totalRows}
+                itemsPerPage={itemsPerPage}
+              />
             </>
           )}
         </div>

@@ -225,7 +225,7 @@ const AnalyticsDashboard = () => {
   const summaryStats = calculateSummaryStats();
 
   return (
-    <div className="min-h-screen p-4 md:p-6 bg-surface" >
+    <div className="min-h-screen p-4 md:p-6 bg-page" >
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-sm md:text-sm  text-slate-600 mb-2">

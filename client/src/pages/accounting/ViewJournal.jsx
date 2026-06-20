@@ -6,6 +6,8 @@ import { useToast } from "../../components/Toast";
 import Spinner from "../../components/Spinner";
 import { apiFetch } from "../../utils/api";
 import { usePermissions } from "../../hooks/usePermissions";
+import SkeletonPage from "../../components/Skeleton";
+import Modal from "../../components/Modal";
 
 function ViewJournal() {
   const { id } = useParams();
@@ -110,11 +112,7 @@ function ViewJournal() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center items-center min-h-screen">
-        <Spinner />
-      </div>
-    );
+    return <SkeletonPage />;
   }
 
   if (!journal) {
@@ -431,87 +429,62 @@ function ViewJournal() {
       </div>
 
       {/* ACTION MODAL */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/25">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4 overflow-hidden animate-in fade-in zoom-in duration-200">
-            {/* Modal Header */}
-            <div className={`px-6 py-5 border-b flex justify-between items-center ${modalAction === 'approve' ? 'bg-brand-surface/30' : 'bg-red-50'
-              }`}>
-              <div className="flex items-center gap-3">
-                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${modalAction === 'approve' ? 'bg-brand-primary/10 text-brand-primary' : 'bg-red-100 text-red-600'
-                  }`}>
-                  {modalAction === 'approve' ? <CheckCircle size={18} /> : <XCircle size={18} />}
+      <Modal
+        open={isModalOpen}
+        title={modalAction === 'approve' ? 'Approve & Post Journal' : 'Reject Journal Entry'}
+        onClose={closeActionModal}
+      >
+        <div className="space-y-4 font-outfit">
+          {actionLoading ? (
+            <div className="py-8 flex justify-center">
+              <Spinner text={modalAction === 'approve' ? 'Approving Journal...' : 'Rejecting Journal...'} />
+            </div>
+          ) : (
+            <>
+              <div className="mb-4 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-inner">
+                <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
+                  <h4 className="text-[10px] uppercase tracking-widest font-black text-slate-500">Transaction Summary</h4>
                 </div>
-                <h3 className={`text-sm font-bold ${modalAction === 'approve' ? 'text-brand-primary' : 'text-red-800'
-                  }`}>
-                  {modalAction === 'approve' ? 'Approve & Post Journal' : 'Reject Journal Entry'}
-                </h3>
+                <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
+                  <div className="flex flex-col">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Type</span>
+                    <span className="text-xs font-bold text-slate-700 capitalize">{journal?.journal_type}</span>
+                  </div>
+                  <div className="flex flex-col text-right">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total Amount</span>
+                    <span className="text-xs font-black text-brand-primary">KES {parseFloat(journal?.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                  </div>
+                  <div className="col-span-2 flex flex-col pt-3 border-t border-slate-100">
+                    <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Primary Customer</span>
+                    <span className="text-xs font-semibold text-slate-800">{journal?.customer_name}</span>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={closeActionModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors p-1 hover:bg-gray-100 rounded-full"
-                disabled={actionLoading}
-              >
-                <X size={20} />
-              </button>
-            </div>
 
-            {/* Modal Body */}
-            <div className="p-6">
-              {actionLoading ? (
-                <div className="py-8 flex justify-center">
-                  <Spinner text={modalAction === 'approve' ? 'Approving Journal...' : 'Rejecting Journal...'} />
-                </div>
-              ) : (
-                <>
-                  <div className="mb-6 bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-inner">
-                    <div className="bg-slate-100 px-4 py-2 border-b border-slate-200">
-                      <h4 className="text-[10px] uppercase tracking-widest font-black text-slate-500">Transaction Summary</h4>
-                    </div>
-                    <div className="p-4 grid grid-cols-2 gap-y-4 gap-x-6">
-                      <div className="flex flex-col">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Type</span>
-                        <span className="text-xs font-bold text-slate-700 capitalize">{journal?.journal_type}</span>
-                      </div>
-                      <div className="flex flex-col text-right">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Total Amount</span>
-                        <span className="text-xs font-black text-brand-primary">KES {parseFloat(journal?.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                      </div>
-                      <div className="col-span-2 flex flex-col pt-3 border-t border-slate-100">
-                        <span className="text-[9px] text-slate-400 uppercase font-bold tracking-wider mb-1">Primary Customer</span>
-                        <span className="text-xs font-semibold text-slate-800">{journal?.customer_name}</span>
-                      </div>
-                    </div>
-                  </div>
+              <div className="mb-4 flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
+                <p className="text-[11px] leading-relaxed text-blue-800">
+                  {modalAction === 'approve'
+                    ? 'Confirming this action will finalize the journal entry, post it to the General Ledger, and update relevant customer wallet balances.'
+                    : 'Please state the reason for rejecting this entry. This will be recorded in the audit logs.'
+                  }
+                </p>
+              </div>
 
-                  <div className="mb-6 flex items-start gap-3 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                    <Info className="h-4 w-4 text-blue-500 mt-0.5 flex-shrink-0" />
-                    <p className="text-[11px] leading-relaxed text-blue-800">
-                      {modalAction === 'approve'
-                        ? 'Confirming this action will finalize the journal entry, post it to the General Ledger, and update relevant customer wallet balances.'
-                        : 'Please state the reason for rejecting this entry. This will be recorded in the audit logs.'
-                      }
-                    </p>
-                  </div>
+              <div className="space-y-2">
+                <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">
+                  {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
+                </label>
+                <textarea
+                  className="w-full text-xs border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-gray-300 min-h-[100px]"
+                  placeholder={modalAction === 'approve' ? 'Add a brief note about this approval...' : 'Provide specific reasons for this rejection...'}
+                  value={actionReason}
+                  onChange={(e) => setActionReason(e.target.value)}
+                />
+              </div>
 
-                  <div className="space-y-2">
-                    <label className="block text-[11px] font-bold text-slate-700 uppercase tracking-wide">
-                      {modalAction === 'approve' ? 'Approval Note (Optional)' : 'Rejection Reason (Required)'}
-                    </label>
-                    <textarea
-                      className="w-full text-xs border border-gray-300 rounded-lg p-3 focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary outline-none transition-all placeholder:text-gray-300 min-h-[100px]"
-                      placeholder={modalAction === 'approve' ? 'Add a brief note about this approval...' : 'Provide specific reasons for this rejection...'}
-                      value={actionReason}
-                      onChange={(e) => setActionReason(e.target.value)}
-                    />
-                  </div>
-                </>
-              )}
-            </div>
-
-            {/* Modal Footer */}
-            {!actionLoading && (
-              <div className="px-6 py-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-3">
+              {/* Actions Footer */}
+              <div className="pt-2 flex justify-end gap-3 border-t border-slate-100">
                 <button
                   onClick={closeActionModal}
                   className="px-2 py-1.5 text-xs font-bold text-slate-500 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 hover:text-slate-700 transition-all active:scale-95"
@@ -520,7 +493,7 @@ function ViewJournal() {
                 </button>
                 <button
                   onClick={handleSubmitAction}
-                  className={`px-2 py-1.5 text-xs  text-white rounded-lg transition-all shadow-md active:scale-95 ${modalAction === 'approve'
+                  className={`px-2 py-1.5 text-xs text-white rounded-lg transition-all shadow-md active:scale-95 ${modalAction === 'approve'
                     ? 'bg-brand-primary hover:bg-[#1E3A8A] shadow-brand-primary/20'
                     : 'bg-red-600 hover:bg-red-700 shadow-red-100'
                     }`}
@@ -528,10 +501,10 @@ function ViewJournal() {
                   {modalAction === 'approve' ? 'Post to Ledger' : 'Confirm Rejection'}
                 </button>
               </div>
-            )}
-          </div>
+            </>
+          )}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

@@ -7,7 +7,8 @@ import { useToast } from "../../components/Toast";
 import { Pagination } from "../../components/Pagination.jsx";
 
 import { usePermissions } from "../../hooks/usePermissions";
-import Spinner from "../../components/Spinner";
+import { SkeletonTable } from '../../components/Skeleton';
+import Modal from '../../components/Modal';
 
 
 // Transaction Details Modal
@@ -34,105 +35,77 @@ const TransactionDetailsModal = ({ transaction, onClose }) => {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-sm max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-xl border border-gray-200">
-        <div className="p-6">
-          <div className="flex justify-between items-center mb-6">
-            <div className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4 text-brand-primary"  />
-              <h2 className="text-sm font-outfit font-semibold text-slate-600" >Transaction Details</h2>
+    <Modal open={!!transaction} title="Transaction Details" onClose={onClose} wide>
+      <div className="space-y-4 font-outfit">
+        <div className="grid grid-cols-2 gap-4">
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <User className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">Payer Name</p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-gray-500 hover:text-gray-700 hover:bg-gray-100 p-1.5 rounded-lg transition-colors"
-              aria-label="Close"
-            >
-              <X className="w-4 h-4" />
-            </button>
+            <p className="text-sm font-outfit text-gray-600">{fullName || 'N/A'}</p>
           </div>
 
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <User className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">Payer Name</p>
-                </div>
-                <p className="text-sm font-outfit text-gray-600">{fullName || 'N/A'}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Phone className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">Phone Number</p>
-                </div>
-                <p className="text-sm font-outfit text-gray-600">
-                  {getDisplayPhone()}
-                </p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <DollarSign className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">Amount</p>
-                </div>
-                <p className="text-sm font-outfit text-brand-primary">KSh {parseFloat(transaction.amount).toLocaleString()}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">M-Pesa Code</p>
-                </div>
-                <p className="text-sm font-outfit text-gray-600">{transaction.transaction_id}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">Bill Reference</p>
-                </div>
-                <p className="text-sm font-outfit text-gray-600">{billRef}</p>
-              </div>
-
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <Calendar className="w-4 h-4 text-brand-primary"  />
-                  <p className="text-xs font-outfit text-gray-600">Transaction Time</p>
-                </div>
-                <p className="text-sm font-outfit text-gray-600">
-                  {new Date(transaction.transaction_time || transaction.created_at).toLocaleString()}
-                </p>
-              </div>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Phone className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">Phone Number</p>
             </div>
-
-            {transaction.description && (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <p className="text-sm text-gray-600 mb-2 font-outfit">Description</p>
-                <p className="text-gray-600 font-outfit">{transaction.description}</p>
-              </div>
-            )}
-
-            {transaction.payment_type && (
-              <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
-                <p className="text-sm text-gray-600 mb-2 font-outfit">Payment Type</p>
-                <p className="text-gray-600 font-outfit">{transaction.payment_type}</p>
-              </div>
-            )}
+            <p className="text-sm font-outfit text-gray-600">
+              {getDisplayPhone()}
+            </p>
           </div>
 
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={onClose}
-              className="px-2 py-1.5 rounded-sm bg-brand-primary text-xs text-white font-outfit transition-all duration-300 hover:shadow-lg"
-             
-            >
-              Close
-            </button>
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <DollarSign className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">Amount</p>
+            </div>
+            <p className="text-sm font-outfit text-brand-primary">KSh {parseFloat(transaction.amount).toLocaleString()}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">M-Pesa Code</p>
+            </div>
+            <p className="text-sm font-outfit text-gray-600">{transaction.transaction_id}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <FileText className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">Bill Reference</p>
+            </div>
+            <p className="text-sm font-outfit text-gray-600">{billRef}</p>
+          </div>
+
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <div className="flex items-center gap-2 mb-2">
+              <Calendar className="w-4 h-4 text-brand-primary"  />
+              <p className="text-xs font-outfit text-gray-600">Transaction Time</p>
+            </div>
+            <p className="text-sm font-outfit text-gray-600">
+              {new Date(transaction.transaction_time || transaction.created_at).toLocaleString()}
+            </p>
           </div>
         </div>
+
+        {transaction.description && (
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2 font-outfit">Description</p>
+            <p className="text-gray-600 font-outfit">{transaction.description}</p>
+          </div>
+        )}
+
+        {transaction.payment_type && (
+          <div className="bg-gradient-to-br from-gray-50 to-gray-100 p-4 rounded-xl border border-gray-200">
+            <p className="text-sm text-gray-600 mb-2 font-outfit">Payment Type</p>
+            <p className="text-gray-600 font-outfit">{transaction.payment_type}</p>
+          </div>
+        )}
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -237,69 +210,62 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="bg-white rounded-sm shadow-lg border border-gray-100 p-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-2">
         <div>
-          <h2 className="text-sm font-outfit text-slate-600" >Successful Transactions</h2>
-          {/* <p className="text-xs text-gray-400 mt-0.5">
+          <h3 className="text-xs font-semibold text-heading font-outfit">Successful Payments</h3>
+          <p className="text-[10px] text-muted mt-0.5">
             Direct payments + reconciled suspense entries · {transactions.length} total
-          </p> */}
+          </p>
         </div>
-       <div className="relative">
-  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 w-3.5 h-3.5" />
-
-  <input
-    type="text"
-    placeholder="Search name, M-Pesa code, ref..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="w-56 pl-8 pr-3 py-1 text-xs border border-gray-300 rounded-md 
-    focus:border-slate-400 focus:outline-none 
-    transition-colors duration-200"
-  />
-</div>
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted w-3.5 h-3.5" />
+          <input
+            type="text"
+            placeholder="Search name, M-Pesa code, ref..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-56 pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-card text-body focus:border-brand-primary focus:outline-none transition-colors duration-200"
+          />
+        </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12">
-          <Spinner text="Loading transactions..." />
-        </div>
+        <SkeletonTable rows={5} cols={6} />
       ) : (
         <>
-          <div className="overflow-x-auto font-outfit">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto font-outfit border border-border-light rounded-xl shadow-card">
+            <table className="min-w-full divide-y divide-border-light">
+              <thead className="bg-surface">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Name</th>
-                                    <th className="px-4 py-3 text-left font-normal text-xs font-outfit text-slate-600 whitespace-nowrap">Mobile</th>
-
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Bill Reference</th>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">M-Pesa Code</th>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Source</th>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-outfit font-normal text-slate-600 whitespace-nowrap">Action</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Name</th>
+                  <th className="px-4 py-3 text-left font-medium text-xs font-outfit text-muted whitespace-nowrap">Mobile</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Bill Reference</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">M-Pesa Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-left text-xs font-outfit font-medium text-muted whitespace-nowrap">Action</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border-light">
                 {paginated.map((t) => (
-                  <tr key={t._id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-outfit text-slate-600 whitespace-nowrap">
+                  <tr key={t._id} className="hover:bg-surface transition-colors">
+                    <td className="px-4 py-3 text-xs font-outfit text-body whitespace-nowrap">
                      {t.name}
                     </td>
-                                        <td className="px-4 py-3 text-sm font-outfit text-slate-600 whitespace-nowrap">{t.mobile}</td>
-
-                    <td className="px-4 py-3 text-sm font-outfit text-slate-600 whitespace-nowrap">{t.bill_ref}</td>
-                    <td className="px-4 py-3 text-sm whitespace-nowrap text-gray-600">
+                    <td className="px-4 py-3 text-xs font-outfit text-body whitespace-nowrap">{t.mobile}</td>
+                    <td className="px-4 py-3 text-xs font-outfit text-body whitespace-nowrap">{t.bill_ref}</td>
+                    <td className="px-4 py-3 text-xs whitespace-nowrap text-heading font-semibold">
                       KSh {parseFloat(t.amount).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-sm font-outfit text-brand-primary">{t.transaction_id}</td>
+                    <td className="px-4 py-3 text-xs font-outfit text-brand-primary whitespace-nowrap">{t.transaction_id}</td>
                     <td className="px-4 py-3">
-                      <span className={`px-3 py-1 text-xs  rounded-full ${t.status_color}`}>
+                      <span className={`px-2.5 py-0.5 text-[10px] font-medium rounded-full ${t.status_color}`}>
                         {t.status_label}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-sm font-outfit text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-outfit text-muted whitespace-nowrap">
                       {new Date(t.created_at).toLocaleString('en-GB', {
                         day: '2-digit', month: 'short', year: 'numeric',
                         hour: '2-digit', minute: '2-digit'
@@ -308,11 +274,10 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
                     <td className="px-4 py-3">
                       <button
                         onClick={() => onViewDetails(t.raw)}
-                        className="flex items-center gap-2 px-2 py-1 text-brand-primary text-xs rounded-lg transition-all duration-300 hover:shadow-lg "
-                        
+                        className="flex items-center gap-2 p-1.5 text-brand-primary hover:bg-brand-surface rounded-lg transition-colors"
+                        aria-label="View details"
                       >
-                        <Eye className="w-3 h-3" />
-                      
+                        <Eye className="w-3.5 h-3.5" />
                       </button>
                     </td>
                   </tr>
@@ -320,7 +285,7 @@ const SuccessfulTransactions = ({ onViewDetails }) => {
               </tbody>
             </table>
             {filtered.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
+              <div className="text-center py-12 text-muted">
                 No transactions found
               </div>
             )}
@@ -345,124 +310,109 @@ const ReconciliationApprovalModal = ({ transaction, onConfirm, onReject, onClose
   const initiator = transaction._initiator;
 
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full overflow-hidden">
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-800 to-slate-700 px-6 py-5">
+    <Modal open={!!transaction} title="Approve Reconciliation" onClose={onClose}>
+      <div className="space-y-4 font-outfit">
+        {/* Money Flow */}
+        <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+          <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-3">Transaction Flow</p>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center">
-              <UserCheck className="w-5 h-5 text-white" />
+            <div className="flex-1 bg-white rounded-lg p-3 border border-blue-100 text-center shadow-sm">
+              <p className="text-xs text-slate-400 mb-1">M-Pesa Reference</p>
+              <p className="font-bold text-emerald-600 text-sm">{transaction.transaction_id}</p>
+              <p className="text-xs text-slate-500 mt-1">{transaction.payer_name || 'Unknown Payer'}</p>
             </div>
-            <div>
-              <h2 className="text-white font-bold text-lg">Approve Reconciliation</h2>
-              <p className="text-slate-300 text-xs mt-0.5">Review and confirm this reconciliation request</p>
+            <div className="flex flex-col items-center gap-1">
+              <ChevronRight className="w-5 h-5 text-blue-400" />
+              <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full whitespace-nowrap">
+                KSh {parseFloat(transaction.amount).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex-1 bg-white rounded-lg p-3 border border-blue-100 text-center shadow-sm">
+              <p className="text-xs text-slate-400 mb-1">Destination Customer</p>
+              <p className="font-bold text-slate-800 text-sm">
+                {customer ? `${customer.Firstname || ''} ${customer.Surname || ''}`.trim() : 'Loading...'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">{customer?.mobile || '—'}</p>
             </div>
           </div>
         </div>
 
-        <div className="p-6 space-y-4">
-          {/* Money Flow */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
-            <p className="text-xs font-bold text-blue-500 uppercase tracking-widest mb-3">Transaction Flow</p>
-            <div className="flex items-center gap-3">
-              <div className="flex-1 bg-white rounded-lg p-3 border border-blue-100 text-center shadow-sm">
-                <p className="text-xs text-slate-400 mb-1">M-Pesa Reference</p>
-                <p className="font-bold text-emerald-600 text-sm">{transaction.transaction_id}</p>
-                <p className="text-xs text-slate-500 mt-1">{transaction.payer_name || 'Unknown Payer'}</p>
-              </div>
-              <div className="flex flex-col items-center gap-1">
-                <ChevronRight className="w-5 h-5 text-blue-400" />
-                <span className="text-xs font-bold text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full whitespace-nowrap">
-                  KSh {parseFloat(transaction.amount).toLocaleString()}
-                </span>
-              </div>
-              <div className="flex-1 bg-white rounded-lg p-3 border border-blue-100 text-center shadow-sm">
-                <p className="text-xs text-slate-400 mb-1">Destination Customer</p>
-                <p className="font-bold text-slate-800 text-sm">
-                  {customer ? `${customer.Firstname || ''} ${customer.Surname || ''}`.trim() : 'Loading...'}
-                </p>
-                <p className="text-xs text-slate-500 mt-1">{customer?.mobile || '—'}</p>
-              </div>
+        {/* Details Grid */}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <CreditCard className="w-3.5 h-3.5 text-slate-400" />
+              <p className="text-xs text-slate-500">Amount</p>
             </div>
+            <p className="font-bold text-slate-800">KSh {parseFloat(transaction.amount).toLocaleString()}</p>
           </div>
-
-          {/* Details Grid */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <CreditCard className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-xs text-slate-500">Amount</p>
-              </div>
-              <p className="font-bold text-slate-800">KSh {parseFloat(transaction.amount).toLocaleString()}</p>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <Phone className="w-3.5 h-3.5 text-slate-400" />
+              <p className="text-xs text-slate-500">Payer Mobile</p>
             </div>
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <Phone className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-xs text-slate-500">Payer Mobile</p>
-              </div>
-              <p className="font-bold text-slate-800 text-sm">
-                {transaction.phone_number && transaction.phone_number.length > 20
-                  ? 'Hashed'
-                  : transaction.phone_number || 'N/A'}
-              </p>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <Clock className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-xs text-slate-500">Proposed On</p>
-              </div>
-              <p className="font-bold text-slate-800 text-sm">
-                {new Date(transaction.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
-              </p>
-            </div>
-            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-              <div className="flex items-center gap-2 mb-1">
-                <UserCheck className="w-3.5 h-3.5 text-slate-400" />
-                <p className="text-xs text-slate-500">Initiated By</p>
-              </div>
-              <p className="font-bold text-slate-800 text-sm">{initiator?.full_name || 'Unknown'}</p>
-            </div>
-          </div>
-
-          {/* Warning */}
-          <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
-            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-700">
-              Approving this will <strong>credit KSh {parseFloat(transaction.amount).toLocaleString()}</strong> to the customer's wallet immediately. This action cannot be undone.
+            <p className="font-bold text-slate-800 text-sm">
+              {transaction.phone_number && transaction.phone_number.length > 20
+                ? 'Hashed'
+                : transaction.phone_number || 'N/A'}
             </p>
           </div>
-
-          {/* Actions */}
-          <div className="flex gap-3 pt-1">
-            <button
-              onClick={onClose}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={() => onReject(transaction.id)}
-              disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              <XCircle className="w-4 h-4" /> Reject
-            </button>
-            <button
-              onClick={() => onConfirm(transaction.id)}
-              disabled={isLoading}
-              className="flex-1 py-2.5 rounded-xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <CheckCircle className="w-4 h-4" />
-              )}
-              Approve
-            </button>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <Clock className="w-3.5 h-3.5 text-slate-400" />
+              <p className="text-xs text-slate-500">Proposed On</p>
+            </div>
+            <p className="font-bold text-slate-800 text-sm">
+              {new Date(transaction.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+            </p>
+          </div>
+          <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
+            <div className="flex items-center gap-2 mb-1">
+              <UserCheck className="w-3.5 h-3.5 text-slate-400" />
+              <p className="text-xs text-slate-500">Initiated By</p>
+            </div>
+            <p className="font-bold text-slate-800 text-sm">{initiator?.full_name || 'Unknown'}</p>
           </div>
         </div>
+
+        {/* Warning */}
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-xl p-3">
+          <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+          <p className="text-xs text-amber-700">
+            Approving this will <strong>credit KSh {parseFloat(transaction.amount).toLocaleString()}</strong> to the customer's wallet immediately. This action cannot be undone.
+          </p>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-1">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50 transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onReject(transaction.id)}
+            disabled={isLoading}
+            className="flex-1 py-2.5 rounded-xl bg-red-600 text-white font-semibold text-sm hover:bg-red-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            <XCircle className="w-4 h-4" /> Reject
+          </button>
+          <button
+            onClick={() => onConfirm(transaction.id)}
+            disabled={isLoading}
+            className="flex-1 py-2.5 rounded-xl bg-green-600 text-white font-semibold text-sm hover:bg-green-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {isLoading ? (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <CheckCircle className="w-4 h-4" />
+            )}
+            Approve
+          </button>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 };
 
@@ -554,91 +504,86 @@ const PendingReconciliations = ({ onViewDetails, onRefresh }) => {
         />
       )}
 
-      <div className="bg-white rounded-sm shadow-lg border border-gray-100 p-6 mt-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-sm font-outfit text-slate-600" >Pending Reconciliations</h2>
-          <span className=" text-brand-primary text-xs font-outfit">
-            {transactions.length} Awaiting Approval
-          </span>
+      <div className="space-y-4">
+        <div className="flex justify-between items-center mb-2">
+          <div>
+            <h3 className="text-xs font-semibold text-heading font-outfit">Pending Reconciliations</h3>
+            <p className="text-[10px] text-muted mt-0.5">{transactions.length} awaiting approval</p>
+          </div>
         </div>
 
         {loading ? (
-          <div className="text-center py-12">
-            <Spinner text="Loading pending reconciliations..." />
-          </div>
+          <SkeletonTable rows={4} cols={5} />
         ) : (
-          <div className="overflow-x-auto font-outfit">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto font-outfit border border-border-light rounded-xl shadow-card">
+            <table className="min-w-full divide-y divide-border-light">
+              <thead className="bg-surface">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">M-Pesa Code</th>
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">Amount</th>
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">Proposed To</th>
-                                    <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">mobile</th>
-
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">Initiated By</th>
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-normal font-outfit text-slate-600 whitespace-nowrap">Actions</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">M-Pesa Code</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">Amount</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">Proposed To</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">Mobile</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">Proposed By</th>
+                  <th className="px-4 py-3 text-left text-xs font-medium font-outfit text-muted whitespace-nowrap">Date</th>
+                  <th className="px-4 py-3 text-right text-xs font-medium font-outfit text-muted whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border-light">
                 {transactions.map((transaction) => (
-                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-outfit whitespace-nowrap font-medium text-slate-600">{transaction.transaction_id}</td>
-                    <td className="px-4 py-3 text-sm font-outfit  text-gray-600">
+                  <tr key={transaction.id} className="hover:bg-surface transition-colors">
+                    <td className="px-4 py-3 text-xs font-outfit whitespace-nowrap font-medium text-brand-primary">{transaction.transaction_id}</td>
+                    <td className="px-4 py-3 text-xs font-outfit text-heading whitespace-nowrap font-semibold">
                       KSh {parseFloat(transaction.amount).toLocaleString()}
                     </td>
                     <td className="px-4 py-3">
                       {transaction._customer ? (
                         <div>
-                          <p className="text-sm font-outfit text-gray-600">
+                          <p className="text-xs font-outfit text-body">
                             {`${transaction._customer.Firstname || ''} ${transaction._customer.Surname || ''}`.trim()}
                           </p>
                         </div>
                       ) : (
-                        <span className="text-sm text-gray-600 italic">—</span>
+                        <span className="text-xs text-muted italic">—</span>
                       )}
                     </td>
 
-                    <td className="px-4 py-3 text-sm font-outfit  text-gray-600">
-                      {transaction._customer.mobile}
+                    <td className="px-4 py-3 text-xs font-outfit text-body">
+                      {transaction._customer?.mobile}
                     </td>
 
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
-                          <User className="w-3 h-3 text-slate-400" />
+                        <div className="w-6 h-6 rounded-full bg-surface flex items-center justify-center shrink-0">
+                           <User className="w-3 h-3 text-muted" />
                         </div>
-                        <span className="text-sm font-outfit text-gray-600 ">
+                        <span className="text-xs font-outfit text-body">
                           {transaction._initiator?.full_name || 'Unknown'}
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm font-outfit text-gray-500 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-outfit text-muted whitespace-nowrap">
                       {new Date(transaction.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2 items-center">
+                    <td className="px-4 py-3 text-right whitespace-nowrap">
+                      <div className="flex gap-2 items-center justify-end">
                         <button
                           onClick={() => onViewDetails(transaction)}
-                          className="p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                          className="p-1.5 text-muted hover:text-heading hover:bg-surface rounded-lg transition-colors"
                           title="View Details"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Eye className="w-3.5 h-3.5" />
                         </button>
                         {hasPermission('transaction.approve') ? (
                           transaction.reconciled_by === profile.id ? (
-                            <span className="text-xs text-yellow-600 font-semibold bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200 flex items-center gap-1 whitespace-nowrap">
+                            <span className="text-[10px] text-yellow-600 font-semibold bg-yellow-50 px-2 py-1 rounded-lg border border-yellow-200 flex items-center gap-1 whitespace-nowrap">
                               <Clock className="w-3 h-3" /> Awaiting Checker
                             </span>
                           ) : (
                             <button
                               onClick={() => setApprovalModal(transaction)}
-                              className="flex items-center gap-1.5 px-3 py-1.5 text-white text-xs font-bold rounded-lg transition-all hover:shadow-md whitespace-nowrap"
-                              style={{ backgroundColor: '#586ab1' }}
+                              className="px-2.5 py-1 text-[10px] font-medium bg-brand-primary text-white rounded-lg hover:bg-forest-deep transition-all shadow-sm"
                             >
-                              <CheckCircle className="w-3.5 h-3.5" />
-                              Review & Approve
+                              Review & Act
                             </button>
                           )
                         ) : null}
@@ -649,10 +594,8 @@ const PendingReconciliations = ({ onViewDetails, onRefresh }) => {
               </tbody>
             </table>
             {transactions.length === 0 && (
-              <div className="text-center py-16 text-gray-400">
-                <CheckCircle className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                <p className="font-medium">No pending reconciliations</p>
-                <p className="text-sm mt-1">All clear — nothing awaiting approval</p>
+              <div className="text-center py-12 text-muted">
+                No pending reconciliations found
               </div>
             )}
           </div>
@@ -705,73 +648,65 @@ const SuspenseTransactions = ({ onReconcile, onArchive }) => {
   const paginated = filtered.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
 
   return (
-    <div className="bg-white rounded-sm shadow-lg border border-gray-100 p-6 mt-6">
-      <div className="flex justify-between items-center mb-6">
+    <div className="space-y-4">
+      <div className="flex justify-between items-center mb-2">
         <div>
-          <h2 className="text-xs text-slate-600" >Suspense Transactions</h2>
-          <p className="text-[10px] text-gray-400 mt-0.5">{transactions.length} unmatched payments</p>
+          <h3 className="text-xs font-semibold text-heading font-outfit">Suspense Transactions</h3>
+          <p className="text-[10px] text-muted mt-0.5">{transactions.length} unmatched payments</p>
         </div>
-        <div className="flex items-center gap-3">
-         
         <div className="relative">
-  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
-  <input
-    type="text"
-    placeholder="Search..."
-    value={searchTerm}
-    onChange={(e) => setSearchTerm(e.target.value)}
-    className="pl-9 pr-4 py-1.5 border border-gray-300 rounded-xl text-sm w-48 transition-all outline-none focus:outline-none focus:ring-1 focus:ring-slate-400 focus:border-slate-400"
-  />
-</div>
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-muted w-3.5 h-3.5" />
+          <input
+            type="text"
+            placeholder="Search suspense..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-56 pl-8 pr-3 py-1.5 text-xs border border-border rounded-lg bg-card text-body focus:border-brand-primary focus:outline-none transition-colors duration-200"
+          />
         </div>
       </div>
 
       {loading ? (
-        <div className="text-center py-12">
-          <Spinner text="Loading suspense transactions..." />
-        </div>
+        <SkeletonTable rows={4} cols={5} />
       ) : (
         <>
-          <div className="overflow-x-auto font-outfit">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+          <div className="overflow-x-auto font-outfit border border-border-light rounded-xl shadow-card">
+            <table className="min-w-full divide-y divide-border-light">
+              <thead className="bg-surface">
                 <tr>
                   {["First Name", "Phone Number", "Amount", "M-Pesa Code", "Status", "Created Date", "Actions"].map((heading) => (
-                    <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-slate-600 whitespace-nowrap">
+                    <th key={heading} className="px-4 py-3 text-left text-xs font-medium text-muted whitespace-nowrap">
                       {heading}
                     </th>
                   ))}
                 </tr>
               </thead>
-              <tbody>
+              <tbody className="divide-y divide-border-light">
                 {paginated.map((transaction) => (
-                  <tr key={transaction.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
-                    <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
+                  <tr key={transaction.id} className="hover:bg-surface transition-colors">
+                    <td className="px-4 py-3 text-xs font-outfit text-body whitespace-nowrap">
                       {transaction.payer_name || "N/A"}
                     </td>
-                    <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-outfit text-body whitespace-nowrap">
                       {transaction.phone_number && transaction.phone_number.length > 20
                         ? (transaction.billref || "Hashed")
                         : (transaction.phone_number || "N/A")}
                     </td>
-                    <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-outfit text-heading whitespace-nowrap font-semibold">
                       KSh {parseFloat(transaction.amount).toLocaleString()}
                     </td>
-                    <td className="px-4 py-3 text-xs font-mono text-emerald-700 whitespace-nowrap">
+                    <td className="px-4 py-3 text-xs font-outfit text-brand-primary whitespace-nowrap font-medium">
                       {transaction.transaction_id}
                     </td>
                     <td className="px-4 py-3 whitespace-nowrap">
-                      <span className=" text-yellow-800 text-xs font-semibold ">
-                        Suspense
+                      <span className="px-2.5 py-0.5 text-[10px] font-medium rounded-full bg-yellow-100 text-yellow-800">
+                        {transaction.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-xs font-outfit text-gray-600 whitespace-nowrap">
-                      {new Date(transaction.created_at).toLocaleString("en-GB", {
-                        day: "2-digit", month: "short", year: "numeric",
-                        hour: "2-digit", minute: "2-digit",
-                      })}
+                    <td className="px-4 py-3 text-xs font-outfit text-muted whitespace-nowrap">
+                      {new Date(transaction.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                     </td>
-                    <td className="px-2 py-0.5 whitespace-nowrap">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <div className="flex gap-2">
                         <button
                           onClick={() => onReconcile(transaction)}
@@ -876,76 +811,86 @@ function Transactions() {
   };
 
   return (
-    <div className="min-h-screen bg-muted p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-sm font-semibold font-outfit mb-2 text-slate-600">M-Pesa Transactions</h1>
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <div className="w-full">
+        <div className="mb-4">
+          <h1 className="text-xs text-muted mb-2">Accounting / Transactions</h1>
         </div>
 
-     <div className="flex items-center gap-2 mb-4">
-  <button
-    onClick={() => setActiveTab("successful")}
-    className={`px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 border ${
-      activeTab === "successful"
-        ? "bg-brand-primary text-white border-brand-primary shadow-sm"
-        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-    }`}
-  >
-    Successful
-  </button>
+        <div className="bg-card rounded-xl shadow-card border border-border overflow-hidden">
+          <div className="p-4 border-b border-border-light flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-surface">
+            <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+              <h2 className="text-xs font-semibold text-heading font-outfit whitespace-nowrap">
+                M-Pesa Transactions
+              </h2>
+              
+              <div className="flex items-center gap-1 bg-border-light/40 p-1 rounded-lg border border-border-light">
+                <button
+                  onClick={() => setActiveTab("successful")}
+                  className={`px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                    activeTab === "successful"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-muted hover:text-heading"
+                  }`}
+                >
+                  Successful
+                </button>
 
-  <button
-    onClick={() => setActiveTab("pending")}
-    className={`relative px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 border ${
-      activeTab === "pending"
-        ? "bg-brand-primary text-white border-brand-primary shadow-sm"
-        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-    }`}
-  >
-    Pending
+                <button
+                  onClick={() => setActiveTab("pending")}
+                  className={`relative px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                    activeTab === "pending"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-muted hover:text-heading"
+                  }`}
+                >
+                  Pending
+                  {pendingCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-semibold text-white border border-white">
+                      {pendingCount}
+                    </span>
+                  )}
+                </button>
 
-    {pendingCount > 0 && (
-      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-red-500 text-[9px] font-semibold text-white border border-white">
-        {pendingCount}
-      </span>
-    )}
-  </button>
+                <button
+                  onClick={() => setActiveTab("suspense")}
+                  className={`relative px-3 py-1 rounded-md text-[11px] font-medium transition-all duration-200 ${
+                    activeTab === "suspense"
+                      ? "bg-brand-primary text-white shadow-sm"
+                      : "text-muted hover:text-heading"
+                  }`}
+                >
+                  Suspense
+                  {suspenseCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-yellow-500 text-[9px] font-semibold text-white border border-white">
+                      {suspenseCount}
+                    </span>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
 
-  <button
-    onClick={() => setActiveTab("suspense")}
-    className={`relative px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200 border ${
-      activeTab === "suspense"
-        ? "bg-brand-primary text-white border-brand-primary shadow-sm"
-        : "bg-white text-gray-600 border-gray-200 hover:bg-gray-50"
-    }`}
-  >
-    Suspense
+          <div className="p-6">
+            {activeTab === 'successful' && (
+              <SuccessfulTransactions onViewDetails={handleViewDetails} />
+            )}
 
-    {suspenseCount > 0 && (
-      <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 px-1 flex items-center justify-center rounded-full bg-yellow-500 text-[9px] font-semibold text-white border border-white">
-        {suspenseCount}
-      </span>
-    )}
-  </button>
-</div>
+            {activeTab === 'pending' && (
+              <PendingReconciliations 
+                onViewDetails={handleViewDetails} 
+                onRefresh={fetchCounts}
+              />
+            )}
 
-        {activeTab === 'successful' && (
-          <SuccessfulTransactions onViewDetails={handleViewDetails} />
-        )}
-
-        {activeTab === 'pending' && (
-          <PendingReconciliations 
-            onViewDetails={handleViewDetails} 
-            onRefresh={fetchCounts}
-          />
-        )}
-
-        {activeTab === 'suspense' && (
-          <SuspenseTransactions
-            onReconcile={handleReconcile}
-            onArchive={handleArchive}
-          />
-        )}
+            {activeTab === 'suspense' && (
+              <SuspenseTransactions
+                onReconcile={handleReconcile}
+                onArchive={handleArchive}
+              />
+            )}
+          </div>
+        </div>
 
         {selectedTransaction && (
           <TransactionDetailsModal

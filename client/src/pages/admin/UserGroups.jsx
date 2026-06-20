@@ -1,12 +1,16 @@
 import { useState, useEffect } from 'react';
-import { Plus, Search, Edit, Trash2, Users, X, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit, Trash2, Users, Loader2 } from 'lucide-react';
 import axios from 'axios';
 import { useAuth } from '../../hooks/userAuth';
 import { supabase } from '../../supabaseClient';
+import Modal from '../../components/Modal';
+import CustomSelect from '../../components/CustomSelect';
+import { SkeletonTable } from '../../components/Skeleton';
 
 const UserGroups = () => {
     const [groups, setGroups] = useState([]);
     const [searchTerm, setSearchTerm] = useState('');
+    const [sortBy, setSortBy] = useState('name-asc');
     const [isLoading, setIsLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -62,7 +66,7 @@ const UserGroups = () => {
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         setIsSubmitting(true);
         try {
             const { data: session } = await supabase.auth.getSession();
@@ -99,186 +103,189 @@ const UserGroups = () => {
         }
     };
 
-    const filteredGroups = groups.filter(g => 
-        g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (g.description && g.description.toLowerCase().includes(searchTerm.toLowerCase()))
-    );
+    const sortOptions = [
+        { value: 'name-asc', label: 'Name (A-Z)' },
+        { value: 'name-desc', label: 'Name (Z-A)' },
+        { value: 'members-desc', label: 'Most Members' },
+        { value: 'members-asc', label: 'Least Members' },
+    ];
+
+    const filteredGroups = groups
+        .filter(g => 
+            g.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            (g.description && g.description.toLowerCase().includes(searchTerm.toLowerCase()))
+        )
+        .sort((a, b) => {
+            const countA = a.user_group_members?.[0]?.count || 0;
+            const countB = b.user_group_members?.[0]?.count || 0;
+            if (sortBy === 'name-asc') {
+                return a.name.localeCompare(b.name);
+            } else if (sortBy === 'name-desc') {
+                return b.name.localeCompare(a.name);
+            } else if (sortBy === 'members-desc') {
+                return countB - countA;
+            } else if (sortBy === 'members-asc') {
+                return countA - countB;
+            }
+            return 0;
+        });
 
     return (
-        <div className="p-8 bg-brand-surface min-h-screen">
-            <div className="max-w-7xl mx-auto">
-                <div className="mb-8">
-                    <h1 className="text-2xl font-bold text-gray-900">User Groups</h1>
-                    <p className="text-sm text-gray-500 mt-1">Manage tenant user groups for collaborative workflows.</p>
+        <div className="min-h-screen bg-page p-5 md:p-8 animate-fade-in font-outfit">
+            <div className="max-w-7xl mx-auto space-y-6">
+                
+                {/* Header Section */}
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-heading">User Groups</h1>
+                        <p className="text-sm text-muted mt-1">Manage tenant user groups for collaborative workflows.</p>
+                    </div>
+                    
+                    <button 
+                        onClick={() => handleOpenModal()}
+                        className="f-btn flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg shadow-sm w-fit self-end md:self-auto"
+                    >
+                        <Plus className="h-4 w-4" />
+                        Add User Group
+                    </button>
                 </div>
 
-                {/* Actions Bar */}
-                <div className="flex justify-between items-center mb-6">
-                    <div className="relative flex-1 max-w-md">
-                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
+                {/* Actions & Filters Bar */}
+                <div className="flex flex-col md:flex-row gap-4 items-center justify-between">
+                    <div className="relative w-full md:max-w-md">
+                        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted h-4 w-4" />
                         <input
                             type="text"
                             placeholder="Search user groups..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-10 pr-4 py-2.5 w-full border border-gray-300 rounded-xl focus:ring-2 focus:ring-brand-primary focus:border-transparent text-sm"
+                            className="pl-9 pr-4 py-2 w-full bg-card border border-border text-body rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent placeholder:text-muted/60 text-sm shadow-sm"
                         />
                     </div>
-                    <button 
-                        onClick={() => handleOpenModal()}
-                        className="ml-4 flex items-center px-4 py-2.5 bg-brand-primary text-white text-sm font-medium rounded-xl hover:bg-brand-secondary transition-all shadow-sm active:scale-95"
-                    >
-                        <Plus className="h-4 w-4 mr-2" />
-                        Add User Group
-                    </button>
+                    
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                        <span className="text-xs font-semibold text-muted whitespace-nowrap">Sort By:</span>
+                        <div className="w-48">
+                            <CustomSelect
+                                value={sortBy}
+                                onChange={setSortBy}
+                                options={sortOptions}
+                                compact={true}
+                            />
+                        </div>
+                    </div>
                 </div>
 
-                {/* Table Card */}
-                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
-                    <div className="overflow-x-auto">
-                        <table className="min-w-full divide-y divide-slate-100">
-                            <thead className="bg-slate-50/50">
-                                <tr>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        Group Name
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        Description
-                                    </th>
-                                    <th className="px-6 py-4 text-left text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        Members
-                                    </th>
-                                    <th className="px-6 py-4 text-right text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                                        Actions
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody className="bg-white divide-y divide-slate-100">
-                                {isLoading ? (
+                {/* Table Section */}
+                {isLoading ? (
+                    <SkeletonTable rows={5} cols={4} />
+                ) : filteredGroups.length === 0 ? (
+                    <div className="bg-card rounded-xl border border-border shadow-card p-12 text-center">
+                        <Users className="h-10 w-10 text-muted/30 mx-auto mb-3" />
+                        <p className="text-sm text-muted italic">No user groups found.</p>
+                    </div>
+                ) : (
+                    <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+                        <div className="overflow-x-auto">
+                            <table className="min-w-full divide-y divide-border-light">
+                                <thead className="bg-surface/50 border-b border-border-light">
                                     <tr>
-                                        <td colSpan="4" className="px-6 py-12 text-center">
-                                            <Loader2 className="h-6 w-6 animate-spin text-brand-primary mx-auto" />
-                                        </td>
+                                        <th className="px-6 py-3.5 text-left text-xs font-bold text-heading uppercase tracking-wider">
+                                            Group Name
+                                        </th>
+                                        <th className="px-6 py-3.5 text-left text-xs font-bold text-heading uppercase tracking-wider">
+                                            Description
+                                        </th>
+                                        <th className="px-6 py-3.5 text-left text-xs font-bold text-heading uppercase tracking-wider">
+                                            Members
+                                        </th>
+                                        <th className="px-6 py-3.5 text-right text-xs font-bold text-heading uppercase tracking-wider">
+                                            Actions
+                                        </th>
                                     </tr>
-                                ) : filteredGroups.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="4" className="px-6 py-12 text-center text-sm text-gray-500 italic">
-                                            No user groups found.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    filteredGroups.map((group) => (
-                                        <tr key={group.id} className="hover:bg-slate-50/50 transition-colors group/row">
+                                </thead>
+                                <tbody className="bg-card divide-y divide-border-light">
+                                    {filteredGroups.map((group) => (
+                                        <tr key={group.id} className="hover:bg-surface/30 transition-colors group/row">
                                             <td className="px-6 py-4 whitespace-nowrap">
                                                 <div className="flex items-center">
-                                                    <div className="w-8 h-8 rounded-lg bg-indigo-50 flex items-center justify-center mr-3">
-                                                        <Users className="h-4 w-4 text-indigo-600" />
+                                                    <div className="w-8 h-8 rounded-lg bg-surface text-brand flex items-center justify-center mr-3 border border-border-light shadow-sm">
+                                                        <Users className="h-4 w-4" />
                                                     </div>
-                                                    <span className="text-sm font-medium text-slate-900">{group.name}</span>
+                                                    <span className="text-sm font-semibold text-heading">{group.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-500">
-                                                {group.description || <span className="text-gray-300 italic">No description</span>}
+                                            <td className="px-6 py-4 whitespace-nowrap text-xs text-muted max-w-xs truncate">
+                                                {group.description || <span className="text-muted/40 italic">No description</span>}
                                             </td>
                                             <td className="px-6 py-4 whitespace-nowrap">
-                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-800">
+                                                 <span className="inline-flex items-center px-2.5 py-0.5 rounded-md text-[10px] font-semibold bg-surface text-brand border border-border-light shadow-sm">
                                                     {group.user_group_members?.[0]?.count || 0} Members
                                                 </span>
                                             </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-right">
-                                                <div className="flex justify-end space-x-2 opacity-0 group-hover/row:opacity-100 transition-opacity">
+                                            <td className="px-6 py-4 whitespace-nowrap text-right text-xs">
+                                                <div className="flex justify-end space-x-1.5 md:opacity-60 group-hover/row:opacity-100 transition-opacity">
                                                     <button 
                                                         onClick={() => handleOpenModal(group)}
-                                                        className="p-1.5 text-slate-400 hover:text-brand-primary hover:bg-brand-50 rounded-lg transition-colors"
+                                                        className="p-1.5 text-muted hover:text-brand hover:bg-surface border border-transparent hover:border-border rounded-lg transition-all"
                                                         title="Edit Group"
                                                     >
-                                                        <Edit className="h-4 w-4" />
+                                                        <Edit className="h-3.5 w-3.5" />
                                                     </button>
                                                     <button 
                                                         onClick={() => handleDelete(group.id)}
-                                                        className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                                                        className="p-1.5 text-muted hover:text-danger-DEFAULT hover:bg-danger-fill/30 border border-transparent hover:border-danger-fill/50 rounded-lg transition-all"
                                                         title="Delete Group"
                                                     >
-                                                        <Trash2 className="h-4 w-4" />
+                                                        <Trash2 className="h-3.5 w-3.5" />
                                                     </button>
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {/* Modal */}
-            {isModalOpen && (
-                <div className="fixed inset-0 z-50 overflow-y-auto">
-                    <div className="flex items-center justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:p-0">
-                        <div className="fixed inset-0 transition-opacity" aria-hidden="true" onClick={handleCloseModal}>
-                            <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm"></div>
-                        </div>
-
-                        <span className="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
-
-                        <div className="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-                            <div className="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4 border-b border-slate-100">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h3 className="text-lg font-bold text-slate-900">
-                                        {editingGroup ? 'Edit User Group' : 'Create User Group'}
-                                    </h3>
-                                    <button onClick={handleCloseModal} className="text-slate-400 hover:text-slate-500">
-                                        <X className="h-5 w-5" />
-                                    </button>
-                                </div>
-                                <form onSubmit={handleSubmit}>
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Group Name <span className="text-red-500">*</span></label>
-                                            <input
-                                                type="text"
-                                                required
-                                                value={formData.name}
-                                                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                                                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                                                placeholder="e.g. Credit Committee"
-                                            />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-slate-700 mb-1">Description</label>
-                                            <textarea
-                                                rows="3"
-                                                value={formData.description}
-                                                onChange={(e) => setFormData({...formData, description: e.target.value})}
-                                                className="w-full px-3 py-2 border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand-primary"
-                                                placeholder="What does this group do?"
-                                            />
-                                        </div>
-                                    </div>
-                                    <div className="mt-6 flex justify-end space-x-3">
-                                        <button
-                                            type="button"
-                                            onClick={handleCloseModal}
-                                            className="px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-300 rounded-xl hover:bg-slate-50"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={isSubmitting}
-                                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-white bg-brand-primary rounded-xl hover:bg-brand-secondary disabled:opacity-50"
-                                        >
-                                            {isSubmitting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-                                            {editingGroup ? 'Save Changes' : 'Create Group'}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
+            <Modal
+                open={isModalOpen}
+                title={editingGroup ? 'Edit User Group' : 'Create User Group'}
+                onClose={handleCloseModal}
+                onSave={handleSubmit}
+                saving={isSubmitting}
+                saveLabel={editingGroup ? 'Save Changes' : 'Create Group'}
+            >
+                <form onSubmit={handleSubmit} className="space-y-4 font-outfit text-xs">
+                    <div>
+                        <label className="block text-xs font-semibold text-heading mb-1.5">
+                            Group Name <span className="text-danger-DEFAULT">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            required
+                            value={formData.name}
+                            onChange={(e) => setFormData({...formData, name: e.target.value})}
+                            className="w-full px-3 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-xs text-body shadow-sm"
+                            placeholder="e.g. Credit Committee"
+                        />
                     </div>
-                </div>
-            )}
+                    <div>
+                        <label className="block text-xs font-semibold text-heading mb-1.5">Description</label>
+                        <textarea
+                            rows="3"
+                            value={formData.description}
+                            onChange={(e) => setFormData({...formData, description: e.target.value})}
+                            className="w-full px-3 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-xs text-body shadow-sm"
+                            placeholder="What does this group do?"
+                        />
+                    </div>
+                    <button type="submit" className="hidden" />
+                </form>
+            </Modal>
         </div>
     );
 };

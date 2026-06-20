@@ -1428,7 +1428,7 @@ const Dashboard = () => {
 
   return (
     <div
-      className="min-h-screen p-3 sm:p-4 md:p-6 bg-surface"
+      className="min-h-screen p-3 sm:p-4 md:p-6 bg-page"
     >
       {/* Filters Bar */}
       <div className="mb-8 ">

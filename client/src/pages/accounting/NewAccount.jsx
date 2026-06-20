@@ -6,6 +6,7 @@ import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import { getNextCode } from "../../utils/accountingUtils";
 import { apiFetch } from "../../utils/api";
+import CustomSelect from "../../components/CustomSelect";
 
 export default function NewAccount() {
   const navigate = useNavigate();
@@ -67,14 +68,14 @@ export default function NewAccount() {
   };
 
   return (
-    <div className="p-6 bg-muted min-h-screen">
-      <h1 className="text-xs text-slate-500 mb-4 font-medium font-outfit">
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+      <h1 className="text-xs text-muted mb-4 font-medium font-outfit">
         Accounting / Chart of Accounts / New Account
       </h1>
 
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 max-w-3xl font-body">
+      <div className="bg-card rounded-xl shadow-card border border-border max-w-3xl font-outfit">
         <div className="p-6">
-          <h2 className="text-xs font-semibold text-gray-600 mb-6 font-outfit">
+          <h2 className="text-xs font-semibold text-heading mb-6 font-outfit">
             Create New Account
           </h2>
 
@@ -97,47 +98,41 @@ export default function NewAccount() {
 
               {/* Account Type */}
               <div>
-                <label className=" text-xs  text-gray-600 font-outfit mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Account Type <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.account_type}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      account_type: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Select Type</option>
-                  <option value="ASSET">Asset</option>
-                  <option value="LIABILITY">Liability</option>
-                  <option value="EQUITY">Equity</option>
-                  <option value="INCOME">Income</option>
-                  <option value="EXPENSE">Expense</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, account_type: val })}
+                  options={[
+                    { value: "ASSET", label: "Asset" },
+                    { value: "LIABILITY", label: "Liability" },
+                    { value: "EQUITY", label: "Equity" },
+                    { value: "INCOME", label: "Income" },
+                    { value: "EXPENSE", label: "Expense" },
+                  ]}
+                  placeholder="Select Type"
+                  fullWidth
+                  compact
+                />
               </div>
 
               {/* Account Category */}
               <div>
-                <label className="text-xs  text-gray-600 font-outfit mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Account Category <span className="text-red-500">*</span>
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.account_category}
-                  onChange={(e) =>
-                    setForm({
-                      ...form,
-                      account_category: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Select Category</option>
-                  <option value="Header Account">Header Account</option>
-                  <option value="Detail Account">Detail Account</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, account_category: val })}
+                  options={[
+                    { value: "Header Account", label: "Header Account" },
+                    { value: "Detail Account", label: "Detail Account" },
+                  ]}
+                  placeholder="Select Category"
+                  fullWidth
+                  compact
+                />
               </div>
 
               {/* Code */}
@@ -156,27 +151,29 @@ export default function NewAccount() {
 
               {/* Status */}
               <div>
-                <label className="text-xs  text-gray-600 font-outfit mb-1.5">
+                <label className="text-xs text-body font-outfit mb-1.5 block">
                   Status
                 </label>
-                <select
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-colors"
+                <CustomSelect
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                >
-                  <option value="Active">Active</option>
-                  <option value="Inactive">Inactive</option>
-                </select>
+                  onChange={(val) => setForm({ ...form, status: val })}
+                  options={[
+                    { value: "Active", label: "Active" },
+                    { value: "Inactive", label: "Inactive" },
+                  ]}
+                  fullWidth
+                  compact
+                />
               </div>
             </div>
           </div>
         </div>
 
         {/* FOOTER WITH BUTTONS */}
-        <div className="border-t border-gray-200 px-6 py-4 flex justify-between items-center bg-gray-50 rounded-b-lg">
+        <div className="border-t border-border-light px-6 py-4 flex justify-between items-center bg-surface rounded-b-lg">
           <button
             onClick={() => navigate(-1)}
-            className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+            className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-body border border-border hover:bg-surface transition-colors"
           >
             <ArrowLeft size={16} /> Back
           </button>
@@ -184,14 +181,14 @@ export default function NewAccount() {
           <div className="flex gap-3">
             <button
               onClick={() => navigate(-1)}
-              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-gray-700 border border-gray-300 hover:bg-gray-100 transition-colors"
+              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-body border border-border hover:bg-surface transition-colors"
             >
               Cancel
             </button>
             <button
               onClick={handleSubmit}
               disabled={isSubmitting}
-              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm shadow-blue-900/10"
+              className="px-2 py-1.5 rounded-lg flex items-center gap-2 text-xs font-medium text-white bg-brand-primary hover:bg-blue-800 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-sm"
             >
               {isSubmitting ? "Saving..." : "Save Account"}
             </button>

@@ -7,11 +7,11 @@ import {
     AlertCircle,
     CheckCircle,
     Loader2,
-    Plus,
-    X
+    Plus
 } from "lucide-react";
-import Spinner from "../../components/Spinner";
 import { useToast } from "../../components/Toast";
+import Modal from "../../components/Modal";
+import SkeletonPage from "../../components/Skeleton";
 
 export default function RolePermissionManager() {
     const { success, error: toastError, info } = useToast();
@@ -22,7 +22,6 @@ export default function RolePermissionManager() {
     const [selectedRole, setSelectedRole] = useState(null);
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
-    // const [message, setMessage] = useState({ type: "", text: "" }); // Replaced by global toast
 
     // Add Role Modal State
     const [isAddRoleOpen, setIsAddRoleOpen] = useState(false);
@@ -147,7 +146,6 @@ export default function RolePermissionManager() {
                     setRoles(parsed.roles);
                     setPermissions(parsed.permissions);
                     setLoading(false);
-                    // fetching in background could be added but let's trust cache for now to stop reloading
                     return;
                 }
             }
@@ -174,7 +172,7 @@ export default function RolePermissionManager() {
                 }
             });
 
-            // Filter Permissions based on ALLOWED_PERMISSIONS grouped into a flat list for checking
+            // Filter Permissions based on ALLOWED_PERMISSIONS
             const allAllowedNames = Object.values(ALLOWED_PERMISSIONS).flat();
             const filteredPerms = (permsData || []).filter(p => {
                 return allAllowedNames.includes(p.name);
@@ -403,7 +401,6 @@ export default function RolePermissionManager() {
 
             if (missingRoles.length === 0) {
                 success("Roles are up to date.");
-                // Also trigger permission sync if roles are up to date
                 await syncPermissions();
                 return;
             }
@@ -419,11 +416,10 @@ export default function RolePermissionManager() {
             if (insertError) throw insertError;
 
             success(`Added ${missingRoles.length} new roles.`);
-            await syncPermissions(); // Sync permissions after adding roles
+            await syncPermissions();
 
         } catch (err) {
             console.error("Error syncing roles:", err);
-            // Hide the ugly fetch errors from the UI, just show a friendly warning.
             if (err?.message?.includes("Failed to fetch")) {
                 toastError("Network error. Please make sure your server connection is active.");
             } else {
@@ -487,7 +483,7 @@ export default function RolePermissionManager() {
     };
 
     const handleAddRole = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
         if (!newRoleName.trim()) return;
 
         const formattedRoleName = newRoleName.trim().toLowerCase().replace(/\s+/g, '_');
@@ -531,59 +527,55 @@ export default function RolePermissionManager() {
     }, {});
 
     if (loading) {
-        return (
-            <div className="flex items-center justify-center min-h-screen bg-brand-surface">
-                <Spinner />
-            </div>
-        );
+        return <SkeletonPage />;
     }
 
     return (
-        <div className="min-h-screen bg-muted p-6">
-            <div className="max-w-6xl mx-auto space-y-6">
+        <div className="min-h-screen bg-page p-5 md:p-8 animate-fade-in font-outfit w-full">
+            <div className="w-full space-y-6">
+                
                 {/* Header */}
-                <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
-                        <h2 className="text-sm  text-slate-600 flex items-center gap-2">
-                            <ShieldCheck className="h-6 w-6 text-brand-primary" />
+                        <h1 className="text-2xl font-bold text-heading flex items-center gap-2">
+                            <ShieldCheck className="h-6 w-6 text-brand" />
                             Role Permission Manager
-                        </h2>
+                        </h1>
+                        <p className="text-sm text-muted mt-1">Configure access control levels and permissions for tenant user roles.</p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-3">
-                        <div className="flex items-center gap-2">
-                            {selectedRole && (
-                                <button
-                                    onClick={saveConfiguration}
-                                    disabled={saving}
-                                    className="px-4 py-2 bg-brand-primary text-white rounded-lg text-sm font-medium hover:bg-brand-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
-                                >
-                                    {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                                    Save Config
-                                </button>
-                            )}
+                    <div className="flex items-center gap-3">
+                        {selectedRole && (
                             <button
-                                onClick={syncRoles}
-                                className="px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-2 shadow-sm"
+                                onClick={saveConfiguration}
+                                disabled={saving}
+                                className="f-btn flex items-center gap-1.5 px-4 py-2 text-sm font-semibold rounded-lg shadow-sm disabled:opacity-50"
                             >
-                                <ShieldCheck className="h-4 w-4" />
-                                Sync Roles & Perms
+                                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                                Save Config
                             </button>
-                        </div>
+                        )}
+                        <button
+                            onClick={syncRoles}
+                            className="flex items-center gap-1.5 px-4 py-2 bg-card border border-border text-muted hover:text-heading hover:bg-surface/50 rounded-lg transition-all text-sm font-semibold shadow-sm"
+                        >
+                            <ShieldCheck className="h-4 w-4 text-brand" />
+                            Sync Roles & Perms
+                        </button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                    {/* Role Selector Sidebar */}
-                    <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 h-fit">
-                        <div className="flex justify-between items-center mb-4 px-2">
-                            <h3 className="font-semibold text-slate-700">Select Role</h3>
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 w-full">
+                    {/* 1. Roles Sidebar - Far Left */}
+                    <div className="lg:col-span-3 bg-card rounded-xl border border-border shadow-card p-4 h-fit space-y-4">
+                        <div className="flex justify-between items-center px-1">
+                            <h3 className="font-bold text-xs uppercase tracking-wider text-heading">Select Role</h3>
                             <button
                                 onClick={() => setIsAddRoleOpen(true)}
-                                className="p-1.5 text-brand-primary hover:bg-brand-surface rounded-lg transition-colors"
+                                className="p-1 text-brand hover:bg-surface border border-transparent hover:border-border rounded-lg transition-all"
                                 title="Add New Role"
                             >
-                                <Plus className="h-5 w-5" />
+                                <Plus className="h-4 w-4" />
                             </button>
                         </div>
                         <div className="space-y-1">
@@ -591,163 +583,151 @@ export default function RolePermissionManager() {
                                 <button
                                     key={role.id}
                                     onClick={() => setSelectedRole(role)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-medium transition-colors ${selectedRole?.id === role.id
-                                        ? "bg-brand-primary/10 text-brand-primary"
-                                        : "text-slate-600 hover:bg-slate-50"
-                                        }`}
+                                    className={`w-full text-left px-3 py-2 rounded-lg text-sm font-semibold transition-all ${
+                                        selectedRole?.id === role.id
+                                            ? "bg-surface text-brand border border-border-light shadow-sm"
+                                            : "text-muted hover:bg-surface/50 hover:text-heading"
+                                    }`}
                                 >
-                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1)}
+                                    {role.name.charAt(0).toUpperCase() + role.name.slice(1).replace(/_/g, ' ')}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Permissions Table area */}
-                    <div className="md:col-span-3">
-                        {!selectedRole ? (
-                            <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-12 flex flex-col items-center justify-center text-slate-400">
-                                <ShieldCheck className="h-12 w-12 mb-4 opacity-50" />
-                                <p>Select a role from the left to view and edit permissions.</p>
-                            </div>
-                        ) : (
-                            <div className="space-y-6">
-                                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                                    <div className="px-6 py-4 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
-                                        <h3 className="font-semibold text-slate-800">
-                                            Permissions for <span className="text-brand-primary">{selectedRole.name}</span>
-                                        </h3>
-                                        <span className="text-xs text-slate-500 bg-white px-2 py-1 rounded border">
-                                            {Object.keys(rolePermissions).length} permissions active
-                                        </span>
-                                    </div>
-
-                                    <div className="flex border-b border-slate-100 bg-slate-50/50 overflow-x-auto no-scrollbar">
-                                        {Object.keys(permissionsByResource)
-                                            .sort((a, b) => (RESOURCE_TITLES[a] || a).localeCompare(RESOURCE_TITLES[b] || b))
-                                            .map((resource) => (
-                                                <button
-                                                    key={resource}
-                                                    onClick={() => setSelectedResource(resource)}
-                                                    className={`px-4 py-3 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap border-b-2 transition-all ${
-                                                        selectedResource === resource
-                                                            ? "border-brand-primary text-brand-primary bg-white"
-                                                            : "border-transparent text-slate-400 hover:text-slate-600 hover:bg-slate-100/50"
-                                                    }`}
-                                                >
-                                                    {RESOURCE_TITLES[resource] || resource}
-                                                </button>
-                                            ))}
-                                    </div>
-
-                                    <div className="p-6 bg-white min-h-[400px]">
-                                        {selectedResource && permissionsByResource[selectedResource] ? (
-                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                                                {permissionsByResource[selectedResource]
-                                                    .sort((a, b) => a.description.localeCompare(b.description))
-                                                    .map((perm) => (
-                                                        <label
-                                                            key={perm.id}
-                                                            className={`flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer group ${
-                                                                rolePermissions[perm.id]
-                                                                    ? "bg-brand-primary/5 border-brand-primary/20 shadow-sm"
-                                                                    : "bg-white border-slate-100 hover:border-slate-200"
-                                                            }`}
-                                                        >
-                                                            <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all ${
-                                                                rolePermissions[perm.id]
-                                                                    ? "bg-brand-primary border-brand-primary"
-                                                                    : "bg-white border-slate-300 group-hover:border-brand-primary/50"
-                                                            }`}>
-                                                                <input
-                                                                    type="checkbox"
-                                                                    checked={!!rolePermissions[perm.id]}
-                                                                    onChange={() => togglePermission(perm.id)}
-                                                                    className="hidden"
-                                                                />
-                                                                {rolePermissions[perm.id] && (
-                                                                    <CheckCircle className="h-3 w-3 text-white" />
-                                                                )}
-                                                            </div>
-                                                            <div className="flex-1 overflow-hidden">
-                                                                <p className={`text-[10px] font-semibold leading-tight truncate ${
-                                                                    rolePermissions[perm.id] ? "text-brand-primary" : "text-slate-600"
-                                                                }`} title={perm.description}>
-                                                                    {perm.description}
-                                                                </p>
-                                                            </div>
-                                                        </label>
-                                                    ))}
-                                            </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center justify-center h-full py-12 text-slate-400">
-                                                <AlertCircle className="h-8 w-8 mb-2 opacity-20" />
-                                                <p className="text-[10px] font-medium">Select a category from the tabs above</p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Add Role Modal */}
-                {isAddRoleOpen && (
-                    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 transition-all">
-                        <div className="bg-white rounded-xl shadow-xl max-w-md w-full p-6 transform transition-all scale-100">
-                            <div className="flex justify-between items-center mb-6">
-                                <h3 className="text-xl font-bold text-slate-800">Add New Role</h3>
-                                <button
-                                    onClick={() => setIsAddRoleOpen(false)}
-                                    className="text-slate-400 hover:text-slate-600 p-1 hover:bg-slate-100 rounded-full transition-colors"
-                                >
-                                    <X className="h-5 w-5" />
-                                </button>
-                            </div>
-
-                            <form onSubmit={handleAddRole}>
-                                <div className="mb-6">
-                                    <label className="block text-sm font-medium text-slate-700 mb-2">
-                                        Role Name <span className="text-red-500">*</span>
-                                    </label>
-                                    <div className="relative">
-                                        <input
-                                            type="text"
-                                            value={newRoleName}
-                                            onChange={(e) => setNewRoleName(e.target.value)}
-                                            placeholder="e.g. Operations Officer"
-                                            className="w-full px-4 py-2 border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all"
-                                            autoFocus
-                                        />
-                                    </div>
-                                    <p className="text-xs text-slate-500 mt-2 flex items-center gap-1">
-                                        <AlertCircle className="h-3 w-3" />
-                                        Will be saved as <code className="bg-slate-100 px-1 rounded text-slate-700">{newRoleName.trim().toLowerCase().replace(/\s+/g, '_') || '...'}</code>
-                                    </p>
-                                </div>
-
-                                <div className="flex justify-end gap-3 pt-2 border-t border-slate-100">
-                                    <button
-                                        type="button"
-                                        onClick={() => setIsAddRoleOpen(false)}
-                                        className="px-4 py-2 text-slate-700 bg-white border border-slate-300 hover:bg-slate-50 rounded-lg font-medium transition-colors"
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        type="submit"
-                                        disabled={addingRole || !newRoleName.trim()}
-                                        className="px-4 py-2 bg-brand-primary text-white rounded-lg font-medium hover:bg-brand-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 shadow-sm"
-                                    >
-                                        {addingRole ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-                                        Create Role
-                                    </button>
-                                </div>
-                            </form>
+                    {/* Rest of the panel containing Categories and Permissions lists */}
+                    {!selectedRole ? (
+                        <div className="lg:col-span-9 bg-card rounded-xl border border-border shadow-card p-12 flex flex-col items-center justify-center text-center text-muted">
+                            <ShieldCheck className="h-12 w-12 mb-3 opacity-30 text-brand" />
+                            <p className="text-sm italic">Select a role from the sidebar to view and edit permissions.</p>
                         </div>
-                    </div>
-                )}
+                    ) : (
+                        <>
+                            {/* 2. Vertical Permission Category Groups List */}
+                            <div className="lg:col-span-4 bg-card rounded-xl border border-border shadow-card p-4 h-fit space-y-4">
+                                <div className="px-1">
+                                    <h3 className="font-bold text-xs uppercase tracking-wider text-heading">Permission Groups</h3>
+                                </div>
+                                <div className="space-y-1">
+                                    {Object.keys(permissionsByResource)
+                                        .sort((a, b) => (RESOURCE_TITLES[a] || a).localeCompare(RESOURCE_TITLES[b] || b))
+                                        .map((resource) => (
+                                            <button
+                                                key={resource}
+                                                onClick={() => setSelectedResource(resource)}
+                                                className={`w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                                                    selectedResource === resource
+                                                        ? "bg-surface text-brand border border-border-light shadow-sm"
+                                                        : "text-muted hover:bg-surface/50 hover:text-heading"
+                                                }`}
+                                            >
+                                                <div className="flex items-center justify-between gap-2">
+                                                    <span className="truncate">{RESOURCE_TITLES[resource] || resource}</span>
+                                                    <span className="text-xs font-bold bg-card px-1.5 py-0.5 rounded border border-border-light text-muted flex-shrink-0">
+                                                        {permissionsByResource[resource].filter(p => rolePermissions[p.id]).length} / {permissionsByResource[resource].length}
+                                                    </span>
+                                                </div>
+                                            </button>
+                                        ))}
+                                </div>
+                            </div>
+
+                            {/* 3. Checkbox Permissions Details List */}
+                            <div className="lg:col-span-5 bg-card rounded-xl border border-border shadow-card overflow-hidden h-fit">
+                                {selectedResource && permissionsByResource[selectedResource] ? (
+                                    <>
+                                        <div className="px-6 py-4 border-b border-border-light bg-surface/30 flex justify-between items-center">
+                                            <h3 className="font-semibold text-heading text-sm truncate max-w-[70%]">
+                                                {RESOURCE_TITLES[selectedResource] || selectedResource}
+                                            </h3>
+                                            <span className="text-[10px] font-bold text-muted bg-card px-2.5 py-1 border border-border rounded-md shadow-sm flex-shrink-0">
+                                                {permissionsByResource[selectedResource].filter(p => rolePermissions[p.id]).length} active
+                                            </span>
+                                        </div>
+                                        
+                                        <div className="p-4 space-y-2.5 max-h-[550px] overflow-y-auto">
+                                            {permissionsByResource[selectedResource]
+                                                .sort((a, b) => a.description.localeCompare(b.description))
+                                                .map((perm) => (
+                                                    <label
+                                                        key={perm.id}
+                                                        className={`flex items-start gap-2.5 p-3 rounded-lg border transition-all cursor-pointer group ${
+                                                            rolePermissions[perm.id]
+                                                                ? "bg-surface/30 border-brand/35 shadow-sm"
+                                                                : "bg-card border-border-light hover:border-border"
+                                                        }`}
+                                                    >
+                                                        <div className={`w-4 h-4 rounded border flex items-center justify-center transition-all flex-shrink-0 mt-0.5 ${
+                                                            rolePermissions[perm.id]
+                                                                ? "bg-brand border-brand"
+                                                                : "bg-card border-border group-hover:border-brand/40"
+                                                        }`}>
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={!!rolePermissions[perm.id]}
+                                                                onChange={() => togglePermission(perm.id)}
+                                                                className="hidden"
+                                                            />
+                                                            {rolePermissions[perm.id] && (
+                                                                <CheckCircle className="h-3 w-3 text-white" />
+                                                            )}
+                                                        </div>
+                                                        <div className="flex-1 min-w-0">
+                                                            <p className={`text-xs font-semibold leading-snug whitespace-normal break-words ${
+                                                                rolePermissions[perm.id] ? "text-brand font-bold" : "text-body"
+                                                            }`}>
+                                                                {perm.description}
+                                                            </p>
+                                                            <p className="text-[9px] text-muted/65 font-mono mt-0.5 select-all">
+                                                                {perm.name}
+                                                            </p>
+                                                        </div>
+                                                    </label>
+                                                ))}
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-12 text-muted text-center p-6">
+                                        <AlertCircle className="h-8 w-8 mb-2 opacity-25 text-brand" />
+                                        <p className="text-xs italic">Select a category from the vertical groups list on the left.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </>
+                    )}
+                </div>
             </div>
+
+            {/* Add Role Modal */}
+            <Modal
+                open={isAddRoleOpen}
+                title="Add New Role"
+                onClose={() => setIsAddRoleOpen(false)}
+                onSave={handleAddRole}
+                saving={addingRole}
+                saveLabel="Create Role"
+            >
+                <form onSubmit={handleAddRole} className="space-y-4 font-outfit text-xs">
+                    <div>
+                        <label className="block text-xs font-semibold text-heading mb-1.5">
+                            Role Name <span className="text-danger-DEFAULT">*</span>
+                        </label>
+                        <input
+                            type="text"
+                            value={newRoleName}
+                            onChange={(e) => setNewRoleName(e.target.value)}
+                            placeholder="e.g. Operations Officer"
+                            className="w-full px-3 py-2 bg-card border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-xs text-body shadow-sm"
+                            autoFocus
+                        />
+                        <p className="text-[10px] text-muted mt-2 flex items-center gap-1">
+                            <AlertCircle className="h-3 w-3" />
+                            Will be saved as <code className="bg-surface px-1.5 py-0.5 rounded text-heading font-semibold">{newRoleName.trim().toLowerCase().replace(/\s+/g, '_') || '...'}</code>
+                        </p>
+                    </div>
+                    <button type="submit" className="hidden" />
+                </form>
+            </Modal>
         </div>
     );
 }

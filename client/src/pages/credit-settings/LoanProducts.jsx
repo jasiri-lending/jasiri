@@ -3,15 +3,16 @@ import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
 import {
   PlusIcon,
-  XMarkIcon,
   PencilIcon,
   TrashIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   BanknotesIcon,
   ClockIcon,
+  XMarkIcon,
 } from "@heroicons/react/24/outline";
-import Spinner from "../../components/Spinner";
+import SkeletonPage from "../../components/Skeleton";
+import { Modal } from "../../components/Modal";
 
 export default function LoanProducts() {
   const { profile } = useAuth();
@@ -212,7 +213,7 @@ export default function LoanProducts() {
       : "border-border hover:border-muted focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/10"
     }`;
 
-  if (loading) return <div className="flex items-center justify-center min-h-screen bg-neutral-50"><Spinner /></div>;
+  if (loading) return <SkeletonPage />;
 
   if (error) return (
     <div className="flex items-center justify-center min-h-screen bg-neutral-50 px-4">
@@ -428,133 +429,114 @@ export default function LoanProducts() {
         )}
 
         {/* Product Modal */}
-        {showProductModal && (
-          <div className="fixed inset-0 bg-midnight/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-2xl shadow-modal max-w-md w-full overflow-hidden">
-              <div className="px-5 py-4 border-b border-border-light flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-medium text-heading">{selectedProduct ? "Edit Product" : "New Loan Product"}</h2>
-                  <p className="text-xs text-muted mt-0.5">{selectedProduct ? "Update product details" : "Define your new loan product"}</p>
+        <Modal
+          open={showProductModal}
+          title={selectedProduct ? "Edit Product" : "New Loan Product"}
+          onClose={() => { setShowProductModal(false); resetProductForm(); }}
+          onSave={() => {
+            if (!validateProductForm()) return;
+            if (selectedProduct) handleUpdateProduct({ preventDefault: () => {} });
+            else handleCreateProduct({ preventDefault: () => {} });
+          }}
+          saving={submitting}
+          saveLabel={selectedProduct ? "Save Changes" : "Create Product"}
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-body mb-1.5">Product Name <span className="text-danger">*</span></label>
+              <input
+                type="text"
+                value={productForm.product_name}
+                onChange={(e) => setProductForm({ ...productForm, product_name: e.target.value })}
+                className={inputClass(formErrors.product_name)}
+                placeholder="e.g., Business Growth Loan"
+                onFocus={(e) => e.target.select()}
+              />
+              {formErrors.product_name && <p className="text-danger text-xs mt-1">{formErrors.product_name}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-body mb-1.5">Min Amount <span className="text-danger">*</span></label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
+                  <input type="number" value={productForm.min_amount} onChange={(e) => setProductForm({ ...productForm, min_amount: e.target.value })} className={`${inputClass(formErrors.min_amount)} pl-10`} placeholder="0" onFocus={(e) => e.target.select()} />
                 </div>
-                <button onClick={() => { setShowProductModal(false); resetProductForm(); }} className="p-1.5 text-muted hover:text-heading hover:bg-surface rounded-lg transition-colors">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+                {formErrors.min_amount && <p className="text-danger text-xs mt-1">{formErrors.min_amount}</p>}
               </div>
-
-              <form onSubmit={selectedProduct ? handleUpdateProduct : handleCreateProduct} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-body mb-1.5">Product Name <span className="text-danger">*</span></label>
-                  <input
-                    type="text"
-                    value={productForm.product_name}
-                    onChange={(e) => setProductForm({ ...productForm, product_name: e.target.value })}
-                    className={inputClass(formErrors.product_name)}
-                    placeholder="e.g., Business Growth Loan"
-                    onFocus={(e) => e.target.select()}
-                  />
-                  {formErrors.product_name && <p className="text-danger text-xs mt-1">{formErrors.product_name}</p>}
+              <div>
+                <label className="block text-xs font-medium text-body mb-1.5">Max Amount</label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
+                  <input type="number" value={productForm.max_amount} onChange={(e) => setProductForm({ ...productForm, max_amount: e.target.value })} className={`${inputClass(formErrors.max_amount)} pl-10`} placeholder="Optional" onFocus={(e) => e.target.select()} />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-body mb-1.5">Min Amount <span className="text-danger">*</span></label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
-                      <input type="number" value={productForm.min_amount} onChange={(e) => setProductForm({ ...productForm, min_amount: e.target.value })} className={`${inputClass(formErrors.min_amount)} pl-10`} placeholder="0" onFocus={(e) => e.target.select()} />
-                    </div>
-                    {formErrors.min_amount && <p className="text-danger text-xs mt-1">{formErrors.min_amount}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-body mb-1.5">Max Amount</label>
-                    <div className="relative">
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
-                      <input type="number" value={productForm.max_amount} onChange={(e) => setProductForm({ ...productForm, max_amount: e.target.value })} className={`${inputClass(formErrors.max_amount)} pl-10`} placeholder="Optional" onFocus={(e) => e.target.select()} />
-                    </div>
-                    {formErrors.max_amount && <p className="text-danger text-xs mt-1">{formErrors.max_amount}</p>}
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-3 border-t border-border-light">
-                  <button type="button" onClick={() => { setShowProductModal(false); resetProductForm(); }} className="flex-1 px-4 py-2 bg-surface text-body border border-border rounded-lg text-xs hover:bg-border-light transition-colors">Cancel</button>
-                  <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-brand-primary text-white rounded-lg text-xs hover:bg-brand-primary/90 transition-all shadow-btn disabled:opacity-60">
-                    {submitting ? "Saving..." : selectedProduct ? "Save Changes" : "Create Product"}
-                  </button>
-                </div>
-              </form>
+                {formErrors.max_amount && <p className="text-danger text-xs mt-1">{formErrors.max_amount}</p>}
+              </div>
             </div>
           </div>
-        )}
+        </Modal>
 
         {/* Type Modal */}
-        {showTypeModal && selectedProduct && (
-          <div className="fixed inset-0 bg-midnight/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-            <div className="bg-card rounded-2xl shadow-modal max-w-lg w-full overflow-hidden">
-              <div className="px-5 py-4 border-b border-border-light flex items-center justify-between">
-                <div>
-                  <h2 className="text-sm font-medium text-heading">{selectedType ? "Edit Type" : "Add Loan Type"}</h2>
-                  <p className="text-xs text-brand-primary font-medium mt-0.5">{selectedProduct.product_name}</p>
-                </div>
-                <button onClick={() => { setShowTypeModal(false); resetTypeForm(); }} className="p-1.5 text-muted hover:text-heading hover:bg-surface rounded-lg transition-colors">
-                  <XMarkIcon className="w-5 h-5" />
-                </button>
+        <Modal
+          open={showTypeModal && !!selectedProduct}
+          title={selectedType ? "Edit Type" : `Add Loan Type — ${selectedProduct?.product_name || ""}`}
+          onClose={() => { setShowTypeModal(false); resetTypeForm(); }}
+          onSave={() => {
+            if (!validateTypeForm()) return;
+            if (selectedType) handleUpdateType({ preventDefault: () => {} });
+            else handleCreateType({ preventDefault: () => {} });
+          }}
+          saving={submitting}
+          saveLabel={selectedType ? "Save Changes" : "Add Type"}
+          wide
+        >
+          <div className="space-y-4">
+            <div>
+              <label className="block text-xs font-medium text-body mb-1.5">Type Name <span className="text-danger">*</span></label>
+              <input type="text" value={typeForm.product_type} onChange={(e) => setTypeForm({ ...typeForm, product_type: e.target.value })} className={inputClass(formErrors.product_type)} placeholder="e.g., 4 Weeks Standard" onFocus={(e) => e.target.select()} />
+              {formErrors.product_type && <p className="text-danger text-xs mt-1">{formErrors.product_type}</p>}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-body mb-1.5">Duration (Weeks) <span className="text-danger">*</span></label>
+                <input type="number" value={typeForm.duration_weeks} onChange={(e) => setTypeForm({ ...typeForm, duration_weeks: e.target.value })} className={inputClass(formErrors.duration_weeks)} placeholder="4" onFocus={(e) => e.target.select()} />
+                {formErrors.duration_weeks && <p className="text-danger text-xs mt-1">{formErrors.duration_weeks}</p>}
               </div>
+              <div>
+                <label className="block text-xs font-medium text-body mb-1.5">Interest Rate (%) <span className="text-danger">*</span></label>
+                <input type="number" step="0.01" value={typeForm.interest_rate} onChange={(e) => setTypeForm({ ...typeForm, interest_rate: e.target.value })} className={inputClass(formErrors.interest_rate)} placeholder="15" onFocus={(e) => e.target.select()} />
+                {formErrors.interest_rate && <p className="text-danger text-xs mt-1">{formErrors.interest_rate}</p>}
+              </div>
+            </div>
 
-              <form onSubmit={selectedType ? handleUpdateType : handleCreateType} className="p-5 space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-body mb-1.5">Type Name <span className="text-danger">*</span></label>
-                  <input type="text" value={typeForm.product_type} onChange={(e) => setTypeForm({ ...typeForm, product_type: e.target.value })} className={inputClass(formErrors.product_type)} placeholder="e.g., 4 Weeks Standard" onFocus={(e) => e.target.select()} />
-                  {formErrors.product_type && <p className="text-danger text-xs mt-1">{formErrors.product_type}</p>}
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-xs font-medium text-body mb-1.5">Duration (Weeks) <span className="text-danger">*</span></label>
-                    <input type="number" value={typeForm.duration_weeks} onChange={(e) => setTypeForm({ ...typeForm, duration_weeks: e.target.value })} className={inputClass(formErrors.duration_weeks)} placeholder="4" onFocus={(e) => e.target.select()} />
-                    {formErrors.duration_weeks && <p className="text-danger text-xs mt-1">{formErrors.duration_weeks}</p>}
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-body mb-1.5">Interest Rate (%) <span className="text-danger">*</span></label>
-                    <input type="number" step="0.01" value={typeForm.interest_rate} onChange={(e) => setTypeForm({ ...typeForm, interest_rate: e.target.value })} className={inputClass(formErrors.interest_rate)} placeholder="15" onFocus={(e) => e.target.select()} />
-                    {formErrors.interest_rate && <p className="text-danger text-xs mt-1">{formErrors.interest_rate}</p>}
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-medium text-body">
-                      Processing Fee ({typeForm.processing_fee_mode === "percentage" ? "%" : "Fixed Amount"})
-                    </label>
-                    <div className="flex bg-surface p-0.5 rounded-lg border border-border-light">
-                      <button type="button" onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: "percentage" })}
-                        className={`px-2.5 py-1 text-xs rounded-md transition-all ${typeForm.processing_fee_mode === "percentage" ? "bg-card text-brand-primary shadow-sm font-medium" : "text-muted hover:text-body"}`}>
-                        %
-                      </button>
-                      <button type="button" onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: "fixed" })}
-                        className={`px-2.5 py-1 text-xs rounded-md transition-all ${typeForm.processing_fee_mode === "fixed" ? "bg-card text-brand-primary shadow-sm font-medium" : "text-muted hover:text-body"}`}>
-                        KES
-                      </button>
-                    </div>
-                  </div>
-                  <div className="relative">
-                    {typeForm.processing_fee_mode === "fixed" && (
-                      <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
-                    )}
-                    <input type="number" step="0.01" value={typeForm.processing_fee_rate} onChange={(e) => setTypeForm({ ...typeForm, processing_fee_rate: e.target.value })}
-                      className={`${inputClass(false)} ${typeForm.processing_fee_mode === "fixed" ? "pl-10" : ""}`}
-                      placeholder="0" onFocus={(e) => e.target.select()} />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 pt-3 border-t border-border-light">
-                  <button type="button" onClick={() => { setShowTypeModal(false); resetTypeForm(); }} className="flex-1 px-4 py-2 bg-surface text-body border border-border rounded-lg text-xs hover:bg-border-light transition-colors">Cancel</button>
-                  <button type="submit" disabled={submitting} className="flex-1 px-4 py-2 bg-brand-primary text-white rounded-lg text-xs hover:bg-brand-primary/90 transition-all shadow-btn disabled:opacity-60">
-                    {submitting ? "Saving..." : selectedType ? "Save Changes" : "Add Type"}
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="block text-xs font-medium text-body">
+                  Processing Fee ({typeForm.processing_fee_mode === "percentage" ? "%" : "Fixed Amount"})
+                </label>
+                <div className="flex bg-surface p-0.5 rounded-lg border border-border-light">
+                  <button type="button" onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: "percentage" })}
+                    className={`px-2.5 py-1 text-xs rounded-md transition-all ${typeForm.processing_fee_mode === "percentage" ? "bg-card text-brand-primary shadow-sm font-medium" : "text-muted hover:text-body"}`}>
+                    %
+                  </button>
+                  <button type="button" onClick={() => setTypeForm({ ...typeForm, processing_fee_mode: "fixed" })}
+                    className={`px-2.5 py-1 text-xs rounded-md transition-all ${typeForm.processing_fee_mode === "fixed" ? "bg-card text-brand-primary shadow-sm font-medium" : "text-muted hover:text-body"}`}>
+                    KES
                   </button>
                 </div>
-              </form>
+              </div>
+              <div className="relative">
+                {typeForm.processing_fee_mode === "fixed" && (
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-xs text-muted pointer-events-none">KES</span>
+                )}
+                <input type="number" step="0.01" value={typeForm.processing_fee_rate} onChange={(e) => setTypeForm({ ...typeForm, processing_fee_rate: e.target.value })}
+                  className={`${inputClass(false)} ${typeForm.processing_fee_mode === "fixed" ? "pl-10" : ""}`}
+                  placeholder="0" onFocus={(e) => e.target.select()} />
+              </div>
             </div>
           </div>
-        )}
+        </Modal>
       </div>
     </div>
   );

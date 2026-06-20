@@ -4,22 +4,18 @@ import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { useToast } from "../../components/Toast";
 import {
-    ArrowLeft,
-    Search,
-    User,
-    CheckCircle,
-    AlertCircle,
-    Hash,
-    Clock
-} from 'lucide-react';
-import {
     MagnifyingGlassIcon,
     UserIcon,
     PhoneIcon,
     CreditCardIcon,
-    ArrowPathIcon
+    ArrowPathIcon,
+    ArrowLeftIcon,
+    CheckCircleIcon,
+    ExclamationCircleIcon,
+    HashtagIcon,
+    ClockIcon,
 } from "@heroicons/react/24/outline";
-import Spinner from "../../components/Spinner";
+import { SkeletonForm } from '../../components/Skeleton';
 import { apiFetch } from "../../utils/api";
 import { usePermissions } from "../../hooks/usePermissions";
 
@@ -139,25 +135,25 @@ const ReconcileTransaction = () => {
 
     if (loading) {
         return (
-            <div className="min-h-screen bg-stone-50 flex items-center justify-center">
-                <Spinner text="Loading transaction details..." />
+            <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+                <div className="max-w-5xl mx-auto"><SkeletonForm fields={6} /></div>
             </div>
         );
     }
 
     if (!transaction) {
         return (
-            <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center p-4">
-                <AlertCircle className="w-14 h-14 text-red-500 mb-4" />
-                <h2 className="text-2xl font-semibold text-slate-900 mb-2">Transaction Not Found</h2>
-                <p className="text-stone-500 mb-6 text-base text-center max-w-sm">
+            <div className="min-h-screen bg-page flex flex-col items-center justify-center p-4">
+                <ExclamationCircleIcon className="w-14 h-14 text-danger mb-4" />
+                <h2 className="text-2xl font-semibold text-heading mb-2">Transaction Not Found</h2>
+                <p className="text-muted mb-6 text-base text-center max-w-sm">
                     The transaction you are looking for does not exist or you don't have permission to view it.
                 </p>
                 <button
                     onClick={() => navigate('/accounting/transactions')}
-                    className="px-5 py-2.5 bg-brand-primary text-white rounded-lg shadow hover:bg-brand-primary/90 transition-all text-sm font-semibold inline-flex items-center gap-2"
+                    className="f-btn inline-flex items-center gap-2"
                 >
-                    <ArrowLeft className="w-4 h-4" />
+                    <ArrowLeftIcon className="w-4 h-4" />
                     Back to Transactions
                 </button>
             </div>
@@ -165,20 +161,20 @@ const ReconcileTransaction = () => {
     }
 
     return (
-        <div className="min-h-screen bg-muted p-6 font-sans">
+        <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
             <div className="max-w-5xl mx-auto">
 
                 {/* Header */}
                 <div className="flex items-center gap-4 mb-4">
                     <button
                         onClick={() => navigate('/accounting/transactions')}
-                        className="p-2  rounded-lg border border-stone-200 text-slate-600 hover:text-brand-primary hover:border-brand-primary transition-all shadow-sm"
+                        className="p-2 rounded-lg border border-border text-muted hover:text-brand-primary hover:border-brand-primary transition-all shadow-sm"
                     >
-                        <ArrowLeft className="w-3 h-3" />
+                        <ArrowLeftIcon className="w-3 h-3" />
                     </button>
                     <div>
-                        <h1 className="text-sm font-outfit text-slate-600">Manual Reconciliation</h1>
-                        {/* <p className="text-slate-400 text-xs mt-0.5">Link suspense payment to a specific customer</p> */}
+                        <h1 className="text-sm font-outfit text-heading">Manual Reconciliation</h1>
+                        {/* <p className="text-muted text-xs mt-0.5">Link suspense payment to a specific customer</p> */}
                     </div>
                 </div>
 
@@ -186,17 +182,17 @@ const ReconcileTransaction = () => {
 
                     {/* Left: Transaction Details */}
                     <div className="lg:col-span-4 space-y-4">
-                        <div className="bg-white rounded-sm p-5 shadow-sm border border-stone-100">
-                            <h2 className="text-xs font-outfit text-slate-600 mb-4 flex items-center gap-2 pb-3 border-b border-stone-100 ">
-                                <Hash className="w-3 h-3 text-slate-600" />
+                        <div className="bg-card rounded-xl p-5 shadow-card border border-border">
+                            <h2 className="text-xs font-outfit text-heading mb-4 flex items-center gap-2 pb-3 border-b border-border-light">
+                                <HashtagIcon className="w-3 h-3 text-heading" />
                                 Payment Summary
                             </h2>
 
                             <div className="space-y-3">
                                 {/* M-Pesa Reference */}
-                                <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-semibold font-outfit text-slate-600  mb-1.5">M-Pesa Reference</p>
-                                    <p className="text-sm  font-semibold font-outfit text-emerald-600">{transaction.transaction_id}</p>
+                                <div className="p-3.5 bg-surface rounded-lg border border-border-light">
+                                    <p className="text-xs font-semibold font-outfit text-heading mb-1.5">M-Pesa Reference</p>
+                                    <p className="text-sm font-semibold font-outfit text-brand-primary">{transaction.transaction_id}</p>
                                 </div>
 
                                 {/* Amount */}
@@ -208,24 +204,24 @@ const ReconcileTransaction = () => {
                                 </div>
 
                                 {/* Details */}
-                                <div className="p-3.5 bg-stone-50 rounded-lg border border-stone-100">
-                                    <p className="text-xs font-semibold font-outfit text-slate-600 mb-3">Details</p>
+                                <div className="p-3.5 bg-surface rounded-lg border border-border-light">
+                                    <p className="text-xs font-semibold font-outfit text-heading mb-3">Details</p>
                                     <div className="space-y-2.5">
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Payer</span>
-                                            <span className="text-sm text-slate-600 font-medium text-right truncate">
+                                            <span className="text-sm text-muted font-outfit shrink-0">Payer</span>
+                                            <span className="text-sm text-body font-medium text-right truncate">
                                                 {transaction.payer_name || 'Anonymous'}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Account no</span>
-                                            <span className="text-sm text-slate-600 font-medium text-right">
+                                            <span className="text-sm text-muted font-outfit shrink-0">Account no</span>
+                                            <span className="text-sm text-body font-medium text-right">
                                                 {transaction.phone_number}
                                             </span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
-                                            <span className="text-sm text-slate-600 font-outfit shrink-0">Date</span>
-                                            <span className="text-sm text-slate-600 font-medium text-right">
+                                            <span className="text-sm text-muted font-outfit shrink-0">Date</span>
+                                            <span className="text-sm text-body font-medium text-right">
                                                 {new Date(transaction.created_at).toLocaleDateString('en-GB', {
                                                     day: '2-digit',
                                                     month: 'short',
@@ -241,10 +237,10 @@ const ReconcileTransaction = () => {
 
                     {/* Right: Customer Search */}
                     <div className="lg:col-span-8 space-y-6">
-                        <div className="bg-white rounded-xl p-5 shadow-sm border border-stone-100">
+                        <div className="bg-card rounded-xl p-5 shadow-card border border-border">
                             <div className="flex items-center justify-between mb-5">
-                                <h2 className="text-xs font-semibold text-stone-400 flex items-center gap-2 ">
-                                    <User className="w-3 h-3 text-brand-primary/70 font-outfit" />
+                                <h2 className="text-xs font-semibold text-muted flex items-center gap-2">
+                                    <UserIcon className="w-3 h-3 text-brand-primary/70 font-outfit" />
                                     Step 1: Locate Customer
                                 </h2>
                                 {selectedCustomer && (
@@ -271,7 +267,7 @@ const ReconcileTransaction = () => {
                                             value={searchTerm}
                                             onChange={(e) => handleSearch(e.target.value)}
                                             placeholder="Search by name, phone, or ID number..."
-                                            className="w-full pl-11 pr-10 py-1.5 bg-stone-50 border border-stone-200 rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none text-sm text-stone-700 placeholder:text-stone-300 shadow-sm"
+                                            className="w-full pl-11 pr-10 py-1.5 bg-surface border border-border rounded-lg focus:ring-2 focus:ring-brand-primary/20 focus:border-brand-primary transition-all outline-none text-sm text-body placeholder:text-muted shadow-sm"
                                             autoFocus
                                         />
                                         {searching && (
@@ -288,16 +284,16 @@ const ReconcileTransaction = () => {
                                                 <button
                                                     key={customer.id}
                                                     onClick={() => setSelectedCustomer(customer)}
-                                                    className="w-full text-left p-3.5 rounded-lg border border-stone-100 transition-all flex items-center gap-3.5 bg-stone-50/50 hover:bg-white hover:border-brand-primary/30 hover:shadow-sm group"
+                                                    className="w-full text-left p-3.5 rounded-lg border border-border-light transition-all flex items-center gap-3.5 bg-surface/50 hover:bg-card hover:border-brand-primary/30 hover:shadow-sm group"
                                                 >
-                                                    <div className="w-10 h-10 rounded-lg bg-stone-100 text-stone-400 flex items-center justify-center shrink-0 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
+                                                    <div className="w-10 h-10 rounded-lg bg-surface text-muted flex items-center justify-center shrink-0 group-hover:bg-brand-primary/10 group-hover:text-brand-primary transition-colors">
                                                         <UserIcon className="w-5 h-5" />
                                                     </div>
                                                     <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-semibold text-stone-700 group-hover:text-stone-900 transition-colors truncate">
+                                                        <p className="text-sm font-semibold text-body group-hover:text-heading transition-colors truncate">
                                                             {`${customer.Firstname || ''} ${customer.Middlename || ''} ${customer.Surname || ''}`.trim()}
                                                         </p>
-                                                        <div className="flex items-center gap-4 mt-1 text-xs text-stone-400">
+                                                        <div className="flex items-center gap-4 mt-1 text-xs text-muted">
                                                             <span className="flex items-center gap-1.5">
                                                                 <PhoneIcon className="w-3.5 h-3.5 shrink-0" />
                                                                 {customer.mobile}
@@ -308,21 +304,21 @@ const ReconcileTransaction = () => {
                                                             </span>
                                                         </div>
                                                     </div>
-                                                    <div className="text-stone-200 group-hover:text-brand-primary transition-colors shrink-0">
-                                                        <CheckCircle className="w-5 h-5" />
+                                                    <div className="text-border group-hover:text-brand-primary transition-colors shrink-0">
+                                                        <CheckCircleIcon className="w-5 h-5" />
                                                     </div>
                                                 </button>
                                             ))
                                         ) : searchTerm.length >= 2 && !searching ? (
-                                            <div className="py-16 text-center bg-stone-50/30 rounded-lg border border-dashed border-stone-200">
-                                                <Search className="w-10 h-10 text-stone-200 mx-auto mb-3" />
-                                                <p className="text-stone-500 text-sm font-medium">No results for "{searchTerm}"</p>
-                                                <p className="text-stone-400 text-xs mt-1">Try a different name, phone, or ID</p>
+                                            <div className="py-16 text-center bg-surface/30 rounded-lg border border-dashed border-border">
+                                                <MagnifyingGlassIcon className="w-10 h-10 text-border mx-auto mb-3" />
+                                                <p className="text-muted text-sm font-medium">No results for "{searchTerm}"</p>
+                                                <p className="text-muted text-xs mt-1">Try a different name, phone, or ID</p>
                                             </div>
                                         ) : (
                                             <div className="py-16 text-center">
-                                                <User className="w-12 h-12 mx-auto mb-3 text-stone-200" />
-                                                <p className="text-sm text-stone-400">Find a customer to link this payment</p>
+                                                <UserIcon className="w-12 h-12 mx-auto mb-3 text-border" />
+                                                <p className="text-sm text-muted">Find a customer to link this payment</p>
                                             </div>
                                         )}
                                     </div>
@@ -330,23 +326,23 @@ const ReconcileTransaction = () => {
                             ) : (
                                 <div className="animate-in fade-in slide-in-from-top-2 duration-300">
                                     {/* Selected Customer Card */}
-<div className="p-4 rounded-sm border border-slate-200 bg-brand-primary/[0.02] flex items-center gap-4">
+                                    <div className="p-4 rounded-xl border border-border bg-brand-primary/[0.02] flex items-center gap-4">
                                         <div className="w-6 h-6 rounded-full bg-brand-primary text-white flex items-center justify-center shadow-lg shadow-brand-primary/20 shrink-0">
                                             <UserIcon className="w-3 h-3" />
                                         </div>
                                         <div className="flex-1 min-w-0">
-                                            <p className="text-xs font-semibold font-outfit text-brand-primary  mb-1">Selected Customer</p>
-                                            <p className="text-sm font-semibold font-outfit text-slate-700 truncate">
+                                            <p className="text-xs font-semibold font-outfit text-brand-primary mb-1">Selected Customer</p>
+                                            <p className="text-sm font-semibold font-outfit text-heading truncate">
                                                 {`${selectedCustomer.Firstname || ''} ${selectedCustomer.Surname || ''}`.trim()}
                                             </p>
-                                            <p className="text-sm font-outfit text-stone-600 mt-0.5">
+                                            <p className="text-sm font-outfit text-body mt-0.5">
                                                 {selectedCustomer.mobile}
                                                 {selectedCustomer.id_number && ` • ${selectedCustomer.id_number}`}
                                             </p>
                                         </div>
                                         <button
                                             onClick={() => setSelectedCustomer(null)}
-                                            className="shrink-0 px-3 py-1.5 text-xs font-outfit text-stone-400 hover:text-red-500  transition-colors"
+                                            className="shrink-0 px-3 py-1.5 text-xs font-outfit text-muted hover:text-danger transition-colors"
                                         >
                                             Change
                                         </button>
@@ -355,27 +351,27 @@ const ReconcileTransaction = () => {
                                     {/* Confirmation Panel */}
                                     <div className="mt-6 p-5 rounded-xl bg-brand-primary/10 relative overflow-hidden">
                                         <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
-                                            <CheckCircle className="w-28 h-28 text-slate-600" />
+                                            <CheckCircleIcon className="w-28 h-28 text-heading" />
                                         </div>
-                                        <h3 className="text-xs font-outfit text-slate-600  mb-4 flex items-center gap-2">
-                                            <Clock className="w-3.5 h-3.5 text-brand-primary" />
+                                        <h3 className="text-xs font-outfit text-heading mb-4 flex items-center gap-2">
+                                            <ClockIcon className="w-3.5 h-3.5 text-brand-primary" />
                                             Submit for Approval
                                         </h3>
                                         <p className="text-brand-primary leading-relaxed text-sm mb-6">
                                             You are about to propose a reconciliation for{' '}
-                                            <span className="text-slate-600 font-bold font-outfit">{transaction.transaction_id}</span>{' '}
+                                            <span className="text-heading font-bold font-outfit">{transaction.transaction_id}</span>{' '}
                                             for{' '}
-                                            <span className="text-slate-600 font-bold font-outfit">
+                                            <span className="text-heading font-bold font-outfit">
                                                 KSh {parseFloat(transaction.amount).toLocaleString()}
                                             </span>{' '}
                                             to{' '}
-                                            <span className="text-slate-600 font-bold font-outfit">{selectedCustomer.Firstname}</span>.
+                                            <span className="text-heading font-bold font-outfit">{selectedCustomer.Firstname}</span>.
                                         </p>
 
                                         <div className="flex items-center gap-3">
                                             <button
                                                 onClick={() => setSelectedCustomer(null)}
-                                                className="py-2 px-1.5 bg-stone-700 text-stone-300 rounded-lg text-xs font-outfit hover:bg-stone-600 transition-all  whitespace-nowrap"
+                                                className="py-2 px-1.5 bg-midnight text-white/70 rounded-lg text-xs font-outfit hover:bg-forest-deep transition-all whitespace-nowrap"
                                             >
                                                 Cancel
                                             </button>
@@ -405,14 +401,14 @@ const ReconcileTransaction = () => {
 
             {/* Processing Overlay */}
             {isProcessing && (
-                <div className="fixed inset-0 bg-stone-900/50 backdrop-blur-sm z-[100] flex items-center justify-center">
-                    <div className="bg-white p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs w-full animate-in zoom-in duration-300">
+                <div className="fixed inset-0 bg-[rgba(15,31,23,0.15)] z-[100] flex items-center justify-center">
+                    <div className="bg-card p-8 rounded-2xl shadow-2xl flex flex-col items-center max-w-xs w-full animate-in zoom-in duration-300">
                         <div className="w-14 h-14 relative mb-5">
-                            <div className="absolute inset-0 border-2 border-stone-100 rounded-full"></div>
+                            <div className="absolute inset-0 border-2 border-border-light rounded-full"></div>
                             <div className="absolute inset-0 border-2 border-brand-primary border-t-transparent rounded-full animate-spin"></div>
                         </div>
-                        <h3 className="text-base font-bold text-stone-800 mb-1.5">Submitting Proposal</h3>
-                        <p className="text-stone-400 text-center text-sm">
+                        <h3 className="text-base font-bold text-heading mb-1.5">Submitting Proposal</h3>
+                        <p className="text-muted text-center text-sm">
                             Just a moment while we send this for approval...
                         </p>
                     </div>

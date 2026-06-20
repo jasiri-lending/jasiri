@@ -3,83 +3,120 @@ import {
   Download,
   Filter,
   X,
-  ChevronLeft,
-  ChevronRight,
+  Search,
   ChevronUp,
   ChevronDown,
-  Search,
+  RefreshCw,
 } from "lucide-react";
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
-import Spinner from "../../components/Spinner"; // ✅ Import your custom Spinner
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import * as XLSX from "xlsx";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  Table,
+  TableRow,
+  TableCell,
+} from "docx";
+import { saveAs } from "file-saver";
+import { SkeletonTable } from "../../components/Skeleton";
+import { Pagination } from "../../components/Pagination";
+import CustomSelect from "../../components/CustomSelect";
 
-// ========== Memoized Helper Components ==========
+// ========== Helper Components & Functions ==========
 
-const SearchBox = React.memo(({ value, onChange }) => (
-  <div className="relative">
-    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-    <input
-      type="text"
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      placeholder="Search officer or branch"
-      className="border bg-gray-50 border-gray-300 pl-10 pr-4 py-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-sm w-64 text-gray-900"
-    />
-  </div>
-));
-SearchBox.displayName = 'SearchBox';
+const formatCurrency = (num) =>
+  new Intl.NumberFormat("en-KE", {
+    style: "currency",
+    currency: "KES",
+    minimumFractionDigits: 0,
+  }).format(num || 0);
+
+const formatPercentage = (num) => `${Math.round((num || 0) * 100) / 100}%`;
 
 const SortableHeader = React.memo(({ label, sortKey, sortConfig, onSort }) => (
   <th
     onClick={() => onSort(sortKey)}
-    className="px-4 py-4 font-semibold text-gray-700 cursor-pointer hover:bg-gray-200 transition-colors whitespace-nowrap text-left text-sm"
+    className="px-4 py-4 text-xs font-bold text-text-muted uppercase tracking-wider cursor-pointer hover:bg-surface/70 transition-colors whitespace-nowrap text-left border-b border-border"
   >
-    <div className="flex items-center gap-2">
+    <div className="flex items-center gap-1.5">
       {label}
-      {sortConfig.key === sortKey &&
-        (sortConfig.direction === "asc" ? (
-          <ChevronUp className="w-4 h-4" />
+      {sortConfig.key === sortKey ? (
+        sortConfig.direction === "asc" ? (
+          <ChevronUp className="w-3.5 h-3.5 text-brand" />
         ) : (
-          <ChevronDown className="w-4 h-4" />
-        ))}
+          <ChevronDown className="w-3.5 h-3.5 text-brand" />
+        )
+      ) : (
+        <ChevronDown className="w-3.5 h-3.5 text-muted opacity-30 hover:opacity-100" />
+      )}
     </div>
   </th>
 ));
 SortableHeader.displayName = 'SortableHeader';
 
-// Local Spinner removed
-
 const OfficerTableRow = React.memo(({ officer, index, startIdx }) => {
-  const formatCurrency = (num) =>
-    new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(num || 0);
-
-  const formatPercentage = (num) => `${Math.round(num * 100) / 100}%`;
-
   return (
-    <tr className="hover:bg-gray-50 transition-colors">
-      <td className="px-4 py-4 font-medium text-gray-400 whitespace-nowrap">{startIdx + index + 1}</td>
-      <td className="px-4 py-4 text-gray-700 whitespace-nowrap">{officer.branch}</td>
-      <td className="px-4 py-4 text-gray-900 font-medium whitespace-nowrap">{officer.officer}</td>
-      <td className="px-4 py-4 text-center text-gray-700 whitespace-nowrap">{officer.loan_due_yesterday_count}</td>
-      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(officer.loan_due_yesterday_amount)}</td>
-      <td className="px-4 py-4 text-center text-gray-700 whitespace-nowrap">{officer.loan_due_today_count}</td>
-      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(officer.loan_due_today_amount)}</td>
-      <td className="px-4 py-4 text-center text-red-700 font-semibold whitespace-nowrap">{officer.arrears_count}</td>
-      <td className="px-4 py-4 text-right text-red-700 font-semibold whitespace-nowrap">{formatCurrency(officer.arrears_amount)}</td>
-      <td className="px-4 py-4 text-right text-orange-600 font-semibold whitespace-nowrap">{formatCurrency(officer.outstanding_loan)}</td>
-      <td className="px-4 py-4 text-right text-purple-700 font-bold whitespace-nowrap">{formatPercentage(officer.par)}</td>
-      <td className="px-4 py-4 text-right text-gray-900 whitespace-nowrap">{formatCurrency(officer.balance_yesterday)}</td>
-      <td className="px-4 py-4 text-center text-green-700 font-semibold whitespace-nowrap">{officer.active_customers}</td>
-      <td className="px-4 py-4 text-center text-gray-700 whitespace-nowrap">{officer.inactive_customers}</td>
-      <td className="px-4 py-4 text-center text-blue-700 font-semibold whitespace-nowrap">{officer.disbursed_loans_count}</td>
-      <td className="px-4 py-4 text-right text-blue-700 font-semibold whitespace-nowrap">{formatCurrency(officer.disbursed_loans_amount)}</td>
-      <td className="px-4 py-4 text-center text-green-700 whitespace-nowrap">{officer.cleared_loans_count}</td>
-      <td className="px-4 py-4 text-center text-purple-700 font-semibold whitespace-nowrap">{officer.new_loans_count}</td>
-      <td className="px-4 py-4 text-center text-gray-900 font-bold whitespace-nowrap">{officer.total_loans}</td>
+    <tr className="hover:bg-surface transition-colors duration-150 border-b border-border-light text-sm text-text-secondary">
+      <td className="px-4 py-3 text-center text-xs font-medium text-text-muted whitespace-nowrap">
+        {startIdx + index + 1}
+      </td>
+      <td className="px-4 py-3 whitespace-nowrap">{officer.branch}</td>
+      <td className="px-4 py-3 font-semibold text-text-primary whitespace-nowrap">
+        {officer.officer}
+      </td>
+      <td className="px-4 py-3 text-center whitespace-nowrap tabular-nums">
+        {officer.loan_due_yesterday_count}
+      </td>
+      <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums font-medium text-text-primary">
+        {formatCurrency(officer.loan_due_yesterday_amount)}
+      </td>
+      <td className="px-4 py-3 text-center whitespace-nowrap tabular-nums">
+        {officer.loan_due_today_count}
+      </td>
+      <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums font-medium text-text-primary">
+        {formatCurrency(officer.loan_due_today_amount)}
+      </td>
+      <td className="px-4 py-3 text-center text-red-600 dark:text-red-400 whitespace-nowrap tabular-nums font-medium">
+        {officer.arrears_count}
+      </td>
+      <td className="px-4 py-3 text-right text-red-600 dark:text-red-400 whitespace-nowrap tabular-nums font-semibold">
+        {formatCurrency(officer.arrears_amount)}
+      </td>
+      <td className="px-4 py-3 text-right text-orange-600 dark:text-orange-400 whitespace-nowrap tabular-nums font-semibold">
+        {formatCurrency(officer.outstanding_loan)}
+      </td>
+      <td className="px-4 py-3 text-right text-purple-700 dark:text-purple-400 whitespace-nowrap tabular-nums font-bold">
+        {formatPercentage(officer.par)}
+      </td>
+      <td className="px-4 py-3 text-right whitespace-nowrap tabular-nums font-medium text-text-primary">
+        {formatCurrency(officer.balance_yesterday)}
+      </td>
+      <td className="px-4 py-3 text-center text-emerald-600 dark:text-emerald-400 whitespace-nowrap tabular-nums font-semibold">
+        {officer.active_customers}
+      </td>
+      <td className="px-4 py-3 text-center whitespace-nowrap tabular-nums">
+        {officer.inactive_customers}
+      </td>
+      <td className="px-4 py-3 text-center text-brand whitespace-nowrap tabular-nums font-semibold">
+        {officer.disbursed_loans_count}
+      </td>
+      <td className="px-4 py-3 text-right text-brand whitespace-nowrap tabular-nums font-semibold">
+        {formatCurrency(officer.disbursed_loans_amount)}
+      </td>
+      <td className="px-4 py-3 text-center text-emerald-600 dark:text-emerald-400 whitespace-nowrap tabular-nums font-medium">
+        {officer.cleared_loans_count}
+      </td>
+      <td className="px-4 py-3 text-center text-purple-600 dark:text-purple-400 whitespace-nowrap tabular-nums font-medium">
+        {officer.new_loans_count}
+      </td>
+      <td className="px-4 py-3 text-center whitespace-nowrap tabular-nums font-bold text-text-primary">
+        {officer.total_loans}
+      </td>
     </tr>
   );
 });
@@ -105,7 +142,7 @@ const LoanOfficerPerformanceReport = () => {
   const [branches, setBranches] = useState([]);
   const [regions, setRegions] = useState([]);
   const [loanOfficers, setLoanOfficers] = useState([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
@@ -189,7 +226,7 @@ const LoanOfficerPerformanceReport = () => {
     fetchInitialData();
 
     return () => { mounted = false; };
-  }, [profile?.role, profile?.id, profile?.branch_id, profile?.region_id]);
+  }, [profile?.role, branches.length]);
 
   // Helper: Portfolio at Risk calculation
   const calculatePAR = useCallback((arrearsAmount, outstandingLoan) => {
@@ -228,308 +265,287 @@ const LoanOfficerPerformanceReport = () => {
     }
   }, [filters.dateRange]);
 
-  // Fetch performance data - runs on mount and when dateRange changes
-  useEffect(() => {
+  // Fetch performance data
+  const fetchPerformance = useCallback(async () => {
     const tenantId = tenantIdRef.current;
     if (!tenantId) return;
 
-    let mounted = true;
-
-    const fetchPerformance = async () => {
-      try {
-        // Abort any ongoing request
-        if (abortControllerRef.current) {
-          abortControllerRef.current.abort();
-        }
-        abortControllerRef.current = new AbortController();
-
-        const cacheKey = `officer-performance-data-v2-${tenantId}`;  // v2: includes repayment_state
-
-        // Try cache first
-        try {
-          const cached = localStorage.getItem(cacheKey);
-          if (cached) {
-            const { data, timestamp } = JSON.parse(cached);
-            const cacheAge = Date.now() - timestamp;
-            if (cacheAge < 24 * 60 * 60 * 1000) { // 24 hours
-              if (mounted) {
-                setRawReports(data || []);
-                setIsInitialLoad(false);
-              }
-              return;
-            }
-          }
-        } catch (e) {
-          console.error("Cache read error:", e);
-        }
-
-        if (mounted) setLoading(true);
-
-        // 1️⃣ Fetch loans with branch and regions
-        let loansQuery = supabase
-          .from("loans")
-          .select(`
-            id,
-            booked_by,
-            branch_id,
-            customer_id,
-            status,
-            repayment_state,
-            scored_amount,
-            created_at,
-            disbursed_at,
-            disbursed_date,
-            branches!inner (
-              name,
-              regions (
-                name
-              )
-            )
-          `)
-          .eq("tenant_id", tenantId)
-          .abortSignal(abortControllerRef.current.signal);
-
-        let installmentsQuery = supabase
-          .from("loan_installments")
-          .select("loan_id, due_date, due_amount, paid_amount, status, days_overdue")
-          .eq("tenant_id", tenantId)
-          .abortSignal(abortControllerRef.current.signal);
-
-        let paymentsQuery = supabase
-          .from("loan_payments")
-          .select("loan_id, paid_amount, paid_at")
-          .eq("tenant_id", tenantId)
-          .abortSignal(abortControllerRef.current.signal);
-
-        let usersQuery = supabase
-          .from("users")
-          .select("id, full_name")
-          .eq("role", "relationship_officer")
-          .eq("tenant_id", tenantId)
-          .abortSignal(abortControllerRef.current.signal);
-
-        // Role-based restrictions
-        if (profile?.role === "relationship_officer") {
-          loansQuery = loansQuery.eq("booked_by", profile.id);
-          usersQuery = usersQuery.eq("id", profile.id);
-        } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
-          loansQuery = loansQuery.eq("branch_id", profile.branch_id);
-        } else if (profile?.role === "regional_manager") {
-          loansQuery = loansQuery.eq("region_id", profile.region_id);
-        }
-
-        // 2️⃣ Fetch other data sources
-        const [loansRes, installmentsRes, paymentsRes, usersRes] = await Promise.all([
-          loansQuery,
-          installmentsQuery,
-          paymentsQuery,
-          usersQuery,
-        ]);
-
-        if (loansRes.error) throw loansRes.error;
-        if (installmentsRes.error) throw installmentsRes.error;
-        if (paymentsRes.error) throw paymentsRes.error;
-        if (usersRes.error) throw usersRes.error;
-
-        let loansData = loansRes.data || [];
-        const installments = installmentsRes.data || [];
-        const users = usersRes.data || [];
-
-        // Apply date filtering based on filters.dateRange (only if not "all")
-        const dateRange = getDateRange();
-        if (dateRange.start && filters.dateRange !== "all") {
-          loansData = loansData.filter(loan => {
-            const loanDate = new Date(loan.created_at);
-            const startDate = new Date(dateRange.start);
-            const endDate = new Date(dateRange.end);
-            return loanDate >= startDate && loanDate <= endDate;
-          });
-        }
-
-        const today = new Date();
-        const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
-        // Precompute date strings once (avoids timezone issues inside loop)
-        const todayStr = today.toISOString().split("T")[0];
-        const yesterdayStr = yesterday.toISOString().split("T")[0];
-
-        // Group loans by officer
-        const officerStats = {};
-
-        loansData.forEach((loan) => {
-          const officer = users.find((u) => u.id === loan.booked_by);
-          if (!officer) return;
-
-          const key = `${officer.id}`;
-          if (!officerStats[key]) {
-            officerStats[key] = {
-              branch: loan.branches?.name || "N/A",
-              region: loan.branches?.regions?.name || "N/A",
-              officer: officer.full_name,
-              officerId: officer.id,
-              loan_due_yesterday_count: 0,
-              loan_due_yesterday_amount: 0,
-              loan_due_today_count: 0,
-              loan_due_today_amount: 0,
-              arrears_count: 0,
-              arrears_amount: 0,
-              outstanding_loan: 0,
-              balance_yesterday: 0,
-              active_customers: new Set(),
-              inactive_customers: new Set(),
-              disbursed_loans_count: 0,
-              disbursed_loans_amount: 0,
-              cleared_loans_count: 0,
-              new_loans_count: 0,
-              non_refunded_customers_count: 0,
-              total_loans: 0,
-              par: 0,
-            };
-          }
-
-          const stat = officerStats[key];
-          stat.total_loans++;
-
-          // Disbursed loans
-          const isDisbursed = loan.status === "disbursed" || loan.disbursed_date || loan.disbursed_at;
-          if (isDisbursed) {
-            stat.disbursed_loans_count++;
-            stat.disbursed_loans_amount += Number(loan.scored_amount) || 0;
-          }
-
-          // Cleared loans — loans fully repaid (repayment_state = completed)
-          if (loan.repayment_state === "completed") stat.cleared_loans_count++;
-
-          // New loans in date range
-          if (dateRange.start && loan.created_at) {
-            const loanDate = new Date(loan.created_at);
-            const startDate = new Date(dateRange.start);
-            const endDate = new Date(dateRange.end);
-            if (loanDate >= startDate && loanDate <= endDate) {
-              stat.new_loans_count++;
-            }
-          } else if (!dateRange.start) {
-            // If no date filter, count loans created today as new
-            if (loan.created_at && new Date(loan.created_at).toDateString() === today.toDateString()) {
-              stat.new_loans_count++;
-            }
-          }
-
-          // Customer tracking
-          if (loan.status === "disbursed" || loan.status === "active" || isDisbursed) {
-            stat.active_customers.add(loan.customer_id);
-          } else {
-            stat.inactive_customers.add(loan.customer_id);
-          }
-
-          // Installments logic
-          const loanInstallments = installments.filter((i) => i.loan_id === loan.id);
-          let loanArrears = 0;
-          let loanOutstanding = 0;
-
-          // Only count due installments for active/non-completed loans
-          const isCompletedLoan = loan.repayment_state === "completed";
-
-          loanInstallments.forEach((i) => {
-            const dueDateStr = i.due_date ? i.due_date.split("T")[0] : null;
-            const dueAmount = Number(i.due_amount) || 0;
-            const paidAmount = Number(i.paid_amount) || 0;
-            // Net outstanding: subtract paid amount for partial installments
-            const outstanding = Math.max(0, dueAmount - paidAmount);
-
-            // "Due today/yesterday" = pending or partial installments only (not overdue),
-            // on active loans only — mirrors LoanDueReport logic
-            if (!isCompletedLoan && dueDateStr && ["pending", "partial"].includes(i.status)) {
-              const netDue = (i.status === "partial" || paidAmount > 0)
-                ? Math.max(0, dueAmount - paidAmount)
-                : dueAmount;
-
-              if (dueDateStr === yesterdayStr) {
-                stat.loan_due_yesterday_count++;
-                stat.loan_due_yesterday_amount += netDue;
-              }
-
-              if (dueDateStr === todayStr) {
-                stat.loan_due_today_count++;
-                stat.loan_due_today_amount += netDue;
-              }
-            }
-
-            // Arrears: only for non-completed loans
-            if (!isCompletedLoan && (i.status === "overdue" || (i.days_overdue && i.days_overdue > 0))) {
-              stat.arrears_count++;
-              stat.arrears_amount += outstanding;
-              loanArrears += outstanding;
-            }
-
-            if (["pending", "partial", "overdue"].includes(i.status)) {
-              stat.outstanding_loan += outstanding;
-              loanOutstanding += outstanding;
-            }
-
-            if (dueDateStr && dueDateStr < yesterdayStr && ["pending", "partial", "overdue"].includes(i.status)) {
-              stat.balance_yesterday += outstanding;
-            }
-          });
-
-          // Calculate PAR for this loan and accumulate (weighted average)
-          if (loanOutstanding > 0) {
-            const loanPAR = calculatePAR(loanArrears, loanOutstanding);
-            stat.par = ((stat.par * (stat.total_loans - 1)) + loanPAR) / stat.total_loans;
-          }
-        });
-
-        // Finalize formatting and calculate final PAR
-        const formatted = Object.values(officerStats).map((stat) => ({
-          id: stat.officerId,
-          ...stat,
-          active_customers: stat.active_customers.size,
-          inactive_customers: stat.inactive_customers.size,
-          par: calculatePAR(stat.arrears_amount, stat.outstanding_loan),
-        }));
-
-        if (mounted) {
-          setRawReports(formatted);
-          try {
-            localStorage.setItem(cacheKey, JSON.stringify({
-              data: formatted,
-              timestamp: Date.now()
-            }));
-          } catch (e) {
-            console.error("Cache write error:", e);
-          }
-        }
-      } catch (err) {
-        // Ignore abort errors
-        if (err?.code === '20' || err?.message?.includes('AbortError')) {
-          return;
-        }
-        console.error("Error fetching officer performance:", err);
-      } finally {
-        if (mounted) {
-          setLoading(false);
-          setIsInitialLoad(false);
-        }
-      }
-    };
-
-    fetchPerformance();
-
-    return () => {
-      mounted = false;
+    try {
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
       }
-    };
-  }, [filters.dateRange, getDateRange, calculatePAR, profile?.role, profile?.id, profile?.branch_id, profile?.region_id]); // Re-run when dateRange changes
+      abortControllerRef.current = new AbortController();
 
-  // ========== MEMOIZED DERIVED DATA ==========
+      setLoading(true);
+
+      const cacheKey = `officer-performance-data-v2-${tenantId}`;
+
+      // Try cache first
+      try {
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+          const { data, timestamp } = JSON.parse(cached);
+          const cacheAge = Date.now() - timestamp;
+          if (cacheAge < 24 * 60 * 60 * 1000) {
+            setRawReports(data || []);
+            setLoading(false);
+            setIsInitialLoad(false);
+            return;
+          }
+        }
+      } catch (e) {
+        console.error("Cache read error:", e);
+      }
+
+      // 1️⃣ Fetch loans with branch and regions
+      let loansQuery = supabase
+        .from("loans")
+        .select(`
+          id,
+          booked_by,
+          branch_id,
+          customer_id,
+          status,
+          repayment_state,
+          scored_amount,
+          created_at,
+          disbursed_at,
+          disbursed_date,
+          branches!inner (
+            name,
+            regions (
+              name
+            )
+          )
+        `)
+        .eq("tenant_id", tenantId)
+        .abortSignal(abortControllerRef.current.signal);
+
+      let installmentsQuery = supabase
+        .from("loan_installments")
+        .select("loan_id, due_date, due_amount, paid_amount, status, days_overdue")
+        .eq("tenant_id", tenantId)
+        .abortSignal(abortControllerRef.current.signal);
+
+      let paymentsQuery = supabase
+        .from("loan_payments")
+        .select("loan_id, paid_amount, paid_at")
+        .eq("tenant_id", tenantId)
+        .abortSignal(abortControllerRef.current.signal);
+
+      let usersQuery = supabase
+        .from("users")
+        .select("id, full_name")
+        .eq("role", "relationship_officer")
+        .eq("tenant_id", tenantId)
+        .abortSignal(abortControllerRef.current.signal);
+
+      // Role-based restrictions
+      if (profile?.role === "relationship_officer") {
+        loansQuery = loansQuery.eq("booked_by", profile.id);
+        usersQuery = usersQuery.eq("id", profile.id);
+      } else if (profile?.role === "branch_manager" || profile?.role === "customer_service_officer") {
+        loansQuery = loansQuery.eq("branch_id", profile.branch_id);
+      } else if (profile?.role === "regional_manager") {
+        loansQuery = loansQuery.eq("region_id", profile.region_id);
+      }
+
+      const [loansRes, installmentsRes, paymentsRes, usersRes] = await Promise.all([
+        loansQuery,
+        installmentsQuery,
+        paymentsQuery,
+        usersQuery,
+      ]);
+
+      if (loansRes.error) throw loansRes.error;
+      if (installmentsRes.error) throw installmentsRes.error;
+      if (paymentsRes.error) throw paymentsRes.error;
+      if (usersRes.error) throw usersRes.error;
+
+      let loansData = loansRes.data || [];
+      const installments = installmentsRes.data || [];
+      const users = usersRes.data || [];
+
+      // Apply date filtering
+      const dateRange = getDateRange();
+      if (dateRange.start && filters.dateRange !== "all") {
+        loansData = loansData.filter(loan => {
+          const loanDate = new Date(loan.created_at);
+          const startDate = new Date(dateRange.start);
+          const endDate = new Date(dateRange.end);
+          return loanDate >= startDate && loanDate <= endDate;
+        });
+      }
+
+      const today = new Date();
+      const yesterday = new Date();
+      yesterday.setDate(today.getDate() - 1);
+      const todayStr = today.toISOString().split("T")[0];
+      const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+      // Group loans by officer
+      const officerStats = {};
+
+      loansData.forEach((loan) => {
+        const officer = users.find((u) => u.id === loan.booked_by);
+        if (!officer) return;
+
+        const key = `${officer.id}`;
+        if (!officerStats[key]) {
+          officerStats[key] = {
+            branch: loan.branches?.name || "N/A",
+            region: loan.branches?.regions?.name || "N/A",
+            officer: officer.full_name,
+            officerId: officer.id,
+            loan_due_yesterday_count: 0,
+            loan_due_yesterday_amount: 0,
+            loan_due_today_count: 0,
+            loan_due_today_amount: 0,
+            arrears_count: 0,
+            arrears_amount: 0,
+            outstanding_loan: 0,
+            balance_yesterday: 0,
+            active_customers: new Set(),
+            inactive_customers: new Set(),
+            disbursed_loans_count: 0,
+            disbursed_loans_amount: 0,
+            cleared_loans_count: 0,
+            new_loans_count: 0,
+            non_refunded_customers_count: 0,
+            total_loans: 0,
+            par: 0,
+          };
+        }
+
+        const stat = officerStats[key];
+        stat.total_loans++;
+
+        // Disbursed loans
+        const isDisbursed = loan.status === "disbursed" || loan.disbursed_date || loan.disbursed_at;
+        if (isDisbursed) {
+          stat.disbursed_loans_count++;
+          stat.disbursed_loans_amount += Number(loan.scored_amount) || 0;
+        }
+
+        // Cleared loans
+        if (loan.repayment_state === "completed") stat.cleared_loans_count++;
+
+        // New loans in date range
+        if (dateRange.start && loan.created_at) {
+          const loanDate = new Date(loan.created_at);
+          const startDate = new Date(dateRange.start);
+          const endDate = new Date(dateRange.end);
+          if (loanDate >= startDate && loanDate <= endDate) {
+            stat.new_loans_count++;
+          }
+        } else if (!dateRange.start) {
+          if (loan.created_at && new Date(loan.created_at).toDateString() === today.toDateString()) {
+            stat.new_loans_count++;
+          }
+        }
+
+        // Customer tracking
+        if (loan.status === "disbursed" || loan.status === "active" || isDisbursed) {
+          stat.active_customers.add(loan.customer_id);
+        } else {
+          stat.inactive_customers.add(loan.customer_id);
+        }
+
+        // Installments logic
+        const loanInstallments = installments.filter((i) => i.loan_id === loan.id);
+        let loanArrears = 0;
+        let loanOutstanding = 0;
+
+        const isCompletedLoan = loan.repayment_state === "completed";
+
+        loanInstallments.forEach((i) => {
+          const dueDateStr = i.due_date ? i.due_date.split("T")[0] : null;
+          const dueAmount = Number(i.due_amount) || 0;
+          const paidAmount = Number(i.paid_amount) || 0;
+          const outstanding = Math.max(0, dueAmount - paidAmount);
+
+          if (!isCompletedLoan && dueDateStr && ["pending", "partial"].includes(i.status)) {
+            const netDue = (i.status === "partial" || paidAmount > 0)
+              ? Math.max(0, dueAmount - paidAmount)
+              : dueAmount;
+
+            if (dueDateStr === yesterdayStr) {
+              stat.loan_due_yesterday_count++;
+              stat.loan_due_yesterday_amount += netDue;
+            }
+
+            if (dueDateStr === todayStr) {
+              stat.loan_due_today_count++;
+              stat.loan_due_today_amount += netDue;
+            }
+          }
+
+          if (!isCompletedLoan && (i.status === "overdue" || (i.days_overdue && i.days_overdue > 0))) {
+            stat.arrears_count++;
+            stat.arrears_amount += outstanding;
+            loanArrears += outstanding;
+          }
+
+          if (["pending", "partial", "overdue"].includes(i.status)) {
+            stat.outstanding_loan += outstanding;
+            loanOutstanding += outstanding;
+          }
+
+          if (dueDateStr && dueDateStr < yesterdayStr && ["pending", "partial", "overdue"].includes(i.status)) {
+            stat.balance_yesterday += outstanding;
+          }
+        });
+
+        if (loanOutstanding > 0) {
+          const loanPAR = calculatePAR(loanArrears, loanOutstanding);
+          stat.par = ((stat.par * (stat.total_loans - 1)) + loanPAR) / stat.total_loans;
+        }
+      });
+
+      const formatted = Object.values(officerStats).map((stat) => ({
+        id: stat.officerId,
+        ...stat,
+        active_customers: stat.active_customers.size,
+        inactive_customers: stat.inactive_customers.size,
+        par: calculatePAR(stat.arrears_amount, stat.outstanding_loan),
+      }));
+
+      setRawReports(formatted);
+      try {
+        localStorage.setItem(cacheKey, JSON.stringify({
+          data: formatted,
+          timestamp: Date.now()
+        }));
+      } catch (e) {
+        console.error("Cache write error:", e);
+      }
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+      console.error("Error fetching performance data:", err);
+    } finally {
+      setLoading(false);
+      setIsInitialLoad(false);
+    }
+  }, [filters.dateRange, getDateRange, calculatePAR, profile]);
+
+  // Fetch performance data on filters dateRange or profile update
+  useEffect(() => {
+    fetchPerformance();
+    return () => {
+      if (abortControllerRef.current) abortControllerRef.current.abort();
+    };
+  }, [fetchPerformance]);
+
+  const handleManualRefresh = async () => {
+    if (loading) return;
+    localStorage.removeItem(`officer-performance-data-v2-${tenantIdRef.current}`);
+    await fetchPerformance();
+  };
 
   // Filtered and sorted data
   const filteredData = useMemo(() => {
     let result = [...rawReports];
 
-    // Search filter
     if (filters.search) {
       const q = filters.search.toLowerCase();
       result = result.filter(
@@ -539,22 +555,18 @@ const LoanOfficerPerformanceReport = () => {
       );
     }
 
-    // Region filter
     if (filters.region) {
       result = result.filter((r) => r.region === filters.region);
     }
 
-    // Branch filter
     if (filters.branch) {
       result = result.filter((r) => r.branch === filters.branch);
     }
 
-    // Loan officer filter
     if (filters.loanOfficer) {
       result = result.filter((r) => r.officerId === filters.loanOfficer);
     }
 
-    // Apply sorting
     if (sortConfig.key) {
       result.sort((a, b) => {
         const aVal = a[sortConfig.key];
@@ -590,14 +602,12 @@ const LoanOfficerPerformanceReport = () => {
   // Pagination
   const pagination = useMemo(() => {
     const totalRows = filteredData.length;
-    const totalPages = Math.ceil(totalRows / itemsPerPage);
     const startIdx = (currentPage - 1) * itemsPerPage;
     const endIdx = Math.min(startIdx + itemsPerPage, totalRows);
     const currentData = filteredData.slice(startIdx, endIdx);
-    return { totalRows, totalPages, startIdx, endIdx, currentData };
+    return { totalRows, startIdx, endIdx, currentData };
   }, [filteredData, currentPage]);
 
-  // Filtered loan officers for dropdown
   const getFilteredLoanOfficers = useCallback(() => {
     if (filters.branch) {
       const officersInBranch = rawReports
@@ -629,7 +639,6 @@ const LoanOfficerPerformanceReport = () => {
   const handleFilterChange = useCallback((key, value) => {
     setFilters((prev) => {
       const newFilters = { ...prev, [key]: value };
-      // Reset dependent filters when region/branch changes
       if (key === "region") {
         newFilters.branch = "";
         newFilters.loanOfficer = "";
@@ -653,17 +662,165 @@ const LoanOfficerPerformanceReport = () => {
     setCurrentPage(1);
   }, []);
 
-  // Formatting helpers
-  const formatCurrency = (num) =>
-    new Intl.NumberFormat("en-KE", {
-      style: "currency",
-      currency: "KES",
-      minimumFractionDigits: 0,
-    }).format(num || 0);
+  const hasActiveFilters = useMemo(() => {
+    return (
+      filters.region !== "" ||
+      filters.branch !== "" ||
+      filters.loanOfficer !== "" ||
+      filters.dateRange !== "all"
+    );
+  }, [filters]);
 
-  const formatPercentage = (num) => `${Math.round(num * 100) / 100}%`;
+  // ========== Export Functions ==========
+  const exportToPDF = () => {
+    const doc = new jsPDF("l", "pt", "a4");
+    const companyName = tenant?.company_name || "Jasiri";
+    const reportTitle = "Officer Performance Report";
 
-  // Export to CSV
+    autoTable(doc, {
+      head: [
+        [
+          "Branch",
+          "Officer",
+          "Due Yesterday",
+          "Due Today",
+          "Arrears",
+          "Outstanding",
+          "PAR %",
+          "Disbursed Count",
+          "Disbursed Amount",
+          "Total Loans",
+        ],
+      ],
+      body: filteredData.map((r) => [
+        r.branch,
+        r.officer,
+        formatCurrency(r.loan_due_yesterday_amount),
+        formatCurrency(r.loan_due_today_amount),
+        formatCurrency(r.arrears_amount),
+        formatCurrency(r.outstanding_loan),
+        formatPercentage(r.par),
+        r.disbursed_loans_count,
+        formatCurrency(r.disbursed_loans_amount),
+        r.total_loans,
+      ]),
+      didDrawPage: (data) => {
+        doc.setFontSize(18);
+        doc.setTextColor(40);
+        doc.text(companyName, data.settings.margin.left, 40);
+        doc.setFontSize(12);
+        doc.text(reportTitle, data.settings.margin.left, 60);
+        doc.setFontSize(10);
+        doc.text(
+          `Generated on: ${new Date().toLocaleString()}`,
+          data.settings.margin.left,
+          80
+        );
+      },
+      margin: { top: 100 },
+      styles: { fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [26, 122, 74], textColor: [255, 255, 255] },
+    });
+
+    doc.save(
+      `${companyName.toLowerCase()}_officer_performance_${new Date().toISOString().split("T")[0]}.pdf`
+    );
+  };
+
+  const exportToExcel = () => {
+    const worksheet = XLSX.utils.json_to_sheet(
+      filteredData.map((r, i) => ({
+        No: i + 1,
+        Branch: r.branch,
+        Officer: r.officer,
+        "Due Yesterday Count": r.loan_due_yesterday_count,
+        "Due Yesterday Amount": r.loan_due_yesterday_amount,
+        "Due Today Count": r.loan_due_today_count,
+        "Due Today Amount": r.loan_due_today_amount,
+        "Arrears Count": r.arrears_count,
+        "Arrears Amount": r.arrears_amount,
+        "Outstanding Loan": r.outstanding_loan,
+        PAR: r.par,
+        "Balance Yesterday": r.balance_yesterday,
+        "Active Customers": r.active_customers,
+        "Inactive Customers": r.inactive_customers,
+        "Disbursed Loans Count": r.disbursed_loans_count,
+        "Disbursed Loans Amount": r.disbursed_loans_amount,
+        "Cleared Loans": r.cleared_loans_count,
+        "New Loans": r.new_loans_count,
+        "Total Loans": r.total_loans,
+      }))
+    );
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Performance");
+    XLSX.writeFile(
+      workbook,
+      `${tenant?.company_name || "Jasiri"}_officer_performance_${new Date().toISOString().split("T")[0]}.xlsx`
+    );
+  };
+
+  const exportToWord = async () => {
+    const table = new Table({
+      rows: [
+        new TableRow({
+          children: ["Branch", "Officer", "Arrears", "Outstanding", "PAR", "Disbursed", "Total Loans"].map(
+            (h) =>
+              new TableCell({
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: h, bold: true })],
+                  }),
+                ],
+              })
+          ),
+        }),
+        ...filteredData.map((r) =>
+          new TableRow({
+            children: [
+              r.branch,
+              r.officer,
+              formatCurrency(r.arrears_amount),
+              formatCurrency(r.outstanding_loan),
+              formatPercentage(r.par),
+              formatCurrency(r.disbursed_loans_amount),
+              String(r.total_loans),
+            ].map((v) => new TableCell({ children: [new Paragraph(v)] })),
+          })
+        ),
+      ],
+    });
+
+    const doc = new Document({
+      sections: [
+        {
+          children: [
+            new Paragraph({
+              children: [
+                new TextRun({
+                  text: tenant?.company_name || "Jasiri",
+                  bold: true,
+                  size: 32,
+                }),
+              ],
+            }),
+            new Paragraph({
+              children: [new TextRun({ text: "Officer Performance Report", size: 24 })],
+            }),
+            new Paragraph({ text: `Generated on: ${new Date().toLocaleString()}` }),
+            new Paragraph({ text: "" }),
+            table,
+          ],
+        },
+      ],
+    });
+
+    const blob = await Packer.toBlob(doc);
+    saveAs(
+      blob,
+      `${tenant?.company_name || "Jasiri"}_officer_performance_${new Date().toISOString().split("T")[0]}.docx`
+    );
+  };
+
   const exportToCSV = useCallback(() => {
     if (filteredData.length === 0) {
       alert("No data to export");
@@ -721,295 +878,398 @@ const LoanOfficerPerformanceReport = () => {
       .join("\n");
 
     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `loan_officer_performance${dateRangeLabel}${branchLabel}_${new Date().toISOString().split("T")[0]}.csv`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    saveAs(blob, `loan_officer_performance${dateRangeLabel}${branchLabel}_${new Date().toISOString().split("T")[0]}.csv`);
   }, [filteredData, filters.dateRange, filters.branch]);
 
-  if (loading && isInitialLoad) {
-    return (
-      <div className="min-h-screen bg-muted flex items-center justify-center">
-        <Spinner text="Loading Officer Performance Report..." />
-      </div>
+  const handleExport = () => {
+    switch (exportFormat) {
+      case "pdf":
+        exportToPDF();
+        break;
+      case "excel":
+        exportToExcel();
+        break;
+      case "word":
+        exportToWord();
+        break;
+      case "csv":
+      default:
+        exportToCSV();
+        break;
+    }
+  };
+
+  // Dropdowns Mappings
+  const regionOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Regions" },
+      ...regions.map(r => ({ value: r.name, label: r.name }))
+    ];
+  }, [regions]);
+
+  const branchOptions = useMemo(() => {
+    const filteredBranches = branches.filter(
+      (b) =>
+        !filters.region ||
+        regions.find((r) => r.name === filters.region)?.id === b.region_id
     );
-  }
+    return [
+      { value: "", label: "All Branches" },
+      ...filteredBranches.map(b => ({ value: b.name, label: b.name }))
+    ];
+  }, [branches, filters.region, regions]);
+
+  const officerOptions = useMemo(() => {
+    return [
+      { value: "", label: "All Loan Officers" },
+      ...getFilteredLoanOfficers().map(o => ({ value: o.id, label: o.full_name }))
+    ];
+  }, [getFilteredLoanOfficers]);
+
+  const dateRangeOptions = [
+    { value: "all", label: "All Time" },
+    { value: "today", label: "Today" },
+    { value: "this_week", label: "This Week" },
+    { value: "this_month", label: "This Month" },
+    { value: "quarterly", label: "Quarterly" },
+    { value: "yearly", label: "Yearly" },
+  ];
+
+  const exportFormatOptions = [
+    { value: "csv", label: "CSV" },
+    { value: "excel", label: "Excel" },
+    { value: "word", label: "Word" },
+    { value: "pdf", label: "PDF" },
+  ];
 
   return (
-    <div className="min-h-screen bg-muted p-6">
+    <div className="min-h-screen bg-page p-5 md:p-8 space-y-6 font-outfit animate-fade-in">
       <div className="max-w-[1600px] mx-auto space-y-6">
-        {/* Header Section */}
-        <div className="bg-brand-secondary rounded-xl shadow-md border border-gray-200 p-4 overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
 
-              <div>
-                <h1 className="text-sm font-bold text-stone-600 uppercase">{tenant?.company_name || "Company Name"}</h1>
-                <h2 className="text-lg font-semibold text-white mt-1">
-                  Officer Performance Report
-                </h2>
-              </div>
+        {/* Header Section */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            
+            <h1 className="text-sm font-bold text-muted mt-0.5">Officer Performance Report</h1>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Search Box */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+              <input
+                type="text"
+                value={filters.search}
+                onChange={(e) => handleFilterChange("search", e.target.value)}
+                placeholder="Search officer or branch"
+                className="bg-card border border-border text-text-primary placeholder:text-muted rounded-lg pl-9 pr-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand/40 w-64 transition"
+              />
             </div>
 
-            <div className="flex flex-col items-end gap-2">
+            {/* Filter Toggle */}
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg border text-sm font-medium transition-all ${
+                showFilters
+                  ? "bg-brand text-white border-brand shadow-sm"
+                  : "bg-card text-text-secondary border-border hover:border-brand/50"
+              }`}
+            >
+              <Filter className="w-4 h-4" />
+              Filters
+              {hasActiveFilters && (
+                <span className="ml-0.5 w-1.5 h-1.5 rounded-full bg-amber-400 inline-block" />
+              )}
+            </button>
 
-              <div className="flex gap-2 mt-2 flex-wrap justify-end">
-                <SearchBox value={filters.search} onChange={(val) => handleFilterChange("search", val)} />
-                <button
-                  onClick={() => setShowFilters(!showFilters)}
-                  className={`px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-medium transition-all border
-                    ${showFilters
-                      ? "bg-accent text-white shadow-md border-transparent hover:bg-brand-secondary"
-                      : "text-white border-white/30 hover:bg-white/10"
-                    }`}
-                >
-                  <Filter className="w-4 h-4" />
-                  <span>Filters</span>
-                </button>
+            {/* Manual Refresh */}
+            <button
+              onClick={handleManualRefresh}
+              disabled={loading}
+              title="Refresh data"
+              className="p-2 rounded-lg border border-border bg-card text-text-secondary hover:text-brand hover:border-brand/50 transition-all disabled:opacity-50"
+            >
+              <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
+            </button>
 
-                <div className="flex items-center bg-gray-50 rounded-lg border border-gray-200 p-1">
-                  <select
-                    value={exportFormat}
-                    onChange={(e) => setExportFormat(e.target.value)}
-                    className="bg-transparent text-sm font-medium text-gray-700 px-2 py-1 focus:outline-none cursor-pointer"
-                  >
-                    <option value="csv">CSV</option>
-                    <option value="excel">Excel</option>
-                    <option value="word">Word</option>
-                    <option value="pdf">PDF</option>
-                  </select>
-                  <button
-                    onClick={exportToCSV}
-                    className="ml-2 px-3 py-1.5 rounded-md bg-accent text-white text-sm font-medium 
-                             hover:bg-brand-secondary transition-colors flex items-center gap-1.5 shadow-sm"
-                  >
-                    <Download className="w-3.5 h-3.5" />
-                    Export
-                  </button>
-                </div>
-              </div>
+            {/* Export options */}
+            <div className="flex items-center gap-1 bg-card border border-border rounded-lg p-1">
+              <CustomSelect
+                options={exportFormatOptions}
+                value={exportFormat}
+                onChange={setExportFormat}
+                placeholder="Format"
+                compact
+              />
+              <button
+                onClick={handleExport}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-brand text-white text-sm font-medium hover:opacity-90 transition-opacity shadow-sm"
+              >
+                <Download className="w-3.5 h-3.5" />
+                Export
+              </button>
             </div>
           </div>
         </div>
 
-        {/* Filters */}
+        {/* Filters Panel */}
         {showFilters && (
-          <div className="p-6 bg-white border border-gray-200 rounded-xl shadow-sm space-y-4">
-            <h3 className="font-semibold text-gray-900">Filter Results</h3>
-            <div className="flex flex-wrap items-center gap-4">
+          <div className="bg-card border border-border rounded-xl shadow-card p-5 space-y-4 animate-fade-in">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-text-primary">Filter Results</h3>
+              {hasActiveFilters && (
+                <button
+                  onClick={clearFilters}
+                  className="text-xs text-red-500 hover:text-red-600 flex items-center gap-1 font-medium transition-colors"
+                >
+                  <X className="w-3.5 h-3.5" /> Clear all
+                </button>
+              )}
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              {/* Region */}
               {profile?.role !== "regional_manager" && profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                <select
-                  value={filters.region}
-                  onChange={(e) => handleFilterChange("region", e.target.value)}
-                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
-                >
-                  <option value="">All Regions</option>
-                  {regions.map((r) => (
-                    <option key={r.id} value={r.name}>{r.name}</option>
-                  ))}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                    Region
+                  </label>
+                  <CustomSelect
+                    options={regionOptions}
+                    value={filters.region}
+                    onChange={(val) => handleFilterChange("region", val)}
+                    placeholder="All Regions"
+                    compact
+                    fullWidth
+                  />
+                </div>
               )}
 
+              {/* Branch */}
               {profile?.role !== "branch_manager" && profile?.role !== "customer_service_officer" && profile?.role !== "relationship_officer" && (
-                <select
-                  value={filters.branch}
-                  onChange={(e) => handleFilterChange("branch", e.target.value)}
-                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
-                >
-                  <option value="">All Branches</option>
-                  {branches
-                    .filter(b => !filters.region || regions.find(r => r.name === filters.region)?.id === b.region_id)
-                    .map((b) => (
-                      <option key={b.id} value={b.name}>{b.name}</option>
-                    ))}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                    Branch
+                  </label>
+                  <CustomSelect
+                    options={branchOptions}
+                    value={filters.branch}
+                    onChange={(val) => handleFilterChange("branch", val)}
+                    placeholder="All Branches"
+                    compact
+                    fullWidth
+                  />
+                </div>
               )}
 
+              {/* Loan Officer */}
               {profile?.role !== "relationship_officer" && (
-                <select
-                  value={filters.loanOfficer}
-                  onChange={(e) => handleFilterChange("loanOfficer", e.target.value)}
-                  className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm flex-1 min-w-[200px]"
-                >
-                  <option value="">All Loan Officers</option>
-                  {getFilteredLoanOfficers().map((officer) => (
-                    <option key={officer.id} value={officer.id}>{officer.full_name}</option>
-                  ))}
-                </select>
+                <div className="space-y-1">
+                  <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                    Loan Officer
+                  </label>
+                  <CustomSelect
+                    options={officerOptions}
+                    value={filters.loanOfficer}
+                    onChange={(val) => handleFilterChange("loanOfficer", val)}
+                    placeholder="All Loan Officers"
+                    compact
+                    fullWidth
+                  />
+                </div>
               )}
 
-              <select
-                value={filters.dateRange}
-                onChange={(e) => handleFilterChange("dateRange", e.target.value)}
-                className="border border-gray-300 px-4 py-2.5 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
-              >
-                <option value="all">All Time</option>
-                <option value="today">Today</option>
-                <option value="this_week">This Week</option>
-                <option value="this_month">This Month</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="yearly">Yearly</option>
-              </select>
-
-              <button
-                onClick={clearFilters}
-                className="text-red-600 text-sm font-medium flex items-center justify-center gap-1 hover:text-red-700 border border-red-200 rounded-lg hover:bg-red-50"
-              >
-                <X className="w-4 h-4" /> Clear All
-              </button>
+              {/* Date Range */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                  Date Range
+                </label>
+                <CustomSelect
+                  options={dateRangeOptions}
+                  value={filters.dateRange}
+                  onChange={(val) => handleFilterChange("dateRange", val)}
+                  placeholder="All Time"
+                  compact
+                  fullWidth
+                />
+              </div>
             </div>
           </div>
         )}
 
         {/* Summary Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <div className="bg-blue-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 animate-fade-in">
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-brand">
+              KES
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Total Disbursed</p>
-              <h3 className="text-2xl  text-green-600">{formatCurrency(totals.disbursedAmount)}</h3>
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">
+                Total Disbursed
+              </p>
+              <h3 className="text-2xl font-bold text-emerald-600 mt-1 tabular-nums">
+                {formatCurrency(totals.disbursedAmount)}
+              </h3>
             </div>
           </div>
-          <div className="bg-green-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-text-secondary">
+              #
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Active Customers</p>
-              <h3 className="text-2xl  text-gray-600">{totals.activeCustomers}</h3>
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">
+                Active Customers
+              </p>
+              <h3 className="text-2xl font-bold text-text-primary mt-1 tabular-nums">
+                {totals.activeCustomers}
+              </h3>
             </div>
           </div>
-          <div className="bg-red-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-red-500">
+              KES
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Total Arrears</p>
-              <h3 className="text-2xl font-bold text-red-600">{formatCurrency(totals.arrearsAmount)}</h3>
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">
+                Total Arrears
+              </p>
+              <h3 className="text-2xl font-bold text-red-600 mt-1 tabular-nums">
+                {formatCurrency(totals.arrearsAmount)}
+              </h3>
             </div>
           </div>
-          <div className="bg-amber-50 p-6 rounded-xl shadow-sm border border-gray-100 flex items-center gap-5">
+
+          <div className="bg-card rounded-xl border border-border shadow-card p-6 flex items-center gap-4 hover:shadow-md transition-all duration-200">
+            <div className="w-12 h-12 bg-brand/10 rounded-lg flex items-center justify-center flex-shrink-0 font-bold text-purple-600">
+              %
+            </div>
             <div>
-              <p className="text-sm  text-gray-600 uppercase whitespace-nowrap">Overall PAR</p>
-              <h3 className="text-2xl  text-gray-600">{formatPercentage(totals.overallPAR)}</h3>
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">
+                Overall PAR
+              </p>
+              <h3 className="text-2xl font-bold text-purple-700 mt-1 tabular-nums">
+                {formatPercentage(totals.overallPAR)}
+              </h3>
             </div>
           </div>
         </div>
 
-        {/* Table */}
-        <div className="bg-white rounded-lg shadow-md overflow-hidden border border-gray-200">
-          {loading ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-500">Loading performance data...</p>
-            </div>
-          ) : filteredData.length === 0 ? (
-            <div className="p-8 text-center">
-              <p className="text-gray-500">
-                {rawReports.length === 0
-                  ? "No data available. Please check if loans have valid booked_by values and there are no connection issues."
-                  : "No results match your filters."}
-              </p>
-            </div>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead className="bg-gray-100 border-b border-gray-200 sticky top-0">
+        {/* Table Section */}
+        {loading && isInitialLoad ? (
+          <SkeletonTable rows={10} cols={19} />
+        ) : (
+          <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="bg-surface border-b border-border">
+                  <tr>
+                    <th className="px-6 py-4 text-xs font-bold text-text-muted uppercase tracking-wider text-center whitespace-nowrap">
+                      #
+                    </th>
+                    <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Loan Officer" sortKey="officer" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Due Yesterday (Cnt)" sortKey="loan_due_yesterday_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Due Yesterday (Amt)" sortKey="loan_due_yesterday_amount" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Due Today (Cnt)" sortKey="loan_due_today_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Due Today (Amt)" sortKey="loan_due_today_amount" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Arrears (Cnt)" sortKey="arrears_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Arrears (Amt)" sortKey="arrears_amount" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Outstanding" sortKey="outstanding_loan" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="PAR %" sortKey="par" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Balance Yesterday" sortKey="balance_yesterday" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Active Cust." sortKey="active_customers" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Inactive Cust." sortKey="inactive_customers" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Disbursed (Cnt)" sortKey="disbursed_loans_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Disbursed (Amt)" sortKey="disbursed_loans_amount" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Cleared" sortKey="cleared_loans_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="New Loans" sortKey="new_loans_count" sortConfig={sortConfig} onSort={handleSort} />
+                    <SortableHeader label="Total Loans" sortKey="total_loans" sortConfig={sortConfig} onSort={handleSort} />
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border-light">
+                  {loading && !isInitialLoad ? (
                     <tr>
-                      <th className="px-4 py-4 font-semibold text-gray-700 text-left whitespace-nowrap">#</th>
-                      <SortableHeader label="Branch" sortKey="branch" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Loan Officer" sortKey="officer" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Due Yesterday (Cnt)" sortKey="loan_due_yesterday_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Due Yesterday (Amt)" sortKey="loan_due_yesterday_amount" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Due Today (Cnt)" sortKey="loan_due_today_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Due Today (Amt)" sortKey="loan_due_today_amount" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Arrears (Cnt)" sortKey="arrears_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Arrears (Amt)" sortKey="arrears_amount" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Outstanding" sortKey="outstanding_loan" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="PAR %" sortKey="par" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Balance Yesterday" sortKey="balance_yesterday" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Active Cust." sortKey="active_customers" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Inactive Cust." sortKey="inactive_customers" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Disbursed (Cnt)" sortKey="disbursed_loans_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Disbursed (Amt)" sortKey="disbursed_loans_amount" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Cleared" sortKey="cleared_loans_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="New Loans" sortKey="new_loans_count" sortConfig={sortConfig} onSort={handleSort} />
-                      <SortableHeader label="Total Loans" sortKey="total_loans" sortConfig={sortConfig} onSort={handleSort} />
+                      <td colSpan="19" className="px-6 py-12 text-center text-text-muted italic font-medium">
+                        <RefreshCw className="w-6 h-6 animate-spin text-brand mx-auto mb-2" />
+                        Refreshing performance data...
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {pagination.currentData.map((officer, idx) => (
+                  ) : filteredData.length === 0 ? (
+                    <tr>
+                      <td colSpan="19" className="px-6 py-12 text-center text-text-muted italic font-medium">
+                        No officer performance data matches your criteria.
+                      </td>
+                    </tr>
+                  ) : (
+                    pagination.currentData.map((officer, idx) => (
                       <OfficerTableRow
                         key={officer.id}
                         officer={officer}
                         index={idx}
                         startIdx={pagination.startIdx}
                       />
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    ))
+                  )}
+                </tbody>
 
-              {/* Pagination */}
-              {pagination.totalPages > 1 && (
-                <div className="bg-gray-50 px-6 py-4 border-t border-gray-200 flex items-center justify-between">
-                  <div className="text-sm text-gray-600">
-                    Showing <span className="font-semibold">{pagination.startIdx + 1}</span> to{' '}
-                    <span className="font-semibold">{pagination.endIdx}</span> of{' '}
-                    <span className="font-semibold">{pagination.totalRows}</span> officers
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                      disabled={currentPage === 1}
-                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === 1
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                        }`}
-                    >
-                      <ChevronLeft className="w-4 h-4" />
-                      Previous
-                    </button>
-                    <div className="flex items-center gap-2">
-                      {Array.from({ length: Math.min(5, pagination.totalPages) }).map((_, i) => {
-                        let pageNum;
-                        if (pagination.totalPages <= 5) {
-                          pageNum = i + 1;
-                        } else if (currentPage <= 3) {
-                          pageNum = i + 1;
-                        } else if (currentPage >= pagination.totalPages - 2) {
-                          pageNum = pagination.totalPages - 4 + i;
-                        } else {
-                          pageNum = currentPage - 2 + i;
-                        }
-                        return (
-                          <button
-                            key={pageNum}
-                            onClick={() => setCurrentPage(pageNum)}
-                            className={`px-3 py-2 rounded-lg transition-colors ${currentPage === pageNum
-                              ? 'bg-blue-600 text-white font-semibold'
-                              : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                              }`}
-                          >
-                            {pageNum}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <button
-                      onClick={() => setCurrentPage((prev) => Math.min(pagination.totalPages, prev + 1))}
-                      disabled={currentPage === pagination.totalPages}
-                      className={`px-3 py-2 rounded-lg flex items-center gap-1 transition-colors ${currentPage === pagination.totalPages
-                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                        : 'bg-white text-gray-700 hover:bg-gray-100 border border-gray-300'
-                        }`}
-                    >
-                      Next
-                      <ChevronRight className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
-        </div>
+                <tfoot className="bg-surface border-t-2 border-border font-bold text-xs uppercase tracking-wider text-text-muted">
+                  <tr>
+                    <td colSpan="3" className="px-6 py-4 text-right">
+                      Overall Total ({filteredData.length} officers):
+                    </td>
+                    <td colSpan="4"></td>
+                    <td className="px-4 py-4 text-center text-red-600 dark:text-red-400">
+                      {filteredData.reduce((sum, r) => sum + r.arrears_count, 0)}
+                    </td>
+                    <td className="px-4 py-4 text-right text-red-600 dark:text-red-400 whitespace-nowrap tabular-nums">
+                      {formatCurrency(totals.arrearsAmount)}
+                    </td>
+                    <td className="px-4 py-4 text-right text-orange-600 dark:text-orange-400 whitespace-nowrap tabular-nums">
+                      {formatCurrency(totals.outstandingLoan)}
+                    </td>
+                    <td className="px-4 py-4 text-right text-purple-700 dark:text-purple-400 whitespace-nowrap tabular-nums">
+                      {formatPercentage(totals.overallPAR)}
+                    </td>
+                    <td></td>
+                    <td className="px-4 py-4 text-center text-emerald-600 dark:text-emerald-400">
+                      {totals.activeCustomers}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {filteredData.reduce((sum, r) => sum + r.inactive_customers, 0)}
+                    </td>
+                    <td className="px-4 py-4 text-center text-brand">
+                      {totals.disbursedLoans}
+                    </td>
+                    <td className="px-4 py-4 text-right text-brand whitespace-nowrap tabular-nums">
+                      {formatCurrency(totals.disbursedAmount)}
+                    </td>
+                    <td className="px-4 py-4 text-center text-emerald-600 dark:text-emerald-400">
+                      {filteredData.reduce((sum, r) => sum + r.cleared_loans_count, 0)}
+                    </td>
+                    <td className="px-4 py-4 text-center text-purple-600 dark:text-purple-400">
+                      {filteredData.reduce((sum, r) => sum + r.new_loans_count, 0)}
+                    </td>
+                    <td className="px-4 py-4 text-center">
+                      {filteredData.reduce((sum, r) => sum + r.total_loans, 0)}
+                    </td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            {/* Pagination Component */}
+            {!loading && filteredData.length > itemsPerPage && (
+              <Pagination
+                totalItems={filteredData.length}
+                itemsPerPage={itemsPerPage}
+                currentPage={currentPage}
+                onPageChange={setCurrentPage}
+              />
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

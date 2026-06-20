@@ -10,11 +10,11 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   CloudArrowUpIcon,
-  XCircleIcon,
   LockClosedIcon,
   LockOpenIcon,
   ArrowDownTrayIcon,
   ChevronDownIcon,
+  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
@@ -24,7 +24,9 @@ import { saveAs } from 'file-saver';
 import { supabase } from "../../supabaseClient";
 import { useAuth } from "../../hooks/userAuth";
 import { apiFetch } from "../../utils/api";
-import Spinner from "../../components/Spinner";
+import Modal from "../../components/Modal";
+import CustomSelect from "../../components/CustomSelect";
+import SkeletonPage from "../../components/Skeleton";
 
 export default function AllUsers() {
   const navigate = useNavigate();
@@ -76,30 +78,24 @@ export default function AllUsers() {
   const isSuperAdmin = profile?.role === 'superadmin';
 
   const filterRegionsByTenant = useCallback((tenantId) => {
-    if (!tenantId) {
-      setFilteredRegions(regions);
-      return;
-    }
-    const filtered = regions.filter(region => region.tenant_id === tenantId);
-    setFilteredRegions(filtered);
+    if (!tenantId) { setFilteredRegions(regions); return; }
+    setFilteredRegions(regions.filter(r => r.tenant_id === tenantId));
   }, [regions]);
 
   const filterBranchesByRegionAndTenant = useCallback((regionId, tenantId) => {
     let filtered = branches;
-    if (tenantId) filtered = filtered.filter(branch => branch.tenant_id === tenantId);
-    if (regionId) filtered = filtered.filter(branch => branch.region_id === regionId);
+    if (tenantId) filtered = filtered.filter(b => b.tenant_id === tenantId);
+    if (regionId) filtered = filtered.filter(b => b.region_id === regionId);
     setFilteredBranches(filtered);
   }, [branches]);
 
-  const handleRegionChange = (e) => {
-    const regionId = e.target.value;
+  const handleRegionChange = (regionId) => {
     setFormData(prev => ({ ...prev, region_id: regionId, branch_id: '' }));
     const tenantId = isSuperAdmin ? formData.tenant_id : currentUserTenantId;
     filterBranchesByRegionAndTenant(regionId, tenantId);
   };
 
-  const handleTenantChange = (e) => {
-    const tenantId = e.target.value;
+  const handleTenantChange = (tenantId) => {
     setFormData(prev => ({ ...prev, tenant_id: tenantId, region_id: '', branch_id: '' }));
     filterRegionsByTenant(tenantId);
     filterBranchesByRegionAndTenant(null, tenantId);
@@ -109,7 +105,7 @@ export default function AllUsers() {
     if (!tenantId && userRole !== 'superadmin') return;
     setLoading(true);
     try {
-      const [usersData, branchesData, regionsData, tenantsData] = await Promise.all([
+      await Promise.all([
         fetchUsers(tenantId, userRole),
         fetchBranches(tenantId, userRole),
         fetchRegions(tenantId, userRole),
@@ -175,9 +171,7 @@ export default function AllUsers() {
         return mapped;
       }
       return [];
-    } catch (err) {
-      return [];
-    }
+    } catch (err) { return []; }
   };
 
   const fetchBranches = async (tenantId, userRole, page = 1) => {
@@ -199,9 +193,7 @@ export default function AllUsers() {
         return mapped;
       }
       return [];
-    } catch (err) {
-      return [];
-    }
+    } catch (err) { return []; }
   };
 
   const fetchRegions = async (tenantId, userRole, page = 1) => {
@@ -222,23 +214,16 @@ export default function AllUsers() {
         return mapped;
       }
       return [];
-    } catch (err) {
-      return [];
-    }
+    } catch (err) { return []; }
   };
 
   const fetchTenants = async () => {
     try {
       const { data, error } = await supabase.from("tenants").select("id, name, company_name").order("name", { ascending: true });
       if (error) throw error;
-      if (data && mountedRef.current) {
-        setTenants(data);
-        return data;
-      }
+      if (data && mountedRef.current) { setTenants(data); return data; }
       return [];
-    } catch (err) {
-      return [];
-    }
+    } catch (err) { return []; }
   };
 
   const getRoleColorClass = (role) => {
@@ -305,8 +290,7 @@ export default function AllUsers() {
     fetchUsers(profile.tenant_id, profile.role, page);
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async () => {
     setSubmitting(true);
     try {
       if (modalType === "user") {
@@ -443,10 +427,7 @@ export default function AllUsers() {
             role: (row.role || row.Role || 'operation_officer').toLowerCase().replace(' ', '_'),
             phone: row.phone || row.Phone || row.mobile || '',
             company_phone: row.company_phone || row.CompanyPhone || '',
-            region_id,
-            branch_id,
-            region_name: regionName,
-            branch_name: branchName
+            region_id, branch_id, region_name: regionName, branch_name: branchName
           };
         }).filter(u => u.email && u.full_name);
         setBulkUsers(formatted);
@@ -533,26 +514,22 @@ export default function AllUsers() {
     try { return JSON.parse(localStorage.getItem('tenant')) || {}; } catch { return {}; }
   };
 
-  // Converts company name to a URL-safe slug, e.g. "Fanikisha Ltd" → "fanikisha"
   const getTenantSlug = () => {
     const tenant = getTenant();
     const name = tenant.company_name || tenant.name || 'company';
-    return name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')  // replace non-alphanumeric runs with -
-      .replace(/^-+|-+$/g, '');     // trim leading/trailing dashes
+    return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
   };
 
   const buildExportRows = () =>
     filteredData.map(u => ({
-      'Full Name':   u.full_name || '',
-      'Email':       u.email || '',
-      'Phone':       u.phone || '',
-      'Role':        getRoleLabel(u.role),
-      'Branch':      u.branches?.name || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
-      'Region':      u.regions?.name  || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
-      'Status':      u.status || 'ACTIVE',
-      'Joined':      u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
+      'Full Name': u.full_name || '',
+      'Email': u.email || '',
+      'Phone': u.phone || '',
+      'Role': getRoleLabel(u.role),
+      'Branch': u.branches?.name || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
+      'Region': u.regions?.name || (roleRequiresBranchRegion(u.role) ? 'N/A' : 'All'),
+      'Status': u.status || 'ACTIVE',
+      'Joined': u.created_at ? new Date(u.created_at).toLocaleDateString() : '',
     }));
 
   const exportCSV = () => {
@@ -570,7 +547,6 @@ export default function AllUsers() {
     const rows = buildExportRows();
     if (!rows.length) return alert('No data to export');
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Company header
     XLSX.utils.sheet_add_aoa(ws, [[tenant.company_name || 'User Report'], [`Generated: ${new Date().toLocaleString()}`]], { origin: 'A1' });
     XLSX.utils.sheet_add_json(ws, rows, { origin: 'A4', skipHeader: false });
     const wb = XLSX.utils.book_new();
@@ -593,8 +569,8 @@ export default function AllUsers() {
       head: [Object.keys(rows[0])],
       body: rows.map(r => Object.values(r)),
       styles: { fontSize: 7, cellPadding: 2 },
-      headStyles: { fillColor: [37, 99, 235], fontSize: 7, fontStyle: 'bold' },
-      alternateRowStyles: { fillColor: [248, 250, 252] },
+      headStyles: { fillColor: [26, 122, 74], fontSize: 7, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [247, 250, 248] },
     });
     doc.save(`${getTenantSlug()}-users.pdf`);
     setShowExportMenu(false);
@@ -608,28 +584,14 @@ export default function AllUsers() {
     const docx = new Document({
       sections: [{
         children: [
-          new Paragraph({
-            children: [new TextRun({ text: tenant.company_name || 'User Report', bold: true, size: 28 })],
-            alignment: AlignmentType.CENTER,
-          }),
-          new Paragraph({
-            children: [new TextRun({ text: `Generated: ${new Date().toLocaleString()}  |  Total: ${rows.length} users`, size: 18, color: '666666' })],
-            alignment: AlignmentType.CENTER,
-          }),
+          new Paragraph({ children: [new TextRun({ text: tenant.company_name || 'User Report', bold: true, size: 28 })], alignment: AlignmentType.CENTER }),
+          new Paragraph({ children: [new TextRun({ text: `Generated: ${new Date().toLocaleString()}  |  Total: ${rows.length} users`, size: 18, color: '666666' })], alignment: AlignmentType.CENTER }),
           new Paragraph({ text: '' }),
           new Table({
             width: { size: 100, type: WidthType.PERCENTAGE },
             rows: [
-              new TableRow({
-                children: headers.map(h => new TableCell({
-                  children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 16 })] })],
-                })),
-              }),
-              ...rows.map(row => new TableRow({
-                children: headers.map(h => new TableCell({
-                  children: [new Paragraph({ children: [new TextRun({ text: String(row[h] ?? ''), size: 16 })] })],
-                })),
-              })),
+              new TableRow({ children: headers.map(h => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: h, bold: true, size: 16 })] })] })) }),
+              ...rows.map(row => new TableRow({ children: headers.map(h => new TableCell({ children: [new Paragraph({ children: [new TextRun({ text: String(row[h] ?? ''), size: 16 })] })] })) })),
             ],
           }),
         ],
@@ -640,235 +602,414 @@ export default function AllUsers() {
     setShowExportMenu(false);
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-muted p-6 flex items-center justify-center">
-        <Spinner />
-      </div>
-    );
-  }
+  if (loading) return <SkeletonPage />;
+
+  const roleOptions = availableRoles.map(r => ({ value: r.value, label: r.label }));
+  const regionOptions = filteredRegions.map(r => ({ value: r.id, label: r.name }));
+  const branchOptions = filteredBranches.map(b => ({ value: b.id, label: b.name }));
+  const tenantOptions = tenants.map(t => ({ value: t.id, label: t.name || t.company_name }));
+  const filterRegionOptions = regions.filter(r => isSuperAdmin || r.tenant_id === currentUserTenantId).map(r => ({ value: r.id, label: r.name }));
+  const filterBranchOptions = branches.filter(b => (!isSuperAdmin && b.tenant_id !== currentUserTenantId ? false : filterRegion && b.region_id !== filterRegion ? false : true)).map(b => ({ value: b.id, label: b.name }));
 
   return (
-    <div className="min-h-screen bg-muted p-6">
-      <div className="max-w-7xl mx-auto">
-        <div className="bg-gray-50 rounded-lg shadow mb-6 p-6">
-          <div className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-center">
-            <div><h1 className="text-sm font-medium text-slate-600">User Management</h1></div>
+    <div className="min-h-screen bg-page p-5 md:p-8 font-outfit">
+
+      {/* Top toolbar card */}
+      <div className="bg-card rounded-xl border border-border shadow-card mb-6">
+        <div className="p-5 border-b border-border-light flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
+          <div>
+            <h1 className="text-base font-bold text-text-heading">User Management</h1>
+            <p className="text-text-muted text-xs mt-0.5">{totalCount} users total</p>
           </div>
-          <div className="mt-6">
-            <div className="flex flex-col md:flex-row gap-4 items-start md:items-center">
-              <div className="relative flex-1 max-w-xl w-full">
-                <MagnifyingGlassIcon className="h-3 w-3 absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
-                <input type="text" placeholder="Search users..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="pl-12 pr-2 py-1.5 border border-gray-300 rounded-lg w-full focus:ring-2 focus:ring-brand-primary focus:border-transparent" />
-              </div>
-              <div className="flex items-center gap-3">
-                <button onClick={() => setShowBulkModal(true)} className="flex items-center gap-2 px-5 py-3 border border-gray-300 text-slate-700 rounded-lg hover:bg-gray-50 transition-colors shadow-sm"><CloudArrowUpIcon className="h-3 w-3" /><span className="text-xs whitespace-nowrap">Bulk Create</span></button>
-                <button onClick={() => openModal('user')} className="flex items-center gap-2 px-5 py-3 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors shadow-sm"><UserPlusIcon className="h-3 w-3" /><span className="text-xs whitespace-nowrap">Add User</span></button>
-                <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-2 px-4 py-3 border rounded-lg transition-colors ${showFilters || filterRole || filterRegion || filterBranch ? 'bg-accent/10 border-accent text-accent' : 'border-gray-300 hover:bg-gray-50 text-slate-700'}`}><FunnelIcon className="h-3 w-3" /><span className="text-xs text-slate-600 font-semibold">Filters</span></button>
-                {/* Export dropdown */}
-                <div className="relative">
-                  <button
-                    onClick={() => setShowExportMenu(v => !v)}
-                    className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded-lg hover:bg-gray-50 text-slate-700 transition-colors"
-                  >
-                    <ArrowDownTrayIcon className="h-3 w-3" />
-                    <span className="text-xs font-semibold whitespace-nowrap">Export</span>
-                    <ChevronDownIcon className="h-3 w-3" />
-                  </button>
-                  {showExportMenu && (
-                    <div className="absolute right-0 mt-1 w-40 bg-white border border-gray-100 rounded-xl shadow-lg z-30 py-1">
-                      {[['CSV', exportCSV], ['Excel (.xlsx)', exportExcel], ['PDF', exportPDF], ['Word (.docx)', exportWord]].map(([label, fn]) => (
-                        <button key={label} onClick={fn} className="w-full text-left px-4 py-2 text-xs text-gray-700 hover:bg-gray-50 transition-colors">{label}</button>
-                      ))}
-                    </div>
-                  )}
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              onClick={() => setShowBulkModal(true)}
+              className="flex items-center gap-2 px-3 py-2 border border-border text-text-muted rounded-lg hover:bg-surface transition-colors text-xs"
+            >
+              <CloudArrowUpIcon className="h-3.5 w-3.5" />
+              Bulk Create
+            </button>
+            <button
+              onClick={() => openModal('user')}
+              className="flex items-center gap-2 px-3 py-2 bg-brand-primary text-white rounded-lg hover:bg-brand-primary/90 transition-colors text-xs font-semibold shadow-sm"
+            >
+              <UserPlusIcon className="h-3.5 w-3.5" />
+              Add User
+            </button>
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className={`flex items-center gap-2 px-3 py-2 border rounded-lg transition-colors text-xs ${showFilters || filterRole || filterRegion || filterBranch ? 'bg-brand-primary/10 border-brand-primary text-brand-primary' : 'border-border hover:bg-surface text-text-muted'}`}
+            >
+              <FunnelIcon className="h-3.5 w-3.5" />
+              Filters
+              {(filterRole || filterRegion || filterBranch) && (
+                <span className="ml-1 bg-brand-primary text-white text-[10px] rounded-full w-4 h-4 flex items-center justify-center font-bold">
+                  {[filterRole, filterRegion, filterBranch].filter(Boolean).length}
+                </span>
+              )}
+            </button>
+            {/* Export dropdown */}
+            <div className="relative">
+              <button
+                onClick={() => setShowExportMenu(v => !v)}
+                className="flex items-center gap-2 px-3 py-2 border border-border rounded-lg hover:bg-surface text-text-muted transition-colors text-xs"
+              >
+                <ArrowDownTrayIcon className="h-3.5 w-3.5" />
+                Export
+                <ChevronDownIcon className="h-3 w-3" />
+              </button>
+              {showExportMenu && (
+                <div className="absolute right-0 mt-1 w-40 bg-card border border-border-light rounded-xl shadow-card z-30 py-1">
+                  {[['CSV', exportCSV], ['Excel (.xlsx)', exportExcel], ['PDF', exportPDF], ['Word (.docx)', exportWord]].map(([label, fn]) => (
+                    <button key={label} onClick={fn} className="w-full text-left px-4 py-2 text-xs text-text-body hover:bg-surface transition-colors">{label}</button>
+                  ))}
                 </div>
-              </div>
+              )}
             </div>
-            {showFilters && (
-              <div className="mt-6 p-5 bg-gray-50 rounded-lg border border-gray-200">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Role</label>
-                    <select value={filterRole} onChange={(e) => setFilterRole(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-lg bg-white">
-                      <option value="">All Roles</option>
-                      {availableRoles.map(role => <option key={role.value} value={role.value}>{role.label}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Region</label>
-                    <select value={filterRegion} onChange={(e) => setFilterRegion(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-lg bg-white">
-                      <option value="">All Regions</option>
-                      {regions.filter(region => isSuperAdmin || region.tenant_id === currentUserTenantId).map(region => <option key={region.id} value={region.id}>{region.name}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-2">Branch</label>
-                    <select value={filterBranch} onChange={(e) => setFilterBranch(e.target.value)} className="w-full px-2 py-1.5 border border-gray-300 rounded-lg bg-white">
-                      <option value="">All Branches</option>
-                      {branches.filter(branch => (!isSuperAdmin && branch.tenant_id !== currentUserTenantId ? false : filterRegion && branch.region_id !== filterRegion ? false : true)).map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-                    </select>
-                  </div>
-                </div>
-                <div className="mt-5 flex justify-end"><button onClick={clearFilters} className="text-primary hover:text-blue-800 px-2 py-1.5 text-sm font-medium">Clear all filters</button></div>
-              </div>
-            )}
           </div>
         </div>
 
-        <div className="bg-gray-50/50 rounded-xl shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Name</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Phone</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Branch</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Region</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Status</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-100">
-                {filteredData.map((user) => (
-                  <tr key={user.id} className="hover:bg-gray-50 transition-colors">
-                    {/* Name */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-8 w-8 flex-shrink-0 rounded-full bg-primary/10 flex items-center justify-center">
-                          <span className="text-primary font-semibold text-xs">{user.full_name?.charAt(0)?.toUpperCase() || 'U'}</span>
-                        </div>
-                        <span className="text-xs font-medium text-gray-700 whitespace-nowrap">{user.full_name || '—'}</span>
-                      </div>
-                    </td>
-                    {/* Email */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500">{user.email || '—'}</span>
-                    </td>
-                    {/* Phone */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">{user.phone || '—'}</span>
-                    </td>
-                    {/* Role */}
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-1 inline-flex text-[10px] font-semibold rounded-full whitespace-nowrap ${getRoleColorClass(user.role)}`}>
-                        {getRoleLabel(user.role)}
-                      </span>
-                    </td>
-                    {/* Branch */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {roleRequiresBranchRegion(user.role) ? (user.branches?.name || '—') : <span className="text-gray-300">All</span>}
-                      </span>
-                    </td>
-                    {/* Region */}
-                    <td className="px-4 py-3">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">
-                        {roleRequiresBranchRegion(user.role) ? (user.regions?.name || '—') : <span className="text-gray-300">All</span>}
-                      </span>
-                    </td>
-                    {/* Status */}
-                    <td className="px-4 py-3">
-                      <span className={`px-2 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wide rounded-md whitespace-nowrap ${
-                        user.status === 'LOCKED'   ? 'bg-red-50 text-red-600 border border-red-100' :
-                        user.status === 'DISABLED' ? 'bg-gray-100 text-gray-500 border border-gray-200' :
-                        'bg-emerald-50 text-emerald-600 border border-emerald-100'
-                      }`}>{user.status || 'ACTIVE'}</span>
-                    </td>
-                    {/* Actions */}
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1.5">
-                        <button onClick={() => openModal('user', user)} className="text-primary hover:text-blue-800 p-1 rounded hover:bg-blue-50 transition-colors" title="Edit">
-                          <PencilIcon className="h-4 w-4" />
-                        </button>
-                        <button onClick={() => handleDelete('user', user.id)} className="text-rose-500 hover:text-rose-700 p-1 rounded hover:bg-rose-50 transition-colors" title="Delete">
-                          <TrashIcon className="h-4 w-4" />
-                        </button>
-                        {user.status === 'LOCKED' ? (
-                          <button onClick={() => handleUnlock(user)} className="text-emerald-600 hover:text-emerald-800 p-1 rounded hover:bg-emerald-50 transition-colors" title="Unlock account">
-                            <LockOpenIcon className="h-4 w-4" />
-                          </button>
-                        ) : (
-                          <button onClick={() => navigate(`/admin/users/${user.id}/lock`)} className="text-amber-500 hover:text-amber-700 p-1 rounded hover:bg-amber-50 transition-colors" title="Lock & Transfer">
-                            <LockClosedIcon className="h-4 w-4" />
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {filteredData.length === 0 && (
-              <div className="text-center py-16 text-gray-400 text-sm">No users found</div>
-            )}
+        {/* Search + filters */}
+        <div className="p-5">
+          <div className="relative max-w-xl w-full">
+            <MagnifyingGlassIcon className="h-4 w-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
+            <input
+              type="text"
+              placeholder="Search users by name, email or phone..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 w-full border border-border rounded-lg bg-surface text-xs text-text-body placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+            />
           </div>
+
+          {showFilters && (
+            <div className="mt-4 p-4 bg-surface rounded-xl border border-border-light">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Role</label>
+                  <CustomSelect
+                    value={filterRole}
+                    onChange={setFilterRole}
+                    options={[{ value: '', label: 'All Roles' }, ...roleOptions]}
+                    placeholder="All Roles"
+                    fullWidth
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Region</label>
+                  <CustomSelect
+                    value={filterRegion}
+                    onChange={setFilterRegion}
+                    options={[{ value: '', label: 'All Regions' }, ...filterRegionOptions]}
+                    placeholder="All Regions"
+                    fullWidth
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Branch</label>
+                  <CustomSelect
+                    value={filterBranch}
+                    onChange={setFilterBranch}
+                    options={[{ value: '', label: 'All Branches' }, ...filterBranchOptions]}
+                    placeholder="All Branches"
+                    fullWidth
+                  />
+                </div>
+              </div>
+              <div className="mt-3 flex justify-end">
+                <button onClick={clearFilters} className="text-xs text-brand-primary hover:underline font-semibold">
+                  Clear all filters
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-lg font-bold text-slate-600">{editingItem ? 'Edit' : 'Add'} {modalType}</h2>
-              <button onClick={closeModal}><XCircleIcon className="h-7 w-7 text-slate-400" /></button>
-            </div>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {modalType === 'user' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <input type="text" value={formData.full_name || ''} onChange={(e) => setFormData({...formData, full_name: e.target.value})} placeholder="Full Name" className="w-full p-2 border rounded-lg" required />
-                  <input type="email" value={formData.email || ''} onChange={(e) => setFormData({...formData, email: e.target.value})} placeholder="Email" className="w-full p-2 border rounded-lg" required />
-                  <select value={formData.role || ''} onChange={(e) => setFormData({...formData, role: e.target.value})} className="w-full p-2 border rounded-lg" required>
-                    <option value="">Select Role</option>
-                    {availableRoles.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
-                  </select>
-                  <input type="tel" value={formData.phone || ''} onChange={(e) => setFormData({...formData, phone: e.target.value})} placeholder="Phone" className="w-full p-2 border rounded-lg" />
-                  {roleRequiresBranchRegion(formData.role) && (
-                    <>
-                      <select value={formData.region_id || ''} onChange={handleRegionChange} className="w-full p-2 border rounded-lg">
-                        <option value="">Select Region</option>
-                        {regions.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                      </select>
-                      <select value={formData.branch_id || ''} onChange={(e) => setFormData({...formData, branch_id: e.target.value})} className="w-full p-2 border rounded-lg" disabled={!formData.region_id}>
-                        <option value="">Select Branch</option>
-                        {filteredBranches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
-                      </select>
-                    </>
-                  )}
-                </div>
+      {/* Table card */}
+      <div className="bg-card rounded-xl border border-border shadow-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full divide-y divide-border-light">
+            <thead className="bg-surface">
+              <tr>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Name</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Email</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Phone</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Role</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Branch</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Region</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Status</th>
+                <th className="px-5 py-3 text-left text-[11px] font-semibold text-text-muted uppercase tracking-wider whitespace-nowrap">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="bg-card divide-y divide-border-light">
+              {filteredData.map((user) => (
+                <tr key={user.id} className="hover:bg-surface/60 transition-colors">
+                  {/* Name */}
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-8 w-8 flex-shrink-0 rounded-full bg-brand-primary/10 flex items-center justify-center">
+                        <span className="text-brand-primary font-bold text-xs">{user.full_name?.charAt(0)?.toUpperCase() || 'U'}</span>
+                      </div>
+                      <span className="text-xs font-medium text-text-heading whitespace-nowrap">{user.full_name || '—'}</span>
+                    </div>
+                  </td>
+                  {/* Email */}
+                  <td className="px-5 py-3">
+                    <span className="text-xs text-text-muted">{user.email || '—'}</span>
+                  </td>
+                  {/* Phone */}
+                  <td className="px-5 py-3">
+                    <span className="text-xs text-text-muted whitespace-nowrap">{user.phone || '—'}</span>
+                  </td>
+                  {/* Role */}
+                  <td className="px-5 py-3">
+                    <span className={`px-2 py-1 inline-flex text-[10px] font-semibold rounded-full whitespace-nowrap ${getRoleColorClass(user.role)}`}>
+                      {getRoleLabel(user.role)}
+                    </span>
+                  </td>
+                  {/* Branch */}
+                  <td className="px-5 py-3">
+                    <span className="text-xs text-text-muted whitespace-nowrap">
+                      {roleRequiresBranchRegion(user.role) ? (user.branches?.name || '—') : <span className="text-border">All</span>}
+                    </span>
+                  </td>
+                  {/* Region */}
+                  <td className="px-5 py-3">
+                    <span className="text-xs text-text-muted whitespace-nowrap">
+                      {roleRequiresBranchRegion(user.role) ? (user.regions?.name || '—') : <span className="text-border">All</span>}
+                    </span>
+                  </td>
+                  {/* Status */}
+                  <td className="px-5 py-3">
+                    <span className={`px-2 py-0.5 inline-flex text-[10px] font-bold uppercase tracking-wide rounded-md whitespace-nowrap ${
+                      user.status === 'LOCKED'   ? 'bg-red-50 text-red-600 border border-red-100' :
+                      user.status === 'DISABLED' ? 'bg-gray-100 text-gray-500 border border-gray-200' :
+                      'bg-emerald-50 text-emerald-600 border border-emerald-100'
+                    }`}>
+                      {user.status || 'ACTIVE'}
+                    </span>
+                  </td>
+                  {/* Actions */}
+                  <td className="px-5 py-3">
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => openModal('user', user)} className="p-1.5 rounded-lg text-brand-primary hover:bg-brand-primary/10 transition-colors" title="Edit">
+                        <PencilIcon className="h-3.5 w-3.5" />
+                      </button>
+                      <button onClick={() => handleDelete('user', user.id)} className="p-1.5 rounded-lg text-rose-500 hover:bg-rose-50 transition-colors" title="Delete">
+                        <TrashIcon className="h-3.5 w-3.5" />
+                      </button>
+                      {user.status === 'LOCKED' ? (
+                        <button onClick={() => handleUnlock(user)} className="p-1.5 rounded-lg text-emerald-600 hover:bg-emerald-50 transition-colors" title="Unlock account">
+                          <LockOpenIcon className="h-3.5 w-3.5" />
+                        </button>
+                      ) : (
+                        <button onClick={() => navigate(`/admin/users/${user.id}/lock`)} className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors" title="Lock & Transfer">
+                          <LockClosedIcon className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+              {filteredData.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-5 py-14 text-center text-text-muted text-sm">No users found</td>
+                </tr>
               )}
-              <div className="flex justify-end gap-2 mt-6">
-                <button type="button" onClick={closeModal} className="px-4 py-2 text-slate-600">Cancel</button>
-                <button type="submit" disabled={submitting} className="px-6 py-2 bg-brand-primary text-white rounded-lg disabled:opacity-50">{submitting ? 'Processing...' : 'Submit'}</button>
-              </div>
-            </form>
-          </div>
+            </tbody>
+          </table>
         </div>
-      )}
 
-      {showBulkModal && (
-        <div className="fixed inset-0 bg-slate-900/20 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8 text-center">
-            <h2 className="text-lg font-bold mb-4">Bulk Create Users</h2>
-            {!bulkResults ? (
-              <div className="space-y-4">
-                <input type="file" accept=".xlsx" onChange={handleFileParse} className="block w-full border p-4 rounded-xl" />
-                <div className="flex justify-end gap-2">
-                  <button onClick={() => setShowBulkModal(false)} className="px-4 py-2">Cancel</button>
-                  <button onClick={submitBulkUsers} disabled={bulkUsers.length === 0 || bulkProcessing} className="px-6 py-2 bg-brand-primary text-white rounded-lg">{bulkProcessing ? 'Processing...' : `Create ${bulkUsers.length} Users`}</button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <p>Created {bulkResults.success} users successfully.</p>
-                <button onClick={() => { setShowBulkModal(false); setBulkResults(null); }} className="px-6 py-2 bg-slate-800 text-white rounded-lg">Close</button>
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <div className="px-5 py-4 border-t border-border-light flex items-center justify-between">
+            <p className="text-xs text-text-muted">
+              Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalCount)}–{Math.min(currentPage * itemsPerPage, totalCount)} of {totalCount}
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="p-1.5 rounded-lg border border-border text-text-muted hover:bg-surface disabled:opacity-40 transition-colors"
+              >
+                <ChevronLeftIcon className="h-3.5 w-3.5" />
+              </button>
+              {pageNumbers.slice(Math.max(0, currentPage - 3), Math.min(totalPages, currentPage + 2)).map(n => (
+                <button
+                  key={n}
+                  onClick={() => handlePageChange(n)}
+                  className={`w-8 h-8 rounded-lg text-xs font-semibold transition-colors ${n === currentPage ? 'bg-brand-primary text-white' : 'border border-border text-text-muted hover:bg-surface'}`}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="p-1.5 rounded-lg border border-border text-text-muted hover:bg-surface disabled:opacity-40 transition-colors"
+              >
+                <ChevronRightIcon className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Add/Edit User Modal */}
+      <Modal
+        open={showModal}
+        title={`${editingItem ? 'Edit' : 'Add'} ${modalType.charAt(0).toUpperCase() + modalType.slice(1)}`}
+        onClose={closeModal}
+        onSave={handleSubmit}
+        saving={submitting}
+        saveLabel={editingItem ? 'Update' : 'Create'}
+        wide
+      >
+        {modalType === 'user' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {isSuperAdmin && (
+              <div className="md:col-span-2">
+                <label className="block text-xs font-semibold text-text-muted mb-1.5">Tenant</label>
+                <CustomSelect
+                  value={formData.tenant_id || ''}
+                  onChange={handleTenantChange}
+                  options={tenantOptions}
+                  placeholder="Select Tenant"
+                  fullWidth
+                  searchable
+                />
               </div>
             )}
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Full Name *</label>
+              <input
+                type="text"
+                value={formData.full_name || ''}
+                onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                placeholder="Full Name"
+                className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Email *</label>
+              <input
+                type="email"
+                value={formData.email || ''}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="Email"
+                className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Role *</label>
+              <CustomSelect
+                value={formData.role || ''}
+                onChange={(val) => setFormData({ ...formData, role: val })}
+                options={roleOptions}
+                placeholder="Select Role"
+                fullWidth
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-text-muted mb-1.5">Phone</label>
+              <input
+                type="tel"
+                value={formData.phone || ''}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="Phone"
+                className="w-full px-3 py-2 border border-border rounded-lg bg-surface text-xs text-text-body focus:outline-none focus:ring-2 focus:ring-brand-primary/30 focus:border-brand-primary transition-colors"
+              />
+            </div>
+            {roleRequiresBranchRegion(formData.role) && (
+              <>
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Region</label>
+                  <CustomSelect
+                    value={formData.region_id || ''}
+                    onChange={handleRegionChange}
+                    options={[{ value: '', label: 'Select Region' }, ...regionOptions]}
+                    placeholder="Select Region"
+                    fullWidth
+                    searchable
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold text-text-muted mb-1.5">Branch</label>
+                  <CustomSelect
+                    value={formData.branch_id || ''}
+                    onChange={(val) => setFormData({ ...formData, branch_id: val })}
+                    options={[{ value: '', label: 'Select Branch' }, ...branchOptions]}
+                    placeholder={formData.region_id ? 'Select Branch' : 'Select region first'}
+                    fullWidth
+                    searchable
+                  />
+                </div>
+              </>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
+
+      {/* Bulk Create Modal */}
+      <Modal
+        open={showBulkModal}
+        title="Bulk Create Users"
+        onClose={() => { setShowBulkModal(false); setBulkResults(null); setBulkUsers([]); }}
+        wide
+      >
+        {!bulkResults ? (
+          <div className="space-y-4">
+            <p className="text-xs text-text-muted">Upload an Excel (.xlsx) file with user data. Download the template below to get started.</p>
+            <button onClick={downloadTemplate} className="text-xs text-brand-primary font-semibold hover:underline">
+              Download Template
+            </button>
+            <input
+              type="file"
+              accept=".xlsx"
+              onChange={handleFileParse}
+              className="block w-full border border-border rounded-xl p-4 text-xs text-text-muted bg-surface"
+            />
+            {bulkUsers.length > 0 && (
+              <div className="p-3 bg-brand-primary/5 border border-brand-primary/20 rounded-lg text-xs text-brand-primary font-semibold">
+                {bulkUsers.length} user{bulkUsers.length !== 1 ? 's' : ''} parsed and ready to import
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2">
+              <button
+                onClick={() => { setShowBulkModal(false); setBulkUsers([]); }}
+                className="px-4 py-2 text-xs text-text-muted border border-border rounded-lg hover:bg-surface transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitBulkUsers}
+                disabled={bulkUsers.length === 0 || bulkProcessing}
+                className="px-4 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg disabled:opacity-50 transition-colors"
+              >
+                {bulkProcessing ? 'Processing...' : `Create ${bulkUsers.length} Users`}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 text-center">
+            <div className="h-12 w-12 mx-auto rounded-full bg-emerald-100 flex items-center justify-center">
+              <span className="text-2xl">✓</span>
+            </div>
+            <p className="text-sm font-semibold text-text-heading">
+              Successfully created {bulkResults.success} user{bulkResults.success !== 1 ? 's' : ''}
+            </p>
+            <button
+              onClick={() => { setShowBulkModal(false); setBulkResults(null); setBulkUsers([]); }}
+              className="px-6 py-2 bg-brand-primary text-white text-xs font-semibold rounded-lg transition-colors"
+            >
+              Close
+            </button>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
